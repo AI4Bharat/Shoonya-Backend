@@ -4,17 +4,13 @@ Repository for Shoonya's backend.
 
 ## Pre-requisites
 
-The project was created using [Python 3.10.2](https://www.python.org/downloads/). All other dependencies are listed below, and in the `requirements.txt` file.
+The project was created using [Python 3.10.2](https://www.python.org/downloads/). All major dependencies are listed below; the rest are in the `requirements.txt` file.
 
-- asgiref (3.5.0)
 - Django (4.0.1)
-- django-filter (21.1)
 - djangorestframework (3.13.1)
-- Markdown (3.3.6)
-- pytz (2021.3)
-- sqlparse (0.4.2)
 - psycopg2 (2.9.3)
 - python-dotenv (0.19.2)
+- djoser (2.1.0)
 
 ## Installation
 
@@ -41,7 +37,7 @@ deactivate
 Once inside, install the project dependencies:
 
 ```bash
-pip install -r requirements.txt
+pip install -r deploy/requirements.txt
 ```
 You are all done installing dependencies. Now, you need to create an environment file.
 
@@ -73,6 +69,9 @@ python manage.py makemigrations
 
 # Run all pending migrations
 python manage.py migrate
+
+# Create a superuser
+python manage.py createsuperuser
 
 # Start the server
 python manage.py runserver
