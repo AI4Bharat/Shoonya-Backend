@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  db:
+    restart: always
+    image: "postgres:11"
+    environment:
+      - "POSTGRES_HOST_AUTH_METHOD=trust"
+      - "POSTGRES_DB=main"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data/
+  web:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend/:/usr/src/backend/
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+      - redis
+  redis:
+    image: "redis"
+
+volumes:
+  postgres_data:

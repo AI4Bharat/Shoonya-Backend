@@ -2,12 +2,15 @@
 *.pyc
 *~
 __pycache__
+media/
+static/
 
 # Env
 .env
 myvenv/
 venv/
 env/
+postgres_data/
 
 # Database
 db.sqlite3
