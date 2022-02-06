@@ -11,6 +11,7 @@ myvenv/
 venv/
 env/
 postgres_data/
+migrations/
 
 # Database
 db.sqlite3
