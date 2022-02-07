@@ -3,6 +3,8 @@ from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.utils import timezone
 
+from organizations.models import Organization
+
 from .utils import hash_upload
 from .managers import UserManager
 
@@ -44,6 +46,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     activity_at = models.DateTimeField(verbose_name='last annotation activity', auto_now=True)
 
+    organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
+
+    invite_accepted = models.BooleanField(verbose_name='invite_accepted', default=False)
+
     objects = UserManager()
 
     EMAIL_FIELD = 'email'
@@ -55,9 +61,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         indexes = [
             models.Index(fields=['username']),
             models.Index(fields=['email']),
-            models.Index(fields=['first_name']),
-            models.Index(fields=['last_name']),
-            models.Index(fields=['date_joined']),
+            # models.Index(fields=['first_name']),
+            # models.Index(fields=['last_name']),
+            # models.Index(fields=['date_joined']),
         ]
 
     def clean(self):

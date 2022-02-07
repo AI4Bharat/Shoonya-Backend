@@ -28,3 +28,6 @@ class Workspace(models.Model, DummyModelMixin):
         if self.user.filter(pk=user.pk).exists():
             return True
         return False
+    
+    class Meta:
+        ordering = ['pk']

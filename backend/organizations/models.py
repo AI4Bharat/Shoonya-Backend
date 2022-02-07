@@ -18,7 +18,7 @@ class Organization(models.Model, DummyModelMixin):
 
     email_domain_name = models.CharField(verbose_name='organization_email_domain', max_length=4096, null=True)
 
-    users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='organizations')
+    # users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='organizations')
 
     is_active = models.BooleanField(verbose_name='organization_is_active', default=True, help_text=('Designates weather an organization is active or not.'))
 
@@ -36,14 +36,14 @@ class Organization(models.Model, DummyModelMixin):
             org = Organization.objects.create(created_by=created_by, title=title, email_domain_name=email_domain_name)
             return org
     
-    def add_user(self, user):
-        if self.users.filter(pk=user.pk).exists():
-            print('User exists!')
-            return
+    # def add_user(self, user):
+    #     if self.users.filter(pk=user.pk).exists():
+    #         print('User exists!')
+    #         return
         
-        with transaction.atomic():
-            self.users.add(user)
-            return
+    #     with transaction.atomic():
+    #         self.users.add(user)
+    #         return
 
     def has_user(self, user):
         return self.users.filter(pk=user.pk)
@@ -81,7 +81,7 @@ class Invite(models.Model):
             return invite
     
     def has_permission(self, user):
-        if self.organization.pk == user.pk or user.is_superuser:
+        if self.organization.created_by.pk == user.pk or user.is_superuser:
             return True
         return False
 
