@@ -1,6 +1,6 @@
 from django.db import models, transaction
+from users.models import *
 from shoonya_backend.settings import AUTH_USER_MODEL
-from users.models import User
 
 
 from shoonya_backend.mixins import DummyModelMixin
@@ -34,6 +34,9 @@ class Organization(models.Model, DummyModelMixin):
     def create_organization(cls, created_by=None, title='Organization', email_domain_name='organization@shoonya.org'):
         with transaction.atomic():
             org = Organization.objects.create(created_by=created_by, title=title, email_domain_name=email_domain_name)
+            user = User.objects.get(pk=created_by.pk)
+            user.organization_id = org
+            user.save()
             return org
     
     # def add_user(self, user):
@@ -52,8 +55,8 @@ class Organization(models.Model, DummyModelMixin):
     def get_owner(self):
         return self.created_by
     
-    def has_permission(self, user):
-        if self in user.organizations.all():
+    def has_object_permission(self, user):
+        if user.organization_id == self.pk:
             return True
         return False
 
