@@ -51,6 +51,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELD = ()
 
     class Meta:
+        db_table = 'user'
         indexes = [
             models.Index(fields=['username']),
             models.Index(fields=['email']),

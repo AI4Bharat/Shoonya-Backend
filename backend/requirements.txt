@@ -7,3 +7,4 @@ psycopg2
 python-dotenv
 pillow
 djangorestframework_simplejwt
+rules
