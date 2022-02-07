@@ -2,8 +2,6 @@ from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.response import Response
 
-from users.models import User
-
 from .serializers import *
 from .models import *
 from .decorators import *
@@ -16,10 +14,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     """
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-
-    PERMISSION_ERROR = {
-        'message': 'You do not have enough permissions to access this view!'
-    }
 
     @is_organization_owner
     def retrieve(self, request, *args, **kwargs):
