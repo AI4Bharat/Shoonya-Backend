@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'djoser',
     'users',
     'organizations',
+    'workspaces',
 ]
 
 MIDDLEWARE = [
