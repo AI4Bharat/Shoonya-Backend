@@ -1,4 +1,3 @@
-from tabnanny import verbose
 from django.db import models
 from organizations.models import Organization
 from shoonya_backend.mixins import DummyModelMixin
