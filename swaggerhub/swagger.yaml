@@ -1,0 +1,1823 @@
+---
+swagger: "2.0"
+info:
+  description: API for Shoonya's Backend.
+  version: 1.0.0
+  title: Shoonya Backend API
+  termsOfService: http://swagger.io/terms/
+  contact:
+    email: company@company.com
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+host: locahost:8000
+basePath: /api
+schemes:
+- http
+- https
+paths:
+  /users/login:
+    post:
+      tags:
+      - auth
+      summary: Login API which returns a JWT as a response and accepts username and password as POST payload data.
+      description: Login API
+      operationId: loginUser
+      parameters:
+      - in: body
+        name: body
+        description: Username and Password of the user to be logged in.
+        required: true
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            properties:
+              access:
+                type: string
+              refresh:
+                type: string
+        "401":
+          description: Wrong credentials!
+        "405":
+          description: Invalid input
+        "400":
+          description: Bad Request
+  /users/logout:
+    post:
+      tags:
+      - auth
+      summary: API endpoint to destroy JWT from the database on a POST request with the token header and a blank POST payload
+      description: Logout API
+      consumes:
+      - multipart/form-data
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /users/disable:
+    post:
+      tags:
+      - auth
+      summary: API endpoint to disable a user from accessing the application using their email-id. Only managers are allowed access to this api.
+      description: Disable User API
+      consumes:
+      - multipart/form-data
+      - application/xml
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: Email-id
+        in: formData
+        description: Email
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /users:
+    get:
+      tags:
+      - users
+      summary: List Users API
+      description: API to list all the users in the database.
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/User'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /users/{property}/{property-value}:
+    get:
+      tags:
+      - users
+      summary: List Users who satisfy the property
+      description: API to get list of users who satify the property
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: property
+        in: path
+        required: true
+        type: string
+      - name: property-value
+        in: path
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+  /users/invite/{invite-code}:
+    patch:
+      tags:
+      - users
+      summary: API endpoints to add info about new users.
+      description: Allows users to fill their details when they join through the invite code (for now this functionality is only restricted to annotators). Managers will be added by django-admin. Will send emails for a token to verify.
+      consumes:
+      - multipart/form-data
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: invite-code
+        in: path
+        required: true
+        type: string
+      - name: Username
+        in: formData
+        description: Username
+        required: true
+        type: string
+      - name: Password
+        in: formData
+        description: Password
+        required: true
+        type: string
+      - name: Email-id
+        in: formData
+        description: Email
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            properties:
+              access:
+                type: string
+              refresh:
+                type: string
+              user:
+                $ref: '#/definitions/User'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /users/account:
+    patch:
+      tags:
+      - users
+      summary: View Account API
+      description: View as well as edit account details. This api is common for manager and annotater
+      consumes:
+      - multipart/form-data
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: Username
+        in: formData
+        description: Username
+        required: true
+        type: string
+      - name: Password
+        in: formData
+        description: Password
+        required: true
+        type: string
+      - name: Email-ID
+        in: formData
+        description: Email ID
+        required: true
+        type: string
+      - name: Phone Number
+        in: formData
+        description: Phone Number
+        required: true
+        type: string
+      - name: User Photo
+        in: formData
+        description: Profile Picture
+        required: true
+        type: file
+      - name: Organization
+        in: formData
+        description: Organization
+        required: true
+        type: string
+      - name: Languages
+        in: formData
+        description: Languages
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/User'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /users/invite/get-invite-code:
+    post:
+      tags:
+      - invite
+      summary: Get invite code for the respective organization.
+      description: API limited to only organization manager to get the invite code which can be sent to the annotator's email id directly.
+      consumes:
+      - application/json
+      - application/xml
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: body
+        description: "The email ids to which the invite code is to be emailed and create users with dummy details along with the email id, so only those users can sign up in the organization."
+        required: true
+        schema:
+          type: array
+          items:
+            type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            properties:
+              url:
+                type: string
+              users:
+                type: array
+                items:
+                  $ref: '#/definitions/User'
+        "401":
+          description: Unauthorized
+        "405":
+          description: Invalid input
+        "400":
+          description: Bad Request
+  /organizations:
+    get:
+      tags:
+      - organization
+      summary: List Organizations API
+      description: API to list all the organizations in the database.
+      produces:
+      - application/json
+      - application/xml
+      parameters: []
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Organization'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /organizations/{organization-id}:
+    get:
+      tags:
+      - organization
+      summary: Get info about a single workspace.
+      description: API to get info abou a single workspace in a organization.
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: organization-id
+        in: path
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Organization'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+    patch:
+      tags:
+      - organization
+      summary: Edit info about a single workspace.
+      description: API to edit info about a single workspace in a organization.
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: organization-id
+        in: path
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Organization'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /organizations/create:
+    patch:
+      tags:
+      - organization
+      summary: Create Organization API
+      description: Only superuser can create new organizations.
+      consumes:
+      - application/json
+      - application/xml
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            organization_name:
+              type: string
+            email_id_domain:
+              type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            properties:
+              id:
+                type: integer
+              organization_name:
+                type: string
+              email_id_domain:
+                type: string
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /workspaces/assign_managers:
+    post:
+      tags:
+      - workspace
+      summary: Assign Worksapce Manager API
+      description: Assign Workspace manager to a specfic workspace by sending the email id of a user.
+      consumes:
+      - application/json
+      - application/xml
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            email_id:
+              type: string
+      responses:
+        "201":
+          description: OK
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /workspaces/create:
+    post:
+      tags:
+      - workspace
+      summary: Create Workspace API
+      description: Organization Manager (Workspace Manager?) can create workspaces.
+      consumes:
+      - application/json
+      - application/xml
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            organization_id:
+              type: integer
+            workspace_name:
+              type: string
+            created_by:
+              type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Workspace'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /workspaces:
+    get:
+      tags:
+      - workspace
+      summary: List Workspaces API
+      description: API to list all the Worksapces in the Organization.
+      produces:
+      - application/json
+      - application/xml
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Workspace'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /workspaces/{workspace-id}:
+    get:
+      tags:
+      - workspace
+      summary: Get info about a single workspace.
+      description: API to get info abou a single workspace in a organization.
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: workspace-id
+        in: path
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Workspace'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+    patch:
+      tags:
+      - workspace
+      summary: Edit info about a single workspace.
+      description: API to edit info about a single workspace in a organization.
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: workspace-id
+        in: path
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Workspace'
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /workspaces/archive/{workspace-id}:
+    post:
+      tags:
+      - workspace
+      summary: Convert a workspace to Read-only (Archive).
+      description: API to archive the workspace.
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: workspace-id
+        in: path
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+            properties:
+              status:
+                type: integer
+        "401":
+          description: Unauthorized
+        "400":
+          description: Bad Request
+  /task/{id}:
+    get:
+      tags:
+      - task
+      summary: getTask
+      description: Get details of a task
+      operationId: getTask
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: id
+        in: path
+        description: ID of the task
+        required: true
+        type: integer
+        format: int32
+      deprecated: false
+      responses:
+        "200":
+          description: Details about a task
+          headers:
+            x-next:
+              type: string
+              description: A link to the next page of responses
+          schema:
+            $ref: '#/definitions/Task'
+        default:
+          description: unexpected error
+          headers: {}
+          schema:
+            $ref: '#/definitions/Error'
+    delete:
+      tags:
+      - task
+      summary: Delete a task
+      description: Delete a task
+      operationId: Deleteatask
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: id
+        in: path
+        description: ID of the task
+        required: true
+        type: integer
+        format: int32
+      deprecated: false
+      responses:
+        "204":
+          description: Task deleted.
+          headers:
+            x-next:
+              type: string
+              description: A link to the next page of responses
+        default:
+          description: unexpected error
+          headers: {}
+          schema:
+            $ref: '#/definitions/Error'
+    patch:
+      tags:
+      - task
+      summary: Update a task
+      description: Update a task
+      operationId: Updateatask
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: id
+        in: path
+        description: ID of the task
+        required: true
+        type: integer
+        format: int32
+      - name: Content-Type
+        in: header
+        description: ""
+        required: false
+        type: string
+        enum:
+        - application/json
+      - in: body
+        name: body
+        description: ""
+        required: true
+        schema:
+          $ref: '#/definitions/Task'
+      deprecated: false
+      responses:
+        "200":
+          description: Details about a task
+          headers:
+            x-next:
+              type: string
+              description: A link to the next page of responses
+          schema:
+            $ref: '#/definitions/Task'
+        default:
+          description: unexpected error
+          headers: {}
+          schema:
+            $ref: '#/definitions/Error'
+  /task/:
+    post:
+      tags:
+      - task
+      summary: Create a task
+      description: Create a task
+      operationId: Createatask
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: Content-Type
+        in: header
+        description: ""
+        required: false
+        type: string
+        enum:
+        - application/json
+      - in: body
+        name: body
+        description: ""
+        required: true
+        schema:
+          $ref: '#/definitions/Task'
+      deprecated: false
+      responses:
+        "200":
+          description: Details about a task
+          headers:
+            x-next:
+              type: string
+              description: A link to the next page of responses
+          schema:
+            $ref: '#/definitions/Task'
+        default:
+          description: unexpected error
+          headers: {}
+          schema:
+            $ref: '#/definitions/Error'
+  /task/assign:
+    patch:
+      tags:
+      - task
+      summary: Assign tasks to users
+      description: Assign tasks to users
+      operationId: Assigntaskstousers
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: Content-Type
+        in: header
+        description: ""
+        required: false
+        type: string
+        enum:
+        - application/json
+      - in: body
+        name: body
+        description: ""
+        required: true
+        schema:
+          $ref: '#/definitions/TaskAssignRequest'
+      deprecated: false
+      responses:
+        "200":
+          description: Details about updated task task
+          headers:
+            x-next:
+              type: string
+              description: A link to the next page of responses
+          schema:
+            $ref: '#/definitions/Task'
+        default:
+          description: unexpected error
+          headers: {}
+          schema:
+            $ref: '#/definitions/Error'
+  /task/{taskID}/annotations:
+    get:
+      tags:
+      - task
+      summary: Fetch annotations of a task
+      description: Fetch annotations of a task
+      operationId: Fetchannotationsofatask
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: taskID
+        in: path
+        description: ID of the task
+        required: true
+        type: integer
+        format: int32
+      deprecated: false
+      responses:
+        "200":
+          description: List of tasks
+          headers:
+            x-next:
+              type: string
+              description: A link to the next page of responses
+          schema:
+            $ref: '#/definitions/TaskAnnotationsResponse'
+        default:
+          description: unexpected error
+          headers: {}
+          schema:
+            $ref: '#/definitions/Error'
+  /annotation/{id}:
+    post:
+      tags:
+      - annotation
+      summary: Create an annotation
+      description: Create an annotation
+      operationId: Createanannotation
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: id
+        in: path
+        description: ID of the annotation
+        required: true
+        type: integer
+        format: int32
+      - name: Content-Type
+        in: header
+        description: ""
+        required: false
+        type: string
+        enum:
+        - application/json
+      - in: body
+        name: body
+        description: ""
+        required: true
+        schema:
+          $ref: '#/definitions/Annotation'
+      deprecated: false
+      responses:
+        "200":
+          description: Details about a Annotation
+          headers:
+            x-next:
+              type: string
+              description: A link to the next page of responses
+          schema:
+            $ref: '#/definitions/Annotation'
+        default:
+          description: unexpected error
+          headers: {}
+          schema:
+            $ref: '#/definitions/Error'
+    patch:
+      tags:
+      - annotation
+      summary: Update an annotation
+      description: Update an annotation
+      operationId: Updateanannotation
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: id
+        in: path
+        description: ID of the annotation
+        required: true
+        type: integer
+        format: int32
+      - name: Content-Type
+        in: header
+        description: ""
+        required: false
+        type: string
+        enum:
+        - application/json
+      - in: body
+        name: body
+        description: ""
+        required: true
+        schema:
+          $ref: '#/definitions/Annotation'
+      deprecated: false
+      responses:
+        "200":
+          description: Details about a Annotation
+          headers:
+            x-next:
+              type: string
+              description: A link to the next page of responses
+          schema:
+            $ref: '#/definitions/Annotation'
+        default:
+          description: unexpected error
+          headers: {}
+          schema:
+            $ref: '#/definitions/Error'
+  /projects:
+    get:
+      tags:
+      - projects
+      summary: Get list of all projects
+      parameters:
+      - name: Authorisation Token
+        in: header
+        description: Authorisation Token
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Returns list of all projects that user can view.
+        "401":
+          description: Unauthorized
+  /projects/types:
+    get:
+      tags:
+      - projects
+      summary: Get types of projects available.
+      parameters:
+      - name: Authorisation Token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Returns an enum of projects available.
+          schema:
+            $ref: '#/definitions/Type'
+  /projects/{projectID}:
+    get:
+      tags:
+      - projects
+      summary: Get project with particular project ID
+      parameters:
+      - name: Authorisation Token
+        in: header
+        description: Authorisation Token
+        required: true
+        type: string
+      - name: projectID
+        in: path
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: Returns project with given project ID
+          schema:
+            $ref: '#/definitions/Project'
+        "400":
+          description: Invalid project ID
+        "401":
+          description: Unauthorized
+        "404":
+          description: Resource not found
+    post:
+      tags:
+      - projects
+      summary: Archive a project with given project ID
+      parameters:
+      - name: projectID
+        in: path
+        required: true
+        type: integer
+      - name: Authorisation Token
+        in: header
+        description: Authorisation Token
+        required: true
+        type: string
+      responses:
+        "200":
+          description: 200 OK.
+          schema:
+            $ref: '#/definitions/Project'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Resource not found
+        "422":
+          description: Unprocessable Request
+    delete:
+      tags:
+      - projects
+      summary: Delete a project if in draft mode
+      parameters:
+      - name: projectID
+        in: path
+        required: true
+        type: integer
+      - name: Authorisation Token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Success
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Resource not found
+    patch:
+      tags:
+      - projects
+      summary: Update a particular project.
+      parameters:
+      - name: projectID
+        in: path
+        required: true
+        type: integer
+      - name: Authorisation Token
+        in: header
+        description: Authorisation Token
+        required: true
+        type: string
+      responses:
+        "200":
+          description: 200 OK.
+          schema:
+            $ref: '#/definitions/Project'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Resource not found
+        "422":
+          description: Unprocessable Request
+  /projects/create:
+    post:
+      tags:
+      - projects
+      summary: Create new project
+      parameters:
+      - name: Authorisation Token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: project
+        required: true
+        schema:
+          $ref: '#/definitions/Project'
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/Project'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "422":
+          description: Unprocessable Request
+  /projects/{projectID}/tasks:
+    get:
+      tags:
+      - projects
+      summary: Get list of tasks associated with project
+      parameters:
+      - name: projectID
+        in: path
+        required: true
+        type: integer
+      - name: Authorisation Token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Returns a list of tasks.
+          schema:
+            $ref: '#/definitions/Task'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Resource not found
+  /projects/{projectID}/users:
+    get:
+      tags:
+      - projects
+      summary: Get list of users associated with a project.
+      parameters:
+      - name: projectID
+        in: path
+        required: true
+        type: integer
+      - name: Authorisation Token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Returns a list of users
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Resource not found
+  /projects/{projectID}/users/{userID}:
+    post:
+      tags:
+      - projects
+      summary: Add user to a particular project
+      parameters:
+      - name: projectID
+        in: path
+        required: true
+        type: integer
+      - name: userID
+        in: path
+        required: true
+        type: integer
+      - name: Authorisation Token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/Project'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Resource not found
+        "422":
+          description: Unprocessable Request
+    delete:
+      tags:
+      - projects
+      summary: Remove user from a particular project
+      parameters:
+      - name: projectID
+        in: path
+        required: true
+        type: integer
+      - name: userID
+        in: path
+        required: true
+        type: integer
+      - name: Authorisation Token
+        in: header
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Success
+          schema:
+            $ref: '#/definitions/Project'
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+        "404":
+          description: Resource not found
+        "422":
+          description: Unprocessable Request
+  /dataInstance:
+    get:
+      tags:
+      - dataset instance
+      summary: searches inventory
+      description: "By passing in the appropriate options, you can search for available inventory in the system"
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: organization_id
+        in: query
+        description: pass an organization_id for looking up inventory
+        required: true
+        type: string
+      - name: skip
+        in: query
+        description: number of records to skip for pagination
+        required: false
+        type: integer
+        minimum: 0
+        format: int32
+      - name: limit
+        in: query
+        description: maximum number of records to return
+        required: false
+        type: integer
+        maximum: 50
+        minimum: 0
+        format: int32
+      responses:
+        "200":
+          description: search results matching criteria
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/DatasetInstance'
+        "400":
+          description: bad input parameter
+    post:
+      tags:
+      - dataset instance
+      summary: adds a dataset instance
+      description: Adds an item to the system
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: datasetInstance
+        description: Instance to add
+        required: false
+        schema:
+          $ref: '#/definitions/Collection'
+      responses:
+        "201":
+          description: item created
+        "400":
+          description: "invalid input, object invalid"
+        "409":
+          description: an existing item already exists
+    delete:
+      tags:
+      - dataset instance
+      summary: deletes a dataset instance
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: instance_id
+        in: query
+        description: Instance to delete
+        required: true
+        type: integer
+      responses:
+        "201":
+          description: item updated
+        "400":
+          description: "invalid input, object invalid"
+    patch:
+      tags:
+      - dataset instance
+      summary: modifies a dataset instance
+      description: Edit an item in the system
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: datasetInstance
+        description: Instance to modify
+        required: false
+        schema:
+          $ref: '#/definitions/Collection'
+      responses:
+        "201":
+          description: item updated
+        "400":
+          description: "invalid input, object invalid"
+  /collection:
+    get:
+      tags:
+      - collection dataset
+      summary: searches inventory
+      description: "By passing in the appropriate options, you can search for available inventory in the system"
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: collection_id
+        in: query
+        description: pass an optional search string for looking up inventory
+        required: false
+        type: string
+      - name: skip
+        in: query
+        description: number of records to skip for pagination
+        required: false
+        type: integer
+        minimum: 0
+        format: int32
+      - name: limit
+        in: query
+        description: maximum number of records to return
+        required: false
+        type: integer
+        maximum: 50
+        minimum: 0
+        format: int32
+      responses:
+        "200":
+          description: search results matching criteria
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Collection'
+        "400":
+          description: bad input parameter
+    post:
+      tags:
+      - collection dataset
+      summary: adds a collection item
+      description: Adds an item to the system
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: collectionItem
+        description: Collection item to add
+        required: false
+        schema:
+          $ref: '#/definitions/Collection'
+      responses:
+        "201":
+          description: item created
+        "400":
+          description: "invalid input, object invalid"
+        "409":
+          description: an existing item already exists
+    delete:
+      tags:
+      - collection dataset
+      summary: deletes a collection item
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: collection_id
+        in: query
+        description: Collection item to delete
+        required: true
+        type: integer
+      responses:
+        "201":
+          description: item deleted
+        "400":
+          description: "invalid input, object invalid"
+    patch:
+      tags:
+      - collection dataset
+      summary: modifies a collection item
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: collectionItem
+        description: Collection item to modify
+        required: false
+        schema:
+          $ref: '#/definitions/Collection'
+      responses:
+        "201":
+          description: item updated
+        "400":
+          description: "invalid input, object invalid"
+  /dataItem:
+    get:
+      tags:
+      - primary dataset
+      summary: searches inventory
+      description: "By passing in the appropriate options, you can search for available inventory in the system"
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: searchId
+        in: query
+        description: pass an optional search id for looking up inventory
+        required: false
+        type: string
+      - name: skip
+        in: query
+        description: number of records to skip for pagination
+        required: false
+        type: integer
+        minimum: 0
+        format: int32
+      - name: limit
+        in: query
+        description: maximum number of records to return
+        required: false
+        type: integer
+        maximum: 50
+        minimum: 0
+        format: int32
+      responses:
+        "200":
+          description: search results matching criteria
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/DataItem'
+        "400":
+          description: bad input parameter
+    post:
+      tags:
+      - primary dataset
+      summary: adds a data item
+      description: Adds an item to the system
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: dataItem
+        description: Data item to add
+        required: false
+        schema:
+          $ref: '#/definitions/DataItem'
+      responses:
+        "201":
+          description: item created
+        "400":
+          description: "invalid input, object invalid"
+        "409":
+          description: an existing item already exists
+    delete:
+      tags:
+      - primary dataset
+      summary: deletes a data item
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - name: data_id
+        in: query
+        description: Data item to delete
+        required: true
+        type: integer
+      responses:
+        "201":
+          description: item deleted
+        "400":
+          description: "invalid input, object invalid"
+    patch:
+      tags:
+      - primary dataset
+      summary: modifies a dataset item
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      parameters:
+      - name: Authorization token
+        in: header
+        required: true
+        type: string
+      - in: body
+        name: dataItem
+        description: Data item to modify
+        required: false
+        schema:
+          $ref: '#/definitions/DataItem'
+      responses:
+        "201":
+          description: item updated
+        "400":
+          description: "invalid input, object invalid"
+definitions:
+  User:
+    type: object
+    properties:
+      id:
+        type: integer
+      username:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      phone_number:
+        type: string
+      organization_id:
+        type: integer
+      workspace_id:
+        type: array
+        items:
+          type: integer
+      languages_known:
+        type: array
+        items:
+          type: string
+      role:
+        type: string
+      added_by:
+        type: integer
+      assigned_by:
+        type: integer
+  Invite:
+    type: object
+    properties:
+      id:
+        type: integer
+      users:
+        type: integer
+        format: int64
+        description: Many to many relation b/w invites and users for a single organization.
+      organization_fk:
+        type: integer
+        format: int64
+        description: Foriegn key to the organization the invite code is for.
+      invite_code:
+        type: string
+        description: The invite code which can be auto generated or be editable manually.
+    xml:
+      name: Invite
+  Organization:
+    type: object
+    properties:
+      id:
+        type: integer
+      organization_name:
+        type: string
+        description: Name of the Organization.
+      email_domain:
+        type: string
+        description: Email box domain name.
+  Workspace:
+    type: object
+    properties:
+      id:
+        type: integer
+      workspace_name:
+        type: string
+        description: "Name of a Workspace, describing the type of projects in workspace."
+      organization_fk:
+        type: string
+        description: The orgnazation of which the worksapce is a part of.
+      created_by:
+        type: string
+        description: The workspace manager foriegn key.
+  Project:
+    type: object
+    properties:
+      id:
+        type: integer
+      title:
+        type: string
+      description:
+        type: string
+      created_by:
+        type: string
+      max_annotations:
+        type: integer
+      is_published:
+        type: boolean
+      sampling_mode:
+        type: string
+        enum:
+        - random
+        - batch
+        - full
+      sampling_parameters_json:
+        type: string
+        description: JSON
+      is_archived:
+        type: boolean
+      users:
+        type: array
+        items:
+          $ref: '#/definitions/User'
+  Type:
+    type: object
+    properties:
+      name:
+        type: string
+        enum:
+        - Monolingual
+        - Speech Collection
+        - Speech Recognition
+        - Translation
+        - OCR
+        - SL Video
+        - SL Video Chunk
+  Task:
+    type: object
+    required:
+    - domain_type
+    - project_id
+    properties:
+      task_id:
+        type: integer
+        format: int64
+      data_id:
+        type: integer
+        format: int64
+      project_id:
+        type: integer
+        format: int64
+      domain_type:
+        type: string
+      task_status:
+        type: string
+      correct_annotation:
+        type: integer
+        format: int32
+      tag:
+        type: string
+      meta:
+        type: object
+        properties: {}
+    title: Task
+  Annotation:
+    type: object
+    required:
+    - result_json
+    properties:
+      result_json:
+        type: object
+        properties: {}
+      task_id:
+        type: integer
+        format: int64
+      parent_annotation:
+        type: integer
+        format: int64
+      completed_by:
+        type: integer
+        format: int64
+      lead_time:
+        type: integer
+        format: int64
+    title: Annotation
+  Error:
+    type: object
+    required:
+    - code
+    - message
+    properties:
+      code:
+        type: integer
+        format: int32
+      message:
+        type: string
+    title: Error
+  TaskAnnotationsResponse:
+    type: object
+    properties:
+      tasks:
+        type: array
+        items:
+          $ref: '#/definitions/Annotation'
+    title: TaskAnnotationsResponse
+  TaskAssignRequest:
+    type: object
+    properties:
+      user_ids:
+        type: array
+        items:
+          type: integer
+          format: int32
+    title: TaskAssignRequest
+  DatasetInstance:
+    type: object
+    required:
+    - domain_type
+    - instance_description
+    - instance_name
+    - organization_id
+    properties:
+      instance_id:
+        type: integer
+        format: int64
+      parent_instance_id:
+        type: integer
+        format: int64
+      instance_name:
+        type: string
+      instance_description:
+        type: string
+      organization_id:
+        type: integer
+        format: int64
+      domain_type:
+        type: string
+    description: Retrieve Dataset instance
+  Collection:
+    required:
+    - collection_id
+    - collection_type
+    - instance_id
+    - user_id
+    properties:
+      collection_id:
+        type: integer
+        format: int64
+      instance_id:
+        type: integer
+        format: int64
+      collection_type:
+        type: string
+      crawl_json:
+        type: string
+      script_type:
+        type: string
+      user_id:
+        type: integer
+        format: int64
+    description: Retrieve a collection
+  DataItem:
+    required:
+    - data_id
+    - file_type
+    - instance_id
+    - lang_id
+    properties:
+      data_id:
+        type: integer
+        format: int64
+      instance_id:
+        type: integer
+        format: int64
+      collection_id:
+        type: integer
+        format: int64
+      bucket_url:
+        type: string
+      file_type:
+        type: string
+      raw_data:
+        type: string
+      metadata_json:
+        type: string
+      lang_id:
+        type: string
+externalDocs:
+  description: Find out more about Swagger
+  url: http://swagger.io
