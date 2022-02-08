@@ -19,7 +19,9 @@ class Workspace(models.Model, DummyModelMixin):
 
     is_archived = models.BooleanField(verbose_name='is_archived', default=False)
 
-    created_by = models.OneToOneField(settings.AUTH_USER_MODEL, verbose_name='created_by', related_name='workspace_manager', on_delete=models.SET_NULL, null=True)
+    manager = models.OneToOneField(settings.AUTH_USER_MODEL, verbose_name='manager', related_name='workspace_manager', on_delete=models.SET_NULL, null=True)
+
+    created_by = models.OneToOneField(settings.AUTH_USER_MODEL, verbose_name='created_by', related_name='workspace_created_by', on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
         return str(self.workspace_name) + ', ' + str(self.created_by.email)

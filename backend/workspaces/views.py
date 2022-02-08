@@ -3,6 +3,8 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
+from users.models import User
+
 from .serializers import WorkspaceSerializer
 from .models import Workspace
 from .decorators import is_organization_owner_or_workspace_manager, workspace_is_archived, is_particular_workspace_manager
@@ -36,6 +38,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             'message': 'Deleting of Workspaces is not supported!'
         }, status=403)
     
+    # TODO : add exceptions
     @action(detail=True, methods=['POST', 'GET'], name='Archive Workspace')
     @is_particular_workspace_manager
     def archive(self, request, pk=None, *args, **kwargs):
@@ -44,3 +47,32 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         workspace.is_archived = not workspace.is_archived
         workspace.save()
         return super().retrieve(request, *args, **kwargs)
+
+    # TODO : add exceptions
+    @action(detail=True, methods=['POST'], name='Assign Manager')
+    @is_particular_workspace_manager
+    def assign_manager(self, request, pk=None, *args, **kwargs):
+        ret_dict = {}
+        status = 0
+        email = str(request.data['email'])
+        try:
+            user = User.objects.get(email=email)
+            workspace = Workspace.objects.get(pk=pk)
+            workspace.manager = user
+            workspace.save()
+            ret_dict = {
+                'message': 'Manager Assigned!',
+                'id': str(workspace.pk),
+                'workspace_name': str(workspace.workspace_name),
+                'manager': {
+                    'email': str(user.email),
+                    'username': str(user.username),
+                }
+            }
+            status = 200
+        except Exception:
+            ret_dict = {
+                'message': 'Email is required!'
+            }
+            status = 400
+        return Response(ret_dict, status=status)
