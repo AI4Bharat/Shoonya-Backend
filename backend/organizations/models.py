@@ -13,7 +13,6 @@ class Organization(models.Model):
     """
     Organization Model
     """
-    organization_id = models.UUIDField()
     title = models.CharField(verbose_name='organization_title', max_length=1024, null=False)
 
     email_domain_name = models.CharField(verbose_name='organization_email_domain', max_length=4096, null=True)
