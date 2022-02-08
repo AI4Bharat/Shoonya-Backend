@@ -29,5 +29,10 @@ class Workspace(models.Model, DummyModelMixin):
             return True
         return False
     
+    # def has_object_permission(self, user):
+    #     if self.users.filter(pk=user.pk).exists():
+    #         return True
+    #     return False
+    
     class Meta:
         ordering = ['pk']

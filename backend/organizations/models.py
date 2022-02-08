@@ -9,7 +9,7 @@ from django.conf import settings
 
 # Create your models here.
 
-class Organization(models.Model, DummyModelMixin):
+class Organization(models.Model):
     """
     Organization Model
     """
@@ -55,10 +55,10 @@ class Organization(models.Model, DummyModelMixin):
     def get_owner(self):
         return self.created_by
     
-    def has_object_permission(self, user):
-        if user.organization_id == self.pk:
-            return True
-        return False
+    # def has_object_permission(self, user):
+    #     if user.organization_id == self.pk:
+    #         return True
+    #     return False
 
 class Invite(models.Model):
     """
@@ -83,10 +83,10 @@ class Invite(models.Model):
             invite.save()
             return invite
     
-    def has_permission(self, user):
-        if self.organization.created_by.pk == user.pk or user.is_superuser:
-            return True
-        return False
+    # def has_permission(self, user):
+    #     if self.organization.created_by.pk == user.pk or user.is_superuser:
+    #         return True
+    #     return False
 
     def generate_invite_code(self):
         pass

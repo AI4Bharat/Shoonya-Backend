@@ -2,9 +2,9 @@ from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.response import Response
 
-from .serializers import *
-from .models import *
-from .decorators import *
+from .serializers import OrganizationSerializer
+from .models import Organization
+from .decorators import is_organization_owner, is_particular_organization_owner
 
 # Create your views here.
 
@@ -15,20 +15,16 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
 
-    @is_organization_owner
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
     @is_organization_owner    
-    def create(self, request, *args, **kwargs):
+    def create(self, request, pk=None, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
-    @is_organization_owner
-    def update(self, request, *args, **kwargs):
+    @is_particular_organization_owner
+    def update(self, request, pk=None, *args, **kwargs):
         return super().update(request, *args, **kwargs)        
     
-    @is_organization_owner
-    def partial_update(self, request, *args, **kwargs):
+    @is_particular_organization_owner
+    def partial_update(self, request, pk=None, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
     
     def destroy(self, request, *args, **kwargs):
