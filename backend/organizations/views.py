@@ -6,9 +6,12 @@ import re
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from .models import Invite, Organization
-from .serializers import InviteGenerationSerializer
+from .serializers import InviteGenerationSerializer,OrganizationSerializer
 from users.models import User
 from rest_framework.decorators import action
+from .decorators import is_organization_owner, is_particular_organization_owner
+
+
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
@@ -37,3 +40,27 @@ class InviteViewSet(viewsets.ViewSet):
             return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
         Invite.create_invite(organization=org, users=users)
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
+
+class OrganizationViewSet(viewsets.ModelViewSet):
+    """
+    A viewset for Organization CRUD, access limited only to organization Managers and Superuser.
+    """
+    queryset = Organization.objects.all()
+    serializer_class = OrganizationSerializer
+
+    @is_organization_owner    
+    def create(self, request, pk=None, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @is_particular_organization_owner
+    def update(self, request, pk=None, *args, **kwargs):
+        return super().update(request, *args, **kwargs)        
+    
+    @is_particular_organization_owner
+    def partial_update(self, request, pk=None, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+    
+    def destroy(self, request, *args, **kwargs):
+        return Response({
+            'message': 'Deleting of Organizations is not supported!'
+        }, status=403)

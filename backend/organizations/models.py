@@ -1,5 +1,6 @@
 import string
 from django.db import models, transaction
+from users.models import *
 from shoonya_backend.settings import AUTH_USER_MODEL
 from shoonya_backend.mixins import DummyModelMixin
 import secrets
@@ -8,7 +9,7 @@ from django.conf import settings
 
 # Create your models here.
 
-class Organization(models.Model, DummyModelMixin):
+class Organization(models.Model):
     """
     Organization Model
     """
@@ -33,6 +34,9 @@ class Organization(models.Model, DummyModelMixin):
     def create_organization(cls, created_by=None, title='Organization', email_domain_name='organization@shoonya.org'):
         with transaction.atomic():
             org = Organization.objects.create(created_by=created_by, title=title, email_domain_name=email_domain_name)
+            user = User.objects.get(pk=created_by.pk)
+            user.organization_id = org
+            user.save()
             return org
     
     # def add_user(self, user):
@@ -51,10 +55,10 @@ class Organization(models.Model, DummyModelMixin):
     def get_owner(self):
         return self.created_by
     
-    def has_permission(self, user):
-        if self in user.organizations.all():
-            return True
-        return False
+    # def has_object_permission(self, user):
+    #     if user.organization_id == self.pk:
+    #         return True
+    #     return False
 
 class Invite(models.Model):
     """
@@ -80,10 +84,10 @@ class Invite(models.Model):
             invite.save()
             return invite
     
-    def has_permission(self, user):
-        if self.organization.created_by.pk == user.pk or user.is_superuser:
-            return True
-        return False
+    # def has_permission(self, user):
+    #     if self.organization.created_by.pk == user.pk or user.is_superuser:
+    #         return True
+    #     return False
 
     @classmethod
     def generate_invite_code(cls):

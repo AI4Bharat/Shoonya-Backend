@@ -154,7 +154,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'shoonya_backend.permissions.HasObjectPermission',
         'rest_framework.permissions.IsAuthenticated',
     )
 }
