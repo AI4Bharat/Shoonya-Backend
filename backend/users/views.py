@@ -34,23 +34,30 @@ class InviteViewSet(viewsets.ViewSet):
         users = User.objects.bulk_create(users)
         try:
             org = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist():
+        except Organization.DoesNotExist:
             return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
         Invite.create_invite(organization=org, users=users)
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
-        
+
     @swagger_auto_schema(request_body=UserSignUpSerializer)
-    @action(detail=False, methods=["patch"],url_path="accept")
-    def sign_up_user(self, request):
+    @action(detail=False, methods=["patch"], url_path="accept")
+    def sign_up_user(self, request, pk=None):
         email = request.data.get("email")
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist():
             return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-        serialized = UserSignUpSerializer(user,request.data,partial=True)
+        if user.has_accepted_invite:
+            return Response({"message": "User has already accepted invite"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            Invite.objects.get(users=user, invite_code=pk)
+        except Invite.DoesNotExist:
+            return Response({"message": "Invite not found"}, status=status.HTTP_404_NOT_FOUND)
+        serialized = UserSignUpSerializer(user, request.data, partial=True)
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
+
 
 class UserViewSet(viewsets.ViewSet):
     pass
