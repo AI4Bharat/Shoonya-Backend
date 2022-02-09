@@ -4,6 +4,7 @@ from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
+from .serializers import UserSignUpSerializer
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
 from users.models import User
@@ -37,6 +38,19 @@ class InviteViewSet(viewsets.ViewSet):
             return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
         Invite.create_invite(organization=org, users=users)
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
+        
+    @swagger_auto_schema(request_body=UserSignUpSerializer)
+    @action(detail=True, methods=["patch"],url_path="accept")
+    def sign_up_user(self, request,pk):
+        email = request.data.get("email")
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist():
+            return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        serialized = UserSignUpSerializer(user,request.data,partial=True)
+        if serialized.is_valid():
+            serialized.save()
+            return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
 
 class UserViewSet(viewsets.ViewSet):
     pass

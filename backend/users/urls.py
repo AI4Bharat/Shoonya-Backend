@@ -5,7 +5,7 @@ from .views import InviteViewSet
 router = routers.DefaultRouter()
 
 
-router.register(r"invitation", InviteViewSet, basename="invite")
+router.register(r"invite", InviteViewSet, basename="invite")
 
 
 urlpatterns = [
