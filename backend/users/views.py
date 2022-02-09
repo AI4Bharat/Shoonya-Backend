@@ -40,8 +40,8 @@ class InviteViewSet(viewsets.ViewSet):
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
         
     @swagger_auto_schema(request_body=UserSignUpSerializer)
-    @action(detail=True, methods=["patch"],url_path="accept")
-    def sign_up_user(self, request,pk):
+    @action(detail=False, methods=["patch"],url_path="accept")
+    def sign_up_user(self, request):
         email = request.data.get("email")
         try:
             user = User.objects.get(email=email)
