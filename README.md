@@ -34,7 +34,7 @@ python3 -m venv <YOUR-ENVIRONMENT-NAME>
 source <YOUR-ENVIRONMENT-NAME>/bin/activate # this command may be different based on your OS
 
 # Install dependencies
-pip install -r deploy/requirements.txt
+pip install -r deploy/requirements-dev.txt
 ```
 
 ### Environment file
@@ -88,3 +88,19 @@ docker-compose exec web python manage.py createsuperuser
 ```
 
 If there were no errors, congratulations! The project is up and running.
+
+### Running Linters
+
+Installing the dev requirements file would have also installed linters. We have `flake8` and `pylint`, available.
+
+To run `flask8` do:
+
+```bash
+flake8 ./backend/shoonya_backend/
+```
+
+To run `pylint` do:
+
+```bash
+pylint ./backend/shoonya_backend/
+```
