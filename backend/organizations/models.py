@@ -1,9 +1,9 @@
+import string
 from django.db import models, transaction
 from users.models import *
 from shoonya_backend.settings import AUTH_USER_MODEL
-
-
 from shoonya_backend.mixins import DummyModelMixin
+import secrets
 
 from django.conf import settings
 
@@ -13,7 +13,6 @@ class Organization(models.Model):
     """
     Organization Model
     """
-
     title = models.CharField(verbose_name='organization_title', max_length=1024, null=False)
 
     email_domain_name = models.CharField(verbose_name='organization_email_domain', max_length=4096, null=True)
@@ -80,6 +79,7 @@ class Invite(models.Model):
             invite = Invite.objects.create(organization=organization)
             for user in users:    
                 invite.users.add(user)
+            invite.invite_code = cls.generate_invite_code()
             invite.save()
             return invite
     
@@ -88,5 +88,7 @@ class Invite(models.Model):
     #         return True
     #     return False
 
-    def generate_invite_code(self):
-        pass
+    @classmethod
+    def generate_invite_code(cls):
+        return ''.join(secrets.choice(string.ascii_uppercase + string.digits)
+                                                  for i in range(10))
