@@ -2,6 +2,7 @@ from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from users.models import User
 
@@ -14,6 +15,7 @@ from .decorators import is_organization_owner_or_workspace_manager, workspace_is
 class WorkspaceViewSet(viewsets.ModelViewSet):
     queryset = Workspace.objects.all()
     serializer_class = WorkspaceSerializer
+    permission_classes = (IsAuthenticatedOrReadOnly, )
 
     def retrieve(self, request, pk=None, *args, **kwargs):
         print(pk)

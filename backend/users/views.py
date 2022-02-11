@@ -3,12 +3,13 @@ import string
 from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.decorators import permission_classes
 from drf_yasg.utils import swagger_auto_schema
 from .serializers import UserProfileSerializer, UserSignUpSerializer
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
-from organizations.decorators import *
-from workspaces.decorators import *
+from organizations.decorators import is_organization_owner
 from users.models import User
 from rest_framework.decorators import action
 
@@ -21,8 +22,9 @@ def generate_random_string(length=12):
 
 
 class InviteViewSet(viewsets.ViewSet):
-    @is_particular_organization_owner
+    @is_organization_owner
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
+    @permission_classes((IsAuthenticated, ))
     @action(detail=False, methods=["post"], url_path="generate")
     def invite_users(self, request):
         emails = request.data.get("emails")
@@ -43,6 +45,7 @@ class InviteViewSet(viewsets.ViewSet):
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)
+    @permission_classes((AllowAny, ))
     @action(detail=False, methods=["patch"], url_path="accept")
     def sign_up_user(self, request, pk=None):
         email = request.data.get("email")
@@ -63,6 +66,8 @@ class InviteViewSet(viewsets.ViewSet):
 
 
 class UserViewSet(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated, )
+
     @swagger_auto_schema(request_body=UserSignUpSerializer)
     @action(detail=False, methods=["patch"], url_path="update")
     def edit_profile(self, request):
