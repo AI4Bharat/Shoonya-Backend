@@ -34,3 +34,8 @@ $RECYCLE.BIN/
 .vscode/
 .history/
 *.code-workspace
+
+# Coverage
+/coverage.data
+/coverage/
+.coverage
