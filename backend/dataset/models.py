@@ -33,12 +33,12 @@ class DatasetInstance(models.Model):
     Dataset Instance Model
     """
     instance_id = models.IntegerField(verbose_name = 'dataset_instance_id', primary_key = True)
-    parent_instance_id = models.IntegerField(verbose_name = 'parent_instance_id', blank = True, null = True, blank = True)
+    parent_instance_id = models.IntegerField(verbose_name = 'parent_instance_id', blank = True, null = True)
     instance_name = models.CharField(verbose_name= 'dataset_instance_name', max_length = 1024)
     instance_description = models.TextField(verbose_name= 'dataset_instance_description')
     organisation_id = models.IntegerField(verbose_name = 'organisation_id' )
     workspace_id = models.IntegerField(verbose_name = 'workspace_id')
-    domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES  , default  = 'monolingual')
+    domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
 ##  users = models.ManyToManyField
 
 
@@ -47,10 +47,10 @@ class CollectionDataset(models.Model):
     Collection Dataset Model
     """
     collection_id = models.IntegerField(verbose_name = 'collection_dataset_id', primary_key = True)
-    collection_type = models.CharField(verbose_name= 'collection_domain_type', choices = DOMAIN_CHOICES  , default  = 'monolingual')
+    collection_type = models.CharField(verbose_name= 'collection_domain_type', max_length = 100, choices = DOMAIN_CHOICES  , default  = 'monolingual')
     instance_id = models.ForeignKey(DatasetInstance, on_delete=models.CASCADE)
     crawl_json = models.JSONField(verbose_name = 'collection_json')
-    script_type = models.CharField(verbose_name = 'collection_script_type')
+    script_type = models.CharField(verbose_name = 'collection_script_type', max_length = 100,)
 ##  user_id = models.ForeignKey
 
 
@@ -64,10 +64,10 @@ class SpeechCollection(models.Model):
     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES)
+    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
 
-    speaker_gender = models.CharField(verbose_name = 'speech_collection_speaker_gender', choices = GENDER_CHOICES, default = 'M')
-    speaker_id = models.AutoField(verbose_name = 'speech_collection_speaker_id')
+    speaker_gender = models.CharField(verbose_name = 'speech_collection_speaker_gender', choices = GENDER_CHOICES, default = 'M', max_length=100)
+    speaker_id = models.IntegerField(verbose_name = 'speech_collection_speaker_id')
     audio_bucket_url = models.URLField(max_length = 400  , blank=False)
     voice_clarity = models.IntegerField(verbose_name = 'voice_clarity_of_sample')
     volume = models.IntegerField()
@@ -86,10 +86,10 @@ class SpeechRecognition(models.Model):
     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES)
+    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
 
-    speaker_gender = models.CharField(verbose_name = 'speech_recognition_speaker_gender', choices = GENDER_CHOICES  , default = 'M')
-    speaker_id = models.AutoField(verbose_name = 'speech_recognition_speaker_id'  )
+    speaker_gender = models.CharField(verbose_name = 'speech_recognition_speaker_gender', choices = GENDER_CHOICES  , default = 'M', max_length=100)
+    speaker_id = models.IntegerField(verbose_name = 'speech_recognition_speaker_id'  )
     voice_clarity = models.IntegerField(verbose_name = 'voice_clarity_of_sample' , blank=False)
     asr_transcript = models.TextField(verbose_name = 'automatic_speech_recognition_transcript') 
     human_transcipt = models.TextField(verbose_name = 'human_generated_transcript') 
@@ -105,7 +105,7 @@ class Monolingual(models.Model):
     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES)
+    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
 
     is_profane = models.BooleanField()
     is_grammatically_correct = models.BooleanField
@@ -122,12 +122,12 @@ class Translation(models.Model):
     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES)
+    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
 
     machine_translation = models.TextField()
     human_tranlation = models.TextField()
     labse_score = models.DecimalField(max_digits = 4, decimal_places = 2)
-    target_lang_id = models.CharField(verbose_name = 'target_language_id', choices = LANG_CHOICES)
+    target_lang_id = models.CharField(verbose_name = 'target_language_id', choices = LANG_CHOICES, max_length=100)
 
 class OCR(models.Model):
     """
@@ -139,7 +139,7 @@ class OCR(models.Model):
     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES)
+    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
 
     bboxes_json = models.JSONField()
     is_clean = models.BooleanField()
@@ -154,7 +154,7 @@ class Video(models.Model):
     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES)
+    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
 
     sentences = models.TextField()
     gloss_sequences = models.TextField()
@@ -173,7 +173,7 @@ class VideoChunk(models.Model):
     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES)
+    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
 
     sentence = models.TextField()
     gloss_sequence = models.TextField()
