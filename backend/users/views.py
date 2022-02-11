@@ -4,7 +4,7 @@ from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
-from .serializers import UserSignUpSerializer
+from .serializers import UserProfileSerializer, UserSignUpSerializer
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
 from users.models import User
@@ -60,4 +60,11 @@ class InviteViewSet(viewsets.ViewSet):
 
 
 class UserViewSet(viewsets.ViewSet):
-    pass
+    @swagger_auto_schema(request_body=UserSignUpSerializer)
+    @action(detail=False, methods=["patch"], url_path="update")
+    def edit_profile(self, request):
+        user = User.objects.get(email=request.data.get("email"))
+        serialized = UserProfileSerializer(user, request.data, partial=True)
+        if serialized.is_valid():
+            serialized.save()
+            return Response({"message": "User profile edited"}, status=status.HTTP_200_OK)

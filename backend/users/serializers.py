@@ -6,6 +6,7 @@ class UserSignUpSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["username", "password", "email"]
+        read_only_fields = ["email"]
 
     def update(self, instance, validated_data):
         instance.username = validated_data.get("username")
@@ -13,3 +14,11 @@ class UserSignUpSerializer(serializers.ModelSerializer):
         instance.set_password(validated_data.get("password"))
         instance.save()
         return instance
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["username", "email","first_name", "last_name", "phone"]
+        read_only_fields = ["email"]
+

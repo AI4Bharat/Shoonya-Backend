@@ -1,11 +1,12 @@
 from django.urls import path, include
 from rest_framework import routers
-from .views import InviteViewSet
+from .views import InviteViewSet, UserViewSet
 
 router = routers.DefaultRouter()
 
 
 router.register(r"invite", InviteViewSet, basename="invite")
+router.register(r"account", UserViewSet, basename="account")
 
 
 urlpatterns = [
