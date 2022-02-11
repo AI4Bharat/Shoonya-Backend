@@ -7,6 +7,8 @@ from drf_yasg.utils import swagger_auto_schema
 from .serializers import UserProfileSerializer, UserSignUpSerializer
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
+from organizations.decorators import *
+from workspaces.decorators import *
 from users.models import User
 from rest_framework.decorators import action
 
@@ -19,6 +21,7 @@ def generate_random_string(length=12):
 
 
 class InviteViewSet(viewsets.ViewSet):
+    @is_particular_organization_owner
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @action(detail=False, methods=["post"], url_path="generate")
     def invite_users(self, request):
