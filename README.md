@@ -21,22 +21,21 @@ The installation and setup instructions have been tested on the following platfo
 
 - Docker
 - Docker-Compose
+- Ubuntu 20.04
 
 If you are using a different operating system, you will have to look at external resources (eg. StackOverflow) to correct any errors.
 
-Once inside, build the docker containers:
+### Create a Virtual Environment
+
+We recommend you to create a virtual environment to install all the dependencies required for the project.
 
 ```bash
-docker-compose build
+python3 -m venv <YOUR-ENVIRONMENT-NAME>
+source <YOUR-ENVIRONMENT-NAME>/bin/activate # this command may be different based on your OS
+
+# Install dependencies
+pip install -r deploy/requirements-dev.txt
 ```
-
-To run the containers:
-
-```bash
-docker-compose up -d
-```
-
-To share the database with others, just share the postgres_data and the media folder with others.
 
 ### Environment file
 
@@ -50,13 +49,29 @@ This creates an `.env` file at the root of the project. It is needed to make sur
 To create a new secret key, run the following commands (within the virtual environment):
 ```bash
 # Open a Python shell
-docker-compose exec web -it python manage.py shell
+python backend/manage.py shell
 
 >> from django.core.management.utils import get_random_secret_key
 >> get_random_secret_key()
 ```
 
 Paste the value you get there into the `.env` file.
+
+### Docker Installation
+
+`cd` back to the root folder .Once inside, build the docker containers:
+
+```bash
+docker-compose build
+```
+
+To run the containers:
+
+```bash
+docker-compose up -d
+```
+
+To share the database with others, just share the postgres_data and the media folder with others.
 
 ### Run Migrations (required only for the first time running the project or if you make any changes in the models)
 Run the following commands:
@@ -73,3 +88,19 @@ docker-compose exec web python manage.py createsuperuser
 ```
 
 If there were no errors, congratulations! The project is up and running.
+
+### Running Linters
+
+Installing the dev requirements file would have also installed linters. We have `flake8` and `pylint`, available.
+
+To run `flask8` do:
+
+```bash
+flake8 ./backend/shoonya_backend/
+```
+
+To run `pylint` do:
+
+```bash
+pylint ./backend/shoonya_backend/
+```
