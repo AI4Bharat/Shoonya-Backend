@@ -114,10 +114,16 @@ class Invite(models.Model):
     @classmethod
     def create_invite(cls, organization=None, users=None):
         with transaction.atomic():
-            invite = Invite.objects.create(organization=organization)
+            exists = False
+            try: 
+                invite = Invite.objects.get(organization=organization)
+                exists = True
+            except:
+                invite = Invite.objects.create(organization=organization)
             for user in users:
                 invite.users.add(user)
-            invite.invite_code = cls.generate_invite_code()
+            if not exists:
+                invite.invite_code = cls.generate_invite_code()
             invite.save()
             return invite
 

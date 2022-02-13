@@ -10,23 +10,26 @@ from .views import *
 class UserTestcase(APITestCase):
     client = APIClient()
 
-    EMAILS = {
+    DATA = {
         "emails": [
             "sample@email.com",
-            "sample@email.com",
+            "sampl1e@email.com",
         ],
-        "organization_id": "1"
+        "organization_id": 1
     }
     SUCCESS_RESPONSE = {"message": "Invite sent"}
+
+    def setUp(self):
+        Organization.objects.create(title="Test Organization")
 
     def test_invite_users(self):
         """
         Check invite user API.
         """
-        request = APIRequestFactory().post(data=self.EMAILS, path='invite/generate/')
+        request = APIRequestFactory().post(data=self.DATA, path='invite/generate/',format='json')
         view = InviteViewSet.as_view({'post': 'invite_users'})
         self.client.login(username='admin@admin.com', password='admin')
         response = view(request)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data, status.HTTP_201_CREATED)
+        self.assertEqual(response.data, self.SUCCESS_RESPONSE)
 

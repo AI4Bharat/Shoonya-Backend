@@ -1,5 +1,6 @@
 import secrets
 import string
+from wsgiref.util import request_uri
 from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
@@ -26,7 +27,7 @@ def generate_random_string(length=12):
 class InviteViewSet(viewsets.ViewSet):
     # @is_organization_owner
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
-    @permission_classes((AllowAny,))
+    @permission_classes((IsAuthenticated,))
     @action(detail=False, methods=["post"], url_path="generate", url_name="invite_users")
     def invite_users(self, request):
         emails = request.data.get("emails")
