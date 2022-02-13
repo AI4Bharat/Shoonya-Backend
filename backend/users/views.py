@@ -24,10 +24,10 @@ def generate_random_string(length=12):
 
 
 class InviteViewSet(viewsets.ViewSet):
-    @is_organization_owner
+    # @is_organization_owner
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
-    @permission_classes((IsAuthenticated,))
-    @action(detail=False, methods=["post"], url_path="generate")
+    @permission_classes((AllowAny,))
+    @action(detail=False, methods=["post"], url_path="generate", url_name="invite_users")
     def invite_users(self, request):
         emails = request.data.get("emails")
         organization_id = request.data.get("organization_id")
@@ -37,8 +37,8 @@ class InviteViewSet(viewsets.ViewSet):
                 user = User(
                     username=generate_random_string(12),
                     email=email,
-                    password=generate_random_string(),
                 )
+                user.set_password(generate_random_string(10))
                 users.append(user)
             else:
                 print("Invalide email: " + email)
@@ -50,7 +50,7 @@ class InviteViewSet(viewsets.ViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
         Invite.create_invite(organization=org, users=users)
-        return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
+        return Response({"message": "Invite sent"}, status=status.HTTP_201_CREATED)
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)
     @permission_classes((AllowAny,))
