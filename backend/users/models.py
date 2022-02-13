@@ -37,7 +37,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(verbose_name="phone", max_length=256, blank=True)
     profile_photo = models.ImageField(upload_to=hash_upload, blank=True)
 
-    role = models.PositiveSmallIntegerField(choices=ROLE_CHOICES, blank=False, null=False, default=ANNOTATOR)
+    role = models.PositiveSmallIntegerField(
+        choices=ROLE_CHOICES, blank=False, null=False, default=ANNOTATOR
+    )
 
     is_staff = models.BooleanField(
         verbose_name="staff status",
@@ -45,20 +47,28 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text=("Designates whether the user can log into this admin site."),
     )
     has_accepted_invite = models.BooleanField(
-        verbose_name="invite status", default=False, help_text=("Designates whether the user has accepted the invite.")
+        verbose_name="invite status",
+        default=False,
+        help_text=("Designates whether the user has accepted the invite."),
     )
 
     is_active = models.BooleanField(
         verbose_name="active",
         default=True,
-        help_text=("Designates whether to treat this user as active. Unselect this instead of deleting accounts."),
+        help_text=(
+            "Designates whether to treat this user as active. Unselect this instead of deleting accounts."
+        ),
     )
 
     date_joined = models.DateTimeField(verbose_name="date joined", default=timezone.now)
 
-    activity_at = models.DateTimeField(verbose_name="last annotation activity", auto_now=True)
+    activity_at = models.DateTimeField(
+        verbose_name="last annotation activity", auto_now=True
+    )
 
-    organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
+    organization_id = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True
+    )
 
     objects = UserManager()
 
