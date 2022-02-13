@@ -10,13 +10,6 @@ from .views import *
 class UserTestcase(APITestCase):
     client = APIClient()
 
-    DATA = {
-        "emails": [
-            "sample@email.com",
-            "sampl1e@email.com",
-        ],
-        "organization_id": 1
-    }
 
     def setUp(self):
         Organization.objects.create(title="Test Organization")
@@ -25,10 +18,11 @@ class UserTestcase(APITestCase):
         """
         Check invite user API.
         """
-        request = APIRequestFactory().post(data=self.DATA, path='invite/generate/',format='json')
-        view = InviteViewSet.as_view({'post': 'invite_users'})
+        data = {"emails": ["sample@email.com", "sampl1e@email.com",], "organization_id": 1}
+        request = APIRequestFactory().post(data=data, path="invite/generate/", format="json")
+        view = InviteViewSet.as_view({"post": "invite_users"})
         correct_response = {"message": "Invite sent"}
-        self.client.login(username='admin@admin.com', password='admin')
+        self.client.login(username="admin@admin.com", password="admin")
         response = view(request)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data, correct_response)
