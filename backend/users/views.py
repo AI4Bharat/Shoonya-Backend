@@ -25,9 +25,9 @@ def generate_random_string(length=12):
 
 
 class InviteViewSet(viewsets.ViewSet):
-    # @is_organization_owner
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @permission_classes((IsAuthenticated,))
+    @is_organization_owner
     @action(detail=False, methods=["post"], url_path="generate", url_name="invite_users")
     def invite_users(self, request):
         emails = request.data.get("emails")
@@ -55,7 +55,7 @@ class InviteViewSet(viewsets.ViewSet):
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)
     @permission_classes((AllowAny,))
-    @action(detail=False, methods=["patch"], url_path="accept")
+    @action(detail=False, methods=["patch"], url_path="accept",url_name='sign_up_user')
     def sign_up_user(self, request, pk=None):
         email = request.data.get("email")
         try:

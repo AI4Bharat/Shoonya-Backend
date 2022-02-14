@@ -4,7 +4,7 @@ from .views import OrganizationViewSet
 
 router = routers.DefaultRouter()
 
-router.register(r"", OrganizationViewSet)
+router.register(r"", OrganizationViewSet,basename='organization')
 
 
 urlpatterns = router.urls

@@ -48,7 +48,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         )
 
     # TODO : add exceptions
-    @action(detail=True, methods=["POST", "GET"], name="Archive Workspace")
+    @action(detail=True, methods=["POST", "GET"], name="Archive Workspace",url_name='archive')
     @is_particular_workspace_manager
     def archive(self, request, pk=None, *args, **kwargs):
         print(pk)
@@ -58,7 +58,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         return super().retrieve(request, *args, **kwargs)
 
     # TODO : add exceptions
-    @action(detail=True, methods=["POST"], name="Assign Manager")
+    @action(detail=True, methods=["POST"], name="Assign Manager",url_name='assign_manager')
     @is_particular_workspace_manager
     def assign_manager(self, request, pk=None, *args, **kwargs):
         ret_dict = {}
