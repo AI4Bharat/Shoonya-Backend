@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from users.models import User
 from users.serializers import UserProfileSerializer
 
-from .serializers import WorkspaceSerializer
+from .serializers import WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
 from .decorators import (
     is_organization_owner_or_workspace_manager,
@@ -70,21 +70,17 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     @is_particular_workspace_manager
     def assign_manager(self, request, pk=None, *args, **kwargs):
         ret_dict = {}
-        status = 0
+        ret_status = 0
         email = str(request.data["email"])
         try:
             user = User.objects.get(email=email)
             workspace = Workspace.objects.get(pk=pk)
             workspace.manager = user
             workspace.save()
-            ret_dict = {
-                "message": "Manager Assigned!",
-                "id": str(workspace.pk),
-                "workspace_name": str(workspace.workspace_name),
-                "manager": {"email": str(user.email), "username": str(user.username),},
-            }
-            status = status.HTTP_200_OK
+            serializer = WorkspaceManagerSerializer(workspace, many=False)
+            ret_dict = serializer.data
+            ret_status = status.HTTP_200_OK
         except Exception:
             ret_dict = {"message": "Email is required!"}
-            status = status.HTTP_400_BAD_REQUEST
-        return Response(ret_dict, status=status)
+            ret_status = status.HTTP_400_BAD_REQUEST
+        return Response(ret_dict, status=ret_status)

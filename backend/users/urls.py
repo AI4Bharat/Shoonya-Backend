@@ -15,6 +15,5 @@ router.register(r"account", UserViewSet, basename="account")
 urlpatterns = [
     path("auth/", include("djoser.urls")),
     path("auth/", include("djoser.urls.jwt")),
-    path("", include("rest_framework.urls")),
     path("", include(router.urls)),
 ]
