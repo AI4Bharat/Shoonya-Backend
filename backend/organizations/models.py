@@ -101,7 +101,7 @@ class Invite(models.Model):
     )
 
     invite_code = models.CharField(
-        verbose_name="invite_code", max_length=256, null=True,unique=True
+        verbose_name="invite_code", max_length=256, null=True, unique=True
     )
 
     def __str__(self):
@@ -115,7 +115,7 @@ class Invite(models.Model):
     def create_invite(cls, organization=None, users=None):
         with transaction.atomic():
             exists = False
-            try: 
+            try:
                 invite = Invite.objects.get(organization=organization)
                 exists = True
             except:

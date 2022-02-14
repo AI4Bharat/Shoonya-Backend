@@ -16,8 +16,10 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "id",
         ]
 
+
 class WorkspaceManagerSerializer(serializers.ModelSerializer):
     manager = UserProfileSerializer(required=True)
+
     class Meta:
         model = Workspace
         fields = ["id", "workspace_name", "manager"]

@@ -12,14 +12,22 @@ class UserTestcase(APITestCase):
     def setUp(self):
         # Setting up a dummy organization and creating a superuser for testing purposes.
         Organization.objects.create(title="Test Organization")
-        User.objects.create_superuser(username="admin", email="admin@admin.com", password="admin")
+        User.objects.create_superuser(
+            username="admin", email="admin@admin.com", password="admin"
+        )
 
     def test_invite_users(self):
         """
         Check invite user API.
         """
         # Creating Request data
-        data = {"emails": ["sample@email.com", "sampl1e@email.com",], "organization_id": 1}
+        data = {
+            "emails": [
+                "sample@email.com",
+                "sampl1e@email.com",
+            ],
+            "organization_id": 1,
+        }
         # Giving the correct expected response from the view
         correct_response = {"message": "Invite sent"}
         # Writing the URL of the API to be tested [Format is appname:basename-urlname]
@@ -32,4 +40,3 @@ class UserTestcase(APITestCase):
         # Checking if the response is correct
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data, correct_response)
-

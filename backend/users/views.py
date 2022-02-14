@@ -19,14 +19,18 @@ regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
 
 def generate_random_string(length=12):
-    return "".join(secrets.choice(string.ascii_uppercase + string.digits) for i in range(length))
+    return "".join(
+        secrets.choice(string.ascii_uppercase + string.digits) for i in range(length)
+    )
 
 
 class InviteViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @permission_classes((IsAuthenticated,))
     @is_organization_owner
-    @action(detail=False, methods=["post"], url_path="generate", url_name="invite_users")
+    @action(
+        detail=False, methods=["post"], url_path="generate", url_name="invite_users"
+    )
     def invite_users(self, request):
         """
         Invite users to join your organization. This generates a new invite
@@ -38,11 +42,16 @@ class InviteViewSet(viewsets.ViewSet):
         try:
             org = Organization.objects.get(id=organization_id)
         except Organization.DoesNotExist:
-            return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         for email in emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
-                user = User(username=generate_random_string(12), email=email,)
+                user = User(
+                    username=generate_random_string(12),
+                    email=email,
+                )
                 user.set_password(generate_random_string(10))
                 user.organization = org
                 users.append(user)
@@ -64,13 +73,20 @@ class InviteViewSet(viewsets.ViewSet):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist():
-            return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         if user.has_accepted_invite:
-            return Response({"message": "User has already accepted invite"}, status=status.HTTP_400_BAD_REQUEST,)
+            return Response(
+                {"message": "User has already accepted invite"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             Invite.objects.get(users=user, invite_code=pk)
         except Invite.DoesNotExist:
-            return Response({"message": "Invite not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "Invite not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         serialized = UserSignUpSerializer(user, request.data, partial=True)
         if serialized.is_valid():
@@ -91,4 +107,6 @@ class UserViewSet(viewsets.ViewSet):
         serialized = UserProfileSerializer(user, request.data, partial=True)
         if serialized.is_valid():
             serialized.save()
-            return Response({"message": "User profile edited"}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "User profile edited"}, status=status.HTTP_200_OK
+            )

@@ -9,18 +9,26 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('organizations', '0001_initial'),
+        ("organizations", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='invite',
-            name='invite_code',
-            field=models.CharField(max_length=256, null=True, unique=True, verbose_name='invite_code'),
+            model_name="invite",
+            name="invite_code",
+            field=models.CharField(
+                max_length=256, null=True, unique=True, verbose_name="invite_code"
+            ),
         ),
         migrations.AlterField(
-            model_name='organization',
-            name='created_by',
-            field=models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='organization_creator', to=settings.AUTH_USER_MODEL, verbose_name='created_by'),
+            model_name="organization",
+            name="created_by",
+            field=models.OneToOneField(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="organization_creator",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="created_by",
+            ),
         ),
     ]
