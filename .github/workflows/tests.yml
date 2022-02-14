@@ -7,5 +7,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: pip install -r ./deploy/requirements-dev.txt
-      - run: python backend/manage.py test
+      - name: Install dependencies
+        run: pip install -r ./deploy/requirements-dev.txt
+      - name: Create environment file
+        run: cp .env.example ./backend/.env
+      - name: Run tests
+        run: python ./backend/manage.py test
