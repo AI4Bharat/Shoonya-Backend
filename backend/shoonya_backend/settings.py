@@ -155,7 +155,7 @@ REST_FRAMEWORK = {
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-DJOSER ={
+DJOSER = {
     'PASSWORD_RESET_CONFIRM_URL': 'users/auth/users/password/reset/confirm/{uid}/{token}',
     'USERNAME_RESET_CONFIRM_URL': 'users/auth/users/username/reset/confirm/{uid}/{token}',
     'ACTIVATION_URL': 'users/auth/users/activation/{uid}/{token}',
@@ -164,5 +164,5 @@ DJOSER ={
 }
 
 SIMPLE_JWT = {
-   'AUTH_HEADER_TYPES': ('JWT',),
+    'AUTH_HEADER_TYPES': ('JWT',),
 }
