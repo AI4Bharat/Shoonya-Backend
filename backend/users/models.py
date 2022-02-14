@@ -66,7 +66,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="last annotation activity", auto_now=True
     )
 
-    organization_id = models.ForeignKey(
+    organization = models.ForeignKey(
         Organization, on_delete=models.SET_NULL, null=True
     )
 

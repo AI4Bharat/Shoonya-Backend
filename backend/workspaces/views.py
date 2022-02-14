@@ -1,11 +1,11 @@
 from django.shortcuts import render
-from rest_framework import viewsets
+from rest_framework import viewsets,status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN
 
 from users.models import User
+from users.serializers import UserProfileSerializer
 
 from .serializers import WorkspaceSerializer
 from .models import Workspace
@@ -42,13 +42,21 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, pk=None, *args, **kwargs):
-        return Response(
-            {"message": "Deleting of Workspaces is not supported!"},
-            status=HTTP_403_FORBIDDEN,
-        )
+        return Response({"message": "Deleting of Workspaces is not supported!"}, status=status.HTTP_403_FORBIDDEN,)
+
+    @is_particular_workspace_manager
+    @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
+    def users(self, request, pk=None):
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        users = workspace.users.all()
+        serializer = UserProfileSerializer(users, many=True)
+        return Response(serializer.data)
 
     # TODO : add exceptions
-    @action(detail=True, methods=["POST", "GET"], name="Archive Workspace",url_name='archive')
+    @action(detail=True, methods=["POST", "GET"], name="Archive Workspace", url_name="archive")
     @is_particular_workspace_manager
     def archive(self, request, pk=None, *args, **kwargs):
         print(pk)
@@ -58,7 +66,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         return super().retrieve(request, *args, **kwargs)
 
     # TODO : add exceptions
-    @action(detail=True, methods=["POST"], name="Assign Manager",url_name='assign_manager')
+    @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
     @is_particular_workspace_manager
     def assign_manager(self, request, pk=None, *args, **kwargs):
         ret_dict = {}
@@ -73,13 +81,10 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 "message": "Manager Assigned!",
                 "id": str(workspace.pk),
                 "workspace_name": str(workspace.workspace_name),
-                "manager": {
-                    "email": str(user.email),
-                    "username": str(user.username),
-                },
+                "manager": {"email": str(user.email), "username": str(user.username),},
             }
-            status = HTTP_200_OK
+            status = status.HTTP_200_OK
         except Exception:
             ret_dict = {"message": "Email is required!"}
-            status = HTTP_400_BAD_REQUEST
+            status = status.HTTP_400_BAD_REQUEST
         return Response(ret_dict, status=status)

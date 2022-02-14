@@ -35,7 +35,7 @@ class Organization(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        related_name="organization",
+        related_name="organization_creator",
         verbose_name="created_by",
     )
 
@@ -101,7 +101,7 @@ class Invite(models.Model):
     )
 
     invite_code = models.CharField(
-        verbose_name="invite_code", max_length=256, null=True
+        verbose_name="invite_code", max_length=256, null=True,unique=True
     )
 
     def __str__(self):
