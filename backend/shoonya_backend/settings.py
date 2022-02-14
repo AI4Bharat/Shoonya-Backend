@@ -43,7 +43,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'drf_yasg',
     'rest_framework',
-    'rules',
     'djoser',
     'users',
     'organizations',
@@ -61,7 +60,6 @@ MIDDLEWARE = [
 ]
 
 AUTHENTICATION_BACKENDS = (
-    'rules.permissions.ObjectPermissionBackend',
     'django.contrib.auth.backends.ModelBackend',
 )
 
