@@ -64,7 +64,7 @@ class InviteViewSet(viewsets.ViewSet):
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)
     @permission_classes((AllowAny,))
-    @action(detail=False, methods=["patch"], url_path="accept", url_name="sign_up_user")
+    @action(detail=True, methods=["patch"], url_path="accept", url_name="sign_up_user")
     def sign_up_user(self, request, pk=None):
         """
         Users to sign up for the first time.
@@ -72,7 +72,7 @@ class InviteViewSet(viewsets.ViewSet):
         email = request.data.get("email")
         try:
             user = User.objects.get(email=email)
-        except User.DoesNotExist():
+        except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
@@ -98,10 +98,10 @@ class UserViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)
-    @action(detail=False, methods=["patch"], url_path="update")
+    @action(detail=False, methods=["patch"], url_path="update", url_name="edit-profile")
     def edit_profile(self, request):
         """
-        Updatinng user profile.
+        Updating user profile.
         """
         user = User.objects.get(email=request.data.get("email"))
         serialized = UserProfileSerializer(user, request.data, partial=True)

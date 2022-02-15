@@ -107,8 +107,6 @@ class Invite(models.Model):
     def __str__(self):
         return (
             str(self.organization.title)
-            + ", "
-            + str(self.organization.created_by.email)
         )
 
     @classmethod
