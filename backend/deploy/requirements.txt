@@ -5,3 +5,4 @@ djoser
 drf-yasg
 psycopg2
 python-dotenv
+pillow
