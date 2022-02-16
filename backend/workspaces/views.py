@@ -1,3 +1,4 @@
+import re
 from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.response import Response
@@ -17,6 +18,7 @@ from .decorators import (
 
 # Create your views here.
 
+EMAIL_VALIDATION_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
 class WorkspaceViewSet(viewsets.ModelViewSet):
     queryset = Workspace.objects.all()
@@ -85,13 +87,20 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         ret_status = 0
         email = str(request.data["email"])
         try:
-            user = User.objects.get(email=email)
-            workspace = Workspace.objects.get(pk=pk)
-            workspace.manager = user
-            workspace.save()
-            serializer = WorkspaceManagerSerializer(workspace, many=False)
-            ret_dict = serializer.data
-            ret_status = status.HTTP_200_OK
+            if re.fullmatch(EMAIL_VALIDATION_REGEX, email):
+                user = User.objects.get(email=email)
+                workspace = Workspace.objects.get(pk=pk)
+                workspace.manager = user
+                workspace.save()
+                serializer = WorkspaceManagerSerializer(workspace, many=False)
+                ret_dict = serializer.data
+                ret_status = status.HTTP_200_OK
+            else:
+                ret_dict = {"message": "Enter a valid Email!"}
+                ret_status = status.HTTP_400_BAD_REQUEST
+        except User.DoesNotExist:
+            ret_dict = {"message": "User with such Email does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
         except Exception:
             ret_dict = {"message": "Email is required!"}
             ret_status = status.HTTP_400_BAD_REQUEST
