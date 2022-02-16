@@ -22,9 +22,7 @@ class UserTestcase(APITestCase):
         """
         # Creating Request data
         data = {
-            "emails": [
-                email
-            ],
+            "emails": [email],
             "organization_id": org,
         }
         # Giving the correct expected response from the view
@@ -62,7 +60,9 @@ class UserTestcase(APITestCase):
         # Check user cannot sign up once done already.
         response_two = self.client.patch(url, data, format="json")
         self.assertEqual(response_two.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response_two.data, {"message": "User has already accepted invite"})
+        self.assertEqual(
+            response_two.data, {"message": "User has already accepted invite"}
+        )
 
     # def test_edit_profile(self):
     #     """

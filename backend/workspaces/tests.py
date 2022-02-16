@@ -5,7 +5,7 @@ from django.urls import reverse
 from .models import Workspace
 from .views import *
 from users.models import User
-from organizations.models import Organization 
+from organizations.models import Organization
 
 
 class UserTestcase(APITestCase):
@@ -16,16 +16,18 @@ class UserTestcase(APITestCase):
         org1 = Organization.objects.create(title="Test Organization", id=11)
 
         users = []
-        user =  User.objects.create_user(
+        user = User.objects.create_user(
             username="testUser", email="test@email.com", password="admin"
         )
         user.organization_id = 11
         users.append(user)
-        
-        ws = Workspace.objects.create(organization=org1, workspace_name="Workspace_Test", id=2)
+
+        ws = Workspace.objects.create(
+            organization=org1, workspace_name="Workspace_Test", id=2
+        )
         for user1 in users:
             ws.users.add(user1)
-            
+
         User.objects.create_superuser(
             username="admin", email="admin@admin.com", password="admin"
         )
@@ -38,12 +40,15 @@ class UserTestcase(APITestCase):
         data = {
             "email": "test@email.com",
             "workspace_name": "WS1",
-            "organization" : "11"           
+            "organization": "11",
         }
 
         # Writing the URL of the API to be tested [Format is appname:basename-urlname]
         # For basename, refer urls.py of that app. For urlname, refer the action decorator of the viewset function.
-        url = reverse("workspace-assign_manager", args={2},)
+        url = reverse(
+            "workspace-assign_manager",
+            args={2},
+        )
         # Logging in as the admin user
         self.client.login(email="admin@admin.com", password="admin")
         # Sending the request to the API
@@ -61,12 +66,15 @@ class UserTestcase(APITestCase):
         data = {
             "email": "test@email.com",
             "workspace_name": "WS1",
-            "organization" : "11"           
+            "organization": "11",
         }
 
         # Writing the URL of the API to be tested [Format is appname:basename-urlname]
         # For basename, refer urls.py of that app. For urlname, refer the action decorator of the viewset function.
-        url = reverse("workspace-archive", args={2},)
+        url = reverse(
+            "workspace-archive",
+            args={2},
+        )
         # Logging in as the admin user
         self.client.login(email="admin@admin.com", password="admin")
         # Sending the request to the API
@@ -75,4 +83,3 @@ class UserTestcase(APITestCase):
         self.client.logout()
         # Checking if the response is correct
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        

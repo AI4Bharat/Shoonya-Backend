@@ -105,9 +105,7 @@ class Invite(models.Model):
     )
 
     def __str__(self):
-        return (
-            str(self.organization.title)
-        )
+        return str(self.organization.title)
 
     @classmethod
     def create_invite(cls, organization=None, users=None):
