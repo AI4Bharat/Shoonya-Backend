@@ -3,7 +3,7 @@ from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 
 from users.models import User
 from users.serializers import UserProfileSerializer
@@ -24,7 +24,15 @@ EMAIL_VALIDATION_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 class WorkspaceViewSet(viewsets.ModelViewSet):
     queryset = Workspace.objects.all()
     serializer_class = WorkspaceSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticated, )
+
+    def list(self, request, *args, **kwargs):
+        if request.user.role == User.ANNOTATOR:
+            data = self.queryset.filter(users=request.user)
+            serializer = self.serializer_class(data=data)
+            if serializer.is_valid():
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, pk=None, *args, **kwargs):
         print(pk)
