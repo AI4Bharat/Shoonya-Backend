@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     'users',
     'organizations',
     'workspaces',
+    'dataset',
+    'tasks',
 ]
 
 MIDDLEWARE = [
