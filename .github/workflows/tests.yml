@@ -1,0 +1,15 @@
+name: run-tests
+on: [push]
+
+jobs:
+
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: pip install -r ./backend/deploy/requirements-dev.txt
+      - name: Create environment file
+        run: cp .env.example ./backend/.env
+      - name: Run tests
+        run: python ./backend/manage.py test
