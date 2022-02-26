@@ -30,9 +30,11 @@ class InviteViewSet(viewsets.ViewSet):
         emails = request.data.get("emails")
         organization_id = request.data.get("organization_id")
         users = []
+        valid_user_emails = []
         for email in emails:
             if re.fullmatch(regex, email):
                 user = User(username=generate_random_string(12), email=email, password=generate_random_string())
+                valid_user_emails.append(email)
                 users.append(user)
             else:
                 print("Invalide email: " + email)
@@ -41,7 +43,7 @@ class InviteViewSet(viewsets.ViewSet):
             org = Organization.objects.get(id=organization_id)
         except Organization.DoesNotExist:
             return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
-        Invite.create_invite(organization=org, users=users)
+        Invite.create_invite(organization=org, users=users,valid_user_emails=valid_user_emails)
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)

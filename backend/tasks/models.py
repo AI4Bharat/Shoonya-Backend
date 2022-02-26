@@ -34,8 +34,8 @@ class Task(models.Model):
     data_id = models.ForeignKey(DatasetInstance, verbose_name = 'dataset_data_id', on_delete=models.CASCADE)
     domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
     correct_annotation = models.TextField()
-    annotation_users = Models.ManyToManyField(User)
-    review_user = Models.ManyToManyField(User)
+    annotation_users = models.ManyToManyField(User,related_name='annotation_users')
+    review_user = models.ManyToManyField(User,related_name='review_users')
     task_status = models.CharField(choices = TASK_STATUS, max_length = 100, default  = 'UnLabel')
 
 
