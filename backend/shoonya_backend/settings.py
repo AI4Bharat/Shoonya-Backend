@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'workspaces',
     'dataset',
     'tasks',
+    'projects',
 ]
 
 MIDDLEWARE = [
