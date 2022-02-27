@@ -14,16 +14,12 @@ Please delete options that are not relevant.
 
 # How Has This Been Tested?
 
-Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce. Please also list any relevant details for your test configuration
+Please describe the tests / checks that you performed to verify your changes. Provide instructions so we can reproduce. Please delete options that are not relevant.
 
-- [ ] Test A
-- [ ] Test B
-
-**Test Configuration**:
-* Firmware version:
-* Hardware:
-* Toolchain:
-* SDK:
+- [ ] Tested the API endpoint on Swagger with the 'Try it out' feature
+- [ ] Tested the Models using the Django Shell
+- [ ] Any other tests you performed for checking edge cases.
+- [ ] Any other tests you performed for checking exceptions.
 
 # Checklist:
 
