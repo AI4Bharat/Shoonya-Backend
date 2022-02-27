@@ -47,9 +47,3 @@ If you added new api endpoints / made changes to exsting endpoints, please fill 
 - [ ] The endpoint supports permissions and authentication for different roles.
 - [ ] All exceptions have been handled and appropriate status code is returned to the user.
 - [ ] I have added docstrings for ViewSets / Serializers.
-
-# Reviews
-
-Please identify one developer to review this change
-
-- [ ] @personA
