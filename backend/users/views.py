@@ -45,6 +45,7 @@ class InviteViewSet(viewsets.ViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
+        valid_user_emails = []
         for email in emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
@@ -54,13 +55,18 @@ class InviteViewSet(viewsets.ViewSet):
                 )
                 user.set_password(generate_random_string(10))
                 user.organization = org
+                valid_user_emails.append(email)
                 users.append(user)
             else:
                 print("Invalide email: " + email)
         # Creating users in bulk
         users = User.objects.bulk_create(users)
-        Invite.create_invite(organization=org, users=users)
-        return Response({"message": "Invite sent"}, status=status.HTTP_201_CREATED)
+        try:
+            org = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
+        Invite.create_invite(organization=org, users=users,valid_user_emails=valid_user_emails)
+        return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)
     @permission_classes((AllowAny,))

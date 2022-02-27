@@ -7,12 +7,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: pip install -r ./deploy/requirements-dev.txt
-      - run: flake8 ./backend/shoonya_backend/
+      - run: pip install -r ./backend/deploy/requirements-dev.txt
+      - run: flake8 backend/shoonya_backend/
 
   run-pylint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - run: pip install -r ./deploy/requirements-dev.txt
+      - run: pip install -r ./backend/deploy/requirements-dev.txt
       - run: pylint ./backend/shoonya_backend/

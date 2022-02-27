@@ -29,7 +29,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("ENV") == "dev"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
 
 
 # Application definition
@@ -48,6 +48,10 @@ INSTALLED_APPS = [
     "users",
     "organizations",
     "workspaces",
+    "dataset",
+    "tasks",
+    "projects",
+    "corsheaders",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -55,12 +59,17 @@ CSRF_COOKIE_SECURE = False
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+AUTHENTICATION_BACKENDS = ("django.contrib.auth.backends.ModelBackend",)
 
 AUTHENTICATION_BACKENDS = (
     "rules.permissions.ObjectPermissionBackend",
@@ -157,7 +166,16 @@ REST_FRAMEWORK = {
     ),
 }
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+#Email Settings
+EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
+EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'
+EMAIL_PORT = 465
+EMAIL_HOST_USER = os.getenv("SMTP_USERNAME")
+EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'admin@shoonya.ai4bharat.org'
+
 
 DJOSER = {
     "PASSWORD_RESET_CONFIRM_URL": "users/auth/users/password/reset/confirm/{uid}/{token}",

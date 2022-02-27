@@ -4,7 +4,7 @@ Repository for Shoonya's backend.
 
 ## Pre-requisites
 
-The project was created using [Python 3.7](https://www.python.org/downloads/). All major dependencies are listed below; the rest are in the `backend/requirements.txt` file.
+The project was created using [Python 3.7](https://www.python.org/downloads/). All major dependencies are listed below; the rest are in the `backend/deploy/requirements.txt` file.
 
 - django
 - djangorestframework

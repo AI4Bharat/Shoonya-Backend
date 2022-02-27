@@ -1,7 +1,9 @@
 django
 djangorestframework
 django-cors-headers
+django-smtp-ssl
 djoser
 drf-yasg
 psycopg2
 python-dotenv
+pillow

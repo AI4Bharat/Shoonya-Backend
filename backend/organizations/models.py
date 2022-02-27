@@ -4,6 +4,7 @@ from users.models import *
 from shoonya_backend.settings import AUTH_USER_MODEL
 from shoonya_backend.mixins import DummyModelMixin
 import secrets
+from django.core.mail import send_mail
 
 from django.conf import settings
 
@@ -22,6 +23,7 @@ class Organization(models.Model):
     email_domain_name = models.CharField(
         verbose_name="organization_email_domain", max_length=4096, null=True
     )
+
 
     # users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='organizations')
 
@@ -105,10 +107,10 @@ class Invite(models.Model):
     )
 
     def __str__(self):
-        return str(self.organization.title)
+        return str(self.organization.title) + ", " + str(self.organization.created_by.email)
 
     @classmethod
-    def create_invite(cls, organization=None, users=None):
+    def create_invite(cls, organization=None, users=None, valid_user_emails=None):
         with transaction.atomic():
             exists = False
             try:
@@ -121,6 +123,12 @@ class Invite(models.Model):
             if not exists:
                 invite.invite_code = cls.generate_invite_code()
             invite.save()
+            send_mail(
+                "Invitation to join Organization",
+                f"Hello! You are invited to {organization.title}. Your Invite link is: http://localhost:3000/invite/{temp}",
+                settings.DEFAULT_FROM_EMAIL,
+                valid_user_emails,
+            )
             return invite
 
     # def has_permission(self, user):
