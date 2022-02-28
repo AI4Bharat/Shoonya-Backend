@@ -1,6 +1,7 @@
 from django.db import models
 from users.models import User
 from dataset.models import DatasetInstance
+from projects.models import Project
 
 # Create your models here.
 
@@ -29,7 +30,7 @@ class Task(models.Model):
     """
     task_id = models.IntegerField(verbose_name = 'task_id', primary_key = True)
     meta = models.TextField(null = True, blank = True)
-##  project_id = models.ForeignKey(Project, verbose_name = 'project_id', on_delete=models.CASCADE)
+    project_id = models.ForeignKey(Project, verbose_name = 'project_id', on_delete=models.CASCADE)
     data_id = models.ForeignKey(DatasetInstance, verbose_name = 'dataset_data_id', on_delete=models.CASCADE)
     domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
     correct_annotation = models.TextField()
@@ -49,5 +50,5 @@ class Annotation(models.Model):
     result_json = models.JSONField(verbose_name = 'result_json')
     task_id = models.ForeignKey(Task, on_delete=models.CASCADE)
     completed_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    lead_time = models.DateTimeField()
+    lead_time = models.DateTimeField(auto_now_add=True, blank=True)
     parent_annotation = models.TextField()
