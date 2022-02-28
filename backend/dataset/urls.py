@@ -16,5 +16,5 @@ router.register(r"video",VideoViewSet)
 router.register(r"videochunk",VideoChunkViewSet)
 
 urlpatterns = [
-    path("data/", include(router.urls))
+    path("", include(router.urls))
 ]
