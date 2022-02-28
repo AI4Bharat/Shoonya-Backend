@@ -1,5 +1,5 @@
-from tabnanny import verbose
 from django.db import models
+
 from users.models import User
 from dataset.models import DatasetInstance
 from projects.models import Project
