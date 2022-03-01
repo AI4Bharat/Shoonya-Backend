@@ -1,5 +1,5 @@
 from django.db import models
-from shoonya_backend.mixins import DummyModelMixin
+from users.models import User
 
 # Create your models here.
 
@@ -39,7 +39,7 @@ class DatasetInstance(models.Model):
     organisation_id = models.IntegerField(verbose_name = 'organisation_id' )
     workspace_id = models.IntegerField(verbose_name = 'workspace_id')
     domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-##  users = models.ManyToManyField
+    users = models.ManyToManyField(User, related_name='dataset_users')
 
 
 class CollectionDataset(models.Model):
@@ -51,7 +51,7 @@ class CollectionDataset(models.Model):
     instance_id = models.ForeignKey(DatasetInstance, on_delete=models.CASCADE)
     crawl_json = models.JSONField(verbose_name = 'collection_json')
     script_type = models.CharField(verbose_name = 'collection_script_type', max_length = 100,)
-##  user_id = models.ForeignKey
+    user_id = models.ForeignKey(User, on_delete = models.CASCADE, default = 1)
 
 
 class SpeechCollection(models.Model):
