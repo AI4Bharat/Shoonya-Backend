@@ -34,6 +34,7 @@ class Task(models.Model):
     project_id = models.ForeignKey(Project, verbose_name = 'project_id', on_delete=models.CASCADE)
     data_id = models.ForeignKey(DatasetInstance, verbose_name = 'dataset_data_id', on_delete=models.CASCADE)
     domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
+
     correct_annotation = models.TextField(verbose_name='task_correct_annotation', null = True, blank = True)
     annotation_users = models.ManyToManyField(User, related_name='annotation_users', verbose_name='annotation_users')
     review_user = models.ManyToManyField(User, related_name='review_users', verbose_name='review_users')
@@ -42,7 +43,6 @@ class Task(models.Model):
     def assign(self, users):
         for user in users:
             self.annotation_users.add(user)
-
 
     def __str__(self):
         return self.task_id
