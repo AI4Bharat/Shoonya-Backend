@@ -11,6 +11,9 @@ from .models import *
 # Create your views here.
 
 class DatasetInstanceViewSet(viewsets.ModelViewSet):
+    '''
+    ViewSet for Dataset Instance
+    '''
     queryset = DatasetInstance.objects.all()
     serializer_class = DatasetInstanceSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, )
