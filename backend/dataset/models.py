@@ -1,83 +1,121 @@
+"""
+Model definitions for Dataset Management
+"""
+
 from django.db import models
 from users.models import User
 
-# Create your models here.
-
-
-DOMAIN_CHOICES = [
-    ('monolingual', 'Monolingual'),
-    ('speechCollection', 'Speech Collection'),
-    ('speechRecognition', 'Speech Recognition'),
-    ('translation', 'Translation'),
-    ('ocr', 'OCR'),
-    ('video', 'Video'),
-    ('videoChunk', 'Video Chunk'),
+# List of all dataset types
+DATASET_TYPE_CHOICES = [
+    ("sentence_text", "SentenceText"),
+    ("translation_pair", "TranslationPair"),
 ]
 
+# List of Indic languages
 LANG_CHOICES = (
-    ('bn', 'Bengali'),
-    ('gu', 'Gujarati'),
-    ('en','English'),
-    ('hi','Hindi'),
-    ('kn','Kannada'),
-    ('mr','Marathi'),
-    ('ne','Nepali'),
-    ('ne','Odia'),
-    ('pa','Punjabi'),
-    ('sa','Sanskrit'),
-    ('ta','Tamil'),
-    ('te','Telugu'),
+    ("bn", "Bengali"),
+    ("gu", "Gujarati"),
+    ("en", "English"),
+    ("hi", "Hindi"),
+    ("kn", "Kannada"),
+    ("mr", "Marathi"),
+    ("ne", "Nepali"),
+    ("ne", "Odia"),
+    ("pa", "Punjabi"),
+    ("sa", "Sanskrit"),
+    ("ta", "Tamil"),
+    ("te", "Telugu"),
 )
 
-GENDER_CHOICES = (
-    ('M', 'Male'),
-    ('F', 'Female'),
-    ('O', 'Others')
-)
+GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
+
 
 class DatasetInstance(models.Model):
     """
     Dataset Instance Model
     """
-    instance_id = models.IntegerField(verbose_name = 'dataset_instance_id', primary_key = True)
-    parent_instance_id = models.IntegerField(verbose_name = 'parent_instance_id', blank = True, null = True)
-    instance_name = models.CharField(verbose_name= 'dataset_instance_name', max_length = 1024)
-    instance_description = models.TextField(verbose_name= 'dataset_instance_description')
-    organisation_id = models.IntegerField(verbose_name = 'organisation_id' )
-    workspace_id = models.IntegerField(verbose_name = 'workspace_id')
-    dataset_type = models.CharField(verbose_name= 'dataset_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    users = models.ManyToManyField(User, related_name='dataset_users')
+
+    instance_id = models.IntegerField(
+        verbose_name="dataset_instance_id", primary_key=True
+    )
+    parent_instance_id = models.IntegerField(
+        verbose_name="parent_instance_id", blank=True, null=True
+    )
+    instance_name = models.CharField(
+        verbose_name="dataset_instance_name", max_length=1024
+    )
+    instance_description = models.TextField(
+        verbose_name="dataset_instance_description", null=True
+    )
+    organisation_id = models.IntegerField(verbose_name="organisation_id", null=True)
+    workspace_id = models.IntegerField(verbose_name="workspace_id", null=True)
+    dataset_type = models.CharField(
+        verbose_name="dataset_type",
+        choices=DATASET_TYPE_CHOICES,
+        max_length=100,
+    )
+    users = models.ManyToManyField(User, related_name="dataset_users")
 
     def __str__(self):
         return str(self.instance_name)
 
+
 class DatasetBase(models.Model):
-    data_id = models.AutoField(verbose_name = 'data_id', primary_key = True)
+    """
+    Abstract class for all datasets
+
+    All dataset types should inherit this model.
+    The model stores fields common to all datasets.
+    """
+
+    data_id = models.AutoField(verbose_name="data_id", primary_key=True)
     instance_id = models.ForeignKey(DatasetInstance, on_delete=models.CASCADE)
-    metadata_json = models.JSONField(verbose_name = 'metadata_json' , null=True, blank = True)
+    metadata_json = models.JSONField(
+        verbose_name="metadata_json", null=True, blank=True
+    )
 
     class Meta:
+        """Django definition of abstract model"""
         abstract = True
+
 
 class SentenceText(DatasetBase):
     """
-    
+    Dataset for storing monolingual sentences.
     """
-    lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
-    text = models.TextField(verbose_name= 'text')
-    domain = models.CharField(verbose_name= 'domain', max_length = 1024)
-    is_profane = models.BooleanField()
+
+    lang_id = models.CharField(
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=100
+    )
+    text = models.TextField(verbose_name="text")
+    domain = models.CharField(verbose_name="domain", max_length=1024)
+    is_profane = models.BooleanField(null=True)
+
+    def __str__(self):
+        return str(self.data_id)
+
 
 class TranslationPair(DatasetBase):
     """
+    Dataset for storing translation pairs.
     """
-    input_lang_id = models.CharField(verbose_name = 'input_language_id', choices = LANG_CHOICES, max_length=100)
-    output_lang_id = models.CharField(verbose_name = 'output_language_id', choices = LANG_CHOICES, max_length=100)
-    input_text = models.TextField(verbose_name= 'input_text')
-    output_text = models.TextField(verbose_name= 'output_text')
-    machine_translation = models.TextField(verbose_name= 'machine_translation')
-    labse_score = models.DecimalField(max_digits = 4, decimal_places = 2)
-    rating = models.IntegerField(verbose_name = 'translation_rating')
+
+    input_lang_id = models.CharField(
+        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=100
+    )
+    output_lang_id = models.CharField(
+        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=100
+    )
+    input_text = models.TextField(verbose_name="input_text")
+    output_text = models.TextField(verbose_name="output_text")
+    machine_translation = models.TextField(
+        verbose_name="machine_translation", null=True
+    )
+    labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True)
+    rating = models.IntegerField(verbose_name="translation_rating", null=True)
+
+    def __str__(self):
+        return str(self.data_id)
 
 
 D1 = SentenceText
@@ -132,8 +170,8 @@ D10 = TranslationPair
 #     speaker_gender = models.CharField(verbose_name = 'speech_recognition_speaker_gender', choices = GENDER_CHOICES  , default = 'M', max_length=100)
 #     speaker_id = models.IntegerField(verbose_name = 'speech_recognition_speaker_id'  )
 #     voice_clarity = models.IntegerField(verbose_name = 'voice_clarity_of_sample' , blank=False)
-#     asr_transcript = models.TextField(verbose_name = 'automatic_speech_recognition_transcript') 
-#     human_transcipt = models.TextField(verbose_name = 'human_generated_transcript') 
+#     asr_transcript = models.TextField(verbose_name = 'automatic_speech_recognition_transcript')
+#     human_transcipt = models.TextField(verbose_name = 'human_generated_transcript')
 #     bg_music = models.BooleanField(verbose_name = 'background_music')
 
 # class Monolingual(models.Model):

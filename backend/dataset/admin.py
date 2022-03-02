@@ -1,10 +1,9 @@
 from django.contrib import admin
-from .models import *
-# Register your models here.
+from dataset import models
 
-admin.site.register(DatasetInstance)
-admin.site.register(SentenceText)
-admin.site.register(TranslationPair)
+admin.site.register(models.DatasetInstance)
+admin.site.register(models.SentenceText)
+admin.site.register(models.TranslationPair)
 # admin.site.register(CollectionDataset)
 # admin.site.register(SpeechCollection)
 # admin.site.register(SpeechRecognition)
