@@ -90,5 +90,8 @@ class UserViewSet(viewsets.ViewSet):
     @swagger_auto_schema()
     @action(detail=False, methods=["get"], url_path="fetch")
     def fetch_profile(self, request):
+        '''
+        Fetches profile for logged in user
+        '''
         serialized = UserProfileSerializer(request.user)
         return Response(serialized.data, status=status.HTTP_200_OK)
