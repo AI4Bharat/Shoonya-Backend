@@ -27,9 +27,9 @@ class Project(models.Model):
         Organization, on_delete=models.SET_NULL, null=True
     )
     workspace_id = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
-    dataset_id = models.ForeignKey(
-        DatasetInstance, on_delete=models.SET_NULL, null=True
-    )
+    # dataset_id = models.ForeignKey(
+    #     DatasetInstance, on_delete=models.SET_NULL, null=True
+    # )
 
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
