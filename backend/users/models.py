@@ -37,7 +37,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone = models.CharField(verbose_name="phone", max_length=256, blank=True)
     profile_photo = models.ImageField(upload_to=hash_upload, blank=True)
 
-    role = models.PositiveSmallIntegerField(choices=ROLE_CHOICES, blank=False, null=False, default=ANNOTATOR)
+    role = models.PositiveSmallIntegerField(
+        choices=ROLE_CHOICES, blank=False, null=False, default=ANNOTATOR
+    )
 
     is_staff = models.BooleanField(
         verbose_name="staff status",
@@ -45,20 +47,69 @@ class User(AbstractBaseUser, PermissionsMixin):
         help_text=("Designates whether the user can log into this admin site."),
     )
     has_accepted_invite = models.BooleanField(
-        verbose_name="invite status", default=False, help_text=("Designates whether the user has accepted the invite.")
+        verbose_name="invite status",
+        default=False,
+        help_text=("Designates whether the user has accepted the invite."),
     )
 
     is_active = models.BooleanField(
         verbose_name="active",
         default=True,
-        help_text=("Designates whether to treat this user as active. Unselect this instead of deleting accounts."),
+        help_text=(
+            "Designates whether to treat this user as active. Unselect this instead of deleting accounts."
+        ),
     )
 
     date_joined = models.DateTimeField(verbose_name="date joined", default=timezone.now)
 
-    activity_at = models.DateTimeField(verbose_name="last annotation activity", auto_now=True)
+    activity_at = models.DateTimeField(
+        verbose_name="last annotation activity", auto_now=True
+    )
 
-    organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
+    organization_id = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True
+    )
+
+    # List of Indic languages
+    LANG_CHOICES = (
+        ("bn", "Bengali"),
+        ("gu", "Gujarati"),
+        ("en", "English"),
+        ("hi", "Hindi"),
+        ("kn", "Kannada"),
+        ("mr", "Marathi"),
+        ("ne", "Nepali"),
+        ("ne", "Odia"),
+        ("pa", "Punjabi"),
+        ("sa", "Sanskrit"),
+        ("ta", "Tamil"),
+        ("te", "Telugu"),
+    )
+
+    lang_id = models.CharField(
+        verbose_name="language_id",
+        choices=LANG_CHOICES,
+        blank=False,
+        null=False,
+        default="en",
+        max_length=100,
+    )
+
+    maximum_annotations_per_day = models.IntegerField(
+        verbose_name="maximum annotations per day", null=True
+    )
+
+    AVAILABLE = 1
+    ON_LEAVE = 2
+
+    AVAILABILITY_STATUS_CHOICES = (
+        (AVAILABLE, "Available"),
+        (ON_LEAVE, "On Leave"),
+    )
+
+    availability_status = models.PositiveSmallIntegerField(
+        choices=AVAILABILITY_STATUS_CHOICES, blank=False, null=False, default=AVAILABLE
+    )
 
     objects = UserManager()
 
@@ -81,7 +132,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         name = self.get_full_name()
         if len(name) == 0:
             name = self.email
-
         return name
 
     def get_full_name(self):

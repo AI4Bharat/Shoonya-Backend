@@ -38,6 +38,13 @@ class DatasetInstance(models.Model):
     instance_id = models.IntegerField(
         verbose_name="dataset_instance_id", primary_key=True
     )
+
+    class Meta:
+        db_table = "dataset_instance"
+        indexes = [
+            models.Index(fields=["instance_id"]),
+        ]
+
     parent_instance_id = models.IntegerField(
         verbose_name="parent_instance_id", blank=True, null=True
     )
@@ -74,9 +81,9 @@ class DatasetBase(models.Model):
         verbose_name="metadata_json", null=True, blank=True
     )
 
-    class Meta:
-        """Django definition of abstract model"""
-        abstract = True
+    # class Meta:
+    #     """Django definition of abstract model"""
+    #     abstract = True
 
 
 class SentenceText(DatasetBase):

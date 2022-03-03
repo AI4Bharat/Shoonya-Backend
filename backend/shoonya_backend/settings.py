@@ -48,8 +48,8 @@ INSTALLED_APPS = [
     "organizations",
     "workspaces",
     "dataset",
-    "tasks",
     "projects",
+    "tasks",
     "corsheaders",
 ]
 

@@ -38,7 +38,7 @@ def check_project_registry_integrity():
             ), f'Input Dataset "{project_type["input_dataset"]["class"]}" does not exist.'
             assert (
                 project_type["output_dataset"]["class"] in model_list
-            ), f'Output Dataset "{project_type["input_dataset"]["class"]}" does not exist.'
+            ), f'Output Dataset "{project_type["output_dataset"]["class"]}" does not exist.'
             input_model_fields = dir(
                 getattr(models, project_type["input_dataset"]["class"])
             )
