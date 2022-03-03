@@ -1,0 +1,36 @@
+registry:
+  - name: Translation
+    description: "Translating sentences from source to target language"
+    project_types:
+      - name: MonolingualTranslation
+        label_studio_jsx_file: "monolingual_translation.jsx"
+        input_dataset:
+          class: SentenceText
+          fields:
+            - lang_id
+            - text
+        output_dataset: 
+          class: TranslationPair
+          save_type: new_record
+          fields:
+            variable_parameters:
+              - output_lang_id
+            copy_from_input:
+              lang_id: input_lang_id
+              text: input_text
+            annotations:
+              - output_text
+      - name: TranslationEditing
+        label_studio_jsx_file: "translation_editing.jsx"
+        input_dataset:
+          class: TranslationPair
+          fields:
+            - input_lang_id
+            - input_text
+            - machine_translation
+        output_dataset: 
+          class: TranslationPair
+          save_type: in_place
+          fields:
+            annotations:
+              - output_text

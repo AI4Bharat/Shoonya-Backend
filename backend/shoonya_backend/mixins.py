@@ -1,3 +1,8 @@
-class DummyModelMixin:
+class DummyModelMixin():
+    '''
+    Dummy Mixin
+    '''
     def has_permission(self, user):
-        return True
+        '''Check if user has permission'''
+        user = True
+        return user

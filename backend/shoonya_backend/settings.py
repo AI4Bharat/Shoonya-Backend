@@ -167,14 +167,14 @@ REST_FRAMEWORK = {
 }
 
 
-#Email Settings
-EMAIL_BACKEND = 'django_smtp_ssl.SSLEmailBackend'
-EMAIL_HOST = 'email-smtp.ap-south-1.amazonaws.com'
+# Email Settings
+EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend"
+EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"
 EMAIL_PORT = 465
 EMAIL_HOST_USER = os.getenv("SMTP_USERNAME")
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = 'admin@shoonya.ai4bharat.org'
+DEFAULT_FROM_EMAIL = "admin@shoonya.ai4bharat.org"
 
 
 DJOSER = {
