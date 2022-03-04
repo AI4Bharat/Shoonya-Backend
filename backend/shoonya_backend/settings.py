@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "drf_yasg",
     "rest_framework",
+    "rules",
     "djoser",
     "users",
     "organizations",
@@ -52,6 +53,8 @@ INSTALLED_APPS = [
     "projects",
     "corsheaders",
 ]
+
+CSRF_COOKIE_SECURE = False
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -67,6 +70,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 AUTHENTICATION_BACKENDS = ("django.contrib.auth.backends.ModelBackend",)
+
+AUTHENTICATION_BACKENDS = (
+    "rules.permissions.ObjectPermissionBackend",
+    "django.contrib.auth.backends.ModelBackend",
+)
 
 ROOT_URLCONF = "shoonya_backend.urls"
 
