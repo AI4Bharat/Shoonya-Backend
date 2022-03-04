@@ -46,26 +46,28 @@ class InviteViewSet(viewsets.ViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
         valid_user_emails = []
+        try:
+            org = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
         for email in emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
                 user = User(
                     username=generate_random_string(12),
                     email=email,
+                    organization_id=org,
                 )
                 user.set_password(generate_random_string(10))
-                user.organization = org
                 valid_user_emails.append(email)
                 users.append(user)
             else:
                 print("Invalide email: " + email)
-        # Creating users in bulk
+        if len(valid_user_emails) <= 0:
+            return Response({"message": "No valid emails found"}, status=status.HTTP_400_BAD_REQUEST)
         users = User.objects.bulk_create(users)
-        try:
-            org = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist:
-            return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
-        Invite.create_invite(organization=org, users=users,valid_user_emails=valid_user_emails)
+
+        Invite.create_invite(organization=org, users=users, valid_user_emails=valid_user_emails)
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)
@@ -113,6 +115,14 @@ class UserViewSet(viewsets.ViewSet):
         serialized = UserProfileSerializer(user, request.data, partial=True)
         if serialized.is_valid():
             serialized.save()
-            return Response(
-                {"message": "User profile edited"}, status=status.HTTP_200_OK
-            )
+            return Response({"message": "User profile edited"}, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema()
+    @action(detail=False, methods=["get"], url_path="fetch")
+    def fetch_profile(self, request):
+        '''
+        Fetches profile for logged in user
+        '''
+        serialized = UserProfileSerializer(request.user)
+        return Response(serialized.data, status=status.HTTP_200_OK)
+
