@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0002_user_organization_id'),
+        ("users", "0002_user_organization_id"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='has_accepted_invite',
-            field=models.BooleanField(default=False, help_text='Designates whether the user has accepted the invite.', verbose_name='invite status'),
+            model_name="user",
+            name="has_accepted_invite",
+            field=models.BooleanField(
+                default=False,
+                help_text="Designates whether the user has accepted the invite.",
+                verbose_name="invite status",
+            ),
         ),
     ]
