@@ -65,10 +65,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     activity_at = models.DateTimeField(
         verbose_name="last annotation activity", auto_now=True
     )
-    
-    organization_id = models.ForeignKey(
-        Organization, on_delete=models.SET_NULL, null=True
-    )
 
     # List of Indic languages
     LANG_CHOICES = (
