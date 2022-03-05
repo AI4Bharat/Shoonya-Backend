@@ -65,7 +65,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     activity_at = models.DateTimeField(
         verbose_name="last annotation activity", auto_now=True
     )
-
+    
     organization_id = models.ForeignKey(
         Organization, on_delete=models.SET_NULL, null=True
     )
@@ -110,6 +110,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     availability_status = models.PositiveSmallIntegerField(
         choices=AVAILABILITY_STATUS_CHOICES, blank=False, null=False, default=AVAILABLE
     )
+
+    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
 
     objects = UserManager()
 

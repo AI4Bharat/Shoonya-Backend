@@ -12,23 +12,67 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('organizations', '0001_initial'),
+        ("organizations", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Workspace',
+            name="Workspace",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('workspace_name', models.CharField(max_length=256, verbose_name='workspace_name')),
-                ('is_archived', models.BooleanField(default=False, verbose_name='is_archived')),
-                ('created_by', models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='workspace_created_by', to=settings.AUTH_USER_MODEL, verbose_name='created_by')),
-                ('manager', models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='workspace_manager', to=settings.AUTH_USER_MODEL, verbose_name='manager')),
-                ('organization', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='organization_workspace', to='organizations.organization')),
-                ('users', models.ManyToManyField(related_name='organization_users', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "workspace_name",
+                    models.CharField(max_length=256, verbose_name="workspace_name"),
+                ),
+                (
+                    "is_archived",
+                    models.BooleanField(default=False, verbose_name="is_archived"),
+                ),
+                (
+                    "created_by",
+                    models.OneToOneField(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="workspace_created_by",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="created_by",
+                    ),
+                ),
+                (
+                    "manager",
+                    models.OneToOneField(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="workspace_manager",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="manager",
+                    ),
+                ),
+                (
+                    "organization",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="organization_workspace",
+                        to="organizations.organization",
+                    ),
+                ),
+                (
+                    "users",
+                    models.ManyToManyField(
+                        related_name="organization_users", to=settings.AUTH_USER_MODEL
+                    ),
+                ),
             ],
             options={
-                'ordering': ['pk'],
+                "ordering": ["pk"],
             },
             bases=(models.Model, shoonya_backend.mixins.DummyModelMixin),
         ),

@@ -19,6 +19,7 @@ SchemaView = get_schema_view(
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("users/", include("users.urls")),
+    path("session/", include("rest_framework.urls")),
     path("organizations/", include("organizations.urls")),
     path("workspaces/", include("workspaces.urls")),
     path("/", include("tasks.urls")),
