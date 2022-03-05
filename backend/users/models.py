@@ -92,7 +92,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=False,
         null=False,
         default="en",
-        max_length=100,
+        max_length=3,
     )
 
     maximum_annotations_per_day = models.IntegerField(

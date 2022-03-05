@@ -92,7 +92,7 @@ class SentenceText(DatasetBase):
     """
 
     lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=3
     )
     text = models.TextField(verbose_name="text")
     domain = models.CharField(verbose_name="domain", max_length=1024)
@@ -108,10 +108,10 @@ class TranslationPair(DatasetBase):
     """
 
     input_lang_id = models.CharField(
-        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=3
     )
     output_lang_id = models.CharField(
-        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=3
     )
     input_text = models.TextField(verbose_name="input_text")
     output_text = models.TextField(verbose_name="output_text")

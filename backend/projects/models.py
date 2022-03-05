@@ -5,14 +5,34 @@ from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
 
+RANDOM = "r"
+BATCH = "b"
+FULL = "f"
+
+SAMPLING_MODE_CHOICES = (
+    (RANDOM, "Random"),
+    (BATCH, "Batch"),
+    (FULL, "Full"),
+)
+
+MonolingualTranslation = 1
+TranslationEditing = 2
+
+PROJECT_TYPE_CHOICES = (
+    (MonolingualTranslation, "MonolingualTranslation"),
+    (TranslationEditing, "TranslationEditing"),
+)
+
+
 # Create your models here.
 class Project(models.Model):
-    '''
+    """
     Model definition for Project Management
-    '''
+    """
+
     title = models.CharField(max_length=100)
     description = models.TextField(max_length=250)
-    created_by = models.OneToOneField(
+    created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -27,9 +47,10 @@ class Project(models.Model):
         Organization, on_delete=models.SET_NULL, null=True
     )
     workspace_id = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True)
-    # dataset_id = models.ForeignKey(
-    #     DatasetInstance, on_delete=models.SET_NULL, null=True
-    # )
+    dataset_id = models.ManyToManyField(
+        DatasetInstance,
+        related_name="project_dataset_instances",
+    )
 
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
@@ -61,18 +82,12 @@ class Project(models.Model):
 
     color = models.CharField(max_length=6, null=True)
 
-    RANDOM = 1
-    BATCH = 2
-    FULL = 3
-
-    SAMPLING_MODE_CHOICES = (
-        (RANDOM, "Random"),
-        (BATCH, "Batch"),
-        (FULL, "Full"),
-    )
-
-    sampling_mode = models.PositiveSmallIntegerField(
-        choices=SAMPLING_MODE_CHOICES, blank=False, null=False, default=FULL
+    sampling_mode = models.CharField(
+        choices=SAMPLING_MODE_CHOICES,
+        blank=False,
+        null=False,
+        default=FULL,
+        max_length=1,
     )
 
     sampling_parameters_json = models.JSONField(
@@ -81,17 +96,9 @@ class Project(models.Model):
 
     data_type = models.JSONField(verbose_name="data type in project xml", null=True)
 
-    MonolingualTranslation = 1
-    TranslationEditing = 2
-
-    PROJECT_TYPE_CHOICES = (
-        (MonolingualTranslation, "MonolingualTranslation"),
-        (TranslationEditing, "TranslationEditing"),
-    )
-
     project_type = models.PositiveSmallIntegerField(
-        choices=PROJECT_TYPE_CHOICES, blank=False, null=False, default=FULL
+        choices=PROJECT_TYPE_CHOICES, blank=False, null=False
     )
 
     def __str__(self):
-        return self.title
+        return str(self.title)
