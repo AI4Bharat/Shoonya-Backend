@@ -71,7 +71,6 @@ CORS_ALLOWED_ORIGINS = [
 AUTHENTICATION_BACKENDS = ("django.contrib.auth.backends.ModelBackend",)
 
 AUTHENTICATION_BACKENDS = (
-    "rules.permissions.ObjectPermissionBackend",
     "django.contrib.auth.backends.ModelBackend",
 )
 
