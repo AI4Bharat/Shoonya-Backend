@@ -17,7 +17,38 @@ class UserSignUpSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    is_annotator = serializers.SerializerMethodField()
+    is_workspace_manager = serializers.SerializerMethodField()
+    is_organization_owner = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ["username", "email","first_name", "last_name", "phone",'organization_id','role']
-        read_only_fields = ["email",'organization_id','role']
+        fields = [
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "organization_id",
+            "role",
+            "is_annotator",
+            "is_workspace_manager",
+            "is_organization_owner",
+        ]
+        read_only_fields = [
+            "email",
+            "organization_id",
+            "role",
+            "is_annotator",
+            "is_workspace_manager",
+            "is_organization_owner",
+        ]
+
+    def get_is_annotator(self, obj):
+        return obj.is_annotator()
+
+    def get_is_workspace_manager(self, obj):
+        return obj.is_workspace_manager()
+
+    def get_is_organization_owner(self, obj):
+        return obj.is_organization_owner()
