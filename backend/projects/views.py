@@ -1,5 +1,6 @@
 import re
 import random
+from urllib.parse import parse_qsl
 from django.shortcuts import render
 from rest_framework import viewsets
 from rest_framework import status
@@ -25,6 +26,7 @@ from .registry_helper import ProjectRegistry
 from .serializers import ProjectSerializer, ProjectUsersSerializer
 from .models import *
 from .decorators import is_organization_owner_or_workspace_manager, project_is_archived, is_particular_workspace_manager, project_is_published
+from filters import filter
 
 # Create your views here.
 
@@ -68,8 +70,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Get items corresponding to the instance id
         data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
         
-        # TODO: Apply filtering
-        filtered_items = data_items
+        # Apply filtering
+        query_params = dict(parse_qsl(filter_string))
+        query_params = filter.fix_booleans_in_dict(query_params)
+        filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
 
         # Get the input dataset fields from the filtered items
         filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"]))

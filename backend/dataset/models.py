@@ -39,12 +39,6 @@ class DatasetInstance(models.Model):
         verbose_name="dataset_instance_id", primary_key=True
     )
 
-    class Meta:
-        db_table = "dataset_instance"
-        indexes = [
-            models.Index(fields=["instance_id"]),
-        ]
-
     parent_instance_id = models.IntegerField(
         verbose_name="parent_instance_id", blank=True, null=True
     )
@@ -62,6 +56,12 @@ class DatasetInstance(models.Model):
         max_length=100,
     )
     users = models.ManyToManyField(User, related_name="dataset_users")
+
+    class Meta:
+        db_table = "dataset_instance"
+        indexes = [
+            models.Index(fields=["instance_id"]),
+        ]
 
     def __str__(self):
         return str(self.instance_name)

@@ -1,5 +1,6 @@
 from yaml import load
 import traceback
+import os
 
 try:
     from yaml import CLoader as Loader
@@ -8,7 +9,7 @@ except ImportError:
 
 from dataset import models
 
-REGISTRY_PATH = "projects/project_registry.yaml"
+REGISTRY_PATH = "backend/projects/project_registry.yaml"
 
 
 class ProjectRegistry:
