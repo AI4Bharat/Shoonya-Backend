@@ -1,4 +1,4 @@
-from yaml import load
+from yaml import safe_load
 import traceback
 import os
 
@@ -9,7 +9,7 @@ except ImportError:
 
 from dataset import models
 
-REGISTRY_PATH = "backend/projects/project_registry.yaml"
+REGISTRY_PATH = "projects/project_registry.yaml"
 
 
 class ProjectRegistry:
@@ -33,7 +33,7 @@ class ProjectRegistry:
         else:
             ProjectRegistry.__instance = self
         with open(REGISTRY_PATH, "r", encoding="utf-8") as registry_fp:
-            self.data = load(registry_fp, Loader=Loader)
+            self.data = safe_load(registry_fp, Loader=Loader)
 
     def get_input_dataset_and_fields(self, project_type):
         """
