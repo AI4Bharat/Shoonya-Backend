@@ -1,16 +1,11 @@
 from yaml import safe_load
-import traceback
+import lxml.etree as etree
 import os
-
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
 
 from dataset import models
 
 REGISTRY_PATH = "projects/project_registry.yaml"
-
+LABEL_STUDIO_JSX_PATH = "projects/label_studio_jsx_files"
 
 class ProjectRegistry:
     """
@@ -33,7 +28,7 @@ class ProjectRegistry:
         else:
             ProjectRegistry.__instance = self
         with open(REGISTRY_PATH, "r", encoding="utf-8") as registry_fp:
-            self.data = safe_load(registry_fp, Loader=Loader)
+            self.data = safe_load(registry_fp)
 
     def get_input_dataset_and_fields(self, project_type):
         """
@@ -54,12 +49,29 @@ class ProjectRegistry:
             result = {}
         return result
 
-    def check_jsx_file_integrity(self):
+    def check_jsx_file_integrity(self, label_studio_jsx_file, input_fields, output_fields):
         """
         Checks the integrity of JSX project template
         """
         # TODO: Add jsx integrity check
-        pass
+        label_studio_jsx_path = os.path.join(LABEL_STUDIO_JSX_PATH, label_studio_jsx_file)
+        assert os.path.isfile(label_studio_jsx_path), f"File not found: {label_studio_jsx_path}"
+        doc = etree.parse(label_studio_jsx_path)
+
+        # Check if input fields are properly named
+        # Note: `value` attrib is essenital for label-studio frontend to read value from tasks object
+        input_nodes = doc.xpath('//*[@value and @name]')
+        for input_node in input_nodes:
+            assert input_node.attrib["name"] in input_fields, f'[{label_studio_jsx_file}]: Input field `{input_node.attrib["name"]}` not found in dataset model'
+            assert input_node.attrib['value'].startswith('$'), f"[{label_studio_jsx_file}]: Input variable `{input_node.attrib['value']}` should begin with $"
+            assert input_node.attrib['value'][1:] in input_fields, f"[{label_studio_jsx_file}]: Input variable `{input_node.attrib['value']}` not found in dataset model"
+
+        # Check if output fields are properly named
+        # Note: `toName` attrib is essential for label-studio-frontend to create annotation json
+        output_nodes = doc.xpath('//*[@toName]')
+        for output_node in output_nodes:
+            assert output_node.attrib["name"] in output_fields, f'[{label_studio_jsx_file}]: Output field `{output_node.attrib["name"]}` not found in dataset model'
+            assert output_node.attrib["toName"] in input_fields, f'[{label_studio_jsx_file}]: Input field `{output_node.attrib["toName"]}` not found in dataset model'
 
     def validate_registry(self):
         """
@@ -71,46 +83,63 @@ class ProjectRegistry:
         model_list = dir(models)
 
         for domain in self.data.keys():
-            for project_key in self.data[domain]["project_types"].keys():
-                # TODO: Check if JSX file exists
-                self.check_jsx_file_integrity()
-                project_type = self.data[domain]["project_types"][project_key]
+            for project_key, project_type in self.data[domain]["project_types"].items():
+                
+                # Check if dataset classes are valid
                 assert (
                     project_type["input_dataset"]["class"] in model_list
                 ), f'Input Dataset "{project_type["input_dataset"]["class"]}" does not exist.'
                 assert (
                     project_type["output_dataset"]["class"] in model_list
                 ), f'Output Dataset "{project_type["output_dataset"]["class"]}" does not exist.'
+                
+                # Get all members inside the respective classes
                 input_model_fields = dir(
                     getattr(models, project_type["input_dataset"]["class"])
                 )
                 output_model_fields = dir(
                     getattr(models, project_type["output_dataset"]["class"])
                 )
-                for field in project_type["input_dataset"]["fields"]:
+
+                # Check if input fields are present in the input dataset type
+                input_dataset = project_type["input_dataset"]
+                for field in input_dataset["fields"]:
                     assert (
                         field in input_model_fields
-                    ), f'Field "{field}" not present in Input Dataset "{project_type["input_dataset"]["class"]}"'
-                for field in project_type["output_dataset"]["fields"]["annotations"]:
+                    ), f'Field "{field}" not present in Input Dataset "{input_dataset["class"]}"'
+                
+                # Check if all output fields are present in the output dataset type
+                output_dataset = project_type["output_dataset"]
+                for field in output_dataset["fields"]["annotations"]:
                     assert (
                         field in output_model_fields
-                    ), f'Annotation field "{field}" not present in Output Dataset "{project_type["output_dataset"]["class"]}"'
-                if "variable_parameters" in project_type["output_dataset"]["fields"]:
-                    for field in project_type["output_dataset"]["fields"][
-                        "variable_parameters"
-                    ]:
+                    ), f'Annotation field "{field}" not present in Output Dataset "{output_dataset["class"]}"'
+                if "variable_parameters" in output_dataset["fields"]:
+                    for field in output_dataset["fields"]["variable_parameters"]:
                         assert (
                             field in output_model_fields
-                        ), f'Variable Parameter field "{field}" not present in Output Dataset "{project_type["output_dataset"]["class"]}"'
-                if "copy_from_input" in project_type["output_dataset"]["fields"]:
-                    for (input_field, output_field) in project_type["output_dataset"][
-                        "fields"
-                    ]["copy_from_input"].items():
+                        ), f'Variable Parameter field "{field}" not present in Output Dataset "{output_dataset["class"]}"'
+                
+                # Check if input-output mapping is proper
+                assert output_dataset["save_type"] in {"new_record", "in_place"}
+                if "copy_from_input" in output_dataset["fields"]:
+                    for (input_field, output_field) in output_dataset["fields"]["copy_from_input"].items():
                         assert (
                             input_field in input_model_fields
-                        ), f'copy_from_input field "{input_field}" not present in Input Dataset "{project_type["input_dataset"]["class"]}"'
+                        ), f'copy_from_input field "{input_field}" not present in Input Dataset "{input_dataset["class"]}"'
                         assert (
                             output_field in output_model_fields
-                        ), f'copy_from_input field "{output_field}" not present in Output Dataset "{project_type["output_dataset"]["class"]}"'
+                        ), f'copy_from_input field "{output_field}" not present in Output Dataset "{output_dataset["class"]}"'
+                
+                # Check if the designed frontend UI is proper
+                ui_input_fields = []
+                if output_dataset["save_type"] == "in_place":
+                    ui_input_fields = input_dataset["fields"]
+                elif output_dataset["save_type"] == "new_record":
+                    ui_input_fields = list(output_dataset["fields"]["copy_from_input"].values())
+                if "variable_parameters" in output_dataset["fields"]:
+                    ui_input_fields += output_dataset["fields"]["variable_parameters"]
+                
+                self.check_jsx_file_integrity(project_type["label_studio_jsx_file"], input_fields=ui_input_fields, output_fields=output_dataset["fields"]["annotations"])
 
         print("Integrity check sucessful")

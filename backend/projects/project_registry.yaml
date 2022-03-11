@@ -2,7 +2,7 @@ Translation:
   description: "Translating sentences from source to target language"
   project_types:
     MonolingualTranslation:
-      label_studio_jsx_file: "monolingual_translation.jsx"
+      label_studio_jsx_file: "translation/monolingual_translation.jsx"
       input_dataset:
         class: SentenceText
         fields:
@@ -20,12 +20,13 @@ Translation:
           annotations:
             - output_text
     TranslationEditing:
-      label_studio_jsx_file: "translation_editing.jsx"
+      label_studio_jsx_file: "translation/translation_editing.jsx"
       input_dataset:
         class: TranslationPair
         fields:
           - input_lang_id
           - input_text
+          - output_lang_id
           - machine_translation
       output_dataset: 
         class: TranslationPair
