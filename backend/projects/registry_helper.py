@@ -2,6 +2,7 @@ from yaml import safe_load
 import lxml.etree as etree
 import os
 
+from label_studio.core.label_config import validate_label_config
 from dataset import models
 
 REGISTRY_PATH = "projects/project_registry.yaml"
@@ -53,9 +54,16 @@ class ProjectRegistry:
         """
         Checks the integrity of JSX project template
         """
-        # TODO: Add jsx integrity check
+        
         label_studio_jsx_path = os.path.join(LABEL_STUDIO_JSX_PATH, label_studio_jsx_file)
         assert os.path.isfile(label_studio_jsx_path), f"File not found: {label_studio_jsx_path}"
+
+        # Check if LS JSX is valid
+        with open(label_studio_jsx_path) as f:
+            jsx_payload = f.read()
+            validate_label_config(jsx_payload)
+
+        # Check if all mentioned references are valid dataset fields
         doc = etree.parse(label_studio_jsx_path)
 
         # Check if input fields are properly named

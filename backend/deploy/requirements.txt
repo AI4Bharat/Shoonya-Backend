@@ -8,3 +8,4 @@ psycopg2
 python-dotenv
 pillow
 pyyaml
+label-studio
