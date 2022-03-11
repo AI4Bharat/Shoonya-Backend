@@ -25,30 +25,50 @@ class ProjectRegistry:
     def __init__(self):
         """Virtually private constructor."""
         if ProjectRegistry.__instance != None:
+            # Never instantiate more than once!
             raise Exception("This class is a singleton!")
         else:
             ProjectRegistry.__instance = self
+        
         with open(REGISTRY_PATH, "r", encoding="utf-8") as registry_fp:
             self.data = safe_load(registry_fp)
 
+        # Automatically validate registry first
+        self.validate_registry()
+
+        # Cache all project types for quick access
+        self.project_types = {}
+        for domain_name, domain_data in self.data.items():
+            for project_key, project_type in domain_data["project_types"].items():
+                assert project_key not in self.project_types, f"Project-type: `{project_key}` seems to be defined more than once"
+                
+                # Cache additional details
+                label_studio_jsx_path = os.path.join(LABEL_STUDIO_JSX_PATH, project_type["label_studio_jsx_file"])
+                with open(label_studio_jsx_path) as f:
+                    project_type["label_studio_jsx_payload"] = f.read()
+                    project_type["domain"] = domain_name
+                
+                self.project_types[project_key] = project_type
+
     def get_input_dataset_and_fields(self, project_type):
         """
-        Get input dataset and its fields
+        For the given project type, get input dataset and its fields
         """
-        project = None
-        for domain in self.data.keys():
-            try:
-                project = self.data[domain]["project_types"][project_type]
-            except KeyError:
-                continue
-        if project is not None:
-            result = {
-                "dataset_type": project['input_dataset']['class'],
-                "fields": project['input_dataset']['fields'],
-            }
-        else:
-            result = {}
-        return result
+        if project_type not in self.project_types:
+            return {}
+        project = self.project_types[project_type]
+        return {
+            "dataset_type": project['input_dataset']['class'],
+            "fields": project['input_dataset']['fields'],
+        }
+    
+    def get_label_studio_jsx_payload(self, project_type):
+        """
+        For the given project type, get the annotation UI for label-studio-frontend
+        """
+        if project_type not in self.project_types:
+            return ""
+        return self.project_types[project_type]["label_studio_jsx_payload"]
 
     def check_jsx_file_integrity(self, label_studio_jsx_file, input_fields, output_fields):
         """
@@ -150,4 +170,4 @@ class ProjectRegistry:
                 
                 self.check_jsx_file_integrity(project_type["label_studio_jsx_file"], input_fields=ui_input_fields, output_fields=output_dataset["fields"]["annotations"])
 
-        print("Integrity check sucessful")
+        return True

@@ -21,6 +21,7 @@ class Command(BaseCommand):
         try:
             registry_helper = ProjectRegistry.get_instance()
             registry_helper.validate_registry()
+            print("Integrity check sucessful")
         except:
             print(traceback.format_exc())
             raise CommandError("Initalization failed.")
