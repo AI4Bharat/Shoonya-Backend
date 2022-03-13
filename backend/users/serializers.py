@@ -1,4 +1,6 @@
 from rest_framework import serializers
+
+from organizations.serializers import OrganizationSerializer
 from .models import User
 
 
@@ -20,7 +22,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     is_annotator = serializers.SerializerMethodField()
     is_workspace_manager = serializers.SerializerMethodField()
     is_organization_owner = serializers.SerializerMethodField()
-
+    organization = OrganizationSerializer(read_only=True)
     class Meta:
         model = User
         fields = [
@@ -29,19 +31,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "phone",
-            "organization_id",
             "role",
             "is_annotator",
             "is_workspace_manager",
             "is_organization_owner",
+            'organization'
         ]
         read_only_fields = [
             "email",
-            "organization_id",
             "role",
             "is_annotator",
             "is_workspace_manager",
             "is_organization_owner",
+            'organization'
         ]
 
     def get_is_annotator(self, obj):

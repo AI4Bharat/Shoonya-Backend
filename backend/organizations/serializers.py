@@ -10,4 +10,5 @@ class InviteGenerationSerializer(serializers.Serializer):
 class OrganizationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Organization
-        fields = ["title", "email_domain_name", "created_by"]
+        fields = ["id", "title", "email_domain_name", "created_by"]
+        read_only_fields = ["id", "created_by"]
