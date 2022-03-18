@@ -203,10 +203,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
     
-    @action(detail=False, methods=['GET'], name="Get Project Types", url_name="get_project_types")
+    @action(detail=False, methods=['GET'], name="Get Project Types", url_name="types")
     @project_is_archived
     @is_organization_owner_or_workspace_manager
-    def get_project_types(self, request, *args, **kwargs):
+    def types(self, request, *args, **kwargs):
         project_registry = ProjectRegistry()
         try:
             return Response(project_registry.data, status=status.HTTP_200_OK)
