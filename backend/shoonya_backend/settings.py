@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "projects",
     "tasks",
     "corsheaders",
+    "import_export",
 ]
 
 CSRF_COOKIE_SECURE = False
