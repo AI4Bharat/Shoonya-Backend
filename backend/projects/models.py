@@ -4,6 +4,7 @@ from users.models import User
 from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
+#from dataset import LANG_CHOICES
 
 RANDOM = "r"
 BATCH = "b"
@@ -73,8 +74,7 @@ class Project(models.Model):
     show_predictions_to_annotator = models.BooleanField(
         verbose_name="annotator_can_see_model_predictions", default=False
     )
-    maximum_annotators = models.IntegerField
-    total_annotation = models.IntegerField
+
     filter_string = models.CharField(max_length=1000, null=True)
     label_config = models.CharField(
         verbose_name="XML Template Config", max_length=1000, null=True
@@ -99,6 +99,14 @@ class Project(models.Model):
     project_type = models.PositiveSmallIntegerField(
         choices=PROJECT_TYPE_CHOICES, blank=False, null=False
     )
+
+    variable_parameters = models.JSONField(verbose_name="variable parameters for project", null=True)
+
+    # maximum_annotators
+    # total_annotations
+    # lang_id = models.CharField(
+    #     verbose_name="language_id", choices=LANG_CHOICES, max_length=3
+    # )
 
     def __str__(self):
         return str(self.title)

@@ -62,6 +62,19 @@ class ProjectRegistry:
             "fields": project['input_dataset']['fields'],
         }
     
+    def get_output_dataset_and_fields(self, project_type):
+        """
+        For the given project type, get output dataset and its fields
+        """
+        if project_type not in self.project_types:
+            return {}
+        project = self.project_types[project_type]
+        return {
+            "dataset_type": project['output_dataset']['class'],
+            "save_type": project['output_dataset']['save_type'],
+            "fields": project['output_dataset']['fields'],
+        }
+    
     def get_label_studio_jsx_payload(self, project_type):
         """
         For the given project type, get the annotation UI for label-studio-frontend

@@ -40,9 +40,8 @@ class Task(models.Model):
         DatasetBase, verbose_name="dataset_data_id", on_delete=models.CASCADE
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    correct_annotation = models.TextField(
-        verbose_name="task_correct_annotation", null=True, blank=True
-    )
+    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True)
+    
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users"
     )

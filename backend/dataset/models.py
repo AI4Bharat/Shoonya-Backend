@@ -96,7 +96,7 @@ class SentenceText(DatasetBase):
     )
     text = models.TextField(verbose_name="text")
     domain = models.CharField(verbose_name="domain", max_length=1024)
-    is_profane = models.BooleanField(null=True)
+    is_profane = models.BooleanField(null=True, blank=True)
 
     def __str__(self):
         return str(self.data_id)
@@ -114,12 +114,12 @@ class TranslationPair(DatasetBase):
         verbose_name="output_language_id", choices=LANG_CHOICES, max_length=3
     )
     input_text = models.TextField(verbose_name="input_text")
-    output_text = models.TextField(verbose_name="output_text")
+    output_text = models.TextField(verbose_name="output_text", null=True, blank=True)
     machine_translation = models.TextField(
-        verbose_name="machine_translation", null=True
+        verbose_name="machine_translation", null=True, blank=True
     )
-    labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True)
-    rating = models.IntegerField(verbose_name="translation_rating", null=True)
+    labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    rating = models.IntegerField(verbose_name="translation_rating", null=True, blank=True)
 
     def __str__(self):
         return str(self.data_id)
