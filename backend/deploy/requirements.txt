@@ -1,6 +1,7 @@
 django
 djangorestframework
 django-cors-headers
+django-import-export
 django-smtp-ssl
 djoser
 drf-yasg
@@ -8,3 +9,4 @@ psycopg2
 python-dotenv
 pillow
 pyyaml
+label-studio

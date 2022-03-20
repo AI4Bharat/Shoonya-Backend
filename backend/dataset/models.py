@@ -38,6 +38,7 @@ class DatasetInstance(models.Model):
     instance_id = models.IntegerField(
         verbose_name="dataset_instance_id", primary_key=True
     )
+
     parent_instance_id = models.IntegerField(
         verbose_name="parent_instance_id", blank=True, null=True
     )
@@ -55,6 +56,12 @@ class DatasetInstance(models.Model):
         max_length=100,
     )
     users = models.ManyToManyField(User, related_name="dataset_users")
+
+    class Meta:
+        db_table = "dataset_instance"
+        indexes = [
+            models.Index(fields=["instance_id"]),
+        ]
 
     def __str__(self):
         return str(self.instance_name)
@@ -74,9 +81,9 @@ class DatasetBase(models.Model):
         verbose_name="metadata_json", null=True, blank=True
     )
 
-    class Meta:
-        """Django definition of abstract model"""
-        abstract = True
+    # class Meta:
+    #     """Django definition of abstract model"""
+    #     abstract = True
 
 
 class SentenceText(DatasetBase):
@@ -85,7 +92,7 @@ class SentenceText(DatasetBase):
     """
 
     lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=3
     )
     text = models.TextField(verbose_name="text")
     domain = models.CharField(verbose_name="domain", max_length=1024)
@@ -101,10 +108,10 @@ class TranslationPair(DatasetBase):
     """
 
     input_lang_id = models.CharField(
-        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=3
     )
     output_lang_id = models.CharField(
-        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=3
     )
     input_text = models.TextField(verbose_name="input_text")
     output_text = models.TextField(verbose_name="output_text")
