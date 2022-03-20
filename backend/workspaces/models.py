@@ -30,7 +30,6 @@ class Workspace(models.Model, DummyModelMixin):
         settings.AUTH_USER_MODEL,
         verbose_name="manager",
         related_name="workspace_manager",
-        null=True,
     )
 
     created_by = models.OneToOneField(
