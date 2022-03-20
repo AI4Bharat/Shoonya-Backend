@@ -5,6 +5,8 @@ from users.serializers import UserProfileSerializer
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
+    manager = UserProfileSerializer(read_only=True,many=True)
+    created_by = UserProfileSerializer(read_only=True)
     class Meta:
         model = Workspace
         fields = [
@@ -15,7 +17,6 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "created_by",
             "id",
         ]
-        read_only_fields = ["created_by"]
 
 
 class WorkspaceManagerSerializer(serializers.ModelSerializer):

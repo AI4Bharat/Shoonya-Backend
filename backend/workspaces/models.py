@@ -41,7 +41,7 @@ class Workspace(models.Model, DummyModelMixin):
     )
 
     def __str__(self):
-        return str(self.workspace_name) + ", " + str(self.created_by.email)
+        return str(self.workspace_name) 
 
     def has_user(self, user):
         if self.user.filter(pk=user.pk).exists():
