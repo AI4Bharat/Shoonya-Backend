@@ -8,7 +8,7 @@ from .models import Organization
 from .serializers import OrganizationSerializer
 from .decorators import is_organization_owner, is_particular_organization_owner
 
-from users.serializers import UserProfileSerializer
+from users.serializers import UserFetchSerializer
 from users.models import User
 
 
@@ -51,5 +51,5 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
         users = User.objects.filter(organization=organization)
-        serializer = UserProfileSerializer(users, many=True)
+        serializer = UserFetchSerializer(users, many=True)
         return Response(serializer.data)

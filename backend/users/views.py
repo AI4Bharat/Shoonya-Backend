@@ -47,7 +47,7 @@ class InviteViewSet(viewsets.ViewSet):
         for email in emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
-                user = User(username=generate_random_string(12), email=email, organization_id=org,)
+                user = User(username=generate_random_string(12), email=email, organization_id=org.id,)
                 user.set_password(generate_random_string(10))
                 valid_user_emails.append(email)
                 users.append(user)

@@ -10,11 +10,12 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         fields = [
             "organization",
             "workspace_name",
-            "users",
+            "manager",
             "is_archived",
             "created_by",
             "id",
         ]
+        read_only_fields = ["created_by"]
 
 
 class WorkspaceManagerSerializer(serializers.ModelSerializer):

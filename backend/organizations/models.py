@@ -125,7 +125,7 @@ class Invite(models.Model):
             invite.save()
             send_mail(
                 "Invitation to join Organization",
-                f"Hello! You are invited to {organization.title}. Your Invite link is: http://localhost:3000/invite/{temp}",
+                f"Hello! You are invited to {organization.title}. Your Invite link is: http://localhost:3000/invite/{invite.invite_code}",
                 settings.DEFAULT_FROM_EMAIL,
                 valid_user_emails,
             )
