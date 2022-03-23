@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import permission_classes
 from drf_yasg.utils import swagger_auto_schema
-from .serializers import UserProfileSerializer, UserSignUpSerializer
+from .serializers import UserProfileSerializer, UserSignUpSerializer, UserUpdateSerializer
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
@@ -88,14 +88,14 @@ class InviteViewSet(viewsets.ViewSet):
 class UserViewSet(viewsets.ViewSet):
     permission_classes = (IsAuthenticated,)
 
-    @swagger_auto_schema(request_body=UserSignUpSerializer)
-    @action(detail=False, methods=["patch"], url_path="update", url_name="edit-profile")
+    @swagger_auto_schema(request_body=UserUpdateSerializer)
+    @action(detail=False, methods=["patch"], url_path="update", url_name="edit_profile")
     def edit_profile(self, request):
         """
         Updating user profile.
         """
         user = User.objects.get(email=request.data.get("email"))
-        serialized = UserProfileSerializer(user, request.data, partial=True)
+        serialized = UserUpdateSerializer(user, request.data, partial=True)
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User profile edited"}, status=status.HTTP_200_OK)

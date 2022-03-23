@@ -1,9 +1,12 @@
 import re
+from urllib import response
 from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
+from projects.serializers import ProjectSerializer
+from drf_yasg.utils import swagger_auto_schema
 
 from users.models import User
 from users.serializers import UserProfileSerializer
@@ -12,6 +15,7 @@ from .serializers import WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
 from .decorators import (
     is_organization_owner_or_workspace_manager,
+    is_workspace_member,
     workspace_is_archived,
     is_particular_workspace_manager,
 )
@@ -28,7 +32,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         if request.user.role == User.ANNOTATOR or request.user.role == User.WORKSPACE_MANAGER:
-            data = self.queryset.filter(users=request.user,is_archived=False,organization=request.user.organization)
+            data = self.queryset.filter(users=request.user, is_archived=False, organization=request.user.organization)
             serializer = self.serializer_class(data=data)
             if serializer.is_valid():
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -55,6 +59,9 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def destroy(self, request, pk=None, *args, **kwargs):
         return Response({"message": "Deleting of Workspaces is not supported!"}, status=status.HTTP_403_FORBIDDEN,)
 
+
+class WorkspaceCustomViewSet(viewsets.ViewSet):
+    @swagger_auto_schema(responses={200: UserProfileSerializer})
     @is_particular_workspace_manager
     @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
     def users(self, request, pk=None):
@@ -68,7 +75,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
     # TODO : add exceptions
     @action(
-        detail=True, methods=["POST", "GET"], name="Archive Workspace", url_name="archive",
+        detail=True, methods=["POST"], name="Archive Workspace", url_name="archive",
     )
     @is_particular_workspace_manager
     def archive(self, request, pk=None, *args, **kwargs):
@@ -78,7 +85,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         workspace.save()
         return super().retrieve(request, *args, **kwargs)
 
-    # TODO : add exceptions
+    # TODO: Add serializer
     @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
     @is_particular_workspace_manager
     def assign_manager(self, request, pk=None, *args, **kwargs):
@@ -104,3 +111,15 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "Email is required!"}
             ret_status = status.HTTP_400_BAD_REQUEST
         return Response(ret_dict, status=ret_status)
+
+    @swagger_auto_schema(responses={200: ProjectSerializer})
+    @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
+    @is_workspace_member
+    def get_projects(self, request, pk=None):
+        if request.user.role == User.ANNOTATOR:
+            projects = Workspace.objects.get(pk=pk).projects.get(users=request.user)
+        else:
+            projects = Workspace.objects.get(pk=pk).projects.all()
+        serializer = ProjectSerializer(projects, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

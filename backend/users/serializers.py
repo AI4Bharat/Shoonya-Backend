@@ -18,19 +18,45 @@ class UserSignUpSerializer(serializers.ModelSerializer):
         return instance
 
 
+class UserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "lang_id",
+            "availability_status",
+            "phone",
+        ]
+        read_only_fields = ["email"]
+
+
 class UserProfileSerializer(serializers.ModelSerializer):
     organization = OrganizationSerializer(read_only=True)
 
     class Meta:
         model = User
-        fields = ["id","username", "email", "first_name", "last_name", "phone", "role", "organization"]
-        read_only_fields = ["email", "role", "organization"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "lang_id",
+            "availability_status",
+            "first_name",
+            "last_name",
+            "phone",
+            "role",
+            "organization",
+        ]
+        read_only_fields = ["id", "email", "role", "organization"]
 
 
 class UserFetchSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username","email","first_name", "last_name", "role", "has_accepted_invite"]
+        fields = ["id", "username", "email", "first_name", "last_name", "role", "has_accepted_invite"]
         read_only_fields = [
             "id",
             "email",
