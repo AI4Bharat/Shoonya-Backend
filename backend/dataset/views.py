@@ -19,9 +19,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
 
-# class CollectionDatasetViewSet(viewsets.ModelViewSet):
-#     queryset = CollectionDataset.objects.all()
-#     serializer_class = CollectionDatasetSerializer
+# class SentenceTextViewSet(viewsets.ModelViewSet):
+#     queryset = SentenceText.objects.all()
+#     serializer_class = SentenceTextSerializer
 #     permission_classes = (IsAuthenticatedOrReadOnly, )
 
 # class SpeechCollectionViewset(viewsets.ModelViewSet):

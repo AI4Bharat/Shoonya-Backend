@@ -1,5 +1,7 @@
 import re
 import random
+import json
+from collections import OrderedDict
 from urllib.parse import parse_qsl
 from django.shortcuts import render
 from rest_framework import viewsets
@@ -9,6 +11,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from django.core.mail import send_mail
 from django.conf import settings
+from django.forms.models import model_to_dict
+import pandas as pd
 
 try:
     from yaml import CLoader as Loader
@@ -22,7 +26,7 @@ except ImportError:
 
 from users.models import User
 from dataset import models as dataset_models
-from tasks.models import Task
+from tasks.models import Task, DataExport
 from .registry_helper import ProjectRegistry
 
 from .serializers import ProjectSerializer, ProjectUsersSerializer
@@ -40,6 +44,11 @@ PROJECT_IS_PUBLISHED_ERROR = {
 
 def get_task_field(annotation_json, field):
     return annotation_json[field]
+
+def batch(iterable, n=1):
+    l = len(iterable)
+    for ndx in range(0, l, n):
+        yield iterable[ndx : min(ndx + n, l)]
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -245,7 +254,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(ret_dict, status=ret_status)
     
     @action(detail=False, methods=['GET'], name="Get Project Types", url_name="types")
-    @project_is_archived
     @is_organization_owner_or_workspace_manager
     def types(self, request, *args, **kwargs):
         project_registry = ProjectRegistry()
@@ -254,6 +262,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except Exception:
             print(Exception.args)
             return Response({"message": "Error Occured"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def get_task_queryset(self, queryset):
+        return queryset
     
     @action(detail=True, methods=['POST'], name='Export Project')
     @project_is_archived
@@ -276,14 +287,45 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotation_fields = output_dataset_info["fields"]["annotations"]
                 data_items = []
                 tasks = Task.objects.filter(project_id__exact=project)
-                for task in tasks:
 
+                # query = tasks.select_related('project').select_related('correct_annotation_id')
+                # task_ids = query.values_list('task_id', flat=True)
+                # task_values = list(query.values())
+                # print(task_values)
+                # tasks_dict = [OrderedDict(value) for value in task_values]
+                # print(tasks_dict)
+
+                tasks_list = []
+                annotated_tasks = []
+                for task in tasks:
+                    task_dict = model_to_dict(task)
+                    # Rename keys to match label studio converter
+                    # task_dict['id'] = task_dict['task_id']
+                    # del task_dict['task_id']
                     if task.correct_annotation is not None:
-                        data_item = dataset_model.objects.get(data_id__exact=task.data_id.data_id)
-                        for field in annotation_fields:
-                            setattr(data_item, field, get_task_field(task.correct_annotation.result_json, field))
-                        data_items.append(data_item)
-                # Loop over project tasks and parse annotation json
+                        annotated_tasks.append(task)
+                        annotation_dict = model_to_dict(task.correct_annotation)
+                        # annotation_dict['result'] = annotation_dict['result_json']
+                        # del annotation_dict['result_json']
+                        task_dict['annotations'] = [OrderedDict(annotation_dict)]
+                    del task_dict['annotation_users']
+                    del task_dict['review_user']
+                    tasks_list.append(OrderedDict(task_dict))
+
+                download_resources=True
+                tasks_df = DataExport.export_csv_file(
+                    project, tasks_list, download_resources, request.GET
+                )
+                tasks_annotations = json.loads(tasks_df.to_json(orient='records'))
+
+                for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
+
+                    task.output_data = task.input_data
+                    task.save()
+                    data_item = dataset_model.objects.get(data_id__exact=tl["input_data"])
+                    for field in annotation_fields:
+                        setattr(data_item, field, ta[field])
+                    data_items.append(data_item)
 
                 # Write json to dataset columns
                 dataset_model.objects.bulk_update(data_items, annotation_fields)
@@ -298,27 +340,61 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 data_items = []
                 tasks = Task.objects.filter(project_id__exact=project)
-                for task in tasks:
-                    if task.correct_annotation is not None:
-                        # data_item = dataset_model.objects.get(data_id__exact=task.data_id.data_id)
-                        data_item = dataset_model()
-                        for field in annotation_fields:
-                            setattr(data_item, field, get_task_field(task.correct_annotation.result_json, field))
-                        for field in task_annotation_fields:
-                            setattr(data_item, field, task.data[field])
 
+                tasks_list = []
+                annotated_tasks = []
+                for task in tasks:
+                    task_dict = model_to_dict(task)
+                    # Rename keys to match label studio converter
+                    # task_dict['id'] = task_dict['task_id']
+                    # del task_dict['task_id']
+                    if task.correct_annotation is not None:
+                        annotated_tasks.append(task)
+                        annotation_dict = model_to_dict(task.correct_annotation)
+                        # annotation_dict['result'] = annotation_dict['result_json']
+                        # del annotation_dict['result_json']
+                        task_dict['annotations'] = [OrderedDict(annotation_dict)]
+                    del task_dict['annotation_users']
+                    del task_dict['review_user']
+                    tasks_list.append(OrderedDict(task_dict))
+
+                download_resources=True
+                # export_stream, content_type, filename = DataExport.generate_export_file(
+                #     project, tasks_list, 'CSV', download_resources, request.GET
+                # )
+                tasks_df = DataExport.export_csv_file(
+                    project, tasks_list, download_resources, request.GET
+                )
+                tasks_annotations = json.loads(tasks_df.to_json(orient='records'))
+                
+
+                for (ta,task) in zip(tasks_annotations, annotated_tasks):
+                    # data_item = dataset_model.objects.get(data_id__exact=task.data_id.data_id)
+                    if task.output_data is not None:
+                        data_item = dataset_model.objects.get(data_id__exact=task.output_data.data_id)
+                    else:
+                        data_item = dataset_model()
                         data_item.instance_id = export_dataset_instance
-                        data_items.append(data_item)
+
+                    for field in annotation_fields:
+                        setattr(data_item, field, ta[field])
+                    for field in task_annotation_fields:
+                        setattr(data_item, field, ta[field])
+
+                    data_item.save()
+                    task.output_data = data_item
+                    task.save()
+
+                    # data_items.append(data_item)
                 
                 # TODO: implement bulk create if possible (only if non-hacky)
                 # dataset_model.objects.bulk_create(data_items)
                 # Saving data items to dataset in a loop
-                for item in data_items:
-                    item.save()
+                # for item in data_items:
                 
             # FIXME: Allow export multiple times
-            project.is_archived=True
-            project.save()
+            # project.is_archived=True
+            # project.save()
             ret_dict = {"message": "SUCCESS!"}         
             ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:

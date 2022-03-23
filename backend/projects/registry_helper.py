@@ -51,7 +51,7 @@ class ProjectRegistry:
                 self.project_types[project_key] = project_type
 
     def get_input_dataset_and_fields(self, project_type):
-        """
+        """ 
         For the given project type, get input dataset and its fields
         """
         if project_type not in self.project_types:

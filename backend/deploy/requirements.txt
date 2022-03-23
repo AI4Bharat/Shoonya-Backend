@@ -10,3 +10,6 @@ python-dotenv
 pillow
 pyyaml
 label-studio
+label-studio-converter
+label-studio-tools
+pandas
