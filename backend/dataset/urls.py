@@ -5,7 +5,8 @@ from dataset.views import *
 
 router = routers.DefaultRouter()
 
-router.register(r"dataset", DatasetInstanceViewSet)
+router.register(r"instances", DatasetInstanceViewSet)
+router.register(r"dataitems", DatasetItemsViewSet)
 # router.register(r"sentences", SentenceTextViewSet)
 # router.register(r"collection", CollectionDatasetViewSet)
 # router.register(r"speechcol",SpeechCollectionViewset)

@@ -61,13 +61,13 @@ class Task(models.Model):
         related_name='output_data_id'
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True)
+    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True, blank=True)
     
     annotation_users = models.ManyToManyField(
-        User, related_name="annotation_users", verbose_name="annotation_users"
+        User, related_name="annotation_users", verbose_name="annotation_users", null=True, blank=True
     )
     review_user = models.ManyToManyField(
-        User, related_name="review_users", verbose_name="review_users"
+        User, related_name="review_users", verbose_name="review_users", null=True, blank=True
     )
     task_status = models.CharField(
         choices=TASK_STATUS,
@@ -93,7 +93,7 @@ class Annotation(models.Model):
     """
 
     annotation_id = models.AutoField(verbose_name="annotation_id", primary_key=True)
-    result = models.JSONField(null=True, verbose_name="annotation_result_json")
+    result = models.JSONField(verbose_name="annotation_result_json")
     task_id = models.ForeignKey(
         Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name='annotations'
     )
@@ -101,7 +101,7 @@ class Annotation(models.Model):
         User, on_delete=models.CASCADE, verbose_name="annotation_completed_by"
     )
     lead_time = models.DateTimeField(
-        auto_now_add=True, blank=True, verbose_name="annotation_lead_time"
+        auto_now_add=True, verbose_name="annotation_lead_time"
     )
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
 
