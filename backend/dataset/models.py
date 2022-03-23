@@ -7,8 +7,8 @@ from users.models import User
 
 # List of all dataset types
 DATASET_TYPE_CHOICES = [
-    ("sentence_text", "SentenceText"),
-    ("translation_pair", "TranslationPair"),
+    ("SentenceText", "SentenceText"),
+    ("TranslationPair", "TranslationPair"),
 ]
 
 # List of Indic languages
@@ -40,13 +40,13 @@ class DatasetInstance(models.Model):
     )
 
     parent_instance_id = models.IntegerField(
-        verbose_name="parent_instance_id", blank=True, null=True
+        verbose_name="parent_instance_id", blank=True, null=True, blank=True
     )
     instance_name = models.CharField(
         verbose_name="dataset_instance_name", max_length=1024
     )
     instance_description = models.TextField(
-        verbose_name="dataset_instance_description", null=True
+        verbose_name="dataset_instance_description", null=True, blank=True
     )
     organisation_id = models.IntegerField(verbose_name="organisation_id", null=True)
     workspace_id = models.IntegerField(verbose_name="workspace_id", null=True)
