@@ -1,13 +1,9 @@
-from label_studio.core import version
-from label_studio.core.utils.io import get_all_files_from_dir, get_temp_dir, read_bytes_stream
 from django.conf import settings
 from django.db import models
 from users.models import User
 from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
-
-from label_studio_converter import Converter
 #from dataset import LANG_CHOICES
 
 RANDOM = "r"
