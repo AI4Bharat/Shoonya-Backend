@@ -22,10 +22,12 @@ SAMPLING_MODE_CHOICES = (
 
 MonolingualTranslation = 1
 TranslationEditing = 2
+OCRAnnotation = 3
 
 PROJECT_TYPE_CHOICES = (
     (MonolingualTranslation, "MonolingualTranslation"),
     (TranslationEditing, "TranslationEditing"),
+    (OCRAnnotation, "OCRAnnotation")
 )
 
 
