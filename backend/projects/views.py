@@ -256,9 +256,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['GET'], name="Get Project Types", url_name="types")
     @is_organization_owner_or_workspace_manager
     def types(self, request, *args, **kwargs):
-        project_registry = ProjectRegistry()
+        # project_registry = ProjectRegistry()
         try:
-            return Response(project_registry.data, status=status.HTTP_200_OK)
+            return Response(ProjectRegistry().data, status=status.HTTP_200_OK)
         except Exception:
             print(Exception.args)
             return Response({"message": "Error Occured"}, status=status.HTTP_400_BAD_REQUEST)
