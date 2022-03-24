@@ -34,3 +34,20 @@ Translation:
         fields:
           annotations:
             - output_text
+OCR:
+  description: "Performing OCR on images"
+  project_types:
+    OCRAnnotation:
+      label_studio_jsx_file: "ocr/ocr_annotation.jsx"
+      input_dataset:
+        class: OCRDocument
+        fields:
+          - file_url
+      output_dataset: 
+        class: OCRDocument
+        save_type: in_place
+        fields:
+          annotations:
+            - annotation_bboxes
+            - annotation_transcripts
+            - annotation_labels
