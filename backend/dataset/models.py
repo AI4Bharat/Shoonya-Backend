@@ -40,7 +40,7 @@ class DatasetInstance(models.Model):
     )
 
     parent_instance_id = models.IntegerField(
-        verbose_name="parent_instance_id", blank=True, null=True, blank=True
+        verbose_name="parent_instance_id", blank=True, null=True
     )
     instance_name = models.CharField(
         verbose_name="dataset_instance_name", max_length=1024
