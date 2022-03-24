@@ -1,4 +1,3 @@
-label-studio
 django>=4.0
 lxml
 djangorestframework
