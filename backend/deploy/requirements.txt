@@ -1,4 +1,6 @@
-django
+label-studio
+django>=4.0
+lxml
 djangorestframework
 django-cors-headers
 django-import-export
