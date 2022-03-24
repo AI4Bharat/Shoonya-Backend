@@ -160,7 +160,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task = Task(
                 data=item,
                 project_id=project,
-                data_id = data
+                input_data = data
             )
             tasks.append(task)
         
@@ -311,7 +311,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     del task_dict['annotation_users']
                     del task_dict['review_user']
                     tasks_list.append(OrderedDict(task_dict))
-
                 download_resources=True
                 tasks_df = DataExport.export_csv_file(
                     project, tasks_list, download_resources, request.GET
