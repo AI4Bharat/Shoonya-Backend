@@ -15,4 +15,4 @@ jobs:
       - name: Create environment file
         run: cp .env.example ./backend/.env
       - name: Run tests
-        run: python ./backend/manage.py test backend/
+        run: python ./backend/manage.py test
