@@ -66,6 +66,47 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="last annotation activity", auto_now=True
     )
 
+    # List of Indic languages
+    LANG_CHOICES = (
+        ("bn", "Bengali"),
+        ("gu", "Gujarati"),
+        ("en", "English"),
+        ("hi", "Hindi"),
+        ("kn", "Kannada"),
+        ("mr", "Marathi"),
+        ("ne", "Nepali"),
+        ("ne", "Odia"),
+        ("pa", "Punjabi"),
+        ("sa", "Sanskrit"),
+        ("ta", "Tamil"),
+        ("te", "Telugu"),
+    )
+
+    lang_id = models.CharField(
+        verbose_name="language_id",
+        choices=LANG_CHOICES,
+        blank=False,
+        null=False,
+        default="en",
+        max_length=3,
+    )
+
+    maximum_annotations_per_day = models.IntegerField(
+        verbose_name="maximum annotations per day", null=True
+    )
+
+    AVAILABLE = 1
+    ON_LEAVE = 2
+
+    AVAILABILITY_STATUS_CHOICES = (
+        (AVAILABLE, "Available"),
+        (ON_LEAVE, "On Leave"),
+    )
+
+    availability_status = models.PositiveSmallIntegerField(
+        choices=AVAILABILITY_STATUS_CHOICES, blank=False, null=False, default=AVAILABLE
+    )
+
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
 
     objects = UserManager()
@@ -89,7 +130,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         name = self.get_full_name()
         if len(name) == 0:
             name = self.email
-
         return name
 
     def get_full_name(self):

@@ -4,11 +4,14 @@ Model definitions for Dataset Management
 
 from django.db import models
 from users.models import User
+from organizations.models import Organization
+from workspaces.models import Workspace
 
 # List of all dataset types
 DATASET_TYPE_CHOICES = [
-    ("sentence_text", "SentenceText"),
-    ("translation_pair", "TranslationPair"),
+    ("SentenceText", "SentenceText"),
+    ("TranslationPair", "TranslationPair"),
+    ("OCRDocument", "OCRDocument"),
 ]
 
 # List of Indic languages
@@ -29,15 +32,23 @@ LANG_CHOICES = (
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
 
+OCR_FILE_CHOICES = (('PDF', "pdf"), (('IMG', 'image')))
+OCR_TYPE_CHOICES = (('ST', "SceneText"), ('DT', "DenseText"))
+OCR_DOMAIN_CHOICES = (
+    ("BO", "Books"),
+    ("FO", "Forms"),
+    ("OT", "Others"),
+) 
 
 class DatasetInstance(models.Model):
     """
     Dataset Instance Model
     """
 
-    instance_id = models.IntegerField(
+    instance_id = models.AutoField(
         verbose_name="dataset_instance_id", primary_key=True
     )
+
     parent_instance_id = models.IntegerField(
         verbose_name="parent_instance_id", blank=True, null=True
     )
@@ -45,16 +56,22 @@ class DatasetInstance(models.Model):
         verbose_name="dataset_instance_name", max_length=1024
     )
     instance_description = models.TextField(
-        verbose_name="dataset_instance_description", null=True
+        verbose_name="dataset_instance_description", null=True, blank=True
     )
-    organisation_id = models.IntegerField(verbose_name="organisation_id", null=True)
-    workspace_id = models.IntegerField(verbose_name="workspace_id", null=True)
+    organisation_id = models.ForeignKey(Organization, null=True, on_delete=models.SET_NULL)
+    workspace_id = models.ForeignKey(Workspace, null=True, on_delete=models.SET_NULL)
     dataset_type = models.CharField(
         verbose_name="dataset_type",
         choices=DATASET_TYPE_CHOICES,
         max_length=100,
     )
     users = models.ManyToManyField(User, related_name="dataset_users")
+
+    class Meta:
+        db_table = "dataset_instance"
+        indexes = [
+            models.Index(fields=["instance_id"]),
+        ]
 
     def __str__(self):
         return str(self.instance_name)
@@ -74,9 +91,9 @@ class DatasetBase(models.Model):
         verbose_name="metadata_json", null=True, blank=True
     )
 
-    class Meta:
-        """Django definition of abstract model"""
-        abstract = True
+    # class Meta:
+    #     """Django definition of abstract model"""
+    #     abstract = True
 
 
 class SentenceText(DatasetBase):
@@ -85,11 +102,11 @@ class SentenceText(DatasetBase):
     """
 
     lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=3
     )
     text = models.TextField(verbose_name="text")
     domain = models.CharField(verbose_name="domain", max_length=1024)
-    is_profane = models.BooleanField(null=True)
+    is_profane = models.BooleanField(null=True, blank=True)
 
     def __str__(self):
         return str(self.data_id)
@@ -101,18 +118,61 @@ class TranslationPair(DatasetBase):
     """
 
     input_lang_id = models.CharField(
-        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=3
     )
     output_lang_id = models.CharField(
-        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=100
+        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=3
     )
     input_text = models.TextField(verbose_name="input_text")
-    output_text = models.TextField(verbose_name="output_text")
+    output_text = models.TextField(verbose_name="output_text", null=True, blank=True)
     machine_translation = models.TextField(
-        verbose_name="machine_translation", null=True
+        verbose_name="machine_translation", null=True, blank=True
     )
-    labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True)
-    rating = models.IntegerField(verbose_name="translation_rating", null=True)
+    labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    rating = models.IntegerField(verbose_name="translation_rating", null=True, blank=True)
+
+    def __str__(self):
+        return str(self.data_id)
+
+
+class OCRDocument(DatasetBase):
+    """
+    Dataset for storing OCR file urls and their annotations.
+    """
+
+    file_type = models.CharField(
+        verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=3
+    )
+    file_url = models.URLField(
+        verbose_name = 'bucket_url_for_file', max_length = 500
+    )
+    lang_id = models.CharField(
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=3
+    )
+    ocr_type = models.CharField(
+        verbose_name="ocr_type", choices=OCR_TYPE_CHOICES, max_length=3
+    )
+    ocr_domain = models.CharField(
+        verbose_name="ocr_domain", choices=OCR_DOMAIN_CHOICES, max_length=3
+    )
+    # annotation_json = models.JSONField(
+    #     verbose_name="annotation_json", null=True, blank=True
+    # )
+    # prediction_json = models.JSONField(
+    #     verbose_name="prediction_json", null=True, blank=True
+    # )
+
+    annotation_bboxes = models.JSONField(
+        verbose_name="annotation_bboxes", null=True, blank=True
+    )
+
+    annotation_transcripts = models.JSONField(
+        verbose_name="annotation_transcripts", null=True, blank=True
+    )
+
+    annotation_labels = models.JSONField(
+        verbose_name="annotation_labels", null=True, blank=True
+    )
 
     def __str__(self):
         return str(self.data_id)

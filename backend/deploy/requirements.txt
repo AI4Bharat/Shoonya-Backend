@@ -1,8 +1,8 @@
-label-studio
-django>=4.0
+django
 lxml
 djangorestframework
 django-cors-headers
+django-import-export
 django-smtp-ssl
 djoser
 drf-yasg
@@ -10,3 +10,7 @@ psycopg2
 python-dotenv
 pillow
 pyyaml
+label-studio>=1.4
+label-studio-converter>=0.0.39
+label-studio-tools
+pandas

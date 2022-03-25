@@ -48,9 +48,10 @@ INSTALLED_APPS = [
     "organizations",
     "workspaces",
     "dataset",
-    "tasks",
     "projects",
+    "tasks",
     "corsheaders",
+    "import_export",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -65,10 +66,10 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
-AUTHENTICATION_BACKENDS = ("django.contrib.auth.backends.ModelBackend",)
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
