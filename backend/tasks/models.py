@@ -5,7 +5,7 @@ from copy import deepcopy
 from datetime import datetime
 import json
 
-from label_studio.core import version
+from label_studio.core.version import get_git_version
 from label_studio_converter import Converter
 from label_studio.core.utils.io import get_all_files_from_dir, get_temp_dir, read_bytes_stream
 from label_studio_tools.core.label_config import parse_config
@@ -123,7 +123,7 @@ class DataExport(object):
         print("Project export", project)
         annotation_number = Annotation.objects.filter(task__project_id=project).count()
         try:
-            platform_version = version.get_git_version()
+            platform_version = get_git_version()
         except:
             platform_version = 'none'
             print('Version is not detected in save_export_files()')
