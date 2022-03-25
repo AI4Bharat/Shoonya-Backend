@@ -37,7 +37,7 @@ class TranslationPairResource(resources.ModelResource):
     )
     class Meta:
         fields = ('instance_id', 'instance_name', 'instance_description', 'dataset_type', 'imput_lang_id', 'output_lang_id', 'input_text', 'output_text', 'machine_translation', 'labse_score', 'rating')
-        model = models.SentenceText
+        model = models.TranslationPair
 
 
 class SentenceTextResource(resources.ModelResource):
