@@ -4,7 +4,7 @@ from tasks.views import TaskViewSet, AnnotationViewSet
 
 router = routers.DefaultRouter()
 
-router.register(r"task", TaskViewSet, basename="task")
-router.register(r"annotation", AnnotationViewSet, basename="annotation")
+# router.register(r"task", TaskViewSet, basename="task")
+# router.register(r"annotation", AnnotationViewSet, basename="annotation")
 
-urlpatterns = [] + router.urls
+# urlpatterns = [] + router.urls

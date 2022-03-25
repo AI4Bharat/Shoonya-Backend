@@ -90,6 +90,32 @@ class OCRResource(resources.ModelResource):
         fields = ('instance_id', 'instance_name', 'instance_description', 'dataset_type', 'file_type', 'file_url', 'lang_id', 'ocr_type', 'ocr_domain', 'annotation_json', 'prediction_json')
         model = models.OCRDocument
 
+class BlockTextResource(resources.ModelResource):
+    instance_id = fields.Field(
+        column_name = 'instance_id',
+        attribute = 'instance_id',
+        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_id')
+    )
+    instance_name = fields.Field(
+        column_name = 'instance_id',
+        attribute = 'instance_id',
+        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_name')
+    )
+    instance_description = fields.Field(
+        column_name = 'instance_id',
+        attribute = 'instance_id',
+        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_description')
+    )
+    dataset_type = fields.Field(
+        column_name = 'instance_id',
+        attribute = 'instance_id',
+        widget = ForeignKeyWidget(models.DatasetInstance, 'dataset_type')
+    )
+    class Meta:
+        fields = ('instance_id', 'instance_name', 'instance_description', 'dataset_type', 'lang_id', 'text')
+        model = models.BlockText
+
+
 class SentenceTextAdmin(ImportExportActionModelAdmin):
     resource_class = SentenceTextResource
 
@@ -99,6 +125,11 @@ class TranslationPairAdmin(ImportExportActionModelAdmin):
 class OCRDocumentAdmin(ImportExportActionModelAdmin):
     resource_class = OCRResource
 
+class BlockTextAdmin(ImportExportActionModelAdmin):
+    resource_class = BlockTextResource
+
 admin.site.register(models.SentenceText, SentenceTextAdmin)
 admin.site.register(models.TranslationPair, TranslationPairAdmin)
 admin.site.register(models.OCRDocument, OCRDocumentAdmin)
+
+admin.site.register(models.BlockText, BlockTextAdmin)

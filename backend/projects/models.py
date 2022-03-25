@@ -16,14 +16,25 @@ SAMPLING_MODE_CHOICES = (
     (FULL, "Full"),
 )
 
-MonolingualTranslation = 1
-TranslationEditing = 2
-OCRAnnotation = 3
+# DEPRECIATED: Using numbers for project types
+# MonolingualTranslation = 1
+# TranslationEditing = 2
+# OCRAnnotation = 3
+# MonolingualCollection = 4
 
 PROJECT_TYPE_CHOICES = (
-    (MonolingualTranslation, "MonolingualTranslation"),
-    (TranslationEditing, "TranslationEditing"),
-    (OCRAnnotation, "OCRAnnotation")
+    ("MonolingualTranslation", "MonolingualTranslation"),
+    ("TranslationEditing", "TranslationEditing"),
+    ("OCRAnnotation", "OCRAnnotation"),
+    ("MonolingualCollection", "MonolingualCollection")
+)
+
+Collection = "Collection"
+Annotation = "Annotation"
+
+PROJECT_MODE_CHOICES = (
+    (Collection, "Collection"),
+    (Annotation, "Annotation")
 )
 
 
@@ -53,6 +64,7 @@ class Project(models.Model):
     dataset_id = models.ManyToManyField(
         DatasetInstance,
         related_name="project_dataset_instances",
+        null=True, blank=True
     )
 
     is_archived = models.BooleanField(
@@ -96,8 +108,12 @@ class Project(models.Model):
 
     data_type = models.JSONField(verbose_name="data type in project xml", null=True, blank=True)
 
-    project_type = models.PositiveSmallIntegerField(
-        choices=PROJECT_TYPE_CHOICES,
+    project_type = models.CharField(
+        choices=PROJECT_TYPE_CHOICES, max_length=100,
+    )
+
+    project_mode = models.CharField(
+        choices=PROJECT_MODE_CHOICES, max_length=100,
     )
 
     variable_parameters = models.JSONField(verbose_name="variable parameters for project", null=True, blank=True)

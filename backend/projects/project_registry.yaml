@@ -2,6 +2,7 @@ Translation:
   description: "Translating sentences from source to target language"
   project_types:
     MonolingualTranslation:
+      project_mode: "Annotation"
       label_studio_jsx_file: "translation/monolingual_translation.jsx"
       input_dataset:
         class: SentenceText
@@ -20,6 +21,7 @@ Translation:
           annotations:
             - output_text
     TranslationEditing:
+      project_mode: "Annotation"
       label_studio_jsx_file: "translation/translation_editing.jsx"
       input_dataset:
         class: TranslationPair
@@ -38,6 +40,7 @@ OCR:
   description: "Performing OCR on images"
   project_types:
     OCRAnnotation:
+      project_mode: "Annotation"
       label_studio_jsx_file: "ocr/ocr_annotation.jsx"
       input_dataset:
         class: OCRDocument
@@ -51,3 +54,17 @@ OCR:
             - annotation_bboxes
             - annotation_transcripts
             - annotation_labels
+Monolingual:
+  description: "Monolingual Data Collection"
+  project_types:
+    MonolingualCollection:
+      project_mode: "Collection"
+      output_dataset:
+        class: BlockText
+        save_type: new_record
+        fields:
+          annotations:
+            - domain
+            - text
+          variable_parameters:
+            - lang_id

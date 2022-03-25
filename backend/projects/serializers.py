@@ -26,6 +26,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "dataset_id",
             "label_config",
             "variable_parameters",
+            "project_mode",
         ]
 
 
