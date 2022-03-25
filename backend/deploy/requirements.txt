@@ -10,7 +10,7 @@ psycopg2
 python-dotenv
 pillow
 pyyaml
-label-studio
-label-studio-converter
+label-studio>=1.4
+label-studio-converter>=0.0.39
 label-studio-tools
 pandas
