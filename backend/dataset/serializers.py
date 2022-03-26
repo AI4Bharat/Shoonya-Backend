@@ -6,6 +6,12 @@ class DatasetInstanceSerializer(serializers.ModelSerializer):
         model = DatasetInstance
         fields = '__all__'
 
+
+class DatasetItemsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DatasetBase
+        fields = ["instance_id"]
+
 # class CollectionDatasetSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = CollectionDataset

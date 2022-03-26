@@ -23,7 +23,9 @@ class ProjectSerializer(serializers.ModelSerializer):
             "sampling_mode",
             "sampling_parameters_json",
             "project_type",
-            "dataset_id"
+            "dataset_id",
+            "label_config",
+            "variable_parameters",
         ]
 
 

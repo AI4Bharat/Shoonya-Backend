@@ -4,6 +4,7 @@ from users.models import User
 from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
+#from dataset import LANG_CHOICES
 
 RANDOM = "r"
 BATCH = "b"
@@ -17,10 +18,12 @@ SAMPLING_MODE_CHOICES = (
 
 MonolingualTranslation = 1
 TranslationEditing = 2
+OCRAnnotation = 3
 
 PROJECT_TYPE_CHOICES = (
     (MonolingualTranslation, "MonolingualTranslation"),
     (TranslationEditing, "TranslationEditing"),
+    (OCRAnnotation, "OCRAnnotation")
 )
 
 
@@ -31,11 +34,11 @@ class Project(models.Model):
     """
 
     title = models.CharField(max_length=100)
-    description = models.TextField(max_length=250)
+    description = models.TextField(max_length=1000, null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
         null=True,
+        on_delete=models.SET_NULL,
         related_name="project_creator",
         verbose_name="created_by",
     )
@@ -63,7 +66,7 @@ class Project(models.Model):
         help_text=("Designates wheather a project is published or not."),
     )
 
-    expert_instruction = models.TextField(max_length=500, null=True)
+    expert_instruction = models.TextField(max_length=500, null=True, blank=True)
     show_instruction = models.BooleanField(
         verbose_name="show_instruction_to_annotator", default=False
     )
@@ -73,32 +76,37 @@ class Project(models.Model):
     show_predictions_to_annotator = models.BooleanField(
         verbose_name="annotator_can_see_model_predictions", default=False
     )
-    maximum_annotators = models.IntegerField
-    total_annotation = models.IntegerField
-    filter_string = models.CharField(max_length=1000, null=True)
+
+    filter_string = models.CharField(max_length=1000, null=True, blank=True)
     label_config = models.CharField(
-        verbose_name="XML Template Config", max_length=1000, null=True
+        verbose_name="XML Template Config", max_length=1000, null=True, blank=True
     )
 
-    color = models.CharField(max_length=6, null=True)
+    color = models.CharField(max_length=6, null=True, blank=True)
 
     sampling_mode = models.CharField(
         choices=SAMPLING_MODE_CHOICES,
-        blank=False,
-        null=False,
         default=FULL,
         max_length=1,
     )
 
     sampling_parameters_json = models.JSONField(
-        verbose_name="sampling parameters json", null=True
+        verbose_name="sampling parameters json", null=True, blank=True
     )
 
-    data_type = models.JSONField(verbose_name="data type in project xml", null=True)
+    data_type = models.JSONField(verbose_name="data type in project xml", null=True, blank=True)
 
     project_type = models.PositiveSmallIntegerField(
-        choices=PROJECT_TYPE_CHOICES, blank=False, null=False
+        choices=PROJECT_TYPE_CHOICES,
     )
+
+    variable_parameters = models.JSONField(verbose_name="variable parameters for project", null=True, blank=True)
+
+    # maximum_annotators
+    # total_annotations
+    # lang_id = models.CharField(
+    #     verbose_name="language_id", choices=LANG_CHOICES, max_length=3
+    # )
 
     def __str__(self):
         return str(self.title)
