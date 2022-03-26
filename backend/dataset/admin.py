@@ -5,116 +5,30 @@ from import_export.admin import ImportExportActionModelAdmin
 from import_export.widgets import ForeignKeyWidget
 
 admin.site.register(models.DatasetInstance)
-# admin.site.register(CollectionDataset)
-# admin.site.register(SpeechCollection)
-# admin.site.register(SpeechRecognition)
-# admin.site.register(Monolingual)
-# admin.site.register(Translation)
-# admin.site.register(OCR)
-# admin.site.register(Video)
-# admin.site.register(VideoChunk)
 
 class TranslationPairResource(resources.ModelResource):
-    instance_id = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_id')
-    )
-    instance_name = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_name')
-    )
-    instance_description = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_description')
-    )
-    dataset_type = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'dataset_type')
-    )
     class Meta:
-        fields = ('instance_id', 'instance_name', 'instance_description', 'dataset_type', 'imput_lang_id', 'output_lang_id', 'input_text', 'output_text', 'machine_translation', 'labse_score', 'rating')
+        import_id_fields = ('data_id',)
+        exclude = ('datasetbase_ptr',)
         model = models.TranslationPair
 
-
 class SentenceTextResource(resources.ModelResource):
-    instance_id = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_id')
-    )
-    instance_name = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_name')
-    )
-    instance_description = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_description')
-    )
-    dataset_type = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'dataset_type')
-    )
     class Meta:
-        fields = ('instance_id', 'instance_name', 'instance_description', 'dataset_type', 'lang_id', 'text', 'domain', 'is_profane')
+        import_id_fields = ('data_id',)
+        exclude = ('datasetbase_ptr',)
         model = models.SentenceText
 
 class OCRResource(resources.ModelResource):
-    instance_id = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_id')
-    )
-    instance_name = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_name')
-    )
-    instance_description = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_description')
-    )
-    dataset_type = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'dataset_type')
-    )
     class Meta:
-        fields = ('instance_id', 'instance_name', 'instance_description', 'dataset_type', 'file_type', 'file_url', 'lang_id', 'ocr_type', 'ocr_domain', 'annotation_json', 'prediction_json')
+        import_id_fields = ('data_id',)
+        exclude = ('datasetbase_ptr',)
         model = models.OCRDocument
 
 class BlockTextResource(resources.ModelResource):
-    instance_id = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_id')
-    )
-    instance_name = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_name')
-    )
-    instance_description = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'instance_description')
-    )
-    dataset_type = fields.Field(
-        column_name = 'instance_id',
-        attribute = 'instance_id',
-        widget = ForeignKeyWidget(models.DatasetInstance, 'dataset_type')
-    )
     class Meta:
-        fields = ('instance_id', 'instance_name', 'instance_description', 'dataset_type', 'lang_id', 'text')
+        import_id_fields = ('data_id',)
+        exclude = ('datasetbase_ptr',)
         model = models.BlockText
-
 
 class SentenceTextAdmin(ImportExportActionModelAdmin):
     resource_class = SentenceTextResource
