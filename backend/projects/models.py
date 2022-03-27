@@ -26,6 +26,15 @@ PROJECT_TYPE_CHOICES = (
     (OCRAnnotation, "OCRAnnotation")
 )
 
+TAB_CHOICES = (
+    ("grid", "Grid"),
+    ("list", "List")
+)
+
+FILTER_CHOICES = (
+    ("and", "and"),
+    ("or", "or")
+)
 
 # Create your models here.
 class Project(models.Model):
@@ -110,3 +119,42 @@ class Project(models.Model):
 
     def __str__(self):
         return str(self.title)
+
+class Tab(models.Model):
+    """
+    Model for tab view in datamanager
+    """
+    type = models.CharField(
+        verbose_name="type_of_view", choices = TAB_CHOICES, max_length=4
+    )
+    title = models.CharField(max_length=100)
+    target = models.CharField(verbose_name="entity_type", choices=TARGET_CHOICES, max_length=15)
+    filters = models.ForeignKey(Filter, on_delete=models.CASCADE)
+    ordering = models.ForeignKey(ColumnAlias, on_delete = mmodels.CASCADE)
+    selectedItems = models.ForeignKey()
+    columnsDisplayType =
+    columnsWidth =
+    hiddenColumns =
+
+class Filter(models.Model):
+    conjunction = models.CharField(
+        verbose_name = "joining_two_filters", choices = FILTER_CHOICES, max_length=3
+    )
+    items = models.ForeignKey(FilterItem, on_delete=models.CASCADE)
+
+class FilterItem(models.Model):
+    filte
+    type = models.ForeignKey(ColumnType, on_delete=models.CASCADE)
+
+class FilterOperator(models.Model):
+    equal
+    not_equal
+    contains
+    not_contains
+    less 
+    greater 
+    less_or_equal
+    greater_or_equal
+    in
+    not_in = models.
+    empty = models.BooleanField()
