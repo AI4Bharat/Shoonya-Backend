@@ -36,6 +36,11 @@ FILTER_CHOICES = (
     ("or", "or")
 )
 
+COLUMN_CHOICES = (
+    ("tasks", "tasks"),
+    ("annotations", "annotations")
+)
+
 # Create your models here.
 class Project(models.Model):
     """
@@ -130,11 +135,11 @@ class Tab(models.Model):
     title = models.CharField(max_length=100)
     target = models.CharField(verbose_name="entity_type", choices=TARGET_CHOICES, max_length=15)
     filters = models.ForeignKey(Filter, on_delete=models.CASCADE)
-    ordering = models.ForeignKey(ColumnAlias, on_delete = mmodels.CASCADE)
+    # ordering = models.ForeignKey(ColumnAlias, on_delete = mmodels.CASCADE)
     selectedItems = models.ForeignKey()
-    columnsDisplayType =
-    columnsWidth =
-    hiddenColumns =
+    #columnsDisplayType =
+    #columnsWidth =
+    #hiddenColumns =
 
 class Filter(models.Model):
     conjunction = models.CharField(
@@ -143,18 +148,42 @@ class Filter(models.Model):
     items = models.ForeignKey(FilterItem, on_delete=models.CASCADE)
 
 class FilterItem(models.Model):
-    filte
+    #filter = 
     type = models.ForeignKey(ColumnType, on_delete=models.CASCADE)
+    operator = models.ForeignKey(FilterOperator, on_delete=models.CASCADE)
+    value = models.CharField(max_length=50)
 
 class FilterOperator(models.Model):
-    equal
-    not_equal
-    contains
-    not_contains
-    less 
-    greater 
-    less_or_equal
-    greater_or_equal
-    in
-    not_in = models.
+    equal = models.CharField(max_length=50)
+    not_equal = models.CharField(max_length=50)
+    contains = models.CharField(max_length=50)
+    not_contains = models.CharField(max_length=50)
+    less = models.FloatField()
+    greater = models.FloatField()
+    less_or_equal = models.FloatField()
+    greater_or_equal = models.FloatField()
+    in = models.CharField(max_length=50)
+    not_in = models.CharField(max_length=50)
     empty = models.BooleanField()
+
+class Column(models.Model):
+    parent = models.CharField(max_length=50, null=True)
+    target = models.CharField(choices = COLUMN_CHOICES, max_length=50)
+    title = models.CharField(max_length=50)
+    type = models.ForeignKey(ColumnType, on_delete=models.CASCADE)
+    children = models.CharField(max_length=50, null=True)
+    #visibility_defaults = 
+
+class ColumnType(models.Model):
+    string = models.CharField(max_length=50)
+    boolean = models.BooleanField()
+    number = models.FloatField()
+    datetime = models.datetime()
+    #list
+    image = models.CharField(max_length=200)
+    audio = models.CharField(max_length=200)
+    audioplus = models.CharField(max_length=200)
+    text = models.TextField()
+    hypertext = models.TextField()
+    timeseries = models.CharField(max_length=200)
+    unknown = models.CharField(max_length=200)
