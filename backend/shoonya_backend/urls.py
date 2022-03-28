@@ -3,6 +3,10 @@ from django.urls import path, include, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from rest_framework import routers
+
+
+from tasks.views import TaskViewSet, AnnotationViewSet
 
 SchemaView = get_schema_view(
     openapi.Info(
@@ -22,10 +26,16 @@ urlpatterns = [
     path("session/", include("rest_framework.urls")),
     path("organizations/", include("organizations.urls")),
     path("workspaces/", include("workspaces.urls")),
-    path("/", include("tasks.urls")),
+    # path("/", include("tasks.urls")),
     path("projects/", include("projects.urls")),
     path("data/", include("dataset.urls")),
     re_path(r"^swagger(?P<format>\.json|\.yaml)$", SchemaView.without_ui(cache_timeout=0), name="schema-json",),
     re_path(r"^swagger/$", SchemaView.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui",),
     re_path(r"^redoc/$", SchemaView.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
 ]
+
+router = routers.DefaultRouter()
+router.register(r"task", TaskViewSet, basename="task")
+router.register(r"annotation", AnnotationViewSet, basename="annotation")
+
+urlpatterns += router.urls

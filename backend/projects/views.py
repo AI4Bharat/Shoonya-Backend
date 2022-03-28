@@ -74,99 +74,105 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Authenticated only for organization owner or workspace manager
         """
         # Read project details from api request
-        project_type_key = request.data.get('project_type')
-        project_type = dict(PROJECT_TYPE_CHOICES)[project_type_key]
-        dataset_instance_ids = request.data.get('dataset_id')
-        filter_string = request.data.get('filter_string')
-        sampling_mode = request.data.get('sampling_mode')
-        sampling_parameters = request.data.get('sampling_parameters_json')
-        variable_parameters = request.data.get('variable_parameters')
+        project_type = request.data.get('project_type')
+        project_mode = request.data.get('project_mode')
+
+        if project_mode == Collection:
+            # Create project object
+            project_response = super().create(request, *args, **kwargs)
         
-        # Load the dataset model from the instance id using the project registry
-        registry_helper = ProjectRegistry.get_instance()
-        input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
-        output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
-
-        dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
-        
-        # Get items corresponding to the instance id
-        data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
-
-        print("Samples before filter", data_items)
-        
-        # Apply filtering
-        query_params = dict(parse_qsl(filter_string))
-        query_params = filter.fix_booleans_in_dict(query_params)
-        filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
-
-        # Get the input dataset fields from the filtered items
-        filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"]))
-
-        print("Samples before smpling", filtered_items)
-
-
-        # Apply sampling
-        if sampling_mode == RANDOM:
-            try:
-                sampling_count = sampling_parameters['count']
-            except KeyError:
-                sampling_fraction = sampling_parameters['fraction']
-                sampling_count = int(sampling_fraction * len(filtered_items))
-            
-            sampled_items = random.sample(filtered_items, k=sampling_count)
-        elif sampling_mode == BATCH:
-            batch_size = sampling_parameters['batch_size']
-            try:
-                batch_number = sampling_parameters['batch_number']
-            except KeyError:
-                batch_number = 1
-            sampled_items = filtered_items[batch_size*(batch_number-1):batch_size*(batch_number)]
         else:
-            sampled_items = filtered_items
-        
-        print("Samples after sampling", sampled_items)
-        
-        # Create project object
-        project_response = super().create(request, *args, **kwargs)
-        project_id = project_response.data["id"]
-        project = Project.objects.get(pk=project_id)
+            dataset_instance_ids = request.data.get('dataset_id')
+            filter_string = request.data.get('filter_string')
+            sampling_mode = request.data.get('sampling_mode')
+            sampling_parameters = request.data.get('sampling_parameters_json')
+            variable_parameters = request.data.get('variable_parameters')
+            
+            # Load the dataset model from the instance id using the project registry
+            registry_helper = ProjectRegistry.get_instance()
+            input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
+            output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
 
-        # Set the labelstudio label config
-        label_config = registry_helper.get_label_studio_jsx_payload(project_type)
-        print(label_config)
-        project.label_config = label_config
-        project.save()
+            dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
+            
+            # Get items corresponding to the instance id
+            data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
 
-        # Create task objects
-        tasks = []
-        for item in sampled_items:
-            data_id = item['data_id']
-            print("Item before", item)
-            try:
-                for var_param in output_dataset_info['fields']['variable_parameters']:
-                    item[var_param] = variable_parameters[var_param]
-            except KeyError:
-                pass
-            try:
-                for input_field, output_field in output_dataset_info['fields']['copy_from_input'].items():
-                    item[output_field] = item[input_field]
-                    del item[input_field]
-            except KeyError:
-                pass
-            data = dataset_models.DatasetBase.objects.get(pk=data_id)
-            # Remove data id because it's not needed in task.data
-            del item['data_id']
-            print("Item after", item)
-            task = Task(
-                data=item,
-                project_id=project,
-                input_data = data
-            )
-            tasks.append(task)
-        
-        # Bulk create the tasks
-        Task.objects.bulk_create(tasks)
-        print("Tasks created")
+            print("Samples before filter", data_items)
+            
+            # Apply filtering
+            query_params = dict(parse_qsl(filter_string))
+            query_params = filter.fix_booleans_in_dict(query_params)
+            filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
+
+            # Get the input dataset fields from the filtered items
+            filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"]))
+
+            print("Samples before smpling", filtered_items)
+
+
+            # Apply sampling
+            if sampling_mode == RANDOM:
+                try:
+                    sampling_count = sampling_parameters['count']
+                except KeyError:
+                    sampling_fraction = sampling_parameters['fraction']
+                    sampling_count = int(sampling_fraction * len(filtered_items))
+                
+                sampled_items = random.sample(filtered_items, k=sampling_count)
+            elif sampling_mode == BATCH:
+                batch_size = sampling_parameters['batch_size']
+                try:
+                    batch_number = sampling_parameters['batch_number']
+                except KeyError:
+                    batch_number = 1
+                sampled_items = filtered_items[batch_size*(batch_number-1):batch_size*(batch_number)]
+            else:
+                sampled_items = filtered_items
+            
+            print("Samples after sampling", sampled_items)
+            
+            # Create project object
+            project_response = super().create(request, *args, **kwargs)
+            project_id = project_response.data["id"]
+            project = Project.objects.get(pk=project_id)
+
+            # Set the labelstudio label config
+            label_config = registry_helper.get_label_studio_jsx_payload(project_type)
+            print(label_config)
+            project.label_config = label_config
+            project.save()
+
+            # Create task objects
+            tasks = []
+            for item in sampled_items:
+                data_id = item['data_id']
+                print("Item before", item)
+                try:
+                    for var_param in output_dataset_info['fields']['variable_parameters']:
+                        item[var_param] = variable_parameters[var_param]
+                except KeyError:
+                    pass
+                try:
+                    for input_field, output_field in output_dataset_info['fields']['copy_from_input'].items():
+                        item[output_field] = item[input_field]
+                        del item[input_field]
+                except KeyError:
+                    pass
+                data = dataset_models.DatasetBase.objects.get(pk=data_id)
+                # Remove data id because it's not needed in task.data
+                del item['data_id']
+                print("Item after", item)
+                task = Task(
+                    data=item,
+                    project_id=project,
+                    input_data = data
+                )
+                tasks.append(task)
+            
+            # Bulk create the tasks
+            Task.objects.bulk_create(tasks)
+            print("Tasks created")
 
         # Return the project response
         return project_response
@@ -335,54 +341,84 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 export_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id__exact=export_dataset_instance_id)
 
                 annotation_fields = output_dataset_info["fields"]["annotations"]
-                task_annotation_fields = output_dataset_info["fields"]["variable_parameters"] + list(output_dataset_info["fields"]["copy_from_input"].values())
+                task_annotation_fields = []
+                if "variable_parameters" in output_dataset_info["fields"]:
+                    task_annotation_fields += output_dataset_info["fields"]["variable_parameters"]
+                if "copy_from_input" in output_dataset_info["fields"]:
+                    task_annotation_fields += list(output_dataset_info["fields"]["copy_from_input"].values())
 
                 data_items = []
                 tasks = Task.objects.filter(project_id__exact=project)
 
                 tasks_list = []
-                annotated_tasks = []
+                annotated_tasks = [] # 
                 for task in tasks:
                     task_dict = model_to_dict(task)
                     # Rename keys to match label studio converter
                     # task_dict['id'] = task_dict['task_id']
                     # del task_dict['task_id']
-                    if task.correct_annotation is not None:
+                    if project.project_mode == Annotation:
+                        if task.correct_annotation is not None:
+                            annotated_tasks.append(task)
+                            annotation_dict = model_to_dict(task.correct_annotation)
+                            # annotation_dict['result'] = annotation_dict['result_json']
+                            # del annotation_dict['result_json']
+                            task_dict['annotations'] = [OrderedDict(annotation_dict)]
+                    elif project.project_mode == Collection:
                         annotated_tasks.append(task)
-                        annotation_dict = model_to_dict(task.correct_annotation)
-                        # annotation_dict['result'] = annotation_dict['result_json']
-                        # del annotation_dict['result_json']
-                        task_dict['annotations'] = [OrderedDict(annotation_dict)]
+
                     del task_dict['annotation_users']
                     del task_dict['review_user']
                     tasks_list.append(OrderedDict(task_dict))
 
-                download_resources=True
-                # export_stream, content_type, filename = DataExport.generate_export_file(
-                #     project, tasks_list, 'CSV', download_resources, request.GET
-                # )
-                tasks_df = DataExport.export_csv_file(
-                    project, tasks_list, download_resources, request.GET
-                )
-                tasks_annotations = json.loads(tasks_df.to_json(orient='records'))
+                if project.project_mode == Collection:
+                    print("annotation fields", annotation_fields)
+                    print("task annotation fields", task_annotation_fields)
+                    for (tl,task) in zip(tasks_list, annotated_tasks):
+                        print("Task data", tl["data"])
+                        if task.output_data is not None:
+                            data_item = dataset_model.objects.get(data_id__exact=task.output_data.data_id)
+                        else:
+                            data_item = dataset_model()
+                            data_item.instance_id = export_dataset_instance
+
+                        for field in annotation_fields:
+                            setattr(data_item, field, tl["data"][field])
+                        for field in task_annotation_fields:
+                            setattr(data_item, field, tl["data"][field])
+
+                        data_item.save()
+                        task.output_data = data_item
+                        task.save()
                 
+                elif project.project_mode == Annotation:
 
-                for (ta,task) in zip(tasks_annotations, annotated_tasks):
-                    # data_item = dataset_model.objects.get(data_id__exact=task.data_id.data_id)
-                    if task.output_data is not None:
-                        data_item = dataset_model.objects.get(data_id__exact=task.output_data.data_id)
-                    else:
-                        data_item = dataset_model()
-                        data_item.instance_id = export_dataset_instance
+                    download_resources=True
+                    # export_stream, content_type, filename = DataExport.generate_export_file(
+                    #     project, tasks_list, 'CSV', download_resources, request.GET
+                    # )
+                    tasks_df = DataExport.export_csv_file(
+                        project, tasks_list, download_resources, request.GET
+                    )
+                    tasks_annotations = json.loads(tasks_df.to_json(orient='records'))
+                    
 
-                    for field in annotation_fields:
-                        setattr(data_item, field, ta[field])
-                    for field in task_annotation_fields:
-                        setattr(data_item, field, ta[field])
+                    for (ta,task) in zip(tasks_annotations, annotated_tasks):
+                        # data_item = dataset_model.objects.get(data_id__exact=task.data_id.data_id)
+                        if task.output_data is not None:
+                            data_item = dataset_model.objects.get(data_id__exact=task.output_data.data_id)
+                        else:
+                            data_item = dataset_model()
+                            data_item.instance_id = export_dataset_instance
 
-                    data_item.save()
-                    task.output_data = data_item
-                    task.save()
+                        for field in annotation_fields:
+                            setattr(data_item, field, ta[field])
+                        for field in task_annotation_fields:
+                            setattr(data_item, field, ta[field])
+
+                        data_item.save()
+                        task.output_data = data_item
+                        task.save()
 
                     # data_items.append(data_item)
                 

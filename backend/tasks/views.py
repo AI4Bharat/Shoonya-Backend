@@ -46,6 +46,15 @@ class TaskViewSet(viewsets.ModelViewSet):
         annotations = Annotation.objects.filter(task=task)
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
+    
+
+    def list(self, request, *args, **kwargs):
+        if "project_id" in dict(request.query_params):
+            queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
+        else:
+            queryset = Task.objects.all()
+        serializer = TaskSerializer(queryset, many=True)
+        return Response(serializer.data)
 
         
 
@@ -56,3 +65,14 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
     queryset = Annotation.objects.all()
     serializer_class = AnnotationSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def create(self, request):
+        # TODO: Correction annotation to be filled by validator
+        annotation_response = super().create(request)
+        annotation_id = annotation_response.data["annotation_id"]
+        task_id = annotation_response.data["task_id"]
+        annotation = Annotation.objects.get(pk=annotation_id)
+        task = Task.objects.get(pk=task_id)
+        task.correct_annotation = annotation
+        task.save()
+        return annotation_response

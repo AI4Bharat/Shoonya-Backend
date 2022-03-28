@@ -12,6 +12,7 @@ DATASET_TYPE_CHOICES = [
     ("SentenceText", "SentenceText"),
     ("TranslationPair", "TranslationPair"),
     ("OCRDocument", "OCRDocument"),
+    ("BlockText","BlockText")
 ]
 
 # List of Indic languages
@@ -176,6 +177,22 @@ class OCRDocument(DatasetBase):
 
     def __str__(self):
         return str(self.data_id)
+
+class BlockText(DatasetBase):
+    """
+    Dataset for storing monolingual data.
+    """
+
+    lang_id = models.CharField(
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=3
+    )
+    text = models.TextField(verbose_name="text")
+    domain = models.CharField(verbose_name="domain", max_length=1024)
+   
+    def __str__(self):
+        return str(self.data_id)
+
+
 
 
 D1 = SentenceText
