@@ -18,5 +18,6 @@ router.register(r"dataitems", DatasetItemsViewSet)
 # router.register(r"videochunk",VideoChunkViewSet)
 
 urlpatterns = [
-    path("", include(router.urls))
+    path("", include(router.urls)),
+    path('dataset_fields/<str:dataset_type>/', DatasetTypeView.as_view()),
 ]
