@@ -26,11 +26,10 @@ class Workspace(models.Model, DummyModelMixin):
 
     is_archived = models.BooleanField(verbose_name="is_archived", default=False)
 
-    manager = models.ManyToManyField(
+    managers = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
-        verbose_name="manager",
-        related_name="workspace_manager",
-        null=True,
+        verbose_name="managers",
+        related_name="workspace_managers",
     )
 
     created_by = models.OneToOneField(
@@ -42,7 +41,7 @@ class Workspace(models.Model, DummyModelMixin):
     )
 
     def __str__(self):
-        return str(self.workspace_name) + ", " + str(self.created_by.email)
+        return str(self.workspace_name) 
 
     def has_user(self, user):
         if self.user.filter(pk=user.pk).exists():
