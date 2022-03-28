@@ -46,6 +46,7 @@ OCR:
         class: OCRDocument
         fields:
           - file_url
+        prediction: prediction_json
       output_dataset: 
         class: OCRDocument
         save_type: in_place
