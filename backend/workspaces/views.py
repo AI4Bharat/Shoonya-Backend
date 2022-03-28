@@ -65,6 +65,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @is_particular_workspace_manager
     @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
     def users(self, request, pk=None):
+        '''
+        Get all users of a workspace
+        '''
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
@@ -89,6 +92,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
     @is_particular_workspace_manager
     def assign_manager(self, request, pk=None, *args, **kwargs):
+        '''
+        API for assigning manager to a workspace
+        '''
         ret_dict = {}
         ret_status = 0
         email = str(request.data["email"])
@@ -116,6 +122,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
     @is_workspace_member
     def get_projects(self, request, pk=None):
+        '''
+        API for getting all projects of a workspace
+        '''
         if request.user.role == User.ANNOTATOR:
             projects = Workspace.objects.get(pk=pk).projects.get(users=request.user)
         else:
