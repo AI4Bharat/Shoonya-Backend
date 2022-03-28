@@ -16,14 +16,9 @@ class Organization(models.Model):
     Organization Model
     """
 
-    title = models.CharField(
-        verbose_name="organization_title", max_length=1024, null=False
-    )
+    title = models.CharField(verbose_name="organization_title", max_length=1024, null=False)
 
-    email_domain_name = models.CharField(
-        verbose_name="organization_email_domain", max_length=4096, null=True
-    )
-
+    email_domain_name = models.CharField(verbose_name="organization_email_domain", max_length=4096, null=True)
 
     # users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='organizations')
 
@@ -49,15 +44,10 @@ class Organization(models.Model):
 
     @classmethod
     def create_organization(
-        cls,
-        created_by=None,
-        title="Organization",
-        email_domain_name="organization@shoonya.org",
+        cls, created_by=None, title="Organization", email_domain_name="organization@shoonya.org",
     ):
         with transaction.atomic():
-            org = Organization.objects.create(
-                created_by=created_by, title=title, email_domain_name=email_domain_name
-            )
+            org = Organization.objects.create(created_by=created_by, title=title, email_domain_name=email_domain_name)
             user = User.objects.get(pk=created_by.pk)
             user.organization_id = org
             user.save()
@@ -90,9 +80,7 @@ class Invite(models.Model):
     Invites to invite users to organizations.
     """
 
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL, related_name="invite_users"
-    )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name="invite_users", on_delete=models.CASCADE,null=True)
 
     organization = models.OneToOneField(
         Organization,
@@ -102,9 +90,7 @@ class Invite(models.Model):
         verbose_name="organization",
     )
 
-    invite_code = models.CharField(
-        verbose_name="invite_code", max_length=256, null=True, unique=True
-    )
+    invite_code = models.CharField(verbose_name="invite_code", max_length=256, null=True, unique=True)
 
     def __str__(self):
         return str(self.organization.title) + ", " + str(self.organization.created_by.email)
@@ -116,7 +102,7 @@ class Invite(models.Model):
                 try:
                     invite = Invite.objects.get(user=user)
                 except:
-                    invite = Invite.objects.create(organization=organization,user=user)
+                    invite = Invite.objects.create(organization=organization, user=user)
                     invite.invite_code = cls.generate_invite_code()
                     invite.save()
                 send_mail(
@@ -133,6 +119,4 @@ class Invite(models.Model):
 
     @classmethod
     def generate_invite_code(cls):
-        return "".join(
-            secrets.choice(string.ascii_uppercase + string.digits) for i in range(10)
-        )
+        return "".join(secrets.choice(string.ascii_uppercase + string.digits) for i in range(10))
