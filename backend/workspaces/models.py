@@ -26,10 +26,10 @@ class Workspace(models.Model, DummyModelMixin):
 
     is_archived = models.BooleanField(verbose_name="is_archived", default=False)
 
-    manager = models.ManyToManyField(
+    managers = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
-        verbose_name="manager",
-        related_name="workspace_manager",
+        verbose_name="managers",
+        related_name="workspace_managers",
     )
 
     created_by = models.OneToOneField(

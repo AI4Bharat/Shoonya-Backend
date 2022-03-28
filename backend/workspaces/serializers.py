@@ -5,14 +5,14 @@ from users.serializers import UserProfileSerializer
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
-    manager = UserProfileSerializer(read_only=True,many=True)
+    managers = UserProfileSerializer(read_only=True,many=True)
     created_by = UserProfileSerializer(read_only=True)
     class Meta:
         model = Workspace
         fields = [
             "organization",
             "workspace_name",
-            "manager",
+            "managers",
             "is_archived",
             "created_by",
             "id",
@@ -20,8 +20,8 @@ class WorkspaceSerializer(serializers.ModelSerializer):
 
 
 class WorkspaceManagerSerializer(serializers.ModelSerializer):
-    manager = UserProfileSerializer(required=True)
+    managers = UserProfileSerializer(required=True)
 
     class Meta:
         model = Workspace
-        fields = ["id", "workspace_name", "manager"]
+        fields = ["id", "workspace_name", "managers"]

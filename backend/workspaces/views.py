@@ -102,7 +102,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             if re.fullmatch(EMAIL_VALIDATION_REGEX, email):
                 user = User.objects.get(email=email)
                 workspace = Workspace.objects.get(pk=pk)
-                workspace.manager = user
+                workspace.managers.add(user)
                 workspace.save()
                 serializer = WorkspaceManagerSerializer(workspace, many=False)
                 ret_dict = serializer.data
