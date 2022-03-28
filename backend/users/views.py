@@ -57,7 +57,7 @@ class InviteViewSet(viewsets.ViewSet):
             return Response({"message": "No valid emails found"}, status=status.HTTP_400_BAD_REQUEST)
         users = User.objects.bulk_create(users)
 
-        Invite.create_invite(organization=org, users=users, valid_user_emails=valid_user_emails)
+        Invite.create_invite(organization=org, users=users)
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(request_body=UserSignUpSerializer)
@@ -75,7 +75,7 @@ class InviteViewSet(viewsets.ViewSet):
         if user.has_accepted_invite:
             return Response({"message": "User has already accepted invite"}, status=status.HTTP_400_BAD_REQUEST,)
         try:
-            Invite.objects.get(users=user, invite_code=pk)
+            Invite.objects.get(user=user, invite_code=pk)
         except Invite.DoesNotExist:
             return Response({"message": "Invite not found"}, status=status.HTTP_404_NOT_FOUND)
 

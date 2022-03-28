@@ -90,7 +90,7 @@ class Invite(models.Model):
     Invites to invite users to organizations.
     """
 
-    users = models.ManyToManyField(
+    user = models.OneToOneField(
         settings.AUTH_USER_MODEL, related_name="invite_users"
     )
 
@@ -110,26 +110,21 @@ class Invite(models.Model):
         return str(self.organization.title) + ", " + str(self.organization.created_by.email)
 
     @classmethod
-    def create_invite(cls, organization=None, users=None, valid_user_emails=None):
+    def create_invite(cls, organization=None, users=None):
         with transaction.atomic():
-            exists = False
-            try:
-                invite = Invite.objects.get(organization=organization)
-                exists = True
-            except:
-                invite = Invite.objects.create(organization=organization)
             for user in users:
-                invite.users.add(user)
-            if not exists:
-                invite.invite_code = cls.generate_invite_code()
-            invite.save()
-            send_mail(
-                "Invitation to join Organization",
-                f"Hello! You are invited to {organization.title}. Your Invite link is: http://localhost:3000/invite/{invite.invite_code}",
-                settings.DEFAULT_FROM_EMAIL,
-                valid_user_emails,
-            )
-            return invite
+                try:
+                    invite = Invite.objects.get(user=user)
+                except:
+                    invite = Invite.objects.create(organization=organization,user=user)
+                    invite.invite_code = cls.generate_invite_code()
+                    invite.save()
+                send_mail(
+                    "Invitation to join Organization",
+                    f"Hello {user.username}! You are invited to {organization.title}. Your Invite link is: http://localhost:3000/invite/{invite.invite_code}",
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                )
 
     # def has_permission(self, user):
     #     if self.organization.created_by.pk == user.pk or user.is_superuser:
