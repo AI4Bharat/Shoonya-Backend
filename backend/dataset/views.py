@@ -1,8 +1,10 @@
+from django.apps import apps
 from django.shortcuts import render
 from rest_framework import viewsets, mixins, status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import permission_classes, action
+from rest_framework.views import APIView
 
 from urllib.parse import parse_qsl
 
@@ -53,6 +55,20 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         return Response(filtered_data)
 
 
+class DatasetTypeView(APIView):
+    '''
+    ViewSet for Dataset Type
+    '''
+    permission_classes = (IsAuthenticatedOrReadOnly, )
+
+    
+    def get(self, request, dataset_type):
+        model = apps.get_model('dataset', dataset_type)
+        fields = model._meta.get_fields()
+        dict = {}
+        for field in fields:
+            dict[field.name] = field.get_internal_type()
+        return Response(dict,status=status.HTTP_200_OK)
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
 #     serializer_class = SentenceTextSerializer

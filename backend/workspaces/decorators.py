@@ -5,11 +5,9 @@ from organizations.models import Organization
 from rest_framework.response import Response
 from rest_framework import status
 
-PERMISSION_ERROR = {
-    "message": "You do not have enough permissions to access this view!"
-}
+PERMISSION_ERROR = {"message": "You do not have enough permissions to access this view!"}
 WORKSPACE_IS_ARCHIVED_ERROR = {"message": "This Workspace is archived!"}
-NOT_WORKSPACE_MANAGER_ERROR = {"message": "You do not belong to this workspace!"}
+NOT_IN_WORKSPACE_ERROR = {"message": "You do not belong to this workspace!"}
 
 # Only allow workspace managers and organization owners to create workspaces.
 def is_organization_owner_or_workspace_manager(f):
@@ -33,19 +31,17 @@ def is_particular_workspace_manager(f):
         if (
             (
                 request.user.role == User.WORKSPACE_MANAGER
-                and Workspace.objects.get(pk=pk).created_by == request.user
+                and request.user in Workspace.objects.get(pk=pk).managers.all()
             )
             or (
                 request.user.role == User.ORGANIZAION_OWNER
-                and Organization.objects.get(
-                    pk=Workspace.objects.get(pk=pk).organization.pk
-                ).created_by.pk
-                == request.user.pk
+                and Organization.objects.get(pk=Workspace.objects.get(pk=pk).organization.pk).created_by
+                == request.user
             )
             or request.user.is_superuser
         ):
             return f(self, request, pk, *args, **kwargs)
-        return Response(NOT_WORKSPACE_MANAGER_ERROR, status=status.HTTP_403_FORBIDDEN)
+        return Response(NOT_IN_WORKSPACE_ERROR, status=status.HTTP_403_FORBIDDEN)
 
     return wrapper
 
@@ -59,4 +55,15 @@ def workspace_is_archived(f):
             return Response(WORKSPACE_IS_ARCHIVED_ERROR, status=status.HTTP_200_OK)
         return f(self, request, pk, *args, **kwargs)
 
+    return wrapper
+
+
+def is_workspace_member(f):
+    @wraps(f)
+    def wrapper(self, request, pk=None, *args, **kwargs):
+        workspace = Workspace.objects.get(pk=pk)
+        if request.user in workspace.members.all():
+            return f(self, request, pk, *args, **kwargs)
+        else:
+            return Response(NOT_IN_WORKSPACE_ERROR, status=status.HTTP_403_FORBIDDEN)
     return wrapper
