@@ -59,9 +59,12 @@ class ProjectRegistry:
         if project_type not in self.project_types:
             return {}
         project = self.project_types[project_type]
+
+        prediction = project['input_dataset']['prediction'] if 'prediction' in project['input_dataset'] else None
         return {
             "dataset_type": project['input_dataset']['class'],
             "fields": project['input_dataset']['fields'],
+            "prediction": prediction,
         }
     
     def get_output_dataset_and_fields(self, project_type):
@@ -150,6 +153,11 @@ class ProjectRegistry:
                         assert (
                             field in input_model_fields
                         ), f'Field "{field}" not present in Input Dataset "{input_dataset["class"]}"'
+
+                    # Check if prediction key is correctly mapped
+                    if "prediction" in input_dataset:
+                        assert (input_dataset["prediction"] in input_model_fields
+                        ), f'Field "{input_dataset["prediction"]}" not present in Input Dataset "{input_dataset["class"]}"'
 
                 output_model_fields = dir(
                     getattr(models, project_type["output_dataset"]["class"])

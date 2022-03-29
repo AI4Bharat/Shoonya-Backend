@@ -44,7 +44,7 @@ def project_is_archived(f):
     def wrapper(self, request, pk, *args, **kwargs):
         project = Project.objects.get(pk=pk)
         if project.is_archived:
-            return Response(PROJECT_IS_ARCHIVED_ERROR, status=status.HTTP_200_OK)
+            return Response(PROJECT_IS_ARCHIVED_ERROR, status=status.HTTP_403_FORBIDDEN)
         return f(self, request, pk, *args, **kwargs)
     return wrapper
 
