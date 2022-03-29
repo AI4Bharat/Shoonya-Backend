@@ -4,7 +4,6 @@ from users.models import User
 from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
-from functions.monolingual.sentence_splitter import split_sentences
 #from dataset import LANG_CHOICES
 
 RANDOM = "r"
@@ -120,6 +119,9 @@ class Project(models.Model):
 
     variable_parameters = models.JSONField(verbose_name="variable parameters for project", null=True, blank=True)
 
+    metadata_json = models.JSONField(
+        verbose_name="metadata json", null=True, blank=True
+    )
     # maximum_annotators
     # total_annotations
     # lang_id = models.CharField(

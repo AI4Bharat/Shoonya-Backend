@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "dataset",
     "projects",
     "tasks",
+    "functions",
     "corsheaders",
     "import_export",
 ]

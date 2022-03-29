@@ -28,6 +28,7 @@ urlpatterns = [
     path("workspaces/", include("workspaces.urls")),
     # path("/", include("tasks.urls")),
     path("projects/", include("projects.urls")),
+    path("functions/", include("functions.urls")),
     path("data/", include("dataset.urls")),
     re_path(r"^swagger(?P<format>\.json|\.yaml)$", SchemaView.without_ui(cache_timeout=0), name="schema-json",),
     re_path(r"^swagger/$", SchemaView.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui",),

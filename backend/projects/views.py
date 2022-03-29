@@ -33,6 +33,8 @@ from .serializers import ProjectSerializer, ProjectUsersSerializer
 from .models import *
 from .decorators import is_organization_owner_or_workspace_manager, project_is_archived, is_particular_workspace_manager, project_is_published
 from filters import filter
+from utils.monolingual.sentence_splitter import split_sentences
+
 
 # Create your views here.
 
