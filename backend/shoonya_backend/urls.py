@@ -6,7 +6,7 @@ from drf_yasg import openapi
 from rest_framework import routers
 
 
-from tasks.views import TaskViewSet, AnnotationViewSet
+from tasks.views import TaskViewSet, AnnotationViewSet, PredictionViewSet
 
 SchemaView = get_schema_view(
     openapi.Info(
@@ -37,5 +37,6 @@ urlpatterns = [
 router = routers.DefaultRouter()
 router.register(r"task", TaskViewSet, basename="task")
 router.register(r"annotation", AnnotationViewSet, basename="annotation")
+router.register(r"prediction", PredictionViewSet, basename="prediction")
 
 urlpatterns += router.urls

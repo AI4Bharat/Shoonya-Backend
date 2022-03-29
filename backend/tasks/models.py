@@ -61,7 +61,7 @@ class Task(models.Model):
         related_name='output_data_id'
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True, blank=True)
+    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True, blank=True, related_name="correct_annotation")
     
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", null=True, blank=True
@@ -92,9 +92,9 @@ class Annotation(models.Model):
     Annotation Model
     """
 
-    annotation_id = models.AutoField(verbose_name="annotation_id", primary_key=True)
+    id = models.AutoField(verbose_name="annotation_id", primary_key=True)
     result = models.JSONField(verbose_name="annotation_result_json")
-    task_id = models.ForeignKey(
+    task = models.ForeignKey(
         Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name='annotations'
     )
     completed_by = models.ForeignKey(
@@ -106,16 +106,20 @@ class Annotation(models.Model):
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
 
     def __str__(self):
-        return str(self.annotation_id)
+        return str(self.id)
 
 
 class Prediction(models.Model):
     """ ML predictions
     """
+    id = models.AutoField(verbose_name="prediction_id", primary_key=True)
     result = models.JSONField('result', null=True, default=dict, help_text='Prediction result')
     task = models.ForeignKey(Task, on_delete=models.CASCADE,  verbose_name="prediction_task_id", related_name='predictions')
     # created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     # updated_at = models.DateTimeField(_('updated at'), auto_now=True)
+
+    def __str__(self):
+        return str(self.id)
 
     # def created_ago(self):
     #     """ Humanize date """
