@@ -188,6 +188,10 @@ class BlockText(DatasetBase):
         verbose_name="language_id", choices=LANG_CHOICES, max_length=3
     )
     text = models.TextField(verbose_name="text")
+    splitted_text_prediction = models.JSONField(
+        verbose_name="splitted_text_prediction", null=True, blank=True
+    )
+    splitted_text = models.TextField(verbose_name="splitted_text", null=True, blank=True)
     domain = models.CharField(verbose_name="domain", max_length=1024)
    
     def __str__(self):

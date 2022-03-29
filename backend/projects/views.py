@@ -183,6 +183,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 predictions = []
                 prediction_field = input_dataset_info['prediction']
                 for task,item in zip(tasks,sampled_items):
+
+                    if project_type == "SentenceSplitting":
+                        print("Split", split_sentences(item["text"], item["lang_id"]))
+                        item[prediction_field] = [{
+                            "value": {
+                                "text": [
+                                    "\n".join(split_sentences(item["text"], item["lang_id"]))
+                                ]
+                            },
+                            "id": "0",
+                            "from_name": "splitted_text",
+                            "to_name": "text",
+                            "type": "textarea"
+                        }]
                     prediction = Prediction(
                         result=item[prediction_field],
                         task=task,

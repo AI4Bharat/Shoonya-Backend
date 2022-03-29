@@ -4,6 +4,7 @@ from users.models import User
 from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
+from functions.monolingual.sentence_splitter import split_sentences
 #from dataset import LANG_CHOICES
 
 RANDOM = "r"
@@ -26,7 +27,8 @@ PROJECT_TYPE_CHOICES = (
     ("MonolingualTranslation", "MonolingualTranslation"),
     ("TranslationEditing", "TranslationEditing"),
     ("OCRAnnotation", "OCRAnnotation"),
-    ("MonolingualCollection", "MonolingualCollection")
+    ("MonolingualCollection", "MonolingualCollection"),
+    ("SentenceSplitting", "SentenceSplitting"),
 )
 
 Collection = "Collection"

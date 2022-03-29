@@ -78,8 +78,8 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
     def create(self, request):
         # TODO: Correction annotation to be filled by validator
         annotation_response = super().create(request)
-        annotation_id = annotation_response.data["annotation_id"]
-        task_id = annotation_response.data["task_id"]
+        annotation_id = annotation_response.data["id"]
+        task_id = annotation_response.data["task"]
         annotation = Annotation.objects.get(pk=annotation_id)
         task = Task.objects.get(pk=task_id)
         task.correct_annotation = annotation
