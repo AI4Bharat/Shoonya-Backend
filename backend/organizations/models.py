@@ -82,7 +82,7 @@ class Invite(models.Model):
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, related_name="invite_users", on_delete=models.CASCADE,null=True)
 
-    organization = models.OneToOneField(
+    organization = models.ForeignKey(
         Organization,
         on_delete=models.CASCADE,
         null=True,
@@ -107,7 +107,7 @@ class Invite(models.Model):
                     invite.save()
                 send_mail(
                     "Invitation to join Organization",
-                    f"Hello {user.username}! You are invited to {organization.title}. Your Invite link is: http://localhost:3000/invite/{invite.invite_code}",
+                    f"Hello! You are invited to {organization.title}. Your Invite link is: http://localhost:3000/invite/{invite.invite_code}",
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                 )
