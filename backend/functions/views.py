@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from dataset import models as dataset_models
 from projects.models import *
 from tasks.models import Task
+import json
 
 @api_view(['POST'])
 def copy_from_block_text_to_sentence_text(request):
@@ -100,7 +101,17 @@ def copy_from_ocr_document_to_block_text(request):
             # block_text = dataset_models.BlockText()
             # block_text = task.output_data
             transcriptions = ocr_document.annotation_transcripts
-            text = " ".join(transcriptions)
+            transcriptions = json.loads(transcriptions)
+
+            labels = ocr_document.annotation_labels
+            labels = json.loads(labels)
+
+            body_transcriptions = []
+            for i,label in enumerate(labels):
+                if label['labels'][0] == 'Body':
+                    body_transcriptions.append(transcriptions[i])
+
+            text = " ".join(body_transcriptions)
             # TODO: check if domain can be same as OCR domain
             block_text = dataset_models.BlockText(
                 lang_id=ocr_document.lang_id,
