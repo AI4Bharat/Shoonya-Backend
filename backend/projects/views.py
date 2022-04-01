@@ -53,6 +53,71 @@ def batch(iterable, n=1):
         yield iterable[ndx : min(ndx + n, l)]
 
 
+def create_tasks_from_dataitems(items, project):
+
+    project_type = project.project_type
+    registry_helper = ProjectRegistry.get_instance()
+    input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
+    output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
+    variable_parameters = project.variable_parameters
+    # Create task objects
+    tasks = []
+    for item in items:
+        data_id = item['data_id']
+        print("Item before", item)
+        try:
+            for var_param in output_dataset_info['fields']['variable_parameters']:
+                item[var_param] = variable_parameters[var_param]
+        except KeyError:
+            pass
+        try:
+            for input_field, output_field in output_dataset_info['fields']['copy_from_input'].items():
+                item[output_field] = item[input_field]
+                del item[input_field]
+        except KeyError:
+            pass
+        data = dataset_models.DatasetBase.objects.get(pk=data_id)
+        # Remove data id because it's not needed in task.data
+        del item['data_id']
+        print("Item after", item)
+        task = Task(
+            data=item,
+            project_id=project,
+            input_data = data
+        )
+        tasks.append(task)
+    
+    # Bulk create the tasks
+    Task.objects.bulk_create(tasks)
+    print("Tasks created")
+
+    if input_dataset_info['prediction'] is not None:
+        predictions = []
+        prediction_field = input_dataset_info['prediction']
+        for task,item in zip(tasks,items):
+
+            if project_type == "SentenceSplitting":
+                print("Split", split_sentences(item["text"], item["lang_id"]))
+                item[prediction_field] = [{
+                    "value": {
+                        "text": [
+                            "\n".join(split_sentences(item["text"], item["lang_id"]))
+                        ]
+                    },
+                    "id": "0",
+                    "from_name": "splitted_text",
+                    "to_name": "text",
+                    "type": "textarea"
+                }]
+            prediction = Prediction(
+                result=item[prediction_field],
+                task=task,
+            )
+            predictions.append(prediction)
+        Prediction.objects.bulk_create(predictions)
+        print("Predictions created")
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     """
     Project ViewSet
@@ -150,62 +215,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.label_config = label_config
             project.save()
 
-            # Create task objects
-            tasks = []
-            for item in sampled_items:
-                data_id = item['data_id']
-                print("Item before", item)
-                try:
-                    for var_param in output_dataset_info['fields']['variable_parameters']:
-                        item[var_param] = variable_parameters[var_param]
-                except KeyError:
-                    pass
-                try:
-                    for input_field, output_field in output_dataset_info['fields']['copy_from_input'].items():
-                        item[output_field] = item[input_field]
-                        del item[input_field]
-                except KeyError:
-                    pass
-                data = dataset_models.DatasetBase.objects.get(pk=data_id)
-                # Remove data id because it's not needed in task.data
-                del item['data_id']
-                print("Item after", item)
-                task = Task(
-                    data=item,
-                    project_id=project,
-                    input_data = data
-                )
-                tasks.append(task)
-            
-            # Bulk create the tasks
-            Task.objects.bulk_create(tasks)
-            print("Tasks created")
-
-            if input_dataset_info['prediction'] is not None:
-                predictions = []
-                prediction_field = input_dataset_info['prediction']
-                for task,item in zip(tasks,sampled_items):
-
-                    if project_type == "SentenceSplitting":
-                        print("Split", split_sentences(item["text"], item["lang_id"]))
-                        item[prediction_field] = [{
-                            "value": {
-                                "text": [
-                                    "\n".join(split_sentences(item["text"], item["lang_id"]))
-                                ]
-                            },
-                            "id": "0",
-                            "from_name": "splitted_text",
-                            "to_name": "text",
-                            "type": "textarea"
-                        }]
-                    prediction = Prediction(
-                        result=item[prediction_field],
-                        task=task,
-                    )
-                    predictions.append(prediction)
-                Prediction.objects.bulk_create(predictions)
-                print("Predictions created")
+            create_tasks_from_dataitems(sampled_items, project)
 
         # Return the project response
         return project_response
@@ -305,6 +315,44 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def get_task_queryset(self, queryset):
         return queryset
     
+    @action(detail=True, methods=['POST'], name='Pull new items')
+    @project_is_archived
+    @is_organization_owner_or_workspace_manager
+    def pull_new_items(self, request, pk=None, *args, **kwargs):
+        try:
+            project = Project.objects.get(pk=pk)
+            if project.sampling_mode != FULL:
+                ret_dict = {"message": "Sampling Mode is not FULL!"}         
+                ret_status = status.HTTP_403_FORBIDDEN
+            else:
+                project_type = project.project_type
+                registry_helper = ProjectRegistry.get_instance()
+                input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
+                dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
+                tasks = Task.objects.filter(project_id__exact=project)
+                print("data id", project.dataset_id)
+                print(list(project.dataset_id.all()))
+                all_items = dataset_model.objects.filter(instance_id__in=list(project.dataset_id.all()))
+                print("TASKS", tasks.values_list('input_data'))
+                items = all_items.exclude(data_id__in=tasks.values('input_data'))
+                # Get the input dataset fields from the filtered items
+                if input_dataset_info['prediction'] is not None:
+                    items = list(items.values('data_id', *input_dataset_info["fields"], input_dataset_info['prediction']))
+                else:
+                    items = list(items.values('data_id', *input_dataset_info["fields"]))
+
+                create_tasks_from_dataitems(items, project)
+                ret_dict = {"message": "SUCCESS!"}         
+                ret_status = status.HTTP_200_OK
+        except Project.DoesNotExist:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        except User.DoesNotExist:
+            ret_dict = {"message": "User does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        return Response(ret_dict, status=ret_status)
+        
+
     @action(detail=True, methods=['POST'], name='Export Project')
     @project_is_archived
     @is_organization_owner_or_workspace_manager

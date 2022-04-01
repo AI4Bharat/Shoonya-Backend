@@ -9,6 +9,7 @@ from tasks.models import Task, Annotation, Prediction
 from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer
 
 from users.models import User
+from projects.models import Project
 
 # Create your views here.
 
@@ -82,8 +83,14 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
         task_id = annotation_response.data["task"]
         annotation = Annotation.objects.get(pk=annotation_id)
         task = Task.objects.get(pk=task_id)
-        task.correct_annotation = annotation
-        task.save()
+        
+        # TODO: Support multiple annotators for a task
+        # project = Project.objects.get(pk=task.project_id.id)
+        # if project.maximum_annotators == 1:
+        if True:
+            task.correct_annotation = annotation
+            task.task_status = ACCEPTED
+            task.save()
         return annotation_response
 
 

@@ -31,12 +31,20 @@ from projects.models import Project
 #     ('videoChunk', 'Video Chunk'),
 # ]
 
+UNLABELED = "unlabeled"
+LABELED = "labeled"
+SKIPPED = "skipped"
+ACCEPTED = "accepted"
+REJECTED = "rejected"
+FREEZED = "freezed"
+
 TASK_STATUS = (
-    ("UnLabel", "unlabelled"),
-    ("Label", "labelled"),
-    ("Skip", "skipped"),
-    ("Accept", "accepted"),
-    ("Reject", "rejected"),
+    (UNLABELED, "unlabeled"),
+    (LABELED, "labeled"),
+    (SKIPPED, "skipped"),
+    (ACCEPTED, "accepted"),
+    (FREEZED, "freezed"),
+    (REJECTED, "rejected"),
 )
 
 
@@ -72,8 +80,11 @@ class Task(models.Model):
     task_status = models.CharField(
         choices=TASK_STATUS,
         max_length=100,
-        default="UnLabel",
+        default=UNLABELED,
         verbose_name="task_status",
+    )
+    metadata_json = models.JSONField(
+        verbose_name="metadata json", null=True, blank=True
     )
 
     def assign(self, users):
