@@ -67,7 +67,7 @@ class DatasetTypeView(APIView):
         fields = model._meta.get_fields()
         dict = {}
         for field in fields:
-            dict[field.name] = field.get_internal_type()
+            dict[field.name] = {'name':field.get_internal_type(),'data':vars(field)}
         return Response(dict,status=status.HTTP_200_OK)
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
