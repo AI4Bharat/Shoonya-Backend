@@ -26,7 +26,8 @@ PROJECT_TYPE_CHOICES = (
     ("MonolingualTranslation", "MonolingualTranslation"),
     ("TranslationEditing", "TranslationEditing"),
     ("OCRAnnotation", "OCRAnnotation"),
-    ("MonolingualCollection", "MonolingualCollection")
+    ("MonolingualCollection", "MonolingualCollection"),
+    ("SentenceSplitting", "SentenceSplitting"),
 )
 
 Collection = "Collection"
@@ -118,6 +119,9 @@ class Project(models.Model):
 
     variable_parameters = models.JSONField(verbose_name="variable parameters for project", null=True, blank=True)
 
+    metadata_json = models.JSONField(
+        verbose_name="metadata json", null=True, blank=True
+    )
     # maximum_annotators
     # total_annotations
     # lang_id = models.CharField(

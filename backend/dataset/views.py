@@ -42,11 +42,15 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['POST'], name='Get data Items')
     def get_data_items(self, request, *args, **kwargs):
-        dataset_instance_id = request.data.get('instance_id')
+        dataset_instance_ids = request.data.get('instance_ids')
+        dataset_type = request.data.get('dataset_type')
+        if type(dataset_instance_ids) != list:
+            dataset_instance_ids = [dataset_instance_ids]
         filter_string = request.data.get('filter_string')
-        dataset_type = models.DatasetInstance.objects.get(instance_id=dataset_instance_id).dataset_type
+        # DEPRICIATED: Get dataset type from first dataset instance
+        # dataset_type = models.DatasetInstance.objects.get(instance_id=dataset_instance_id[0]).dataset_type
         dataset_model = getattr(models, dataset_type)
-        data_items = dataset_model.objects.filter(instance_id__exact=dataset_instance_id)        
+        data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)        
         query_params = dict(parse_qsl(filter_string))
         query_params = filter.fix_booleans_in_dict(query_params)
         filtered_set = filter.filter_using_dict_and_queryset(query_params, data_items)

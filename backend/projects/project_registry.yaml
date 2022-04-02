@@ -46,6 +46,7 @@ OCR:
         class: OCRDocument
         fields:
           - file_url
+        prediction: prediction_json
       output_dataset: 
         class: OCRDocument
         save_type: in_place
@@ -68,3 +69,19 @@ Monolingual:
             - text
           variable_parameters:
             - lang_id
+    SentenceSplitting:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "monolingual/sentence_splitting.jsx"
+      input_dataset:
+        class: BlockText
+        fields:
+          - text
+          - lang_id
+        prediction: splitted_text_prediction
+      output_dataset:
+        class: BlockText
+        save_type: in_place
+        fields:
+          annotations:
+            - splitted_text
+        

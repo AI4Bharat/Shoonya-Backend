@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
-from tasks.models import Task, Annotation
-from tasks.serializers import TaskSerializer, AnnotationSerializer
+from tasks.models import Task, Annotation, Prediction
+from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer
 
 from users.models import User
 
@@ -47,6 +47,15 @@ class TaskViewSet(viewsets.ModelViewSet):
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'], url_path='predictions')
+    def predictions(self, request, pk):
+        """
+            Returns all the predictions associated with a particular task.
+        """
+        task = self.get_object()
+        predictions = Prediction.objects.filter(task=task)
+        serializer = PredictionSerializer(predictions, many=True)
+        return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
         if "project_id" in dict(request.query_params):
@@ -69,10 +78,23 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
     def create(self, request):
         # TODO: Correction annotation to be filled by validator
         annotation_response = super().create(request)
-        annotation_id = annotation_response.data["annotation_id"]
-        task_id = annotation_response.data["task_id"]
+        annotation_id = annotation_response.data["id"]
+        task_id = annotation_response.data["task"]
         annotation = Annotation.objects.get(pk=annotation_id)
         task = Task.objects.get(pk=task_id)
         task.correct_annotation = annotation
         task.save()
         return annotation_response
+
+
+class PredictionViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
+    """
+        Prediction Viewset with create and update operations.
+    """
+    queryset = Prediction.objects.all()
+    serializer_class = PredictionSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def create(self, request):
+        prediction_response = super().create(request)
+        return prediction_response
