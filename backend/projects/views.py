@@ -4,6 +4,7 @@ import json
 from collections import OrderedDict
 from urllib.parse import parse_qsl
 from django.shortcuts import render
+from msrest import Serializer
 from rest_framework import viewsets
 from rest_framework import status
 from rest_framework.response import Response
@@ -25,11 +26,13 @@ except ImportError:
     from yaml import Loader
 
 from users.models import User
+from tasks.models import Task
 from dataset import models as dataset_models
 from tasks.models import Task, DataExport
 from .registry_helper import ProjectRegistry
 
-from .serializers import ProjectSerializer, ProjectUsersSerializer
+from projects.serializers import ProjectSerializer, ProjectUsersSerializer
+from tasks.serializers import TaskSerializer
 from .models import *
 from .decorators import is_organization_owner_or_workspace_manager, project_is_archived, is_particular_workspace_manager, project_is_published
 from filters import filter
@@ -223,6 +226,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
             serializer = ProjectUsersSerializer(project, many=False)
+            ret_dict = serializer.data
+            ret_status = status.HTTP_200_OK
+        except Project.DoesNotExist:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        return Response(ret_dict, status=ret_status)
+
+    @action(detail=True, methods=['GET'], name="Get Tasks of a Project", url_name='get_project_tasks')
+    @project_is_archived
+    def get_project_tasks(self, request, pk=None, *args, **kwargs):
+        '''
+        Get the list of tasks in the project
+        '''
+        ret_dict = {}
+        ret_status = 0
+        try:
+            tasks = Task.objects.filter(project_id=pk)
+            serializer = TaskSerializer(tasks, many=True)
             ret_dict = serializer.data
             ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
