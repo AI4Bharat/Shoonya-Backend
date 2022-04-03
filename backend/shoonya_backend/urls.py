@@ -6,7 +6,7 @@ from drf_yasg import openapi
 from rest_framework import routers
 
 
-from tasks.views import TaskViewSet, AnnotationViewSet
+from tasks.views import TaskViewSet, AnnotationViewSet, PredictionViewSet
 
 SchemaView = get_schema_view(
     openapi.Info(
@@ -28,6 +28,7 @@ urlpatterns = [
     path("workspaces/", include("workspaces.urls")),
     # path("/", include("tasks.urls")),
     path("projects/", include("projects.urls")),
+    path("functions/", include("functions.urls")),
     path("data/", include("dataset.urls")),
     re_path(r"^swagger(?P<format>\.json|\.yaml)$", SchemaView.without_ui(cache_timeout=0), name="schema-json",),
     re_path(r"^swagger/$", SchemaView.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui",),
@@ -37,5 +38,6 @@ urlpatterns = [
 router = routers.DefaultRouter()
 router.register(r"task", TaskViewSet, basename="task")
 router.register(r"annotation", AnnotationViewSet, basename="annotation")
+router.register(r"prediction", PredictionViewSet, basename="prediction")
 
 urlpatterns += router.urls

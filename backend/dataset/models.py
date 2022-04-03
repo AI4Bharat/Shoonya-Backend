@@ -107,7 +107,7 @@ class SentenceText(DatasetBase):
     )
     text = models.TextField(verbose_name="text")
     domain = models.CharField(verbose_name="domain", max_length=1024)
-    is_profane = models.BooleanField(null=True, blank=True)
+    is_profane = models.BooleanField(default=False)
 
     def __str__(self):
         return str(self.data_id)
@@ -159,9 +159,6 @@ class OCRDocument(DatasetBase):
     # annotation_json = models.JSONField(
     #     verbose_name="annotation_json", null=True, blank=True
     # )
-    # prediction_json = models.JSONField(
-    #     verbose_name="prediction_json", null=True, blank=True
-    # )
 
     annotation_bboxes = models.JSONField(
         verbose_name="annotation_bboxes", null=True, blank=True
@@ -173,6 +170,10 @@ class OCRDocument(DatasetBase):
 
     annotation_labels = models.JSONField(
         verbose_name="annotation_labels", null=True, blank=True
+    )
+
+    prediction_json = models.JSONField(
+        verbose_name="prediction_json", null=True, blank=True
     )
 
     def __str__(self):
@@ -187,6 +188,10 @@ class BlockText(DatasetBase):
         verbose_name="language_id", choices=LANG_CHOICES, max_length=3
     )
     text = models.TextField(verbose_name="text")
+    splitted_text_prediction = models.JSONField(
+        verbose_name="splitted_text_prediction", null=True, blank=True
+    )
+    splitted_text = models.TextField(verbose_name="splitted_text", null=True, blank=True)
     domain = models.CharField(verbose_name="domain", max_length=1024)
    
     def __str__(self):

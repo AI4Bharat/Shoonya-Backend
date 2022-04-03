@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework import routers
-from tasks.views import TaskViewSet, AnnotationViewSet
+from tasks.views import TaskViewSet, AnnotationViewSet, PredictionViewSet
 
 router = routers.DefaultRouter()
 

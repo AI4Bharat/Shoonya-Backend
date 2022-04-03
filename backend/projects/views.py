@@ -28,7 +28,7 @@ except ImportError:
 from users.models import User
 from tasks.models import Task
 from dataset import models as dataset_models
-from tasks.models import Task, DataExport
+from tasks.models import Task, DataExport, Prediction
 from .registry_helper import ProjectRegistry
 
 from projects.serializers import ProjectSerializer, ProjectUsersSerializer
@@ -36,6 +36,8 @@ from tasks.serializers import TaskSerializer
 from .models import *
 from .decorators import is_organization_owner_or_workspace_manager, project_is_archived, is_particular_workspace_manager, project_is_published
 from filters import filter
+from utils.monolingual.sentence_splitter import split_sentences
+
 
 # Create your views here.
 
@@ -86,6 +88,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         
         else:
             dataset_instance_ids = request.data.get('dataset_id')
+            if type(dataset_instance_ids) != list:
+                dataset_instance_ids = [dataset_instance_ids]
             filter_string = request.data.get('filter_string')
             sampling_mode = request.data.get('sampling_mode')
             sampling_parameters = request.data.get('sampling_parameters_json')
@@ -109,9 +113,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
 
             # Get the input dataset fields from the filtered items
-            filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"]))
+            if input_dataset_info['prediction'] is not None:
+                filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"], input_dataset_info['prediction']))
+            else:
+                filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"]))
 
-            print("Samples before smpling", filtered_items)
+            print("Samples before sampling", filtered_items)
 
 
             # Apply sampling
@@ -142,7 +149,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # Set the labelstudio label config
             label_config = registry_helper.get_label_studio_jsx_payload(project_type)
-            print(label_config)
+
             project.label_config = label_config
             project.save()
 
@@ -176,6 +183,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Bulk create the tasks
             Task.objects.bulk_create(tasks)
             print("Tasks created")
+
+            if input_dataset_info['prediction'] is not None:
+                predictions = []
+                prediction_field = input_dataset_info['prediction']
+                for task,item in zip(tasks,sampled_items):
+
+                    if project_type == "SentenceSplitting":
+                        print("Split", split_sentences(item["text"], item["lang_id"]))
+                        item[prediction_field] = [{
+                            "value": {
+                                "text": [
+                                    "\n".join(split_sentences(item["text"], item["lang_id"]))
+                                ]
+                            },
+                            "id": "0",
+                            "from_name": "splitted_text",
+                            "to_name": "text",
+                            "type": "textarea"
+                        }]
+                    prediction = Prediction(
+                        result=item[prediction_field],
+                        task=task,
+                    )
+                    predictions.append(prediction)
+                Prediction.objects.bulk_create(predictions)
+                print("Predictions created")
 
         # Return the project response
         return project_response
@@ -285,7 +318,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def types(self, request, *args, **kwargs):
         # project_registry = ProjectRegistry()
         try:
-            return Response(ProjectRegistry().data, status=status.HTTP_200_OK)
+            return Response(ProjectRegistry.get_instance().data, status=status.HTTP_200_OK)
         except Exception:
             print(Exception.args)
             return Response({"message": "Error Occured"}, status=status.HTTP_400_BAD_REQUEST)

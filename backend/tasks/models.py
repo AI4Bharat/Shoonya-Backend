@@ -61,7 +61,7 @@ class Task(models.Model):
         related_name='output_data_id'
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True, blank=True)
+    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True, blank=True, related_name="correct_annotation")
     
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", null=True, blank=True
@@ -92,9 +92,9 @@ class Annotation(models.Model):
     Annotation Model
     """
 
-    annotation_id = models.AutoField(verbose_name="annotation_id", primary_key=True)
+    id = models.AutoField(verbose_name="annotation_id", primary_key=True)
     result = models.JSONField(verbose_name="annotation_result_json")
-    task_id = models.ForeignKey(
+    task = models.ForeignKey(
         Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name='annotations'
     )
     completed_by = models.ForeignKey(
@@ -106,7 +106,97 @@ class Annotation(models.Model):
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
 
     def __str__(self):
-        return str(self.annotation_id)
+        return str(self.id)
+
+
+class Prediction(models.Model):
+    """ ML predictions
+    """
+    id = models.AutoField(verbose_name="prediction_id", primary_key=True)
+    result = models.JSONField('result', null=True, default=dict, help_text='Prediction result')
+    task = models.ForeignKey(Task, on_delete=models.CASCADE,  verbose_name="prediction_task_id", related_name='predictions')
+    # created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+    # updated_at = models.DateTimeField(_('updated at'), auto_now=True)
+
+    def __str__(self):
+        return str(self.id)
+
+    # def created_ago(self):
+    #     """ Humanize date """
+    #     return timesince(self.created_at)
+
+    # @classmethod
+    # def prepare_prediction_result(cls, result, project):
+    #     """
+    #     This function does the following logic of transforming "result" object:
+    #     result is list -> use raw result as is
+    #     result is dict -> put result under single "value" section
+    #     result is string -> find first occurrence of single-valued tag (Choices, TextArea, etc.) and put string under corresponding single field (e.g. "choices": ["my_label"])  # noqa
+    #     """
+    #     if isinstance(result, list):
+    #         # full representation of result
+    #         for item in result:
+    #             if not isinstance(item, dict):
+    #                 raise ValidationError(f'Each item in prediction result should be dict')
+    #         # TODO: check consistency with project.label_config
+    #         return result
+
+    #     elif isinstance(result, dict):
+    #         # "value" from result
+    #         # TODO: validate value fields according to project.label_config
+    #         for tag, tag_info in  parse_config(project.label_config).items():
+    #             tag_type = tag_info['type'].lower()
+    #             if tag_type in result:
+    #                 return [{
+    #                     'from_name': tag,
+    #                     'to_name': ','.join(tag_info['to_name']),
+    #                     'type': tag_type,
+    #                     'value': result
+    #                 }]
+
+    #     elif isinstance(result, (str, numbers.Integral)):
+    #         # If result is of integral type, it could be a representation of data from single-valued control tags (e.g. Choices, Rating, etc.)  # noqa
+    #         for tag, tag_info in  parse_config(project.label_config).items():
+    #             tag_type = tag_info['type'].lower()
+    #             if tag_type in SINGLE_VALUED_TAGS and isinstance(result, SINGLE_VALUED_TAGS[tag_type]):
+    #                 return [{
+    #                     'from_name': tag,
+    #                     'to_name': ','.join(tag_info['to_name']),
+    #                     'type': tag_type,
+    #                     'value': {
+    #                         tag_type: [result]
+    #                     }
+    #                 }]
+    #     else:
+    #         raise ValidationError(f'Incorrect format {type(result)} for prediction result {result}')
+
+    # def update_task(self):
+    #     update_fields = ['updated_at']
+
+    #     # updated_by
+    #     request = get_current_request()
+    #     if request:
+    #         self.task.updated_by = request.user
+    #         update_fields.append('updated_by')
+
+    #     self.task.save(update_fields=update_fields)
+
+    # def save(self, *args, **kwargs):
+    #     # "result" data can come in different forms - normalize them to JSON
+    #     self.result = self.prepare_prediction_result(self.result, self.task.project)
+    #     # set updated_at field of task to now()
+    #     self.update_task()
+    #     return super(Prediction, self).save(*args, **kwargs)
+
+    # def delete(self, *args, **kwargs):
+    #     result = super().delete(*args, **kwargs)
+    #     # set updated_at field of task to now()
+    #     self.update_task()
+    #     return result
+
+    # class Meta:
+    #     db_table = 'prediction'
+
 
 
 EXPORT_DIR = '/usr'
