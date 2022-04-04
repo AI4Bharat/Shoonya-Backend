@@ -124,6 +124,7 @@ class Project(models.Model):
     )
     # maximum_annotators
     # total_annotations
+    required_annotators_per_task = models.IntegerField(verbose_name="required_annotators_per_task", default=1)
     # lang_id = models.CharField(
     #     verbose_name="language_id", choices=LANG_CHOICES, max_length=3
     # )

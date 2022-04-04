@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from dataset import models as dataset_models
 from projects.models import *
-from tasks.models import Task
+from tasks.models import *
 import json
 
 @api_view(['POST'])
@@ -15,17 +15,14 @@ def copy_from_block_text_to_sentence_text(request):
     project_id = request.data['project_id']
     project = Project.objects.get(pk=project_id)
 
-    if project.is_archived == False:
-        ret_dict = {"message": "Project is not archived!"}         
-        ret_status = status.HTTP_403_FORBIDDEN
-        return Response(ret_dict, status=ret_status)
-
-    if project.metadata_json is None:
-        project.metadata_json = {}
-    if "copy_from_block_text_to_sentence_text" in project.metadata_json:
-        ret_dict = {"message": "Function already applied on this project!"}         
-        ret_status = status.HTTP_403_FORBIDDEN
-        return Response(ret_dict, status=ret_status)
+    # if project.is_archived == False:
+    #     ret_dict = {"message": "Project is not archived!"}         
+    #     ret_status = status.HTTP_403_FORBIDDEN
+    #     return Response(ret_dict, status=ret_status)
+    # if "copy_from_block_text_to_sentence_text" in project.metadata_json:
+    #     ret_dict = {"message": "Function already applied on this project!"}         
+    #     ret_status = status.HTTP_403_FORBIDDEN
+    #     return Response(ret_dict, status=ret_status)
 
     export_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id__exact=export_dataset_instance_id)
     # dataset_model = dataset_models.BlockText
@@ -34,7 +31,11 @@ def copy_from_block_text_to_sentence_text(request):
     all_sentence_texts = []
     for task in tasks:
         # TODO: Create child object from parent to optimize query
+        if task.metadata_json is None:
+            task.metadata_json = {}
         if task.output_data is not None:
+            if "copy_from_block_text_to_sentence_text" in task.metadata_json:
+                continue
             block_text = dataset_models.BlockText.objects.get(data_id=task.output_data.data_id)
             # block_text = task.output_data
             # print(block_text)
@@ -51,6 +52,9 @@ def copy_from_block_text_to_sentence_text(request):
                     instance_id = export_dataset_instance,
                 )
                 all_sentence_texts.append(sentence_text)
+            task.metadata_json["copy_from_block_text_to_sentence_text"]=True
+            task.task_status = FREEZED
+            task.save()
 
 
     # TODO: implement bulk create if possible (only if non-hacky)
@@ -58,7 +62,7 @@ def copy_from_block_text_to_sentence_text(request):
         sentence_text.save()
     # dataset_models.SentenceText.objects.bulk_create(all_sentence_texts)
     
-    project.metadata_json["copy_from_block_text_to_sentence_text"]=True
+    
     project.save()
     ret_dict = {"message": "SUCCESS!"}         
     ret_status = status.HTTP_200_OK
@@ -74,17 +78,14 @@ def copy_from_ocr_document_to_block_text(request):
     project_id = request.data['project_id']
     project = Project.objects.get(pk=project_id)
 
-    if project.is_archived == False:
-        ret_dict = {"message": "Project is not archived!"}         
-        ret_status = status.HTTP_403_FORBIDDEN
-        return Response(ret_dict, status=ret_status)
-
-    if project.metadata_json is None:
-        project.metadata_json = {}
-    if "copy_from_ocr_document_to_block_text" in project.metadata_json:
-        ret_dict = {"message": "Function already applied on this project!"}         
-        ret_status = status.HTTP_403_FORBIDDEN
-        return Response(ret_dict, status=ret_status)
+    # if project.is_archived == False:
+    #     ret_dict = {"message": "Project is not archived!"}         
+    #     ret_status = status.HTTP_403_FORBIDDEN
+    #     return Response(ret_dict, status=ret_status)
+    # if "copy_from_ocr_document_to_block_text" in project.metadata_json:
+    #     ret_dict = {"message": "Function already applied on this project!"}         
+    #     ret_status = status.HTTP_403_FORBIDDEN
+    #     return Response(ret_dict, status=ret_status)
 
     export_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id__exact=export_dataset_instance_id)
     # dataset_model = dataset_models.BlockText
@@ -93,7 +94,11 @@ def copy_from_ocr_document_to_block_text(request):
     all_block_texts = []
     for task in tasks:
         # TODO: Create child object from parent to optimize query
+        if task.metadata_json is None:
+            task.metadata_json = {}
         if task.output_data is not None:
+            if "copy_from_ocr_document_to_block_text" in task.metadata_json:
+                continue
             ocr_document = dataset_models.OCRDocument.objects.get(data_id=task.output_data.data_id)
             # block_text = task.output_data
             # print(block_text)
@@ -120,6 +125,9 @@ def copy_from_ocr_document_to_block_text(request):
                 instance_id = export_dataset_instance,
             )
             all_block_texts.append(block_text)
+            task.metadata_json["copy_from_ocr_document_to_block_text"]=True
+            task.task_status = FREEZED
+            task.save()
 
 
     # TODO: implement bulk create if possible (only if non-hacky)
@@ -127,8 +135,8 @@ def copy_from_ocr_document_to_block_text(request):
         block_text.save()
     # dataset_models.SentenceText.objects.bulk_create(all_sentence_texts)
     
-    project.metadata_json["copy_from_ocr_document_to_block_text"]=True
-    project.save()
+    # project.metadata_json["copy_from_ocr_document_to_block_text"]=True
+    # project.save()
     ret_dict = {"message": "SUCCESS!"}         
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
