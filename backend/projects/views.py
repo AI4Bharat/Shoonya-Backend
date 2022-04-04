@@ -26,7 +26,8 @@ except ImportError:
 
 from users.models import User
 from dataset import models as dataset_models
-from tasks.models import Task, DataExport, Prediction
+from tasks.models import *
+from tasks.serializers import TaskSerializer
 from .registry_helper import ProjectRegistry
 
 from .serializers import ProjectSerializer, ProjectUsersSerializer
@@ -65,17 +66,13 @@ def create_tasks_from_dataitems(items, project):
     for item in items:
         data_id = item['data_id']
         print("Item before", item)
-        try:
+        if "variable_parameters" in output_dataset_info['fields']:
             for var_param in output_dataset_info['fields']['variable_parameters']:
                 item[var_param] = variable_parameters[var_param]
-        except KeyError:
-            pass
-        try:
+        if "copy_from_input" in output_dataset_info['fields']:
             for input_field, output_field in output_dataset_info['fields']['copy_from_input'].items():
                 item[output_field] = item[input_field]
                 del item[input_field]
-        except KeyError:
-            pass
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
         # Remove data id because it's not needed in task.data
         del item['data_id']
@@ -132,6 +129,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         print(pk)
         return super().retrieve(request, *args, **kwargs)
+    
+    @action(detail=True, methods=['post'], url_path='next')
+    def next(self, request, pk):
+        project = Project.objects.get(pk=pk)
+        tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=UNLABELED)
+        sorted_tasks = tasks.order_by('id')
+
+        for task in sorted_tasks:
+            if not task.is_locked():
+                task.set_lock(request.user)
+                task_dict = TaskSerializer(task, many=False).data
+                return Response(task_dict)
+        ret_dict = {"message": "No more unlabeled tasks!"}
+        ret_status = status.HTTP_404_NOT_FOUND
+        return Response(ret_dict, status=ret_status)
+
 
     @is_organization_owner_or_workspace_manager    
     def create(self, request, *args, **kwargs):
