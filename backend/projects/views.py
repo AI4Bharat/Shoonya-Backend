@@ -4,7 +4,6 @@ import json
 from collections import OrderedDict
 from urllib.parse import parse_qsl
 from django.shortcuts import render
-from msrest import Serializer
 from rest_framework import viewsets
 from rest_framework import status
 from rest_framework.response import Response
