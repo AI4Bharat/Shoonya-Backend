@@ -78,15 +78,19 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
 
     def create(self, request):
         # TODO: Correction annotation to be filled by validator
+        task_id = request.data["task"]
+        task = Task.objects.get(pk=task_id)
         if task.project_id.required_annotators_per_task <= task.annotations.count():
             ret_dict = {"message": "Required annotations criteria is already satisfied!"}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
+        if task.task_status == FREEZED:
+            ret_dict = {"message": "Task is freezed!"}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
         annotation_response = super().create(request)
         annotation_id = annotation_response.data["id"]
-        task_id = annotation_response.data["task"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        task = Task.objects.get(pk=task_id)
         task.release_lock(request.user)
         # project = Project.objects.get(pk=task.project_id.id)
         if task.project_id.required_annotators_per_task == task.annotations.count():
