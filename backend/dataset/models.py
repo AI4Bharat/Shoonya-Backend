@@ -145,8 +145,12 @@ class OCRDocument(DatasetBase):
         verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=3
     )
     file_url = models.URLField(
-        verbose_name = 'bucket_url_for_file', max_length = 500
+        verbose_name = 'bucket_url_for_file', max_length = 500, null=True, blank=True
     )
+    image_url = models.URLField(
+        verbose_name = 'bucket_url_for_image', max_length = 500
+    )
+    page_number = models.IntegerField(verbose_name="page_number", default=1)
     lang_id = models.CharField(
         verbose_name="language_id", choices=LANG_CHOICES, max_length=3
     )

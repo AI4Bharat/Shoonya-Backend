@@ -45,7 +45,7 @@ OCR:
       input_dataset:
         class: OCRDocument
         fields:
-          - file_url
+          - image_url
         prediction: prediction_json
       output_dataset: 
         class: OCRDocument
