@@ -135,7 +135,7 @@ class Task(models.Model):
         self.clear_expired_locks()
 
 
-    def is_locked(self):
+    def is_locked(self, user=None):
         """Check whether current task has been locked by some user"""
         self.clear_expired_locks()
         num_locks = self.num_locks
@@ -155,6 +155,10 @@ class Task(models.Model):
         #         )
         #     )
         result = bool(num >= self.project_id.required_annotators_per_task)
+        if user:
+            # Check if already locked by the same user
+            if self.locks.filter(user=user).count() > 0:
+                return True
         print(f'Task {self} locked: {result}; num_locks: {num_locks} num_annotations: {num_annotations}')
         return result
 
