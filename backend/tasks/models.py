@@ -156,6 +156,9 @@ class Task(models.Model):
         #     )
         result = bool(num >= self.project_id.required_annotators_per_task)
         if user:
+            # Check if user has already annotated a task
+            if len(self.annotations.filter(completed_by__exact=user.id)) > 0:
+                return True
             # Check if already locked by the same user
             if self.locks.filter(user=user).count() > 0:
                 return True
