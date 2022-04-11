@@ -48,7 +48,7 @@ class InviteViewSet(viewsets.ViewSet):
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
                 try:
-                    user = User(username=generate_random_string(12), email=email, organization_id=org.id,)
+                    user = User(username=generate_random_string(12), email=email, organization_id=org.id, role=request.data.get("role"))
                     user.set_password(generate_random_string(10))
                     valid_user_emails.append(email)
                     users.append(user)
@@ -63,20 +63,21 @@ class InviteViewSet(viewsets.ViewSet):
         Invite.create_invite(organization=org, users=users)
         return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
 
+    @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserSignUpSerializer)
-    @permission_classes((AllowAny,))
     @action(detail=True, methods=["patch"], url_path="accept", url_name="sign_up_user")
     def sign_up_user(self, request, pk=None):
         """
         Users to sign up for the first time.
         """
         email = request.data.get("email")
+        print(email)
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         if user.has_accepted_invite:
-            return Response({"message": "User has already accepted invite"}, status=status.HTTP_400_BAD_REQUEST,)
+            return Response({"message": "User has already accepted invite"}, status=status.HTTP_400_BAD_REQUEST)
         try:
             Invite.objects.get(user=user, invite_code=pk)
         except Invite.DoesNotExist:
