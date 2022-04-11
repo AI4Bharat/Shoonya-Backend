@@ -65,7 +65,13 @@ class TaskViewSet(viewsets.ModelViewSet):
             queryset = Task.objects.all()
         serializer = TaskSerializer(queryset, many=True)
         return Response(serializer.data)
-
+    
+    def partial_update(self, request, pk=None):
+        task_response = super().partial_update(request)
+        task_id = task_response.data["id"]
+        task = Task.objects.get(pk=task_id)
+        task.release_lock(request.user)
+        return task_response
         
 
 class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
@@ -80,12 +86,25 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
         # TODO: Correction annotation to be filled by validator
         task_id = request.data["task"]
         task = Task.objects.get(pk=task_id)
+        user_id = int(request.data["completed_by"])
+        try:
+            # Check if user id does not match with authorized user
+            assert user_id == request.user.id
+        except AssertionError:
+            ret_dict = {"message": "You are trying to impersonate an user :("}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
         if task.project_id.required_annotators_per_task <= task.annotations.count():
             ret_dict = {"message": "Required annotations criteria is already satisfied!"}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
         if task.task_status == FREEZED:
             ret_dict = {"message": "Task is freezed!"}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
+
+        if len(task.annotations.filter(completed_by__exact=request.user.id)) > 0:
+            ret_dict = {"message": "Cannot add more than one annotation per user!"}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
         annotation_response = super().create(request)

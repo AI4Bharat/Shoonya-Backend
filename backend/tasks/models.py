@@ -70,7 +70,7 @@ class Task(models.Model):
         related_name='output_data_id'
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True, blank=True, related_name="correct_annotation")
+    correct_annotation = models.ForeignKey('Annotation', on_delete=models.SET_NULL, null=True, blank=True, related_name="correct_annotation")
     
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", null=True, blank=True
