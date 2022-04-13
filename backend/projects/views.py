@@ -138,7 +138,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         unlabelled_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=UNLABELED)
         unlabelled_tasks = unlabelled_tasks.order_by('id')
         for task in unlabelled_tasks:
-            if not task.is_locked():
+            if not task.is_locked(request.user):
                 task.set_lock(request.user)
                 task_dict = TaskSerializer(task, many=False).data
                 return Response(task_dict)
@@ -147,7 +147,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         skipped_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=SKIPPED)
         skipped_tasks = skipped_tasks.order_by('id')
         for task in skipped_tasks:
-            if not task.is_locked():
+            if not task.is_locked(request.user):
                 task.set_lock(request.user)
                 task_dict = TaskSerializer(task, many=False).data
                 return Response(task_dict)

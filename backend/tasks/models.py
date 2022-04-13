@@ -70,7 +70,7 @@ class Task(models.Model):
         related_name='output_data_id'
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    correct_annotation = models.ForeignKey('Annotation', on_delete=models.RESTRICT, null=True, blank=True, related_name="correct_annotation")
+    correct_annotation = models.ForeignKey('Annotation', on_delete=models.SET_NULL, null=True, blank=True, related_name="correct_annotation")
     
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", null=True, blank=True
@@ -135,7 +135,7 @@ class Task(models.Model):
         self.clear_expired_locks()
 
 
-    def is_locked(self):
+    def is_locked(self, user=None):
         """Check whether current task has been locked by some user"""
         self.clear_expired_locks()
         num_locks = self.num_locks
@@ -155,6 +155,13 @@ class Task(models.Model):
         #         )
         #     )
         result = bool(num >= self.project_id.required_annotators_per_task)
+        if user:
+            # Check if user has already annotated a task
+            if len(self.annotations.filter(completed_by__exact=user.id)) > 0:
+                return True
+            # Check if already locked by the same user
+            if self.locks.filter(user=user).count() > 0:
+                return True
         print(f'Task {self} locked: {result}; num_locks: {num_locks} num_annotations: {num_annotations}')
         return result
 

@@ -27,6 +27,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "label_config",
             "variable_parameters",
             "project_mode",
+            "required_annotators_per_task",
         ]
 
 

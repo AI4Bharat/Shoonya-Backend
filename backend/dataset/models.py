@@ -3,7 +3,7 @@ Model definitions for Dataset Management
 """
 
 from django.db import models
-from users.models import User
+from users.models import User, LANG_CHOICES
 from organizations.models import Organization
 from workspaces.models import Workspace
 
@@ -15,21 +15,6 @@ DATASET_TYPE_CHOICES = [
     ("BlockText","BlockText")
 ]
 
-# List of Indic languages
-LANG_CHOICES = (
-    ("bn", "Bengali"),
-    ("gu", "Gujarati"),
-    ("en", "English"),
-    ("hi", "Hindi"),
-    ("kn", "Kannada"),
-    ("mr", "Marathi"),
-    ("ne", "Nepali"),
-    ("ne", "Odia"),
-    ("pa", "Punjabi"),
-    ("sa", "Sanskrit"),
-    ("ta", "Tamil"),
-    ("te", "Telugu"),
-)
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
 
@@ -103,7 +88,7 @@ class SentenceText(DatasetBase):
     """
 
     lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=3
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=15
     )
     text = models.TextField(verbose_name="text")
     domain = models.CharField(verbose_name="domain", max_length=1024)
@@ -119,10 +104,10 @@ class TranslationPair(DatasetBase):
     """
 
     input_lang_id = models.CharField(
-        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=3
+        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=15
     )
     output_lang_id = models.CharField(
-        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=3
+        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=15
     )
     input_text = models.TextField(verbose_name="input_text")
     output_text = models.TextField(verbose_name="output_text", null=True, blank=True)
@@ -152,7 +137,7 @@ class OCRDocument(DatasetBase):
     )
     page_number = models.IntegerField(verbose_name="page_number", default=1)
     lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=3
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=15
     )
     ocr_type = models.CharField(
         verbose_name="ocr_type", choices=OCR_TYPE_CHOICES, max_length=3
@@ -189,7 +174,7 @@ class BlockText(DatasetBase):
     """
 
     lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=3
+        verbose_name="language_id", choices=LANG_CHOICES, max_length=15
     )
     text = models.TextField(verbose_name="text")
     splitted_text_prediction = models.JSONField(
