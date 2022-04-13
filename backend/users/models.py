@@ -8,6 +8,33 @@ from organizations.models import Organization
 from .utils import hash_upload
 from .managers import UserManager
 
+# List of Indic languages
+LANG_CHOICES = (
+    ("English", "English"),
+    ("Assamese", "Assamese"),
+    ("Bengali", "Bengali"),
+    ("Bodo", "Bodo"),
+    ("Dogri", "Dogri"),
+    ("Gujarati", "Gujarati"),
+    ("Hindi", "Hindi"),
+    ("Kannada", "Kannada"),
+    ("Kashmiri", "Kashmiri"),
+    ("Konkani", "Konkani"),
+    ("Maithili", "Maithili"),
+    ("Malayalam", "Malayalam"),
+    ("Manipuri", "Manipuri"),
+    ("Marathi", "Marathi"),
+    ("Nepali", "Nepali"),
+    ("Odia", "Odia"),
+    ("Punjabi", "Punjabi"),
+    ("Sanskrit", "Sanskrit"),
+    ("Santali", "Santali"),
+    ("Sindhi", "Sindhi"),
+    ("Tamil", "Tamil"),
+    ("Telugu", "Telugu"),
+    ("Urdu", "Urdu"),
+)
+
 # Create your models here.
 
 
@@ -66,29 +93,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="last annotation activity", auto_now=True
     )
 
-    # List of Indic languages
-    LANG_CHOICES = (
-        ("bn", "Bengali"),
-        ("gu", "Gujarati"),
-        ("en", "English"),
-        ("hi", "Hindi"),
-        ("kn", "Kannada"),
-        ("mr", "Marathi"),
-        ("ne", "Nepali"),
-        ("ne", "Odia"),
-        ("pa", "Punjabi"),
-        ("sa", "Sanskrit"),
-        ("ta", "Tamil"),
-        ("te", "Telugu"),
-    )
-
     lang_id = models.CharField(
         verbose_name="language_id",
         choices=LANG_CHOICES,
         blank=False,
         null=False,
-        default="en",
-        max_length=3,
+        default="English",
+        max_length=15,
     )
 
     maximum_annotations_per_day = models.IntegerField(
