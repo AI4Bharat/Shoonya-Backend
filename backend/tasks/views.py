@@ -5,10 +5,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
-from tasks.models import Task, Annotation, Prediction
+from tasks.models import *
 from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer
 
 from users.models import User
+from projects.models import Project
 
 # Create your views here.
 
@@ -64,7 +65,13 @@ class TaskViewSet(viewsets.ModelViewSet):
             queryset = Task.objects.all()
         serializer = TaskSerializer(queryset, many=True)
         return Response(serializer.data)
-
+    
+    def partial_update(self, request, pk=None):
+        task_response = super().partial_update(request)
+        task_id = task_response.data["id"]
+        task = Task.objects.get(pk=task_id)
+        task.release_lock(request.user)
+        return task_response
         
 
 class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
@@ -77,13 +84,42 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
 
     def create(self, request):
         # TODO: Correction annotation to be filled by validator
+        task_id = request.data["task"]
+        task = Task.objects.get(pk=task_id)
+        user_id = int(request.data["completed_by"])
+        try:
+            # Check if user id does not match with authorized user
+            assert user_id == request.user.id
+        except AssertionError:
+            ret_dict = {"message": "You are trying to impersonate an user :("}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
+        if task.project_id.required_annotators_per_task <= task.annotations.count():
+            ret_dict = {"message": "Required annotations criteria is already satisfied!"}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
+        if task.task_status == FREEZED:
+            ret_dict = {"message": "Task is freezed!"}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
+
+        if len(task.annotations.filter(completed_by__exact=request.user.id)) > 0:
+            ret_dict = {"message": "Cannot add more than one annotation per user!"}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
         annotation_response = super().create(request)
         annotation_id = annotation_response.data["id"]
-        task_id = annotation_response.data["task"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        task = Task.objects.get(pk=task_id)
-        task.correct_annotation = annotation
-        task.save()
+        task.release_lock(request.user)
+        # project = Project.objects.get(pk=task.project_id.id)
+        if task.project_id.required_annotators_per_task == task.annotations.count():
+        # if True:
+            task.task_status = LABELED
+            # TODO: Support accepting annotations manually
+            if task.annotations.count() == 1:
+                task.correct_annotation = annotation
+                task.task_status = ACCEPTED
+            task.save()
         return annotation_response
 
 
