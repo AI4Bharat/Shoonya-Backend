@@ -98,7 +98,7 @@ class UserViewSet(viewsets.ViewSet):
         """
         Updating user profile.
         """
-        user = User.objects.get(email=request.data.get("email"))
+        user = request.user
         serialized = UserUpdateSerializer(user, request.data, partial=True)
         if serialized.is_valid():
             serialized.save()
