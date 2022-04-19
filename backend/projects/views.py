@@ -137,6 +137,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             user = User.objects.get(email=email)
             project = Project.objects.get(pk=pk)
             project.user.remove(user)
+            project.save()
             return Response({'message': "User removed"}, status=status.HTTP_201_CREATED)
         except User.DoesNotExist:
             return Response({"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
