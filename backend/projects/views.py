@@ -130,6 +130,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
         print(pk)
         return super().retrieve(request, *args, **kwargs)
     
+    @action(detail=True, methods=['post'], url_name='remove')
+    def remove_user(self, request, pk=None):
+        try:
+            email = request.data['email']
+            user = User.objects.get(email=email)
+            project = Project.objects.get(pk=pk)
+            project.user.remove(user)
+            project.save()
+            return Response({'message': "User removed"}, status=status.HTTP_201_CREATED)
+        except User.DoesNotExist:
+            return Response({"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     @action(detail=True, methods=['post'], url_path='next')
     def next(self, request, pk):
         project = Project.objects.get(pk=pk)
