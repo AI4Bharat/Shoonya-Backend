@@ -1,3 +1,4 @@
+import email
 import re
 import random
 import json
@@ -27,6 +28,7 @@ except ImportError:
 from users.models import User
 from dataset import models as dataset_models
 from tasks.models import *
+from tasks.models import Annotation as Annotation_model
 from tasks.serializers import TaskSerializer
 from .registry_helper import ProjectRegistry
 
@@ -89,6 +91,8 @@ def create_tasks_from_dataitems(items, project):
     print("Tasks created")
 
     if input_dataset_info['prediction'] is not None:
+        user_object = User.objects.get(email="prediction@ai4bharat.org")
+
         predictions = []
         prediction_field = input_dataset_info['prediction']
         for task,item in zip(tasks,items):
@@ -106,12 +110,15 @@ def create_tasks_from_dataitems(items, project):
                     "to_name": "text",
                     "type": "textarea"
                 }]
-            prediction = Prediction(
+            prediction = Annotation_model(
                 result=item[prediction_field],
                 task=task,
+                completed_by=user_object
             )
             predictions.append(prediction)
-        Prediction.objects.bulk_create(predictions)
+        # 
+        # Prediction.objects.bulk_create(predictions)
+        Annotation_model.objects.bulk_create(predictions)
         print("Predictions created")
 
 
