@@ -4,6 +4,7 @@
 __pycache__
 media/
 static/
+frontend/
 
 # Env
 .env
