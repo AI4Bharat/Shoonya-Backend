@@ -4,6 +4,7 @@ from .models import *
 class InviteGenerationSerializer(serializers.Serializer):
     emails = serializers.ListField(child=serializers.EmailField())
     organization_id = serializers.IntegerField()
+    role = serializers.IntegerField()
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
