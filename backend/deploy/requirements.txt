@@ -6,6 +6,7 @@ django-import-export
 django-smtp-ssl
 djoser
 drf-yasg
+gunicorn
 psycopg2
 python-dotenv
 pillow
@@ -16,3 +17,4 @@ label-studio-tools
 pandas
 mosestokenizer
 indic-nlp-library
+whitenoise
