@@ -13,9 +13,10 @@ from projects.models import Project
 
 # Create your views here.
 
-class TaskViewSet(viewsets.ModelViewSet):
+class TaskViewSet(viewsets.GenericViewSet,
+    mixins.ListModelMixin):
     """
-        Model Viewset for Tasks. All Basic CRUD operations are covered here.
+        Generic Viewset for Tasks. All Basic CRUD operations are covered here.
     """
 
     queryset = Task.objects.all()
@@ -59,11 +60,30 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
+
         if "project_id" in dict(request.query_params):
             queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
         else:
             queryset = Task.objects.all()
-        serializer = TaskSerializer(queryset, many=True)
+        
+        page = request.GET.get('page')
+        try: 
+            page = self.paginate_queryset(queryset)
+        except Exception as e:
+            page = []
+            data = page
+            return Response({
+                "status": status.HTTP_200_OK,
+                "message": 'No more record.',
+                "data" : data
+                })
+
+        if page is not None:
+            serializer = TaskSerializer(page, many=True)
+            data = serializer.data
+            return self.get_paginated_response(data)
+
+        #serializer = TaskSerializer(queryset, many=True)
         return Response(serializer.data)
     
     def partial_update(self, request, pk=None):
