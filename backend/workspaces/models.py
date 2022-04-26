@@ -32,7 +32,7 @@ class Workspace(models.Model, DummyModelMixin):
         related_name="workspace_managers",
     )
 
-    created_by = models.OneToOneField(
+    created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="created_by",
         related_name="workspace_created_by",

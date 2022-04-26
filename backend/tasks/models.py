@@ -56,27 +56,31 @@ class Task(models.Model):
 
     id = models.AutoField(verbose_name="task_id", primary_key=True)
     data = models.JSONField(null=True, blank=True, verbose_name="task_data")
-    project_id = models.ForeignKey(
-        Project, verbose_name="project_id", related_name='tasks', on_delete=models.CASCADE
-    )
+    project_id = models.ForeignKey(Project, verbose_name="project_id", related_name="tasks", on_delete=models.CASCADE)
     input_data = models.ForeignKey(
-        DatasetBase, verbose_name="input_data_id", on_delete=models.CASCADE,
-        null=True, blank=True,
-        related_name='input_data_id'
+        DatasetBase,
+        verbose_name="input_data_id",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="input_data_id",
     )
     output_data = models.ForeignKey(
-        DatasetBase, verbose_name="output_data_id", on_delete=models.CASCADE,
-        null=True, blank=True,
-        related_name='output_data_id'
+        DatasetBase,
+        verbose_name="output_data_id",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="output_data_id",
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
     correct_annotation = models.ForeignKey('Annotation', on_delete=models.SET_NULL, null=True, blank=True, related_name="correct_annotation")
     
     annotation_users = models.ManyToManyField(
-        User, related_name="annotation_users", verbose_name="annotation_users", null=True, blank=True
+        User, related_name="annotation_users", verbose_name="annotation_users", blank=True
     )
     review_user = models.ManyToManyField(
-        User, related_name="review_users", verbose_name="review_users", null=True, blank=True
+        User, related_name="review_users", verbose_name="review_users",  blank=True
     )
     task_status = models.CharField(
         choices=TASK_STATUS,
@@ -186,14 +190,10 @@ class Annotation(models.Model):
     id = models.AutoField(verbose_name="annotation_id", primary_key=True)
     result = models.JSONField(verbose_name="annotation_result_json")
     task = models.ForeignKey(
-        Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name='annotations'
+        Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name="annotations"
     )
-    completed_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, verbose_name="annotation_completed_by"
-    )
-    lead_time = models.DateTimeField(
-        auto_now_add=True, verbose_name="annotation_lead_time"
-    )
+    completed_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="annotation_completed_by")
+    lead_time = models.DateTimeField(auto_now_add=True, verbose_name="annotation_lead_time")
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
 
     def __str__(self):
@@ -203,9 +203,12 @@ class Annotation(models.Model):
 class Prediction(models.Model):
     """ ML predictions
     """
+
     id = models.AutoField(verbose_name="prediction_id", primary_key=True)
-    result = models.JSONField('result', null=True, default=dict, help_text='Prediction result')
-    task = models.ForeignKey(Task, on_delete=models.CASCADE,  verbose_name="prediction_task_id", related_name='predictions')
+    result = models.JSONField("result", null=True, default=dict, help_text="Prediction result")
+    task = models.ForeignKey(
+        Task, on_delete=models.CASCADE, verbose_name="prediction_task_id", related_name="predictions"
+    )
     # created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     # updated_at = models.DateTimeField(_('updated at'), auto_now=True)
 
@@ -289,46 +292,46 @@ class Prediction(models.Model):
     #     db_table = 'prediction'
 
 
+EXPORT_DIR = "/usr"
+UPLOAD_DIR = "/usr"
+MEDIA_ROOT = "/usr"
 
-EXPORT_DIR = '/usr'
-UPLOAD_DIR = '/usr'
-MEDIA_ROOT = '/usr'
 
 class DataExport(object):
     # TODO: deprecated
     @staticmethod
     def save_export_files(project, now, get_args, data, md5, name):
         """Generate two files: meta info and result file and store them locally for logging"""
-        filename_results = os.path.join(EXPORT_DIR, name + '.json')
-        filename_info = os.path.join(EXPORT_DIR, name + '-info.json')
+        filename_results = os.path.join(EXPORT_DIR, name + ".json")
+        filename_info = os.path.join(EXPORT_DIR, name + "-info.json")
         print("Project export", project)
         annotation_number = Annotation.objects.filter(task__project_id=project).count()
         try:
             platform_version = get_git_version()
         except:
-            platform_version = 'none'
-            print('Version is not detected in save_export_files()')
+            platform_version = "none"
+            print("Version is not detected in save_export_files()")
         info = {
-            'project': {
-                'title': project.title,
-                'id': project.id,
+            "project": {
+                "title": project.title,
+                "id": project.id,
                 # 'created_at': project.created_at.strftime('%Y-%m-%dT%H:%M:%SZ'),
                 # 'created_by': project.created_by.email,
-                'task_number': project.tasks.count(),
+                "task_number": project.tasks.count(),
                 # 'annotation_number': annotation_number,
             },
-            'platform': {'version': platform_version},
-            'download': {
-                'GET': dict(get_args),
-                'time': now.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                'result_filename': filename_results,
-                'md5': md5,
+            "platform": {"version": platform_version},
+            "download": {
+                "GET": dict(get_args),
+                "time": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "result_filename": filename_results,
+                "md5": md5,
             },
         }
 
-        with open(filename_results, 'w', encoding='utf-8') as f:
+        with open(filename_results, "w", encoding="utf-8") as f:
             f.write(data)
-        with open(filename_info, 'w', encoding='utf-8') as f:
+        with open(filename_info, "w", encoding="utf-8") as f:
             json.dump(info, f, ensure_ascii=False)
         return filename_results
 
@@ -339,19 +342,19 @@ class DataExport(object):
         supported_formats = set(converter.supported_formats)
         for format, format_info in converter.all_formats().items():
             format_info = deepcopy(format_info)
-            format_info['name'] = format.name
+            format_info["name"] = format.name
             if format.name not in supported_formats:
-                format_info['disabled'] = True
+                format_info["disabled"] = True
             formats.append(format_info)
-        return sorted(formats, key=lambda f: f.get('disabled', False))
+        return sorted(formats, key=lambda f: f.get("disabled", False))
 
     @staticmethod
     def export_csv_file(project, tasks, download_resources, get_args):
         # prepare for saving
         now = datetime.now()
         data = json.dumps(tasks, ensure_ascii=False)
-        md5 = hashlib.md5(json.dumps(data).encode('utf-8')).hexdigest()
-        name = 'project-' + str(project.id) + '-at-' + now.strftime('%Y-%m-%d-%H-%M') + f'-{md5[0:8]}'
+        md5 = hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
+        name = "project-" + str(project.id) + "-at-" + now.strftime("%Y-%m-%d-%H-%M") + f"-{md5[0:8]}"
 
         input_json = DataExport.save_export_files(project, now, get_args, data, md5, name)
 
@@ -375,7 +378,7 @@ class DataExport(object):
                 # ext = os.path.splitext(output_file)[-1]
                 # content_type = f'application/{ext}'
                 # out = read_bytes_stream(output_file)
-                
+
                 # filename = name + os.path.splitext(output_file)[-1]
                 # return out, content_type, filename
                 return df
