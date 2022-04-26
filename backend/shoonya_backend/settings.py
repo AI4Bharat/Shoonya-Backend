@@ -30,8 +30,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("ENV") == "dev"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
-
+ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1", "[::1]"]
 
 # Application definition
 
@@ -59,9 +58,9 @@ INSTALLED_APPS = [
 CSRF_COOKIE_SECURE = False
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -69,9 +68,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-]
+CORS_ORIGIN_ALLOW_ALL = True
+
+CORS_ALLOW_CREDENTIALS = True
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
@@ -192,4 +191,5 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("JWT",),
     "BLACKLIST_AFTER_ROTATION": False,
     "REFRESH_TOKEN_LIFETIME": timedelta(days=20),
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=100)
 }
