@@ -93,7 +93,7 @@ class Invite(models.Model):
     invite_code = models.CharField(verbose_name="invite_code", max_length=256, null=True, unique=True)
 
     def __str__(self):
-        return str(self.organization.title) + ", " + str(self.organization.created_by.email)
+        return  str(self.user.email) + " for " + str(self.organization.title) + " organization"
 
     @classmethod
     def create_invite(cls, organization=None, users=None):
@@ -107,7 +107,7 @@ class Invite(models.Model):
                     invite.save()
                 send_mail(
                     "Invitation to join Organization",
-                    f"Hello! You are invited to {organization.title}. Your Invite link is: http://localhost:3000/invite/{invite.invite_code}",
+                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/invite/{invite.invite_code}",
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                 )
