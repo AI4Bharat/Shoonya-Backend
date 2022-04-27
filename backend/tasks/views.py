@@ -13,10 +13,10 @@ from projects.models import Project
 
 # Create your views here.
 
-class TaskViewSet(viewsets.GenericViewSet,
+class TaskViewSet(viewsets.ModelViewSet,
     mixins.ListModelMixin):
     """
-        Generic Viewset for Tasks. All Basic CRUD operations are covered here.
+        Model Viewset for Tasks. All Basic CRUD operations are covered here.
     """
 
     queryset = Task.objects.all()
