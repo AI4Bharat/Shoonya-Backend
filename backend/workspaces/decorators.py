@@ -62,7 +62,7 @@ def is_workspace_member(f):
     @wraps(f)
     def wrapper(self, request, pk=None, *args, **kwargs):
         workspace = Workspace.objects.get(pk=pk)
-        if request.user in workspace.members.all():
+        if request.user in workspace.users.all():
             return f(self, request, pk, *args, **kwargs)
         else:
             return Response(NOT_IN_WORKSPACE_ERROR, status=status.HTTP_403_FORBIDDEN)
