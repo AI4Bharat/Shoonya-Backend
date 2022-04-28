@@ -136,20 +136,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Retrieves a project given its ID
         """
-        print(pk)
         return super().retrieve(request, *args, **kwargs)
-    
+      
+      
     def list(self, request, *args, **kwargs):
         """
         List all Projects
         """
         try:
             projects = self.queryset.filter(users=request.user)
+  
+            if request.user.role == User.ORGANIZAION_OWNER:
+                projects = self.queryset.filter(organization_id=request.user.organization)
+            else:
+                projects = self.queryset.filter(users=request.user)
             projects_json = self.serializer_class(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
             return Response({"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST)
-    
+
+          
     @action(detail=True, methods=['post'], url_name='remove')
     def remove_user(self, request, pk=None):
         try:

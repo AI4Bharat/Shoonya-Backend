@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
-
+from projects.models import Project
 from users.models import User
 from users.serializers import UserProfileSerializer
 
@@ -39,12 +39,24 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, pk=None, *args, **kwargs):
-        print(pk)
         return super().retrieve(request, *args, **kwargs)
 
     @is_organization_owner_or_workspace_manager
     def create(self, request, *args, **kwargs):
-        return super().create(request, *args, **kwargs)
+        #TODO: Make sure to add the user to the workspace and created_by
+        # return super().create(request, *args, **kwargs)
+        try:
+            data = self.serializer_class(data=request.data)
+            if data.is_valid():
+                obj = data.save()
+                obj.users.add(request.user)
+                obj.created_by = request.user
+                obj.save()
+                return Response({"message": "Workspace created!"}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST)
 
     @is_particular_workspace_manager
     @workspace_is_archived
@@ -65,9 +77,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @is_particular_workspace_manager
     @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
     def users(self, request, pk=None):
-        '''
+        """
         Get all users of a workspace
-        '''
+        """
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
@@ -92,9 +104,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
     @is_particular_workspace_manager
     def assign_manager(self, request, pk=None, *args, **kwargs):
-        '''
+        """
         API for assigning manager to a workspace
-        '''
+        """
         ret_dict = {}
         ret_status = 0
         email = str(request.data["email"])
@@ -122,13 +134,17 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
     @is_workspace_member
     def get_projects(self, request, pk=None):
-        '''
+        """
         API for getting all projects of a workspace
-        '''
+        """
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         if request.user.role == User.ANNOTATOR:
-            projects = Workspace.objects.get(pk=pk).projects.get(users=request.user)
+            projects = Project.objects.filter(users=request.user, workspace_id=workspace)
         else:
-            projects = Workspace.objects.get(pk=pk).projects.all()
+            projects = Project.objects.filter(workspace_id=workspace)
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
