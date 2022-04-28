@@ -5,6 +5,10 @@ from shoonya_backend.settings import AUTH_USER_MODEL
 from shoonya_backend.mixins import DummyModelMixin
 import secrets
 from django.core.mail import send_mail
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from django.conf import settings
 
@@ -107,7 +111,7 @@ class Invite(models.Model):
                     invite.save()
                 send_mail(
                     "Invitation to join Organization",
-                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/invite/{invite.invite_code}",
+                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://{os.getenv('FRONTEND_URL')}/invite/{invite.invite_code}",
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                 )
