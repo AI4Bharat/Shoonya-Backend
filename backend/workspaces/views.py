@@ -44,7 +44,19 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     @is_organization_owner_or_workspace_manager
     def create(self, request, *args, **kwargs):
         #TODO: Make sure to add the user to the workspace and created_by
-        return super().create(request, *args, **kwargs)
+        # return super().create(request, *args, **kwargs)
+        try:
+            data = self.serializer_class(data=request.data)
+            if data.is_valid():
+                obj = data.save()
+                obj.users.add(request.user)
+                obj.created_by = request.user
+                obj.save()
+                return Response({"message": "Workspace created!"}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response({"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST)
 
     @is_particular_workspace_manager
     @workspace_is_archived
