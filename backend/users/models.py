@@ -102,9 +102,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=15,
     )
 
-    maximum_annotations_per_day = models.IntegerField(
-        verbose_name="maximum annotations per day", null=True
-    )
+    # maximum_annotations_per_day = models.IntegerField(
+    #     verbose_name="maximum annotations per day", null=True
+    # )
 
     AVAILABLE = 1
     ON_LEAVE = 2
