@@ -59,19 +59,19 @@ class Task(models.Model):
     project_id = models.ForeignKey(Project, verbose_name="project_id", related_name="tasks", on_delete=models.CASCADE)
     input_data = models.ForeignKey(
         DatasetBase,
-        verbose_name="input_data_id",
+        verbose_name="input_data",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="input_data_id",
+        related_name="input_data",
     )
     output_data = models.ForeignKey(
         DatasetBase,
-        verbose_name="output_data_id",
+        verbose_name="output_data",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="output_data_id",
+        related_name="output_data",
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
     correct_annotation = models.ForeignKey('Annotation', on_delete=models.SET_NULL, null=True, blank=True, related_name="correct_annotation")

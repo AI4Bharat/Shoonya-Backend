@@ -68,7 +68,7 @@ def create_tasks_from_dataitems(items, project):
     # Create task objects
     tasks = []
     for item in items:
-        data_id = item['data_id']
+        data_id = item['id']
         print("Item before", item)
         if "variable_parameters" in output_dataset_info['fields']:
             for var_param in output_dataset_info['fields']['variable_parameters']:
@@ -79,7 +79,7 @@ def create_tasks_from_dataitems(items, project):
                 del item[input_field]
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
         # Remove data id because it's not needed in task.data
-        del item['data_id']
+        del item['id']
         print("Item after", item)
         task = Task(
             data=item,
@@ -240,9 +240,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # Get the input dataset fields from the filtered items
             if input_dataset_info['prediction'] is not None:
-                filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"], input_dataset_info['prediction']))
+                filtered_items = list(filtered_items.values('id', *input_dataset_info["fields"], input_dataset_info['prediction']))
             else:
-                filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"]))
+                filtered_items = list(filtered_items.values('id', *input_dataset_info["fields"]))
 
             print("Samples before sampling", filtered_items)
 
@@ -416,12 +416,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 print(list(project.dataset_id.all()))
                 all_items = dataset_model.objects.filter(instance_id__in=list(project.dataset_id.all()))
                 print("TASKS", tasks.values_list('input_data'))
-                items = all_items.exclude(data_id__in=tasks.values('input_data'))
+                items = all_items.exclude(id__in=tasks.values('input_data'))
                 # Get the input dataset fields from the filtered items
                 if input_dataset_info['prediction'] is not None:
-                    items = list(items.values('data_id', *input_dataset_info["fields"], input_dataset_info['prediction']))
+                    items = list(items.values('id', *input_dataset_info["fields"], input_dataset_info['prediction']))
                 else:
-                    items = list(items.values('data_id', *input_dataset_info["fields"]))
+                    items = list(items.values('id', *input_dataset_info["fields"]))
 
                 create_tasks_from_dataitems(items, project)
                 ret_dict = {"message": "SUCCESS!"}         
@@ -490,7 +490,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                     task.output_data = task.input_data
                     task.save()
-                    data_item = dataset_model.objects.get(data_id__exact=tl["input_data"])
+                    data_item = dataset_model.objects.get(id__exact=tl["input_data"])
                     for field in annotation_fields:
                         setattr(data_item, field, ta[field])
                     data_items.append(data_item)
@@ -540,7 +540,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     for (tl,task) in zip(tasks_list, annotated_tasks):
                         print("Task data", tl["data"])
                         if task.output_data is not None:
-                            data_item = dataset_model.objects.get(data_id__exact=task.output_data.data_id)
+                            data_item = dataset_model.objects.get(id__exact=task.output_data.id)
                         else:
                             data_item = dataset_model()
                             data_item.instance_id = export_dataset_instance
@@ -567,12 +567,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     
 
                     for (ta,task) in zip(tasks_annotations, annotated_tasks):
-                        # data_item = dataset_model.objects.get(data_id__exact=task.data_id.data_id)
+                        # data_item = dataset_model.objects.get(id__exact=task.id.id)
                         if task.output_data is not None:
-                            data_item = dataset_model.objects.get(data_id__exact=task.output_data.data_id)
+                            data_item = dataset_model.objects.get(id__exact=task.output_data.id)
                         else:
                             data_item = dataset_model()
                             data_item.instance_id = export_dataset_instance
+                            data_item.parent_data = task.input_data
 
                         for field in annotation_fields:
                             setattr(data_item, field, ta[field])
