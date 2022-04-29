@@ -87,8 +87,8 @@ class SentenceText(DatasetBase):
     Dataset for storing monolingual sentences.
     """
 
-    lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=15
+    language = models.CharField(
+        verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
     text = models.TextField(verbose_name="text")
     domain = models.CharField(verbose_name="domain", max_length=1024)
@@ -103,11 +103,11 @@ class TranslationPair(DatasetBase):
     Dataset for storing translation pairs.
     """
 
-    input_lang_id = models.CharField(
-        verbose_name="input_language_id", choices=LANG_CHOICES, max_length=15
+    input_language = models.CharField(
+        verbose_name="input_language", choices=LANG_CHOICES, max_length=15
     )
-    output_lang_id = models.CharField(
-        verbose_name="output_language_id", choices=LANG_CHOICES, max_length=15
+    output_language = models.CharField(
+        verbose_name="output_language", choices=LANG_CHOICES, max_length=15
     )
     input_text = models.TextField(verbose_name="input_text")
     output_text = models.TextField(verbose_name="output_text", null=True, blank=True)
@@ -136,8 +136,8 @@ class OCRDocument(DatasetBase):
         verbose_name = 'bucket_url_for_image', max_length = 500
     )
     page_number = models.IntegerField(verbose_name="page_number", default=1)
-    lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=15
+    language = models.CharField(
+        verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
     ocr_type = models.CharField(
         verbose_name="ocr_type", choices=OCR_TYPE_CHOICES, max_length=3
@@ -173,8 +173,8 @@ class BlockText(DatasetBase):
     Dataset for storing monolingual data.
     """
 
-    lang_id = models.CharField(
-        verbose_name="language_id", choices=LANG_CHOICES, max_length=15
+    language = models.CharField(
+        verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
     text = models.TextField(verbose_name="text")
     splitted_text_prediction = models.JSONField(
@@ -214,7 +214,7 @@ D10 = TranslationPair
 #     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
 #     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
 #     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-#     lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
+#     language = models.CharField(verbose_name = 'language', choices = LANG_CHOICES, max_length=100)
 
 #     speaker_gender = models.CharField(verbose_name = 'speech_collection_speaker_gender', choices = GENDER_CHOICES, default = 'M', max_length=100)
 #     speaker_id = models.IntegerField(verbose_name = 'speech_collection_speaker_id')
@@ -236,7 +236,7 @@ D10 = TranslationPair
 #     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
 #     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
 #     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-#     lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
+#     language = models.CharField(verbose_name = 'language', choices = LANG_CHOICES, max_length=100)
 
 #     speaker_gender = models.CharField(verbose_name = 'speech_recognition_speaker_gender', choices = GENDER_CHOICES  , default = 'M', max_length=100)
 #     speaker_id = models.IntegerField(verbose_name = 'speech_recognition_speaker_id'  )
@@ -255,7 +255,7 @@ D10 = TranslationPair
 #     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
 #     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
 #     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-#     lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
+#     language = models.CharField(verbose_name = 'language', choices = LANG_CHOICES, max_length=100)
 
 #     is_profane = models.BooleanField()
 #     is_grammatically_correct = models.BooleanField
@@ -272,12 +272,12 @@ D10 = TranslationPair
 #     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
 #     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
 #     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-#     lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
+#     language = models.CharField(verbose_name = 'language', choices = LANG_CHOICES, max_length=100)
 
 #     machine_translation = models.TextField()
 #     human_tranlation = models.TextField()
 #     labse_score = models.DecimalField(max_digits = 4, decimal_places = 2)
-#     target_lang_id = models.CharField(verbose_name = 'target_language_id', choices = LANG_CHOICES, max_length=100)
+#     target_language = models.CharField(verbose_name = 'target_language', choices = LANG_CHOICES, max_length=100)
 
 # class OCR(models.Model):
 #     """
@@ -289,7 +289,7 @@ D10 = TranslationPair
 #     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
 #     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
 #     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-#     lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
+#     language = models.CharField(verbose_name = 'language', choices = LANG_CHOICES, max_length=100)
 
 #     bboxes_json = models.JSONField()
 #     is_clean = models.BooleanField()
@@ -304,7 +304,7 @@ D10 = TranslationPair
 #     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
 #     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
 #     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-#     lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
+#     language = models.CharField(verbose_name = 'language', choices = LANG_CHOICES, max_length=100)
 
 #     sentences = models.TextField()
 #     gloss_sequences = models.TextField()
@@ -323,7 +323,7 @@ D10 = TranslationPair
 #     bucket_url = models.URLField(verbose_name = 'bucket_url_for_data', max_length = 400, null = True, blank = True)
 #     raw_data = models.TextField(verbose_name = 'raw_data', null = True, blank = True)
 #     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
-#     lang_id = models.CharField(verbose_name = 'language_id', choices = LANG_CHOICES, max_length=100)
+#     language = models.CharField(verbose_name = 'language', choices = LANG_CHOICES, max_length=100)
 
 #     sentence = models.TextField()
 #     gloss_sequence = models.TextField()

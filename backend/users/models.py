@@ -93,8 +93,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="last annotation activity", auto_now=True
     )
 
-    lang_id = models.CharField(
-        verbose_name="language_id",
+    language = models.CharField(
+        verbose_name="language",
         choices=LANG_CHOICES,
         blank=False,
         null=False,

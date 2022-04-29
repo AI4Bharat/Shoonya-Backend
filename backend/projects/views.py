@@ -100,11 +100,11 @@ def create_tasks_from_dataitems(items, project):
         for task,item in zip(tasks,items):
 
             if project_type == "SentenceSplitting":
-                print("Split", split_sentences(item["text"], item["lang_id"]))
+                print("Split", split_sentences(item["text"], item["language"]))
                 item[prediction_field] = [{
                     "value": {
                         "text": [
-                            "\n".join(split_sentences(item["text"], item["lang_id"]))
+                            "\n".join(split_sentences(item["text"], item["language"]))
                         ]
                     },
                     "id": "0",

@@ -46,7 +46,7 @@ def copy_from_block_text_to_sentence_text(request):
             sentences = raw_text.split("\n")
             for sentence in sentences:
                 sentence_text = dataset_models.SentenceText(
-                    lang_id=block_text.lang_id,
+                    language=block_text.language,
                     text=sentence,
                     domain=block_text.domain,
                     instance_id = export_dataset_instance,
@@ -119,7 +119,7 @@ def copy_from_ocr_document_to_block_text(request):
             text = " ".join(body_transcriptions)
             # TODO: check if domain can be same as OCR domain
             block_text = dataset_models.BlockText(
-                lang_id=ocr_document.lang_id,
+                language=ocr_document.language,
                 text=text,
                 domain=ocr_document.ocr_domain,
                 instance_id = export_dataset_instance,

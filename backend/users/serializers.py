@@ -25,7 +25,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "email",
             "first_name",
             "last_name",
-            "lang_id",
+            "language",
             "availability_status",
             "phone",
         ]
@@ -41,7 +41,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "id",
             "username",
             "email",
-            "lang_id",
+            "language",
             "availability_status",
             "first_name",
             "last_name",
