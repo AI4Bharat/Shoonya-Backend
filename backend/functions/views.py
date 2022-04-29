@@ -38,7 +38,6 @@ def copy_from_block_text_to_sentence_text(request):
                 continue
             block_text = dataset_models.BlockText.objects.get(id=task.output_data.id)
             # block_text = task.output_data
-            # print(block_text)
             # block_text.__class__ = dataset_models.BlockText
             # block_text = dataset_models.BlockText()
             # block_text = task.output_data
@@ -102,7 +101,6 @@ def copy_from_ocr_document_to_block_text(request):
                 continue
             ocr_document = dataset_models.OCRDocument.objects.get(id=task.output_data.id)
             # block_text = task.output_data
-            # print(block_text)
             # block_text.__class__ = dataset_models.BlockText
             # block_text = dataset_models.BlockText()
             # block_text = task.output_data

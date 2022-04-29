@@ -77,6 +77,5 @@ class UserTestcase(APITestCase):
     #     self.client.login(username="test@user.com", password="newpassword")
     #     response = self.client.patch(url, data, format="json")
     #     self.client.logout()
-    #     print(response.data)
     #     self.assertEqual(response.status_code, status.HTTP_200_OK)
     #     self.assertEqual(response.data, {"message": "User profile edited"})
