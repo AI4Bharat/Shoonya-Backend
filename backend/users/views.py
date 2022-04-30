@@ -40,6 +40,7 @@ class InviteViewSet(viewsets.ViewSet):
         except Organization.DoesNotExist:
             return Response({"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND)
         valid_user_emails = []
+        invalid_emails = []
         try:
             org = Organization.objects.get(id=organization_id)
         except Organization.DoesNotExist:
@@ -55,13 +56,20 @@ class InviteViewSet(viewsets.ViewSet):
                 except:
                     pass
             else:
-                print("Invalid email: " + email)
+                invalid_emails.append(email)
         if len(valid_user_emails) <= 0:
             return Response({"message": "No valid emails found"}, status=status.HTTP_400_BAD_REQUEST)
+        if len(invalid_emails) == 0:
+            ret_dict = {"message": "Invites sent"}
+            ret_status = status.HTTP_201_CREATED
+        else:
+            ret_dict = {"message": f"Invites sent partially! Invalid emails: {','.join(invalid_emails)}"}
+            ret_status = status.HTTP_201_CREATED
+    
         users = User.objects.bulk_create(users)
 
         Invite.create_invite(organization=org, users=users)
-        return Response({"message": "Invite sent"}, status=status.HTTP_200_OK)
+        return Response(ret_dict, status=status.HTTP_200_OK)
 
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserSignUpSerializer)
@@ -71,7 +79,6 @@ class InviteViewSet(viewsets.ViewSet):
         Users to sign up for the first time.
         """
         email = request.data.get("email")
-        print(email)
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:

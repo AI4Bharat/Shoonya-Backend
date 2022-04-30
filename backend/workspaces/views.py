@@ -31,12 +31,14 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
 
     def list(self, request, *args, **kwargs):
-        if request.user.role == User.ANNOTATOR or request.user.role == User.WORKSPACE_MANAGER:
+        if int(request.user.role) == User.ANNOTATOR or int(request.user.role) == User.WORKSPACE_MANAGER:
             data = self.queryset.filter(users=request.user, is_archived=False, organization=request.user.organization)
-            serializer = self.serializer_class(data=data)
-            if serializer.is_valid():
-                return Response(serializer.data, status=status.HTTP_200_OK)
-        return super().list(request, *args, **kwargs)
+            serializer = WorkspaceSerializer(data, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        elif int(request.user.role) == User.ORGANIZAION_OWNER:
+            return super().list(request, *args, **kwargs)
+        else:
+            return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
 
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
@@ -94,7 +96,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     )
     @is_particular_workspace_manager
     def archive(self, request, pk=None, *args, **kwargs):
-        print(pk)
         workspace = Workspace.objects.get(pk=pk)
         workspace.is_archived = not workspace.is_archived
         workspace.save()
@@ -115,6 +116,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 user = User.objects.get(email=email)
                 workspace = Workspace.objects.get(pk=pk)
                 workspace.managers.add(user)
+                workspace.users.add(user)
                 workspace.save()
                 serializer = WorkspaceManagerSerializer(workspace, many=False)
                 ret_dict = serializer.data

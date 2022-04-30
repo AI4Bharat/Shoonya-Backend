@@ -7,16 +7,16 @@ Translation:
       input_dataset:
         class: SentenceText
         fields:
-          - lang_id
+          - language
           - text
       output_dataset: 
         class: TranslationPair
         save_type: new_record
         fields:
           variable_parameters:
-            - output_lang_id
+            - output_language
           copy_from_input:
-            lang_id: input_lang_id
+            language: input_language
             text: input_text
           annotations:
             - output_text
@@ -26,9 +26,9 @@ Translation:
       input_dataset:
         class: TranslationPair
         fields:
-          - input_lang_id
+          - input_language
           - input_text
-          - output_lang_id
+          - output_language
           - machine_translation
       output_dataset: 
         class: TranslationPair
@@ -68,7 +68,7 @@ Monolingual:
             - domain
             - text
           variable_parameters:
-            - lang_id
+            - language
     SentenceSplitting:
       project_mode: "Annotation"
       label_studio_jsx_file: "monolingual/sentence_splitting.jsx"
@@ -76,7 +76,7 @@ Monolingual:
         class: BlockText
         fields:
           - text
-          - lang_id
+          - language
         prediction: splitted_text_prediction
       output_dataset:
         class: BlockText

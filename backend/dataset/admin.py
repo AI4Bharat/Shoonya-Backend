@@ -8,25 +8,25 @@ admin.site.register(models.DatasetInstance)
 
 class TranslationPairResource(resources.ModelResource):
     class Meta:
-        import_id_fields = ('data_id',)
+        import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)
         model = models.TranslationPair
 
 class SentenceTextResource(resources.ModelResource):
     class Meta:
-        import_id_fields = ('data_id',)
+        import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)
         model = models.SentenceText
 
 class OCRResource(resources.ModelResource):
     class Meta:
-        import_id_fields = ('data_id',)
+        import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)
         model = models.OCRDocument
 
 class BlockTextResource(resources.ModelResource):
     class Meta:
-        import_id_fields = ('data_id',)
+        import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)
         model = models.BlockText
 
