@@ -26,6 +26,7 @@ SAMPLING_MODE_CHOICES = (
 PROJECT_TYPE_CHOICES = (
     ("MonolingualTranslation", "MonolingualTranslation"),
     ("TranslationEditing", "TranslationEditing"),
+    ("ContextualTranslationEditing", "ContextualTranslationEditing"),
     ("OCRAnnotation", "OCRAnnotation"),
     ("MonolingualCollection", "MonolingualCollection"),
     ("SentenceSplitting", "SentenceSplitting"),
