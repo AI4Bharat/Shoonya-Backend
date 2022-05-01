@@ -610,10 +610,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             for user in users:
                 userEmail = user['email']
                 
-                #send_mail("Annotation Tasks Assigned",
-                #f"Hello! You are assigned to tasks in the project {project.title}.",
-                #settings.DEFAULT_FROM_EMAIL, [userEmail],
-                #)
+                send_mail("Annotation Tasks Assigned",
+                f"Hello! You are assigned to tasks in the project {project.title}.",
+                settings.DEFAULT_FROM_EMAIL, [userEmail],
+                )
 
             ret_dict = {"message": "This project is published"}
             ret_status = status.HTTP_200_OK
