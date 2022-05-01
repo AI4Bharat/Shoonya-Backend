@@ -115,6 +115,9 @@ class TranslationPair(DatasetBase):
     machine_translation = models.TextField(
         verbose_name="machine_translation", null=True, blank=True
     )
+    context = models.TextField(
+        verbose_name="context", null=True, blank=True
+    )
     labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
     rating = models.IntegerField(verbose_name="translation_rating", null=True, blank=True)
 
