@@ -337,7 +337,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ret_dict = {}
         ret_status = 0
         try:
-            tasks = Task.objects.filter(project_id=pk)
+            # role check
+            if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER:
+                tasks = Task.objects.filter(project_id=pk)
+            elif request.user.role == User.ANNOTATOR:
+                tasks = Task.objects.filter(project_id=pk, annotation_users=request.user)
             serializer = TaskSerializer(tasks, many=True)
             ret_dict = serializer.data
             ret_status = status.HTTP_200_OK
@@ -362,6 +366,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             for email in emails:
                 if re.fullmatch(EMAIL_REGEX, email):
                     user = User.objects.get(email=email)
+
+                    ### TODO: Check if user is an annotator
+                    # if user.role != User.ANNOTATOR:
+                    #     ret_dict = {"message": f"User {user.email} is not an annotator!"}
+                    #     ret_status = status.HTTP_201_CREATED
                     project.users.add(user)
                     project.save()
                 else:
@@ -613,13 +622,30 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.is_published = True
             project.save()
 
-            for user in users:
-                userEmail = user['email']
+            # get all tasks of a project
+            tasks = Task.objects.filter(project_id=pk)
+            total_users = project.users.count()
+            total_tasks = len(tasks)
+            tasks_per_user = total_tasks // total_users
+
+            def divide_chunks(l, n):
+                # looping till length l
+                for i in range(0, len(l), n): 
+                    yield l[i:i + n]
+            
+            user_tasks = list(divide_chunks(tasks, tasks_per_user))
+            for user_task_list, user in zip(user_tasks, project.users.all()):
+                for task in user_task_list:
+                    task.annotation_users.add(user)
+                    task.save()
+            
+            # for user in users:
+            #     userEmail = user['email']
                 
-                send_mail("Annotation Tasks Assigned",
-                f"Hello! You are assigned to tasks in the project {project.title}.",
-                settings.DEFAULT_FROM_EMAIL, [userEmail],
-                )
+            #     send_mail("Annotation Tasks Assigned",
+            #     f"Hello! You are assigned to tasks in the project {project.title}.",
+            #     settings.DEFAULT_FROM_EMAIL, [userEmail],
+            #     )
 
             ret_dict = {"message": "This project is published"}
             ret_status = status.HTTP_200_OK
