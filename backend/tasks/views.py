@@ -119,8 +119,49 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
             if task.annotations.count() == 1:
                 task.correct_annotation = annotation
                 task.task_status = ACCEPTED
-            task.save()
+        else:
+            task.task_status = UNLABELED
+        task.save()
         return annotation_response
+    
+    def partial_update(self, request, pk=None):
+        annotation_response = super().partial_update(request)
+        annotation_id = annotation_response.data["id"]
+        annotation = Annotation.objects.get(pk=annotation_id)
+        task = annotation.task
+        # task = Task.objects.get(pk=task_id)
+        if task.project_id.required_annotators_per_task == task.annotations.count():
+        # if True:
+            task.task_status = LABELED
+            # TODO: Support accepting annotations manually
+            if task.annotations.count() == 1:
+                task.correct_annotation = annotation
+                task.task_status = ACCEPTED
+        else:
+            task.task_status = UNLABELED
+        
+        task.save()
+        return annotation_response
+    
+
+    # def update(self, request, pk=None):
+    #     annotation_response = super().partial_update(request)
+    #     task_id = request.data["task"]
+    #     task = Task.objects.get(pk=task_id)
+    #     annotation_id = annotation_response.data["id"]
+    #     annotation = Annotation.objects.get(pk=annotation_id)
+    #     if task.project_id.required_annotators_per_task == task.annotations.count():
+    #     # if True:
+    #         task.task_status = LABELED
+    #         # TODO: Support accepting annotations manually
+    #         if task.annotations.count() == 1:
+    #             task.correct_annotation = annotation
+    #             task.task_status = ACCEPTED
+    #     else:
+    #         task.task_status = UNLABELED
+        
+    #     task.save()
+    #     return annotation_response
 
 
 class PredictionViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):

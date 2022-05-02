@@ -59,19 +59,19 @@ class Task(models.Model):
     project_id = models.ForeignKey(Project, verbose_name="project_id", related_name="tasks", on_delete=models.CASCADE)
     input_data = models.ForeignKey(
         DatasetBase,
-        verbose_name="input_data_id",
+        verbose_name="input_data",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="input_data_id",
+        related_name="input_data",
     )
     output_data = models.ForeignKey(
         DatasetBase,
-        verbose_name="output_data_id",
+        verbose_name="output_data",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="output_data_id",
+        related_name="output_data",
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
     correct_annotation = models.ForeignKey('Annotation', on_delete=models.SET_NULL, null=True, blank=True, related_name="correct_annotation")
@@ -120,7 +120,6 @@ class Task(models.Model):
             lock_ttl = self.get_lock_ttl()
             expire_at = now() + timedelta(seconds=lock_ttl)
             TaskLock.objects.create(task=self, user=user, expire_at=expire_at)
-            print(f'User={user} acquires a lock for the task={self} ttl: {lock_ttl}')
         else:
             raise Exception("Setting lock failed. Num locks > max annotators. Please call has_lock() before setting the lock.")
             # logger.error(
@@ -166,7 +165,6 @@ class Task(models.Model):
             # Check if already locked by the same user
             if self.locks.filter(user=user).count() > 0:
                 return True
-        print(f'Task {self} locked: {result}; num_locks: {num_locks} num_annotations: {num_annotations}')
         return result
 
     def __str__(self):
@@ -304,7 +302,6 @@ class DataExport(object):
         """Generate two files: meta info and result file and store them locally for logging"""
         filename_results = os.path.join(EXPORT_DIR, name + ".json")
         filename_info = os.path.join(EXPORT_DIR, name + "-info.json")
-        print("Project export", project)
         annotation_number = Annotation.objects.filter(task__project_id=project).count()
         try:
             platform_version = get_git_version()
@@ -358,8 +355,6 @@ class DataExport(object):
 
         input_json = DataExport.save_export_files(project, now, get_args, data, md5, name)
 
-        print("config", project.label_config)
-        print("parsed config", parse_config(project.label_config))
         converter = Converter(
             config=parse_config(project.label_config),
             project_dir=None,
@@ -372,7 +367,6 @@ class DataExport(object):
             # if only one file is exported - no need to create archive
             if len(os.listdir(tmp_dir)) == 1:
                 output_file = files[0]
-                print("Output File", output_file)
                 df = pd.read_csv(output_file)
                 # tasks_annotations = json.load(output_file)
                 # ext = os.path.splitext(output_file)[-1]

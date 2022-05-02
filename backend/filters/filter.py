@@ -53,8 +53,6 @@ def filter_using_dict_and_queryset(query_params, queryset=None):
     if queryset is None:
         raise Exception('Queryset is None. Please specify a queryset to apply the filter on.')
 
-    print(query_params)
-
     # Filter the model to get the queryset
     try:
         return queryset.filter(**query_params)

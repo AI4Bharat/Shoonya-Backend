@@ -93,8 +93,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="last annotation activity", auto_now=True
     )
 
-    lang_id = models.CharField(
-        verbose_name="language_id",
+    language = models.CharField(
+        verbose_name="language",
         choices=LANG_CHOICES,
         blank=False,
         null=False,
@@ -102,9 +102,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=15,
     )
 
-    maximum_annotations_per_day = models.IntegerField(
-        verbose_name="maximum annotations per day", null=True
-    )
+    # maximum_annotations_per_day = models.IntegerField(
+    #     verbose_name="maximum annotations per day", null=True
+    # )
 
     AVAILABLE = 1
     ON_LEAVE = 2

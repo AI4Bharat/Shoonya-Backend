@@ -36,9 +36,8 @@ def copy_from_block_text_to_sentence_text(request):
         if task.output_data is not None:
             if "copy_from_block_text_to_sentence_text" in task.metadata_json:
                 continue
-            block_text = dataset_models.BlockText.objects.get(data_id=task.output_data.data_id)
+            block_text = dataset_models.BlockText.objects.get(id=task.output_data.id)
             # block_text = task.output_data
-            # print(block_text)
             # block_text.__class__ = dataset_models.BlockText
             # block_text = dataset_models.BlockText()
             # block_text = task.output_data
@@ -46,7 +45,8 @@ def copy_from_block_text_to_sentence_text(request):
             sentences = raw_text.split("\n")
             for sentence in sentences:
                 sentence_text = dataset_models.SentenceText(
-                    lang_id=block_text.lang_id,
+                    parent_data = block_text,
+                    language=block_text.language,
                     text=sentence,
                     domain=block_text.domain,
                     instance_id = export_dataset_instance,
@@ -99,9 +99,8 @@ def copy_from_ocr_document_to_block_text(request):
         if task.output_data is not None:
             if "copy_from_ocr_document_to_block_text" in task.metadata_json:
                 continue
-            ocr_document = dataset_models.OCRDocument.objects.get(data_id=task.output_data.data_id)
+            ocr_document = dataset_models.OCRDocument.objects.get(id=task.output_data.id)
             # block_text = task.output_data
-            # print(block_text)
             # block_text.__class__ = dataset_models.BlockText
             # block_text = dataset_models.BlockText()
             # block_text = task.output_data
@@ -119,7 +118,8 @@ def copy_from_ocr_document_to_block_text(request):
             text = " ".join(body_transcriptions)
             # TODO: check if domain can be same as OCR domain
             block_text = dataset_models.BlockText(
-                lang_id=ocr_document.lang_id,
+                parent_data = ocr_document,
+                language=ocr_document.language,
                 text=text,
                 domain=ocr_document.ocr_domain,
                 instance_id = export_dataset_instance,

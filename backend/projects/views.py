@@ -68,8 +68,7 @@ def create_tasks_from_dataitems(items, project):
     # Create task objects
     tasks = []
     for item in items:
-        data_id = item['data_id']
-        print("Item before", item)
+        data_id = item['id']
         if "variable_parameters" in output_dataset_info['fields']:
             for var_param in output_dataset_info['fields']['variable_parameters']:
                 item[var_param] = variable_parameters[var_param]
@@ -79,8 +78,7 @@ def create_tasks_from_dataitems(items, project):
                 del item[input_field]
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
         # Remove data id because it's not needed in task.data
-        del item['data_id']
-        print("Item after", item)
+        del item['id']
         task = Task(
             data=item,
             project_id=project,
@@ -90,7 +88,6 @@ def create_tasks_from_dataitems(items, project):
     
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
-    print("Tasks created")
 
     if input_dataset_info['prediction'] is not None:
         user_object = User.objects.get(email="prediction@ai4bharat.org")
@@ -100,11 +97,10 @@ def create_tasks_from_dataitems(items, project):
         for task,item in zip(tasks,items):
 
             if project_type == "SentenceSplitting":
-                print("Split", split_sentences(item["text"], item["lang_id"]))
                 item[prediction_field] = [{
                     "value": {
                         "text": [
-                            "\n".join(split_sentences(item["text"], item["lang_id"]))
+                            "\n".join(split_sentences(item["text"], item["language"]))
                         ]
                     },
                     "id": "0",
@@ -121,7 +117,6 @@ def create_tasks_from_dataitems(items, project):
         # 
         # Prediction.objects.bulk_create(predictions)
         Annotation_model.objects.bulk_create(predictions)
-        print("Predictions created")
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -144,7 +139,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all Projects
         """
         try:
-            projects = self.queryset.filter(users=request.user)
+            # projects = self.queryset.filter(users=request.user)
   
             if request.user.role == User.ORGANIZAION_OWNER:
                 projects = self.queryset.filter(organization_id=request.user.organization)
@@ -231,7 +226,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Get items corresponding to the instance id
             data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
 
-            print("Samples before filter", data_items)
             
             # Apply filtering
             query_params = dict(parse_qsl(filter_string))
@@ -240,11 +234,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # Get the input dataset fields from the filtered items
             if input_dataset_info['prediction'] is not None:
-                filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"], input_dataset_info['prediction']))
+                filtered_items = list(filtered_items.values('id', *input_dataset_info["fields"], input_dataset_info['prediction']))
             else:
-                filtered_items = list(filtered_items.values('data_id', *input_dataset_info["fields"]))
+                filtered_items = list(filtered_items.values('id', *input_dataset_info["fields"]))
 
-            print("Samples before sampling", filtered_items)
 
 
             # Apply sampling
@@ -265,8 +258,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 sampled_items = filtered_items[batch_size*(batch_number-1):batch_size*(batch_number)]
             else:
                 sampled_items = filtered_items
-            
-            print("Samples after sampling", sampled_items)
+        
             
             # Create project object
             project_response = super().create(request, *args, **kwargs)
@@ -313,7 +305,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         '''
         Archive a published project
         '''
-        print(pk)
         project = Project.objects.get(pk=pk)
         project.is_archived = not project.is_archived
         project.save()
@@ -367,15 +358,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
             emails = request.data.get('emails')
+            invalid_emails = []
             for email in emails:
                 if re.fullmatch(EMAIL_REGEX, email):
                     user = User.objects.get(email=email)
                     project.users.add(user)
                     project.save()
                 else:
-                    print("Invalid Email")
-            ret_dict = {"message": "Users added!"}
-            ret_status = status.HTTP_201_CREATED
+                    invalid_emails.append(email)
+            if len(invalid_emails) != 0:
+                ret_dict = {"message": "Users added!"}
+                ret_status = status.HTTP_201_CREATED
+            else:
+                ret_dict = {"message": f"Users partially added! Invalid emails: {','.join(invalid_emails)}"}
+                ret_status = status.HTTP_201_CREATED
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
@@ -412,16 +408,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
                 dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
                 tasks = Task.objects.filter(project_id__exact=project)
-                print("data id", project.dataset_id)
-                print(list(project.dataset_id.all()))
                 all_items = dataset_model.objects.filter(instance_id__in=list(project.dataset_id.all()))
-                print("TASKS", tasks.values_list('input_data'))
-                items = all_items.exclude(data_id__in=tasks.values('input_data'))
+                items = all_items.exclude(id__in=tasks.values('input_data'))
                 # Get the input dataset fields from the filtered items
                 if input_dataset_info['prediction'] is not None:
-                    items = list(items.values('data_id', *input_dataset_info["fields"], input_dataset_info['prediction']))
+                    items = list(items.values('id', *input_dataset_info["fields"], input_dataset_info['prediction']))
                 else:
-                    items = list(items.values('data_id', *input_dataset_info["fields"]))
+                    items = list(items.values('id', *input_dataset_info["fields"]))
 
                 create_tasks_from_dataitems(items, project)
                 ret_dict = {"message": "SUCCESS!"}         
@@ -457,13 +450,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 data_items = []
                 tasks = Task.objects.filter(project_id__exact=project)
 
-                # query = tasks.select_related('project').select_related('correct_annotation_id')
-                # task_ids = query.values_list('task_id', flat=True)
-                # task_values = list(query.values())
-                # print(task_values)
-                # tasks_dict = [OrderedDict(value) for value in task_values]
-                # print(tasks_dict)
-
                 tasks_list = []
                 annotated_tasks = []
                 for task in tasks:
@@ -490,7 +476,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                     task.output_data = task.input_data
                     task.save()
-                    data_item = dataset_model.objects.get(data_id__exact=tl["input_data"])
+                    data_item = dataset_model.objects.get(id__exact=tl["input_data"])
                     for field in annotation_fields:
                         setattr(data_item, field, ta[field])
                     data_items.append(data_item)
@@ -535,12 +521,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     tasks_list.append(OrderedDict(task_dict))
 
                 if project.project_mode == Collection:
-                    print("annotation fields", annotation_fields)
-                    print("task annotation fields", task_annotation_fields)
                     for (tl,task) in zip(tasks_list, annotated_tasks):
-                        print("Task data", tl["data"])
                         if task.output_data is not None:
-                            data_item = dataset_model.objects.get(data_id__exact=task.output_data.data_id)
+                            data_item = dataset_model.objects.get(id__exact=task.output_data.id)
                         else:
                             data_item = dataset_model()
                             data_item.instance_id = export_dataset_instance
@@ -567,12 +550,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     
 
                     for (ta,task) in zip(tasks_annotations, annotated_tasks):
-                        # data_item = dataset_model.objects.get(data_id__exact=task.data_id.data_id)
+                        # data_item = dataset_model.objects.get(id__exact=task.id.id)
                         if task.output_data is not None:
-                            data_item = dataset_model.objects.get(data_id__exact=task.output_data.data_id)
+                            data_item = dataset_model.objects.get(id__exact=task.output_data.id)
                         else:
                             data_item = dataset_model()
                             data_item.instance_id = export_dataset_instance
+                            data_item.parent_data = task.input_data
 
                         for field in annotation_fields:
                             setattr(data_item, field, ta[field])
@@ -619,19 +603,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer = ProjectUsersSerializer(project, many=False)
             #ret_dict = serializer.data
             users = serializer.data['users']
-            #print(ret_dict)
            
             project.is_published = True
             project.save()
 
             for user in users:
-                print(user['email'])
                 userEmail = user['email']
                 
-                #send_mail("Annotation Tasks Assigned",
-                #f"Hello! You are assigned to tasks in the project {project.title}.",
-                #settings.DEFAULT_FROM_EMAIL, [userEmail],
-                #)
+                send_mail("Annotation Tasks Assigned",
+                f"Hello! You are assigned to tasks in the project {project.title}.",
+                settings.DEFAULT_FROM_EMAIL, [userEmail],
+                )
 
             ret_dict = {"message": "This project is published"}
             ret_status = status.HTTP_200_OK
