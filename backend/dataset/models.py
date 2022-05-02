@@ -36,7 +36,8 @@ class DatasetInstance(models.Model):
     )
 
     parent_instance_id = models.IntegerField(
-        verbose_name="parent_instance_id", blank=True, null=True
+        verbose_name="parent_instance_id", blank=True, null=True, 
+        help_text=("The instance id of the source dataset")
     )
     instance_name = models.CharField(
         verbose_name="dataset_instance_name", max_length=1024
@@ -50,6 +51,7 @@ class DatasetInstance(models.Model):
         verbose_name="dataset_type",
         choices=DATASET_TYPE_CHOICES,
         max_length=100,
+        help_text=("Dataset Type which is specific for each annotation task")
     )
     users = models.ManyToManyField(User, related_name="dataset_users")
 
@@ -75,7 +77,8 @@ class DatasetBase(models.Model):
     parent_data = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
     instance_id = models.ForeignKey(DatasetInstance, on_delete=models.CASCADE)
     metadata_json = models.JSONField(
-        verbose_name="metadata_json", null=True, blank=True
+        verbose_name="metadata_json", null=True, blank=True,
+        help_text=("Metadata having details related to the annotation tasks or functions this data was involved in")
     )
 
     # class Meta:
@@ -91,9 +94,9 @@ class SentenceText(DatasetBase):
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
-    text = models.TextField(verbose_name="text")
-    domain = models.CharField(verbose_name="domain", max_length=1024)
-    is_profane = models.BooleanField(default=False)
+    text = models.TextField(verbose_name="text", help_text=("Sentence Text"))
+    domain = models.CharField(verbose_name="domain", max_length=1024, help_text=("Domain of the Sentence"))
+    is_profane = models.BooleanField(default=False, help_text=("Indicates whether a sentence is profane or not."))
 
     def __str__(self):
         return str(self.id)
@@ -110,16 +113,21 @@ class TranslationPair(DatasetBase):
     output_language = models.CharField(
         verbose_name="output_language", choices=LANG_CHOICES, max_length=15
     )
-    input_text = models.TextField(verbose_name="input_text")
-    output_text = models.TextField(verbose_name="output_text", null=True, blank=True)
+    input_text = models.TextField(verbose_name="input_text", help_text=("The text to be translated"))
+    output_text = models.TextField(verbose_name="output_text", null=True, blank=True, 
+        help_text=("The translation of the sentence"))
     machine_translation = models.TextField(
-        verbose_name="machine_translation", null=True, blank=True
+        verbose_name="machine_translation", null=True, blank=True,
+        help_text=("Machine translation of the sentence")
     )
     context = models.TextField(
-        verbose_name="context", null=True, blank=True
+        verbose_name="context", null=True, blank=True, 
+        help_text=("Context of the sentence to be translated")
     )
-    labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
-    rating = models.IntegerField(verbose_name="translation_rating", null=True, blank=True)
+    labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True,
+        help_text=("Labse Score of the Translation"))
+    rating = models.IntegerField(verbose_name="translation_rating", null=True, blank=True,
+        help_text=("Rating of the translation"))
 
     def __str__(self):
         return str(self.id)
@@ -180,12 +188,16 @@ class BlockText(DatasetBase):
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
-    text = models.TextField(verbose_name="text")
+    text = models.TextField(verbose_name="text", 
+        help_text=("A block of text having many sentences"))
     splitted_text_prediction = models.JSONField(
-        verbose_name="splitted_text_prediction", null=True, blank=True
+        verbose_name="splitted_text_prediction", null=True, blank=True, 
+        help_text=("Prediction showing the block text split into sentences")
     )
-    splitted_text = models.TextField(verbose_name="splitted_text", null=True, blank=True)
-    domain = models.CharField(verbose_name="domain", max_length=1024)
+    splitted_text = models.TextField(verbose_name="splitted_text", null=True, blank=True, 
+        help_text=("Sentences Split from the Block Text"))
+    domain = models.CharField(verbose_name="domain", max_length=1024,
+        help_text=("Domain of the block text"))
    
     def __str__(self):
         return str(self.id)

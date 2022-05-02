@@ -90,7 +90,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(verbose_name="date joined", default=timezone.now)
 
     activity_at = models.DateTimeField(
-        verbose_name="last annotation activity", auto_now=True
+        verbose_name="last annotation activity by the user", auto_now=True
     )
 
     language = models.CharField(
@@ -115,7 +115,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     availability_status = models.PositiveSmallIntegerField(
-        choices=AVAILABILITY_STATUS_CHOICES, blank=False, null=False, default=AVAILABLE
+        choices=AVAILABILITY_STATUS_CHOICES, blank=False, null=False, default=AVAILABLE, 
+        help_text=("Indicates whether a user is available for doing annotation or not.")
     )
 
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
