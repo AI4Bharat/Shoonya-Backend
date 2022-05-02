@@ -74,7 +74,8 @@ class Task(models.Model):
         related_name="output_data",
     )
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    correct_annotation = models.ForeignKey('Annotation', on_delete=models.SET_NULL, null=True, blank=True, related_name="correct_annotation")
+    correct_annotation = models.ForeignKey('Annotation', on_delete=models.SET_NULL, null=True, blank=True, 
+        related_name="correct_annotation", help_text=("Correct Annotation of the task"))
     
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", blank=True
@@ -186,7 +187,8 @@ class Annotation(models.Model):
     """
 
     id = models.AutoField(verbose_name="annotation_id", primary_key=True)
-    result = models.JSONField(verbose_name="annotation_result_json")
+    result = models.JSONField(verbose_name="annotation_result_json", 
+        help_text=("Has the annotation done by the annotator"))
     task = models.ForeignKey(
         Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name="annotations"
     )

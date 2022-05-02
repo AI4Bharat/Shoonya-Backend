@@ -383,6 +383,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['GET'], name="Get Project Types", url_name="types")
     @is_organization_owner_or_workspace_manager
     def types(self, request, *args, **kwargs):
+        """
+        Fetches project types
+        """
         # project_registry = ProjectRegistry()
         try:
             return Response(ProjectRegistry.get_instance().data, status=status.HTTP_200_OK)
@@ -397,6 +400,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @project_is_archived
     @is_organization_owner_or_workspace_manager
     def pull_new_items(self, request, pk=None, *args, **kwargs):
+        """
+        Pull New Data Items to the Project
+        """
         try:
             project = Project.objects.get(pk=pk)
             if project.sampling_mode != FULL:

@@ -9,7 +9,7 @@ import json
 @api_view(['POST'])
 def copy_from_block_text_to_sentence_text(request):
     """
-    List all code snippets, or create a new snippet.
+    Copies each sentence from a block of text to sentence text daatset 
     """
     export_dataset_instance_id = request.data['export_dataset_instance_id']
     project_id = request.data['project_id']
@@ -72,7 +72,7 @@ def copy_from_block_text_to_sentence_text(request):
 @api_view(['POST'])
 def copy_from_ocr_document_to_block_text(request):
     """
-    List all code snippets, or create a new snippet.
+    Copies data annotated from OCR Document to Block text Dataset 
     """
     export_dataset_instance_id = request.data['export_dataset_instance_id']
     project_id = request.data['project_id']
