@@ -62,3 +62,5 @@ class UserFetchSerializer(serializers.ModelSerializer):
             "role",
             "has_accepted_invite",
         ]
+
+
