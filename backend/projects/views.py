@@ -3,6 +3,7 @@ import re
 import random
 import json
 from collections import OrderedDict
+from typing import Dict
 from urllib.parse import parse_qsl
 from django.shortcuts import render
 from rest_framework import viewsets
@@ -618,25 +619,35 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer = ProjectUsersSerializer(project, many=False)
             #ret_dict = serializer.data
             users = serializer.data['users']
-           
-            project.is_published = True
-            project.save()
 
             # get all tasks of a project
             tasks = Task.objects.filter(project_id=pk)
-            total_users = project.users.count()
+            total_users = 0
+
+            annotatorList = []
+
+            for user in users:
+                userRole = user['role']
+                user_obj = User.objects.get(pk=user["id"])
+                if(userRole == 1 and not user_obj.is_superuser):
+                    print("Inside Annotator If")
+                    total_users = total_users + 1
+                    annotatorList.append(user)
+
             total_tasks = len(tasks)
-            tasks_per_user = total_tasks // total_users
+            print("Total Users: ",total_users)
+            print("Total Tasks: ",total_tasks)
 
             def divide_chunks(l, n):
                 # looping till length l
                 for i in range(0, len(l), n): 
                     yield l[i:i + n]
             
-            user_tasks = list(divide_chunks(tasks, tasks_per_user))
-            for user_task_list, user in zip(user_tasks, project.users.all()):
+            user_tasks = list(divide_chunks(tasks, total_users))
+            for user_task_list, user in zip(user_tasks, annotatorList):
                 for task in user_task_list:
-                    task.annotation_users.add(user)
+                    user_obj = User.objects.get(pk=user["id"])
+                    task.annotation_users.add(user_obj)
                     task.save()
             
             # for user in users:
@@ -646,6 +657,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             #     f"Hello! You are assigned to tasks in the project {project.title}.",
             #     settings.DEFAULT_FROM_EMAIL, [userEmail],
             #     )
+
+            project.is_published = True
+            project.save()
 
             ret_dict = {"message": "This project is published"}
             ret_status = status.HTTP_200_OK
