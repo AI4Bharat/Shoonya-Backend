@@ -60,7 +60,6 @@ class TaskViewSet(viewsets.ModelViewSet,
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
-
         if "project_id" in dict(request.query_params):
             queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
         else:
@@ -75,6 +74,7 @@ class TaskViewSet(viewsets.ModelViewSet,
             return Response({
                 "status": status.HTTP_200_OK,
                 "message": 'No more record.',
+                #TODO: should be results. Needs testing to be sure.
                 "data" : data
                 })
 
@@ -84,7 +84,7 @@ class TaskViewSet(viewsets.ModelViewSet,
             return self.get_paginated_response(data)
 
         #serializer = TaskSerializer(queryset, many=True)
-        return Response(serializer.data)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
     
     def partial_update(self, request, pk=None):
         task_response = super().partial_update(request)

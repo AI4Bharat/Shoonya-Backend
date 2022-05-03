@@ -33,10 +33,24 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         if int(request.user.role) == User.ANNOTATOR or int(request.user.role) == User.WORKSPACE_MANAGER:
             data = self.queryset.filter(users=request.user, is_archived=False, organization=request.user.organization)
+            try:
+                data = self.paginate_queryset(data)
+            except:
+                page = []
+                data = page
+                return Response({"status": status.HTTP_200_OK, "message": "No more record.", "results": data})
             serializer = WorkspaceSerializer(data, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return self.get_paginated_response(serializer.data)
         elif int(request.user.role) == User.ORGANIZAION_OWNER:
-            return super().list(request, *args, **kwargs)
+            data = self.queryset.filter(organization=request.user.organization)
+            try:
+                data = self.paginate_queryset(data)
+            except:
+                page = []
+                data = page
+                return Response({"status": status.HTTP_200_OK, "message": "No more record.", "results": data})
+            serializer = WorkspaceSerializer(data, many=True)
+            return self.get_paginated_response(serializer.data)
         else:
             return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
 
@@ -45,7 +59,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
     @is_organization_owner_or_workspace_manager
     def create(self, request, *args, **kwargs):
-        #TODO: Make sure to add the user to the workspace and created_by
+        # TODO: Make sure to add the user to the workspace and created_by
         # return super().create(request, *args, **kwargs)
         try:
             data = self.serializer_class(data=request.data)
