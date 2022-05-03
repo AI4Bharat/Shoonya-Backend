@@ -1,3 +1,7 @@
+all_data
+SentenceText-2022-05-01.csv
+wiki-full-data.csv
+
 # Python
 *.pyc
 *~
