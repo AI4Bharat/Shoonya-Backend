@@ -622,35 +622,36 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # get all tasks of a project
             tasks = Task.objects.filter(project_id=pk)
-            total_users = 0
-
+            
             annotatorList = []
-
             for user in users:
                 userRole = user['role']
                 user_obj = User.objects.get(pk=user["id"])
                 if(userRole == 1 and not user_obj.is_superuser):
-                    print("Inside Annotator If")
-                    total_users = total_users + 1
+                    # print("Inside Annotator If")
                     annotatorList.append(user)
 
             total_tasks = len(tasks)
+            total_users = len(annotatorList)
             print("Total Users: ",total_users)
             print("Total Tasks: ",total_tasks)
 
-            def divide_chunks(l, n):
-                # looping till length l
-                for i in range(0, len(l), n): 
-                    yield l[i:i + n]
-            
-            user_tasks = list(divide_chunks(tasks, total_users))
-            for user_task_list, user in zip(user_tasks, annotatorList):
-                for task in user_task_list:
-                    user_obj = User.objects.get(pk=user["id"])
+            tasks_per_user = total_tasks // total_users
+            chunk = tasks_per_user if total_tasks % total_users ==0 else tasks_per_user + 1
+            # print(chunk)
+            for c in range(total_users):
+                st_idx = c * chunk
+                if c == chunk - 1:
+                    en_idx = total_tasks
+                else:
+                    en_idx = (c+1) * chunk
+
+                user_obj = User.objects.get(pk=annotatorList[c]["id"])
+                for task in tasks[st_idx:en_idx]:
                     task.annotation_users.add(user_obj)
                     task.save()
             
-            # for user in users:
+            # for user in annotatorList:
             #     userEmail = user['email']
                 
             #     send_mail("Annotation Tasks Assigned",
