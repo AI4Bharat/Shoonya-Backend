@@ -628,7 +628,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 userRole = user['role']
                 user_obj = User.objects.get(pk=user["id"])
                 if(userRole == 1 and not user_obj.is_superuser):
-                    # print("Inside Annotator If")
                     annotatorList.append(user)
 
             total_tasks = len(tasks)
