@@ -639,6 +639,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             tasks_per_user = total_tasks // total_users
             chunk = tasks_per_user if total_tasks % total_users ==0 else tasks_per_user + 1
             # print(chunk)
+
+            # updated_tasks = []
             for c in range(total_users):
                 st_idx = c * chunk
                 if c == chunk - 1:
@@ -649,8 +651,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 user_obj = User.objects.get(pk=annotatorList[c]["id"])
                 for task in tasks[st_idx:en_idx]:
                     task.annotation_users.add(user_obj)
+                    # updated_tasks.append(task)
                     task.save()
-            
+                   # print("Here",task.annotation_users.all().count(), task.annotation_users.all())
             # for user in annotatorList:
             #     userEmail = user['email']
                 
@@ -658,6 +661,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             #     f"Hello! You are assigned to tasks in the project {project.title}.",
             #     settings.DEFAULT_FROM_EMAIL, [userEmail],
             #     )
+
+            # Task.objects.bulk_update(updated_tasks, ['annotation_users'])
 
             project.is_published = True
             project.save()

@@ -117,8 +117,7 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
         # TODO: Correction annotation to be filled by validator
         task_id = request.data["task"]
         task = Task.objects.get(pk=task_id)
-        print(task.annotation_users)
-        if request.user.id not in task.annotation_users:
+        if request.user not in task.annotation_users.all():
             ret_dict = {"message": "You are trying to impersonate another user :("}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
@@ -162,11 +161,23 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewse
         return annotation_response
     
     def partial_update(self, request, pk=None):
+        # task_id = request.data["task"]
+        # task = Task.objects.get(pk=task_id)
+        # if request.user not in task.annotation_users.all():
+        #     ret_dict = {"message": "You are trying to impersonate another user :("}
+        #     ret_status = status.HTTP_403_FORBIDDEN
+        #     return Response(ret_dict, status=ret_status)
+
         annotation_response = super().partial_update(request)
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
         task = annotation.task
-        # task = Task.objects.get(pk=task_id)
+
+        if request.user not in task.annotation_users.all():
+            ret_dict = {"message": "You are trying to impersonate another user :("}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
+
         if task.project_id.required_annotators_per_task == task.annotations.count():
         # if True:
             task.task_status = LABELED
