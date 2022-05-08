@@ -1,4 +1,5 @@
 <View>
+  <Style>.ant-input { font-size: large; }</Style>
   <Header size="3" value="Block Text"/>
   <View style="font-size: large">
     <Text name="text" value="$text" />

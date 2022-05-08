@@ -1,4 +1,5 @@
 <View>
+  <Style>.ant-input { font-size: large; }</Style>
   <Image name="image_url" value="$image_url"/>
 
   <Labels name="annotation_labels" toName="image_url">
