@@ -1,4 +1,5 @@
 <View>
+  <Style>.ant-input { font-size: large; }</Style>
   <View style="font-size: large; display: grid; grid-template: auto/1fr 1fr; column-gap: 1em">
     <Header size="3" value="Source sentence"/>
     <Header size="3" value="$output_language translation"/>

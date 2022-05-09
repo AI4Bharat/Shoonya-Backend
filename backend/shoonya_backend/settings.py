@@ -31,7 +31,10 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("ENV") == "dev"
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
+if DEBUG:
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
+else:
+    ALLOWED_HOSTS = ["shoonya.ai4bharat.org", "0.0.0.0"]
 
 # Application definition
 
@@ -182,9 +185,11 @@ EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = "admin@shoonya.ai4bharat.org"
 
+DOMAIN = "shoonya.ai4bharat.org"
+SITE_NAME = "shoonya.ai4bharat.org"
 
 DJOSER = {
-    "PASSWORD_RESET_CONFIRM_URL": "users/auth/users/password/reset/confirm/{uid}/{token}",
+    "PASSWORD_RESET_CONFIRM_URL": "forget-password/confirm/{uid}/{token}",
     "USERNAME_RESET_CONFIRM_URL": "users/auth/users/username/reset/confirm/{uid}/{token}",
     "ACTIVATION_URL": "users/auth/users/activation/{uid}/{token}",
     "SEND_ACTIVATION_EMAIL": True,
