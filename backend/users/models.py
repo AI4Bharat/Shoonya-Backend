@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.utils import timezone
@@ -30,12 +31,25 @@ LANG_CHOICES = (
     ("Sanskrit", "Sanskrit"),
     ("Santali", "Santali"),
     ("Sindhi", "Sindhi"),
+    ("Sinhala", "Sinhala"),
     ("Tamil", "Tamil"),
     ("Telugu", "Telugu"),
     ("Urdu", "Urdu"),
 )
 
 # Create your models here.
+# class Language(models.Model):
+#     language = models.CharField(
+#         verbose_name="language",
+#         choices=LANG_CHOICES,
+#         blank=False,
+#         null=False,
+#         default="English",
+#         max_length=15,
+#     )
+
+#     def __str__(self):
+#         return str(self.language)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -93,14 +107,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="last annotation activity by the user", auto_now=True
     )
 
-    language = models.CharField(
+    languages = ArrayField(models.CharField(
         verbose_name="language",
         choices=LANG_CHOICES,
-        blank=False,
-        null=False,
-        default="English",
-        max_length=15,
-    )
+        max_length=15
+    ), blank=True, null=True, default=list)
+    # languages = models.ManyToManyField(Language, related_name="user_languages", blank=True, help_text=("Languages known by the user."))
+
 
     # maximum_annotations_per_day = models.IntegerField(
     #     verbose_name="maximum annotations per day", null=True
