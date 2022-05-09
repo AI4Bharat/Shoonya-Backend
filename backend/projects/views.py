@@ -118,7 +118,43 @@ def create_tasks_from_dataitems(items, project):
         # 
         # Prediction.objects.bulk_create(predictions)
         Annotation_model.objects.bulk_create(predictions)
+    
+    return tasks
 
+
+
+def assign_users_to_tasks(tasks, users):
+    annotatorList = []
+    for user in users:
+        userRole = user['role']
+        user_obj = User.objects.get(pk=user["id"])
+        if(userRole == 1 and not user_obj.is_superuser):
+            annotatorList.append(user)
+
+    total_tasks = len(tasks)
+    total_users = len(annotatorList)
+    # print("Total Users: ",total_users)
+    # print("Total Tasks: ",total_tasks)
+
+    tasks_per_user = total_tasks // total_users
+    chunk = tasks_per_user if total_tasks % total_users ==0 else tasks_per_user + 1
+    # print(chunk)
+
+    # updated_tasks = []
+    for c in range(total_users):
+        st_idx = c * chunk
+        # if c == chunk - 1:
+        #     en_idx = total_tasks
+        # else:
+        #     en_idx = (c+1) * chunk
+
+        en_idx = total_tasks if (c+1)*chunk > total_tasks else (c+1)*chunk
+
+        user_obj = User.objects.get(pk=annotatorList[c]["id"])
+        for task in tasks[st_idx:en_idx]:
+            task.annotation_users.add(user_obj)
+            # updated_tasks.append(task)
+            task.save()
 
 class ProjectViewSet(viewsets.ModelViewSet):
     """
@@ -362,6 +398,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ret_status = 0
         try:
             project = Project.objects.get(pk=pk)
+
+            if project.is_published:
+                return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
+
             emails = request.data.get('emails')
             invalid_emails = []
             for email in emails:
@@ -432,8 +472,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 else:
                     items = list(items.values('id', *input_dataset_info["fields"]))
 
-                create_tasks_from_dataitems(items, project)
-                ret_dict = {"message": "SUCCESS!"}         
+                new_tasks = create_tasks_from_dataitems(items, project)
+                serializer = ProjectUsersSerializer(project, many=False)
+                #ret_dict = serializer.data
+                users = serializer.data['users']
+                assign_users_to_tasks(new_tasks, users)
+                ret_dict = {"message": f"{len(new_tasks)} new tasks added."}         
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
@@ -622,36 +666,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # get all tasks of a project
             tasks = Task.objects.filter(project_id=pk)
-            
-            annotatorList = []
-            for user in users:
-                userRole = user['role']
-                user_obj = User.objects.get(pk=user["id"])
-                if(userRole == 1 and not user_obj.is_superuser):
-                    annotatorList.append(user)
 
-            total_tasks = len(tasks)
-            total_users = len(annotatorList)
-            print("Total Users: ",total_users)
-            print("Total Tasks: ",total_tasks)
-
-            tasks_per_user = total_tasks // total_users
-            chunk = tasks_per_user if total_tasks % total_users ==0 else tasks_per_user + 1
-            # print(chunk)
-
-            # updated_tasks = []
-            for c in range(total_users):
-                st_idx = c * chunk
-                if c == chunk - 1:
-                    en_idx = total_tasks
-                else:
-                    en_idx = (c+1) * chunk
-
-                user_obj = User.objects.get(pk=annotatorList[c]["id"])
-                for task in tasks[st_idx:en_idx]:
-                    task.annotation_users.add(user_obj)
-                    # updated_tasks.append(task)
-                    task.save()
+            assign_users_to_tasks(tasks, users)
+        
                    # print("Here",task.annotation_users.all().count(), task.annotation_users.all())
             # for user in annotatorList:
             #     userEmail = user['email']
