@@ -3,10 +3,17 @@ from django.urls import path, include, re_path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from drf_yasg.generators import OpenAPISchemaGenerator
 from rest_framework import routers
-
-
 from tasks.views import TaskViewSet, AnnotationViewSet, PredictionViewSet
+import os
+
+class BothHttpAndHttpsSchemaGenerator(OpenAPISchemaGenerator):
+    def get_schema(self, request=None, public=False):
+        schema = super().get_schema(request, public)
+        schema.schemes = ["http", "https"]
+        return schema
+
 
 SchemaView = get_schema_view(
     openapi.Info(
@@ -17,6 +24,8 @@ SchemaView = get_schema_view(
         contact=openapi.Contact(email="contact@snippets.local"),
         license=openapi.License(name="BSD License"),
     ),
+    generator_class=BothHttpAndHttpsSchemaGenerator,
+    url=os.getenv("API_URL"),
     public=True,
     permission_classes=[permissions.AllowAny],
 )
