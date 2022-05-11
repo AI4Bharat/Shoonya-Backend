@@ -85,6 +85,9 @@ docker-compose exec web python manage.py migrate
 # Create a superuser
 docker-compose exec web python manage.py createsuperuser
 
+# Run Django Server
+docker-compose exec web python manage.py runserver
+
 ```
 
 If there were no errors, congratulations! The project is up and running.
