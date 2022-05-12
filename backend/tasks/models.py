@@ -102,7 +102,7 @@ class Task(models.Model):
     
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
-        return 5*60
+        return 1
         # if settings.TASK_LOCK_TTL is not None:
         #     return settings.TASK_LOCK_TTL
         # return settings.TASK_LOCK_MIN_TTL

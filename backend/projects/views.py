@@ -208,6 +208,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task_status__exact=UNLABELED,
             )
         else:
+            # TODO : Refactor code to reduce DB calls
             unlabelled_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=UNLABELED)
         unlabelled_tasks = unlabelled_tasks.order_by("id")
         for task in unlabelled_tasks:
