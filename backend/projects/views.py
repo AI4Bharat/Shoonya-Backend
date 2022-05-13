@@ -210,7 +210,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         else:
             # TODO : Refactor code to reduce DB calls
             unlabelled_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=UNLABELED)
+        
         unlabelled_tasks = unlabelled_tasks.order_by("id")
+
+        if "current_task_id" in dict(request.query_params):
+            current_task_id = request.query_params["current_task_id"]
+            unlabelled_tasks = unlabelled_tasks.filter(id__gt=current_task_id)
+
         for task in unlabelled_tasks:
             if not task.is_locked(request.user):
                 task.set_lock(request.user)
@@ -228,6 +234,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             skipped_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=SKIPPED)
 
         skipped_tasks = skipped_tasks.order_by("id")
+
+        if "current_task_id" in dict(request.query_params):
+            current_task_id = request.query_params["current_task_id"]
+            skipped_tasks = skipped_tasks.filter(id__gt=current_task_id)
+
         for task in skipped_tasks:
             if not task.is_locked(request.user):
                 task.set_lock(request.user)
@@ -382,9 +393,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             # role check
             if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
-                tasks = Task.objects.filter(project_id=pk)
+                tasks = Task.objects.filter(project_id=pk).order_by('id')
             elif request.user.role == User.ANNOTATOR:
-                tasks = Task.objects.filter(project_id=pk, annotation_users=request.user)
+                tasks = Task.objects.filter(project_id=pk, annotation_users=request.user).order_by('id')
             serializer = TaskSerializer(tasks, many=True)
             ret_dict = serializer.data
             ret_status = status.HTTP_200_OK
