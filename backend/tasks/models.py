@@ -143,12 +143,16 @@ class Task(models.Model):
         """Check whether current task has been locked by some user"""
         self.clear_expired_locks()
         num_locks = self.num_locks
+        # print("Num locks:", num_locks)
         # if self.project.skip_queue == self.project.SkipQueue.REQUEUE_FOR_ME:
         #     num_annotations = self.annotations.filter(ground_truth=False).exclude(Q(was_cancelled=True) | ~Q(completed_by=user)).count()
         # else:
         num_annotations = self.annotations.count()
 
-        num = num_locks + num_annotations
+        # num = num_locks + num_annotations
+        # FIXME: hardcoded to 0 to disable locking mechanism for skipped tasks
+        num = 0
+
         # if num > self.project_id.required_annotators_per_task:
         #     logger.error(
         #         f"Num takes={num} > overlap={self.project_id.required_annotators_per_task} for task={self.id} - it's a bug",
@@ -159,13 +163,13 @@ class Task(models.Model):
         #         )
         #     )
         result = bool(num >= self.project_id.required_annotators_per_task)
-        if user:
-            # Check if user has already annotated a task
-            if len(self.annotations.filter(completed_by__exact=user.id)) > 0:
-                return True
-            # Check if already locked by the same user
-            if self.locks.filter(user=user).count() > 0:
-                return True
+        # if user:
+        #     # Check if user has already annotated a task
+        #     if len(self.annotations.filter(completed_by__exact=user.id)) > 0:
+        #         return True
+        #     # Check if already locked by the same user
+        #     if self.locks.filter(user=user).count() > 0:
+        #         return True
         return result
 
     def __str__(self):
