@@ -513,7 +513,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
                 data_items = []
-                tasks = Task.objects.filter(project_id__exact=project)
+                tasks = Task.objects.filter(project_id__exact=project, task_status__exact=ACCEPTED)
 
                 tasks_list = []
                 annotated_tasks = []
@@ -562,7 +562,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_annotation_fields += list(output_dataset_info["fields"]["copy_from_input"].values())
 
                 data_items = []
-                tasks = Task.objects.filter(project_id__exact=project)
+                tasks = Task.objects.filter(project_id__exact=project, task_status__exact=ACCEPTED)
 
                 tasks_list = []
                 annotated_tasks = []  #
