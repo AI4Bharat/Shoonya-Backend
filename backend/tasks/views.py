@@ -190,7 +190,20 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
         
         task.save()
         return annotation_response
-    
+
+
+    def destroy(self, request, pk=None):
+
+        instance = self.get_object()
+        annotation_id = instance.id
+        annotation = Annotation.objects.get(pk=annotation_id)
+        task = annotation.task
+        task.task_status = UNLABELED
+        task.save()
+
+        annotation_response = super().destroy(request)
+
+        return Response({"message": "Annotation Deleted"}, status=status.HTTP_200_OK)    
 
     # def update(self, request, pk=None):
     #     annotation_response = super().partial_update(request)

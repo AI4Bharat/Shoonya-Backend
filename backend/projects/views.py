@@ -218,7 +218,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response(task_dict)
 
         # Check if there are skipped tasks
-        skipped_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=SKIPPED)
+        if user_role == 1 and not request.user.is_superuser:
+            skipped_tasks = Task.objects.filter(
+                project_id__exact=project.id,
+                annotation_users=request.user.id,
+                task_status__exact=SKIPPED,
+            )
+        else:
+            skipped_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=SKIPPED)
+
         skipped_tasks = skipped_tasks.order_by("id")
         for task in skipped_tasks:
             if not task.is_locked(request.user):
@@ -373,7 +381,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ret_status = 0
         try:
             # role check
-            if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER:
+            if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
                 tasks = Task.objects.filter(project_id=pk)
             elif request.user.role == User.ANNOTATOR:
                 tasks = Task.objects.filter(project_id=pk, annotation_users=request.user)
