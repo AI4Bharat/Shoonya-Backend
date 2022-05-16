@@ -26,6 +26,8 @@ OCR_DOMAIN_CHOICES = (
     ("OT", "Others"),
 ) 
 
+QUALITY_CHOICES = (('Unchecked', 'Unchecked'), ('Clean', 'Clean'), ('Profane', 'Profane'), ('Corrupt', 'Corrupt'))
+
 class DatasetInstance(models.Model):
     """
     Dataset Instance Model
@@ -95,8 +97,10 @@ class SentenceText(DatasetBase):
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
     text = models.TextField(verbose_name="text", help_text=("Sentence Text"))
-    domain = models.CharField(verbose_name="domain", max_length=1024, help_text=("Domain of the Sentence"))
-    is_profane = models.BooleanField(default=False, help_text=("Indicates whether a sentence is profane or not."))
+    context = models.TextField(verbose_name="context", help_text=("Context Text"), null=True, blank=True)
+    corrected_text = models.TextField(verbose_name="corrected_text", help_text=("Corrected Sentence Text"), null=True, blank=True)
+    domain = models.CharField(verbose_name="domain", max_length=1024, help_text=("Domain of the Sentence"), null=True, blank=True)
+    quality_status = models.CharField(verbose_name="quality_status", default="Unchecked", max_length=10, choices=QUALITY_CHOICES, help_text=("Quality of the Sentence"))
 
     def __str__(self):
         return str(self.id)
@@ -273,7 +277,7 @@ D10 = TranslationPair
 #     metadata_json = models.JSONField(verbose_name = 'metadata_json' , null = True, blank = True)
 #     language = models.CharField(verbose_name = 'language', choices = LANG_CHOICES, max_length=100)
 
-#     is_profane = models.BooleanField()
+#     is_Profane = models.BooleanField()
 #     is_grammatically_correct = models.BooleanField
 #     final_text = models.TextField()
 #     perplexity = models.IntegerField()
