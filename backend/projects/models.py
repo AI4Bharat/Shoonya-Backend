@@ -4,7 +4,7 @@ from users.models import User
 from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
-
+from .registry_helper import ProjectRegistry
 # from dataset import LANG_CHOICES
 
 RANDOM = "r"
@@ -23,14 +23,8 @@ SAMPLING_MODE_CHOICES = (
 # OCRAnnotation = 3
 # MonolingualCollection = 4
 
-PROJECT_TYPE_CHOICES = (
-    ("MonolingualTranslation", "MonolingualTranslation"),
-    ("TranslationEditing", "TranslationEditing"),
-    ("ContextualTranslationEditing", "ContextualTranslationEditing"),
-    ("OCRAnnotation", "OCRAnnotation"),
-    ("MonolingualCollection", "MonolingualCollection"),
-    ("SentenceSplitting", "SentenceSplitting"),
-)
+PROJECT_TYPE_LIST = list(ProjectRegistry.get_instance().project_types.keys())
+PROJECT_TYPE_CHOICES = tuple(zip(PROJECT_TYPE_LIST, PROJECT_TYPE_LIST))
 
 Collection = "Collection"
 Annotation = "Annotation"
