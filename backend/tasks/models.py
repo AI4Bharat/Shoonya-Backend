@@ -197,7 +197,10 @@ class Annotation(models.Model):
         Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name="annotations"
     )
     completed_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="annotation_completed_by")
-    lead_time = models.DateTimeField(auto_now_add=True, verbose_name="annotation_lead_time")
+    lead_time = models.FloatField(verbose_name="annotation_lead_time", default=0.0, help_text='How much time it took to annotate the task')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    # lead_time = models.DateTimeField(auto_now_add=True, verbose_name="annotation_lead_time")
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
 
     def __str__(self):
