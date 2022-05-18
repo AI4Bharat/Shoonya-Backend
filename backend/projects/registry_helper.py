@@ -5,8 +5,9 @@ import os
 from label_studio.core.label_config import validate_label_config
 from dataset import models
 
-REGISTRY_PATH = "projects/project_registry.yaml"
-LABEL_STUDIO_JSX_PATH = "projects/label_studio_jsx_files"
+PROJECTS_PATH = os.path.dirname(__file__)
+REGISTRY_PATH = f"{PROJECTS_PATH}/project_registry.yaml"
+LABEL_STUDIO_JSX_PATH = f"{PROJECTS_PATH}/label_studio_jsx_files"
 
 class ProjectRegistry:
     """
