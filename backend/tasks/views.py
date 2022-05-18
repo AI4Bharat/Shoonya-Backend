@@ -105,7 +105,7 @@ class TaskViewSet(viewsets.ModelViewSet,
         return task_response
         
 
-class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
+class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
         Annotation Viewset with create and update operations.
     """
