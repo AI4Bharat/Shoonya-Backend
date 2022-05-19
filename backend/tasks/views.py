@@ -75,6 +75,12 @@ class TaskViewSet(viewsets.ModelViewSet,
 
         else:
             queryset = Task.objects.all()
+            
+        if "task_statuses" in dict(request.query_params):
+            task_statuses = request.query_params["task_statuses"].split(',')
+            queryset = queryset.filter(task_status__in=task_statuses)
+        
+        queryset = queryset.order_by("id")
         
         page = request.GET.get('page')
         try: 
