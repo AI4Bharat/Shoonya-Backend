@@ -80,6 +80,8 @@ class TaskViewSet(viewsets.ModelViewSet,
             task_statuses = request.query_params["task_statuses"].split(',')
             queryset = queryset.filter(task_status__in=task_statuses)
         
+        queryset = queryset.order_by("id")
+        
         page = request.GET.get('page')
         try: 
             page = self.paginate_queryset(queryset)
