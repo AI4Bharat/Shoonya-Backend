@@ -465,7 +465,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def get_task_queryset(self, queryset):
         return queryset
 
-    @action(detail=True, methods=["POST"], name="Pull new items")
+    @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
     @is_organization_owner_or_workspace_manager
     def pull_new_items(self, request, pk=None, *args, **kwargs):
@@ -507,10 +507,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(ret_dict, status=ret_status)
 
 
-    @action(detail=True, methods=["POST"], name="Download a Project")
+    @action(detail=True, methods=["POST", "GET"], name="Download a Project")
     @project_is_archived
     @is_organization_owner_or_workspace_manager
-    def project_download(self, request, pk=None, *args, **kwargs):
+    def download(self, request, pk=None, *args, **kwargs):
         """
         Download a project
         """
@@ -530,7 +530,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             tasks_list = []
             for task in tasks:
                 task_dict = model_to_dict(task)
-                task_dict["data"]["status"] = task.task_status
+                if export_type != 'JSON':
+                    task_dict["data"]["task_status"] = task.task_status
                 # Rename keys to match label studio converter
                 # task_dict['id'] = task_dict['task_id']
                 # del task_dict['task_id']
@@ -566,7 +567,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
             
-    @action(detail=True, methods=["POST"], name="Export Project")
+    @action(detail=True, methods=["POST", "GET"], name="Export Project")
     @project_is_archived
     @is_organization_owner_or_workspace_manager
     def project_export(self, request, pk=None, *args, **kwargs):
