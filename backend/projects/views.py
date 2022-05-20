@@ -14,6 +14,8 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from django.core.mail import send_mail
 from django.conf import settings
 from django.forms.models import model_to_dict
+from django.http import HttpResponse
+from django.core.files import File
 import pandas as pd
 
 try:
@@ -504,6 +506,66 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
+
+    @action(detail=True, methods=["POST"], name="Download a Project")
+    @project_is_archived
+    @is_organization_owner_or_workspace_manager
+    def project_download(self, request, pk=None, *args, **kwargs):
+        """
+        Download a project
+        """
+        try:
+            project = Project.objects.get(pk=pk)
+            project_type = dict(PROJECT_TYPE_CHOICES)[project.project_type]
+            if "export_type" in dict(request.query_params):
+                export_type = request.query_params["export_type"]
+            else:
+                export_type = "CSV"
+            tasks = Task.objects.filter(project_id__exact=project)
+            if len(tasks) == 0:
+                ret_dict = {"message": "No tasks in project!"}
+                ret_status = status.HTTP_200_OK
+                return Response(ret_dict, status=ret_status)
+            
+            tasks_list = []
+            for task in tasks:
+                task_dict = model_to_dict(task)
+                task_dict["data"]["status"] = task.task_status
+                # Rename keys to match label studio converter
+                # task_dict['id'] = task_dict['task_id']
+                # del task_dict['task_id']
+                if task.correct_annotation is not None:
+                    annotation_dict = model_to_dict(task.correct_annotation)
+                    print(task.correct_annotation)
+                    print(task.correct_annotation.created_at)
+                    print(task.correct_annotation.updated_at)
+                    # annotation_dict['result'] = annotation_dict['result_json']
+                    # del annotation_dict['result_json']
+                    # print(annotation_dict)
+                    annotation_dict["created_at"] = str(task.correct_annotation.created_at)
+                    annotation_dict["updated_at"] = str(task.correct_annotation.updated_at)
+                    task_dict["annotations"] = [OrderedDict(annotation_dict)]
+                else:
+                    task_dict["annotations"] = [OrderedDict({'result':{}})]
+                del task_dict["annotation_users"]
+                del task_dict["review_user"]
+                tasks_list.append(OrderedDict(task_dict))
+            download_resources = True
+            export_stream, content_type, filename = DataExport.generate_export_file(project, tasks_list, export_type, download_resources, request.GET)
+
+            response = HttpResponse(File(export_stream), content_type=content_type)
+            response['Content-Disposition'] = 'attachment; filename="%s"' % filename
+            response['filename'] = filename
+            return response
+
+        except Project.DoesNotExist:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        except User.DoesNotExist:
+            ret_dict = {"message": "User does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        return Response(ret_dict, status=ret_status)
+            
     @action(detail=True, methods=["POST"], name="Export Project")
     @project_is_archived
     @is_organization_owner_or_workspace_manager
