@@ -525,6 +525,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotation_fields = output_dataset_info["fields"]["annotations"]
                 data_items = []
                 tasks = Task.objects.filter(project_id__exact=project, task_status__exact=ACCEPTED)
+                if len(tasks) == 0:
+                    ret_dict = {"message": "No tasks to export!"}
+                    ret_status = status.HTTP_200_OK
+                    return Response(ret_dict, status=ret_status)
+
 
                 tasks_list = []
                 annotated_tasks = []
@@ -574,6 +579,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 data_items = []
                 tasks = Task.objects.filter(project_id__exact=project, task_status__exact=ACCEPTED)
+                if len(tasks) == 0:
+                    ret_dict = {"message": "No tasks to export!"}
+                    ret_status = status.HTTP_200_OK
+                    return Response(ret_dict, status=ret_status)
 
                 tasks_list = []
                 annotated_tasks = []  #
