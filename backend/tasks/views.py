@@ -75,6 +75,12 @@ class TaskViewSet(viewsets.ModelViewSet,
 
         else:
             queryset = Task.objects.all()
+            
+        if "task_statuses" in dict(request.query_params):
+            task_statuses = request.query_params["task_statuses"].split(',')
+            queryset = queryset.filter(task_status__in=task_statuses)
+        
+        queryset = queryset.order_by("id")
         
         page = request.GET.get('page')
         try: 
@@ -105,7 +111,7 @@ class TaskViewSet(viewsets.ModelViewSet,
         return task_response
         
 
-class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, viewsets.GenericViewSet):
+class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
         Annotation Viewset with create and update operations.
     """
@@ -190,7 +196,20 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
         
         task.save()
         return annotation_response
-    
+
+
+    def destroy(self, request, pk=None):
+
+        instance = self.get_object()
+        annotation_id = instance.id
+        annotation = Annotation.objects.get(pk=annotation_id)
+        task = annotation.task
+        task.task_status = UNLABELED
+        task.save()
+
+        annotation_response = super().destroy(request)
+
+        return Response({"message": "Annotation Deleted"}, status=status.HTTP_200_OK)    
 
     # def update(self, request, pk=None):
     #     annotation_response = super().partial_update(request)

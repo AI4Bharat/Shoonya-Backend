@@ -102,7 +102,7 @@ class Task(models.Model):
     
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
-        return 5*60
+        return 1
         # if settings.TASK_LOCK_TTL is not None:
         #     return settings.TASK_LOCK_TTL
         # return settings.TASK_LOCK_MIN_TTL
@@ -143,12 +143,16 @@ class Task(models.Model):
         """Check whether current task has been locked by some user"""
         self.clear_expired_locks()
         num_locks = self.num_locks
+        # print("Num locks:", num_locks)
         # if self.project.skip_queue == self.project.SkipQueue.REQUEUE_FOR_ME:
         #     num_annotations = self.annotations.filter(ground_truth=False).exclude(Q(was_cancelled=True) | ~Q(completed_by=user)).count()
         # else:
         num_annotations = self.annotations.count()
 
-        num = num_locks + num_annotations
+        # num = num_locks + num_annotations
+        # FIXME: hardcoded to 0 to disable locking mechanism for skipped tasks
+        num = 0
+
         # if num > self.project_id.required_annotators_per_task:
         #     logger.error(
         #         f"Num takes={num} > overlap={self.project_id.required_annotators_per_task} for task={self.id} - it's a bug",
@@ -159,13 +163,13 @@ class Task(models.Model):
         #         )
         #     )
         result = bool(num >= self.project_id.required_annotators_per_task)
-        if user:
-            # Check if user has already annotated a task
-            if len(self.annotations.filter(completed_by__exact=user.id)) > 0:
-                return True
-            # Check if already locked by the same user
-            if self.locks.filter(user=user).count() > 0:
-                return True
+        # if user:
+        #     # Check if user has already annotated a task
+        #     if len(self.annotations.filter(completed_by__exact=user.id)) > 0:
+        #         return True
+        #     # Check if already locked by the same user
+        #     if self.locks.filter(user=user).count() > 0:
+        #         return True
         return result
 
     def __str__(self):
@@ -193,7 +197,9 @@ class Annotation(models.Model):
         Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name="annotations"
     )
     completed_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="annotation_completed_by")
-    lead_time = models.DateTimeField(auto_now_add=True, verbose_name="annotation_lead_time")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="annotation_created_at")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="annotation_updated_at")
+    lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
 
     def __str__(self):
@@ -346,6 +352,43 @@ class DataExport(object):
                 format_info["disabled"] = True
             formats.append(format_info)
         return sorted(formats, key=lambda f: f.get("disabled", False))
+
+    
+    @staticmethod
+    def generate_export_file(project, tasks, output_format, download_resources, get_args):
+        # prepare for saving
+        now = datetime.now()
+        data = json.dumps(tasks, ensure_ascii=False)
+        md5 = hashlib.md5(json.dumps(data).encode('utf-8')).hexdigest()
+        name = 'project-' + str(project.id) + '-at-' + now.strftime('%Y-%m-%d-%H-%M') + f'-{md5[0:8]}'
+
+        input_json = DataExport.save_export_files(project, now, get_args, data, md5, name)
+
+        converter = Converter(
+            config=parse_config(project.label_config),
+            project_dir=None,
+            upload_dir=os.path.join(MEDIA_ROOT, UPLOAD_DIR),
+            download_resources=download_resources,
+        )
+        with get_temp_dir() as tmp_dir:
+            converter.convert(input_json, tmp_dir, output_format, is_dir=False)
+            files = get_all_files_from_dir(tmp_dir)
+            # if only one file is exported - no need to create archive
+            if len(os.listdir(tmp_dir)) == 1:
+                output_file = files[0]
+                ext = os.path.splitext(output_file)[-1]
+                content_type = f'application/{ext}'
+                out = read_bytes_stream(output_file)
+                filename = name + os.path.splitext(output_file)[-1]
+                return out, content_type, filename
+
+            # otherwise pack output directory into archive
+            shutil.make_archive(tmp_dir, 'zip', tmp_dir)
+            out = read_bytes_stream(os.path.abspath(tmp_dir + '.zip'))
+            content_type = 'application/zip'
+            filename = name + '.zip'
+            return out, content_type, filename
+
 
     @staticmethod
     def export_csv_file(project, tasks, download_resources, get_args):

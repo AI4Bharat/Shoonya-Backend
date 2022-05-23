@@ -101,4 +101,21 @@ Monolingual:
         fields:
           annotations:
             - splitted_text
+    ContextualSentenceVerification:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "monolingual/contextual_sentence_verification.jsx"
+      input_dataset:
+        class: SentenceText
+        fields:
+          - text
+          - context
+          - language
+      output_dataset:
+        class: SentenceText
+        save_type: in_place
+        fields:
+          annotations:
+            - corrected_text
+            - quality_status
+
         

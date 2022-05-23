@@ -39,33 +39,43 @@ id_dict = {
     'as': 26,
     'bd': 35,
     'bn': 28,
-    'dg': 'Dogri',
-    'gom': 'Konkani',
+    'dg': 41,
+    'gom': 43,
     'gu': 27,
     'hi': 29,
     'kn': 30,
     'kha': 'Khasi',
-    'ks': 'Kashmiri',
-    'mai': 'Maithili',
+    'ks': 42,
+    'mai': 44,
     'ml': 31,
     'mni': 37,
     'mr': 32,
     'ne': 34,
-    'or': 'Odia',
+    'or': 45,
     'pa': 'Punjabi',
     'sa': 36,
-    'sat': 'Santhali',
+    'sat': 46,
     'sd': 'Sindhi',
     'ta': 33,
     'te': 25,
     'ur': 38
 }
 
-langs = ['as', 'bd', 'bn', 'gu', 'hi', 'kn', 'ml', 'mni', 'mr', 'sa', 'ne', 'ta', 'te', 'ur']
+# langs = ['as', 'bd', 'bn', 'gu', 'hi', 'kn', 'ml', 'mni', 'mr', 'sa', 'ne', 'ta', 'te', 'ur']
+langs = ['dg', 'or', 'gom', 'sat', 'mai', 'ks']
 
 for lang in langs:
     if lang == 'bd' or lang == 'sa' or lang == 'mni':
         with open(f'all_data/hi.txt', 'r') as f:
+            lang_lines = f.readlines()
+    elif lang == 'dg' or lang == 'mai' or lang == 'sat':
+        with open(f'all_data/hi.txt', 'r') as f:
+            lang_lines = f.readlines()
+    elif lang == 'ks':
+        with open(f'all_data/ur.txt', 'r') as f:
+            lang_lines = f.readlines()
+    elif lang == 'gom':
+        with open(f'all_data/mr.txt', 'r') as f:
             lang_lines = f.readlines()
     else:
         with open(f'all_data/{lang}.txt', 'r') as f:
