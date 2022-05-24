@@ -283,7 +283,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
 
             # Get items corresponding to the instance id
-            data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
+            data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids).order_by('id')
 
             # Apply filtering
             query_params = dict(parse_qsl(filter_string))
@@ -748,6 +748,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer = ProjectUsersSerializer(project, many=False)
             # ret_dict = serializer.data
             users = serializer.data["users"]
+
+            if len(users) < project.required_annotators_per_task:
+                ret_dict = {"message": "Number of annotators is less than required annotators per task"}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
 
             # get all tasks of a project
             tasks = Task.objects.filter(project_id=pk)
