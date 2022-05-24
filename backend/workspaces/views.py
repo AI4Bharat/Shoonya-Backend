@@ -1,9 +1,10 @@
+from ast import Is
 import re
 from urllib import response
 from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
@@ -164,3 +165,65 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class WorkspaceusersViewSet(viewsets.ViewSet):
+    
+    @is_organization_owner_or_workspace_manager
+    @permission_classes((IsAuthenticated,))
+    @action(detail=False, methods=['POST'], url_path='addusers', url_name='add_users')
+    def add_users(self, request):
+        user_id = request.data.get('user_id')
+        workspace_id = request.data.get('workspace_id')
+        try:
+            workspace = Workspace.objects.get(pk=workspace_id)
+
+            if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization)==(workspace.organization)) or ((request.user.role==User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
+                return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
+
+            emails = user_id.split(',')
+            invalid_emails = []
+            for email in emails:
+                try:
+                    user = User.objects.get(email=email)
+                    if((user.organization) == (workspace.organization)):
+                        workspace.users.add(user)
+                    else:
+                        invalid_emails.append(email)
+                except User.DoesNotExist:
+                    invalid_emails.append(email)
+
+            workspace.save()
+            if len(invalid_emails) == 0:
+                return Response({"message": "users added successfully"}, status=status.HTTP_200_OK)
+            elif len(invalid_emails)==len(emails):
+                return Response({"message": "No valid emails found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({"message": f"users added partially! Invalid emails: {','.join(invalid_emails)}"}, status=status.HTTP_200_OK)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+    @is_organization_owner_or_workspace_manager
+    @permission_classes((IsAuthenticated,))
+    @action(detail=False, methods=['POST'], url_path='removeusers', url_name='remove_users')
+    def remove_users(self, request):
+        user_id = request.data.get('user_id')
+        workspace_id = request.data.get('workspace_id')
+        try:
+            workspace = Workspace.objects.get(pk=workspace_id)
+
+            if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization) == (workspace.organization)) or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
+                return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
+
+            try:
+                user = User.objects.get(email=user_id)
+                if user in workspace.users.all():
+                    workspace.users.remove(user)
+                    return Response({"message": "User removed successfully"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"message": "User not in workspace"}, status=status.HTTP_404_NOT_FOUND)
+
+            except User.DoesNotExist:
+                return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
