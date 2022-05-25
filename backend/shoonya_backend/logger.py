@@ -4,7 +4,11 @@ Defines the logging format for the console logger
 import logging
 from django.utils.termcolors import colorize
 
+
 class ConsoleFormatter(logging.Formatter):
+    '''
+    Class to define a formatter to be used to format the console logs
+    '''
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

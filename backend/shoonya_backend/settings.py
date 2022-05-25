@@ -10,11 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
+import logging
+import os
 from datetime import timedelta
 from pathlib import Path
-import os
 from dotenv import load_dotenv
-import logging
 
 load_dotenv()
 
@@ -206,7 +206,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=100)
 }
 
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400 # higher than the count of fields
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400   # higher than the count of fields
 
 # Logging Configuration
 
