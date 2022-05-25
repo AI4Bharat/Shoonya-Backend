@@ -46,6 +46,8 @@ cp .env.example ./backend/.env
 
 This creates an `.env` file at the root of the project. It is needed to make sure that the project runs correctly. Please go through the file and set the parameters according to your installation.
 
+If Google Cloud logging is not being used, remove the `GOOGLE_APPLICATION_CREDENTIALS` variable from the `.env` file.
+
 To create a new secret key, run the following commands (within the virtual environment):
 ```bash
 # Open a Python shell
