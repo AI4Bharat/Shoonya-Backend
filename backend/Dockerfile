@@ -1,5 +1,7 @@
 FROM python:3.9.7-slim
 
+RUN apt-get update && apt-get install gcc -y
+
 COPY . /app
 WORKDIR /app
 
