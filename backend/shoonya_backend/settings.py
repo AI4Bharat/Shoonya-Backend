@@ -162,8 +162,8 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MEDIA_URL = "/media/"
-#STATIC_URL = "/static/"
-#STATIC_ROOT = BASE_DIR / "static"
+# STATIC_URL = "/static/"
+# STATIC_ROOT = BASE_DIR / "static"
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
@@ -174,8 +174,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
-     'DEFAULT_PAGINATION_CLASS':
-         'shoonya_backend.pagination.CustomPagination'
+    'DEFAULT_PAGINATION_CLASS': 'shoonya_backend.pagination.CustomPagination'
 }
 
 
