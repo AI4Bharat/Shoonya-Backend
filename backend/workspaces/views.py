@@ -170,12 +170,11 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
     
     @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
-    @action(detail=False, methods=['POST'], url_path='addusers', url_name='add_users')
-    def add_users(self, request):
-        user_id = request.data.get('user_id')
-        workspace_id = request.data.get('workspace_id')
+    @action(detail=True, methods=['POST'], url_path='addusers', url_name='add_users')
+    def add_users(self, request,pk=None):
+        user_id = request.data.get('user_id',"")
         try:
-            workspace = Workspace.objects.get(pk=workspace_id)
+            workspace = Workspace.objects.get(pk=pk)
 
             if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization)==(workspace.organization)) or ((request.user.role==User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
                 return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
@@ -201,16 +200,17 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
             return Response({"message": f"users added partially! Invalid emails: {','.join(invalid_emails)}"}, status=status.HTTP_200_OK)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
     @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
-    @action(detail=False, methods=['POST'], url_path='removeusers', url_name='remove_users')
-    def remove_users(self, request):
-        user_id = request.data.get('user_id')
-        workspace_id = request.data.get('workspace_id')
+    @action(detail=True, methods=['POST'], url_path='removeusers', url_name='remove_users')
+    def remove_users(self, request,pk=None):
+        user_id = request.data.get('user_id',"")
         try:
-            workspace = Workspace.objects.get(pk=workspace_id)
+            workspace = Workspace.objects.get(pk=pk)
 
             if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization) == (workspace.organization)) or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
                 return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
@@ -227,3 +227,5 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
