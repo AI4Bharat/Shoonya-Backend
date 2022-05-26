@@ -49,4 +49,5 @@ router.register(r"task", TaskViewSet, basename="task")
 router.register(r"annotation", AnnotationViewSet, basename="annotation")
 router.register(r"prediction", PredictionViewSet, basename="prediction")
 
+print(router.urls)
 urlpatterns += router.urls

@@ -80,8 +80,8 @@ class Task(models.Model):
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", blank=True
     )
-    review_user = models.ManyToManyField(
-        User, related_name="review_users", verbose_name="review_users",  blank=True
+    review_user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="review_users", verbose_name="review_users",  blank=True
     )
     task_status = models.CharField(
         choices=TASK_STATUS,
@@ -100,6 +100,14 @@ class Task(models.Model):
         for user in users:
             self.annotation_users.add(user)
     
+    def reviewable(self):
+        """
+        Review the annotations
+        """
+        return self.annotation_users.count >= self.project_id.required_annotators_per_task
+    
+    # def review(self):
+        
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
         return 1
