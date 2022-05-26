@@ -44,6 +44,3 @@ $RECYCLE.BIN/
 /coverage.data
 /coverage/
 .coverage
-
-# Logs
-**/logs/*

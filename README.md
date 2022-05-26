@@ -57,22 +57,6 @@ python backend/manage.py shell
 
 Paste the value you get there into the `.env` file.
 
-#### Google Cloud Logging (Optional)
-
-If Google Cloud Logging is being used, please follow these additional steps:
-
-1. Install the `google-cloud-logging` library using the following command:
-```bash
-pip install google-cloud-logging
-```
-2. Follow the steps to create a Service Account from the following [Google Cloud Documentation Page](https://cloud.google.com/docs/authentication/production#create_service_account). This will create a Service Account and generate a JSON Key for the Service Account.
-3. Ensure that atleast the Project Logs Writer role (`roles/logging.logWriter`) is assigned to the created Service Account.
-4. Add the `GOOGLE_APPLICATION_CREDENTIALS` variable to the `.env` file. This value of this variable should be the path to the JSON Key generated in Step 2. For example,
-
-```bash
-GOOGLE_APPLICATION_CREDENTIALS="/path/to/gcloud-key.json"
-```
-
 ### Docker Installation
 
 `cd` back to the root folder .Once inside, build the docker containers:

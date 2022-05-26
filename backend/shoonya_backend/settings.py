@@ -10,16 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
-import logging
-import os
 from datetime import timedelta
 from pathlib import Path
+import os
 from dotenv import load_dotenv
+import logging.config
 
 load_dotenv()
-
-if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
-    from google.cloud import logging as gc_logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -162,8 +159,8 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MEDIA_URL = "/media/"
-# STATIC_URL = "/static/"
-# STATIC_ROOT = BASE_DIR / "static"
+#STATIC_URL = "/static/"
+#STATIC_ROOT = BASE_DIR / "static"
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
@@ -174,7 +171,8 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
-    'DEFAULT_PAGINATION_CLASS': 'shoonya_backend.pagination.CustomPagination'
+     'DEFAULT_PAGINATION_CLASS':    
+         'shoonya_backend.pagination.CustomPagination'
 }
 
 
@@ -205,79 +203,34 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=100)
 }
 
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400   # higher than the count of fields
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400 # higher than the count of fields
 
 # Logging Configuration
 
-# # Get loglevel from env
-LOGLEVEL = os.getenv('LOG_LEVEL', 'INFO')
+# Clear prev config
+LOGGING_CONFIG = None
 
-# Make a new directory for logs
-Path(BASE_DIR / 'logs').mkdir(exist_ok=True)
+# Get loglevel from env
+LOGLEVEL = 'INFO'
 
-# Define the list of formatters
-formatters = {
-    'console': {
-        '()': 'shoonya_backend.logger.ConsoleFormatter',
-        'format': '({server_time}) {console_msg}',
-        'style': '{'
-    },
-    'file': {
-        'format': '{levelname} ({asctime}) [{module}:{process}|{thread}] {message}',
-        'style': '{'
-    },
-    'csvfile': {
-        'format': '{levelname},{asctime},{module},{process},{thread},{message}',
-        'style': '{'
-    }
-}
-
-# Define the list of handlers
-handlers = {
-    'console': {
-        'level': LOGLEVEL,
-        'class': 'logging.StreamHandler',
-        'formatter': 'console',
-    },
-    'file': {
-        'level': 'WARNING',
-        'class': 'logging.FileHandler',
-        'filename': os.path.join(BASE_DIR, 'logs/default.log'),
-        'formatter': 'file'
-    },
-    'csvfile': {
-        'level': 'WARNING',
-        'class': 'logging.FileHandler',
-        'filename': os.path.join(BASE_DIR, 'logs/logs.csv'),
-        'formatter': 'csvfile'
-    }
-}
-
-# Setup the Cloud Logging Client
-if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
-    client = gc_logging.Client()
-    client.setup_logging(log_level=logging.WARNING)
-    handlers['gcloud-logging'] = {
-        'class': 'google.cloud.logging.handlers.CloudLoggingHandler',
-        'client': client
-    }
-
-# Define logger configuration
-LOGGING = {
+logging.config.dictConfig({
     'version': 1,
     'disable_existing_loggers': False,
-    'formatters': formatters,
-    'handlers': handlers,
+    'formatters': {
+        'console': {
+            'format': '%(asctime)s %(levelname)s [%(name)s:%(lineno)s] %(module)s %(process)d %(thread)d %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'console',
+        },
+    },
     'loggers': {
         '': {
             'level': LOGLEVEL,
-            'handlers': handlers.keys(),
+            'handlers': ['console',],
         },
-        'django': {
-            'handlers': [],
-        },
-        'django.server': {
-            'propagate': True
-        }
-    }
-}
+    },
+})
