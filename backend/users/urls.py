@@ -12,6 +12,7 @@ router.register(r"invite", InviteViewSet, basename="invite")
 router.register(r"account", UserViewSet, basename="account")
 router.register(r"languages", LanguageViewSet, basename="languages")
 
+print(router.urls)
 
 urlpatterns = [
     path("auth/", include("djoser.urls")),
