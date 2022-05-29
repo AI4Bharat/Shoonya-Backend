@@ -9,18 +9,25 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('tasks', '0024_auto_20220518_0847'),
+        ("tasks", "0024_auto_20220518_0847"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='task',
-            name='review_user',
+            model_name="task",
+            name="review_user",
         ),
         migrations.AddField(
-            model_name='task',
-            name='review_user',
-            field=models.ForeignKey(blank=True, default=None, on_delete=django.db.models.deletion.CASCADE, related_name='review_users', to='users.user', verbose_name='review_users'),
+            model_name="task",
+            name="review_user",
+            field=models.ForeignKey(
+                blank=True,
+                default=None,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="review_users",
+                to="users.user",
+                verbose_name="review_users",
+            ),
             preserve_default=False,
         ),
     ]

@@ -1,14 +1,15 @@
-'''
+"""
 Defines the logging format for the console logger
-'''
+"""
 import logging
 from django.utils.termcolors import colorize
 
 
 class ConsoleFormatter(logging.Formatter):
-    '''
+    """
     Class to define a formatter to be used to format the console logs
-    '''
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -16,16 +17,16 @@ class ConsoleFormatter(logging.Formatter):
         default_time_format = "%I:%M:%S %p, %d/%b/%Y"
 
         # Retrieve the status and formatted message from the record
-        msg = f'[{record.levelname}] ' + record.getMessage()
+        msg = f"[{record.levelname}] " + record.getMessage()
         status = record.levelname
 
         # Assign an appropriate color to each level of status
-        if status == 'WARNING':
-            msg = colorize(msg, fg='magenta', opts=('bold',))
-        elif status == 'ERROR':
-            msg = colorize(msg, fg='yellow', opts=('bold',))
-        elif status == 'CRITICAL':
-            msg = colorize(msg, fg='red', opts=('bold',))
+        if status == "WARNING":
+            msg = colorize(msg, fg="magenta", opts=("bold",))
+        elif status == "ERROR":
+            msg = colorize(msg, fg="yellow", opts=("bold",))
+        elif status == "CRITICAL":
+            msg = colorize(msg, fg="red", opts=("bold",))
 
         # Write new console values into the record
         record.server_time = self.formatTime(record, default_time_format)

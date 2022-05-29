@@ -51,6 +51,18 @@ LANG_CHOICES = (
 #     def __str__(self):
 #         return str(self.language)
 
+ANNOTATOR = 1
+REVIEWER = 2
+WORKSPACE_MANAGER = 3
+ORGANIZATION_OWNER = 4
+
+ROLE_CHOICES = (
+    (ANNOTATOR, "Annotator"),
+    (REVIEWER, "Reviewer"),
+    (WORKSPACE_MANAGER, "Workspace Manager"),
+    (ORGANIZATION_OWNER, "Organization Owner"),
+)
+
 
 class User(AbstractBaseUser, PermissionsMixin):
     """
@@ -59,18 +71,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     Email and Password are required other are optional.
     """
-
-    ANNOTATOR = 1
-    REVIEWER = 2
-    WORKSPACE_MANAGER = 3
-    ORGANIZAION_OWNER = 4
-
-    ROLE_CHOICES = (
-        (ANNOTATOR, "Annotator"),
-        (REVIEWER, "Reviewer"),
-        (WORKSPACE_MANAGER, "Workspace Manager"),
-        (ORGANIZAION_OWNER, "Organization Owner"),
-    )
 
     username = models.CharField(verbose_name="username", max_length=265)
     email = models.EmailField(verbose_name="email_address", unique=True, blank=False)
@@ -109,13 +109,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="last annotation activity by the user", auto_now=True
     )
 
-    languages = ArrayField(models.CharField(
-        verbose_name="language",
-        choices=LANG_CHOICES,
-        max_length=15
-    ), blank=True, null=True, default=list)
+    languages = ArrayField(
+        models.CharField(verbose_name="language", choices=LANG_CHOICES, max_length=15),
+        blank=True,
+        null=True,
+        default=list,
+    )
     # languages = models.ManyToManyField(Language, related_name="user_languages", blank=True, help_text=("Languages known by the user."))
-
 
     # maximum_annotations_per_day = models.IntegerField(
     #     verbose_name="maximum annotations per day", null=True
@@ -130,8 +130,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     availability_status = models.PositiveSmallIntegerField(
-        choices=AVAILABILITY_STATUS_CHOICES, blank=False, null=False, default=AVAILABLE, 
-        help_text=("Indicates whether a user is available for doing annotation or not.")
+        choices=AVAILABILITY_STATUS_CHOICES,
+        blank=False,
+        null=False,
+        default=AVAILABLE,
+        help_text=(
+            "Indicates whether a user is available for doing annotation or not."
+        ),
     )
 
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
@@ -181,4 +186,4 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.role == User.WORKSPACE_MANAGER
 
     def is_organization_owner(self):
-        return self.role == User.ORGANIZAION_OWNER
+        return self.role == User.ORGANIZATION_OWNER

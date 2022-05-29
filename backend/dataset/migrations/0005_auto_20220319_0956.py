@@ -6,18 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tasks', '0001_initial'),
-        ('dataset', '0004_ocr'),
+        ("tasks", "0001_initial"),
+        ("dataset", "0004_ocr"),
     ]
 
     operations = [
         migrations.RenameModel(
-            old_name='OCR',
-            new_name='OCRDocument',
+            old_name="OCR",
+            new_name="OCRDocument",
         ),
         migrations.AlterField(
-            model_name='datasetinstance',
-            name='dataset_type',
-            field=models.CharField(choices=[('sentence_text', 'SentenceText'), ('translation_pair', 'TranslationPair'), ('ocr_document', 'OCRDocument')], max_length=100, verbose_name='dataset_type'),
+            model_name="datasetinstance",
+            name="dataset_type",
+            field=models.CharField(
+                choices=[
+                    ("sentence_text", "SentenceText"),
+                    ("translation_pair", "TranslationPair"),
+                    ("ocr_document", "OCRDocument"),
+                ],
+                max_length=100,
+                verbose_name="dataset_type",
+            ),
         ),
     ]

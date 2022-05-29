@@ -31,28 +31,49 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
 
     def list(self, request, *args, **kwargs):
-        if int(request.user.role) == User.ANNOTATOR or int(request.user.role) == User.WORKSPACE_MANAGER:
-            data = self.queryset.filter(users=request.user, is_archived=False, organization=request.user.organization)
+        if (
+            int(request.user.role) == User.ANNOTATOR
+            or int(request.user.role) == User.WORKSPACE_MANAGER
+        ):
+            data = self.queryset.filter(
+                users=request.user,
+                is_archived=False,
+                organization=request.user.organization,
+            )
             try:
                 data = self.paginate_queryset(data)
             except:
                 page = []
                 data = page
-                return Response({"status": status.HTTP_200_OK, "message": "No more record.", "results": data})
+                return Response(
+                    {
+                        "status": status.HTTP_200_OK,
+                        "message": "No more record.",
+                        "results": data,
+                    }
+                )
             serializer = WorkspaceSerializer(data, many=True)
             return self.get_paginated_response(serializer.data)
-        elif int(request.user.role) == User.ORGANIZAION_OWNER:
+        elif int(request.user.role) == User.ORGANIZATION_OWNER:
             data = self.queryset.filter(organization=request.user.organization)
             try:
                 data = self.paginate_queryset(data)
             except:
                 page = []
                 data = page
-                return Response({"status": status.HTTP_200_OK, "message": "No more record.", "results": data})
+                return Response(
+                    {
+                        "status": status.HTTP_200_OK,
+                        "message": "No more record.",
+                        "results": data,
+                    }
+                )
             serializer = WorkspaceSerializer(data, many=True)
             return self.get_paginated_response(serializer.data)
         else:
-            return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
+            )
 
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
@@ -68,11 +89,17 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 obj.users.add(request.user)
                 obj.created_by = request.user
                 obj.save()
-                return Response({"message": "Workspace created!"}, status=status.HTTP_201_CREATED)
+                return Response(
+                    {"message": "Workspace created!"}, status=status.HTTP_201_CREATED
+                )
             else:
-                return Response({"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST
+                )
         except:
-            return Response({"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
     @is_particular_workspace_manager
     @workspace_is_archived
@@ -85,7 +112,10 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, pk=None, *args, **kwargs):
-        return Response({"message": "Deleting of Workspaces is not supported!"}, status=status.HTTP_403_FORBIDDEN,)
+        return Response(
+            {"message": "Deleting of Workspaces is not supported!"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class WorkspaceCustomViewSet(viewsets.ViewSet):
@@ -99,14 +129,19 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
-            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         users = workspace.users.all()
         serializer = UserProfileSerializer(users, many=True)
         return Response(serializer.data)
 
     # TODO : add exceptions
     @action(
-        detail=True, methods=["POST"], name="Archive Workspace", url_name="archive",
+        detail=True,
+        methods=["POST"],
+        name="Archive Workspace",
+        url_name="archive",
     )
     @is_particular_workspace_manager
     def archive(self, request, pk=None, *args, **kwargs):
@@ -116,7 +151,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         return super().retrieve(request, *args, **kwargs)
 
     # TODO: Add serializer
-    @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
+    @action(
+        detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager"
+    )
     @is_particular_workspace_manager
     def assign_manager(self, request, pk=None, *args, **kwargs):
         """
@@ -147,7 +184,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         return Response(ret_dict, status=ret_status)
 
     @swagger_auto_schema(responses={200: ProjectSerializer})
-    @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
+    @action(
+        detail=True,
+        methods=["GET"],
+        name="Get Projects",
+        url_path="projects",
+        url_name="projects",
+    )
     @is_workspace_member
     def get_projects(self, request, pk=None):
         """
@@ -156,11 +199,14 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
-            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         if request.user.role == User.ANNOTATOR:
-            projects = Project.objects.filter(users=request.user, workspace_id=workspace)
+            projects = Project.objects.filter(
+                users=request.user, workspace_id=workspace
+            )
         else:
             projects = Project.objects.filter(workspace_id=workspace)
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-

@@ -6,23 +6,45 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0004_remove_user_invite_accepted'),
+        ("users", "0004_remove_user_invite_accepted"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='availability_status',
-            field=models.PositiveSmallIntegerField(choices=[(1, 'Available'), (2, 'On Leave')], default=1),
+            model_name="user",
+            name="availability_status",
+            field=models.PositiveSmallIntegerField(
+                choices=[(1, "Available"), (2, "On Leave")], default=1
+            ),
         ),
         migrations.AddField(
-            model_name='user',
-            name='lang_id',
-            field=models.CharField(choices=[('bn', 'Bengali'), ('gu', 'Gujarati'), ('en', 'English'), ('hi', 'Hindi'), ('kn', 'Kannada'), ('mr', 'Marathi'), ('ne', 'Nepali'), ('ne', 'Odia'), ('pa', 'Punjabi'), ('sa', 'Sanskrit'), ('ta', 'Tamil'), ('te', 'Telugu')], default='en', max_length=100, verbose_name='language_id'),
+            model_name="user",
+            name="lang_id",
+            field=models.CharField(
+                choices=[
+                    ("bn", "Bengali"),
+                    ("gu", "Gujarati"),
+                    ("en", "English"),
+                    ("hi", "Hindi"),
+                    ("kn", "Kannada"),
+                    ("mr", "Marathi"),
+                    ("ne", "Nepali"),
+                    ("ne", "Odia"),
+                    ("pa", "Punjabi"),
+                    ("sa", "Sanskrit"),
+                    ("ta", "Tamil"),
+                    ("te", "Telugu"),
+                ],
+                default="en",
+                max_length=100,
+                verbose_name="language_id",
+            ),
         ),
         migrations.AddField(
-            model_name='user',
-            name='maximum_annotations_per_day',
-            field=models.IntegerField(null=True, verbose_name='maximum annotations per day'),
+            model_name="user",
+            name="maximum_annotations_per_day",
+            field=models.IntegerField(
+                null=True, verbose_name="maximum annotations per day"
+            ),
         ),
     ]

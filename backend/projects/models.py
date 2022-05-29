@@ -5,6 +5,7 @@ from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
 from .registry_helper import ProjectRegistry
+
 # from dataset import LANG_CHOICES
 
 RANDOM = "r"
@@ -39,20 +40,41 @@ class Project(models.Model):
     """
 
     title = models.CharField(max_length=100, help_text=("Project Title"))
-    description = models.TextField(max_length=1000, null=True, blank=True, help_text=("Project Description"))
+    description = models.TextField(
+        max_length=1000, null=True, blank=True, help_text=("Project Description")
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         on_delete=models.SET_NULL,
         related_name="project_creator",
         verbose_name="created_by",
-        help_text=("Project Created By")
+        help_text=("Project Created By"),
     )
 
-    users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="project_users", help_text=("Project Users"))
-    organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, help_text=("Organization to which the Project belongs"))
-    workspace_id = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, help_text=("Workspace to which the Project belongs"))
-    dataset_id = models.ManyToManyField(DatasetInstance, related_name="project_dataset_instances", blank=True, help_text=("Dataset Instances that are available for project creation"))
+    users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="project_users",
+        help_text=("Project Users"),
+    )
+    organization_id = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        help_text=("Organization to which the Project belongs"),
+    )
+    workspace_id = models.ForeignKey(
+        Workspace,
+        on_delete=models.SET_NULL,
+        null=True,
+        help_text=("Workspace to which the Project belongs"),
+    )
+    dataset_id = models.ManyToManyField(
+        DatasetInstance,
+        related_name="project_dataset_instances",
+        blank=True,
+        help_text=("Dataset Instances that are available for project creation"),
+    )
 
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
@@ -65,47 +87,98 @@ class Project(models.Model):
         help_text=("Indicates whether a project is published or not."),
     )
 
-    expert_instruction = models.TextField(max_length=500, null=True, blank=True, help_text=("Expert Instruction"))
-    show_instruction = models.BooleanField(verbose_name="show_instruction_to_annotator", 
-        default=False, help_text=("Show Instruction to Annotator"))
-    show_skip_button = models.BooleanField(verbose_name="annotator_can_skip_project", 
-        default=False, help_text=("Button to Skip the Project"))
+    expert_instruction = models.TextField(
+        max_length=500, null=True, blank=True, help_text=("Expert Instruction")
+    )
+    show_instruction = models.BooleanField(
+        verbose_name="show_instruction_to_annotator",
+        default=False,
+        help_text=("Show Instruction to Annotator"),
+    )
+    show_skip_button = models.BooleanField(
+        verbose_name="annotator_can_skip_project",
+        default=False,
+        help_text=("Button to Skip the Project"),
+    )
     show_predictions_to_annotator = models.BooleanField(
-        verbose_name="annotator_can_see_model_predictions", default=False,
-        help_text=("Show Annotation predictions to annotator")
+        verbose_name="annotator_can_see_model_predictions",
+        default=False,
+        help_text=("Show Annotation predictions to annotator"),
     )
 
-    filter_string = models.CharField(max_length=1000, null=True, blank=True, 
-        help_text=("Filter string for filtering data for project"))
-    label_config = models.CharField(verbose_name="XML Template Config", max_length=1000, null=True, blank=True, 
-        help_text=("Label Studio Config XML to be used to show annotation task UI"))
+    filter_string = models.CharField(
+        max_length=1000,
+        null=True,
+        blank=True,
+        help_text=("Filter string for filtering data for project"),
+    )
+    label_config = models.CharField(
+        verbose_name="XML Template Config",
+        max_length=1000,
+        null=True,
+        blank=True,
+        help_text=("Label Studio Config XML to be used to show annotation task UI"),
+    )
 
     color = models.CharField(max_length=6, null=True, blank=True, help_text=("Colour"))
 
-    sampling_mode = models.CharField(choices=SAMPLING_MODE_CHOICES, default=FULL, max_length=1,
-        help_text=("Sampling Mode of the dataset for the project - Random, Batch or Full"))
+    sampling_mode = models.CharField(
+        choices=SAMPLING_MODE_CHOICES,
+        default=FULL,
+        max_length=1,
+        help_text=(
+            "Sampling Mode of the dataset for the project - Random, Batch or Full"
+        ),
+    )
 
-    sampling_parameters_json = models.JSONField(verbose_name="sampling parameters json", null=True, blank=True,
-        help_text=("Sampling parameters for the sampling mode - percentage for random and batch number and size for batch"))
+    sampling_parameters_json = models.JSONField(
+        verbose_name="sampling parameters json",
+        null=True,
+        blank=True,
+        help_text=(
+            "Sampling parameters for the sampling mode - percentage for random and batch number and size for batch"
+        ),
+    )
 
-    data_type = models.JSONField(verbose_name="data type in project xml", null=True, blank=True,
-        help_text=("Data Type in the Project XML"))
+    data_type = models.JSONField(
+        verbose_name="data type in project xml",
+        null=True,
+        blank=True,
+        help_text=("Data Type in the Project XML"),
+    )
 
-    project_type = models.CharField(choices=PROJECT_TYPE_CHOICES, max_length=100,
-        help_text=("Project Type indicating the annotation task"))
+    project_type = models.CharField(
+        choices=PROJECT_TYPE_CHOICES,
+        max_length=100,
+        help_text=("Project Type indicating the annotation task"),
+    )
 
-    project_mode = models.CharField(choices=PROJECT_MODE_CHOICES, max_length=100,
-        help_text=("Mode of the Project - Annotation or Collection"))
+    project_mode = models.CharField(
+        choices=PROJECT_MODE_CHOICES,
+        max_length=100,
+        help_text=("Mode of the Project - Annotation or Collection"),
+    )
 
-    variable_parameters = models.JSONField(verbose_name="variable parameters for project", null=True, blank=True,
-        help_text=("Variable parameters specific for each project type")) 
+    variable_parameters = models.JSONField(
+        verbose_name="variable parameters for project",
+        null=True,
+        blank=True,
+        help_text=("Variable parameters specific for each project type"),
+    )
 
-    metadata_json = models.JSONField(verbose_name="metadata json", null=True, blank=True,
-        help_text=("Metadata for project"))
+    metadata_json = models.JSONField(
+        verbose_name="metadata json",
+        null=True,
+        blank=True,
+        help_text=("Metadata for project"),
+    )
     # maximum_annotators
     # total_annotations
-    required_annotators_per_task = models.IntegerField(verbose_name="required_annotators_per_task", default=1,
-        help_text=("No. of annotators required for each task"))
+    required_annotators_per_task = models.IntegerField(
+        verbose_name="required_annotators_per_task",
+        default=1,
+        help_text=("No. of annotators required for each task"),
+    )
     # language = models.CharField(
     #     verbose_name="language", choices=LANG_CHOICES, max_length=3
     # )

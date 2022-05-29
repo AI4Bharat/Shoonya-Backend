@@ -55,12 +55,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class UserFetchSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "role", "has_accepted_invite"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "has_accepted_invite",
+        ]
         read_only_fields = [
             "id",
             "email",
             "role",
             "has_accepted_invite",
         ]
-
-

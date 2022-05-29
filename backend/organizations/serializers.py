@@ -5,10 +5,12 @@ from rest_framework import serializers
 from users.models import User
 from .models import *
 
+
 class InviteGenerationSerializer(serializers.Serializer):
     emails = serializers.ListField(child=serializers.EmailField())
     organization_id = serializers.IntegerField()
     role = serializers.IntegerField()
+
 
 class UserReadSerializer(serializers.ModelSerializer):
     class Meta:
@@ -19,8 +21,8 @@ class UserReadSerializer(serializers.ModelSerializer):
 
 class OrganizationSerializer(serializers.ModelSerializer):
     created_by = UserReadSerializer(read_only=True)
+
     class Meta:
         model = Organization
         fields = ["id", "title", "email_domain_name", "created_by"]
         read_only_fields = ["id", "created_by"]
-

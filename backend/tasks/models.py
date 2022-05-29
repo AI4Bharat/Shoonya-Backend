@@ -8,12 +8,18 @@ import json
 
 from label_studio.core.version import get_git_version
 from label_studio_converter import Converter
-from label_studio.core.utils.io import get_all_files_from_dir, get_temp_dir, read_bytes_stream
+from label_studio.core.utils.io import (
+    get_all_files_from_dir,
+    get_temp_dir,
+    read_bytes_stream,
+)
 from label_studio_tools.core.label_config import parse_config
 from django.conf import settings
 import pandas as pd
 
 from django.db import models
+from django.dispatch import receiver
+from django.db.models.signals import pre_save
 
 from users.models import User
 from dataset.models import DatasetBase, DatasetInstance
@@ -56,7 +62,12 @@ class Task(models.Model):
 
     id = models.AutoField(verbose_name="task_id", primary_key=True)
     data = models.JSONField(null=True, blank=True, verbose_name="task_data")
-    project_id = models.ForeignKey(Project, verbose_name="project_id", related_name="tasks", on_delete=models.CASCADE)
+    project_id = models.ForeignKey(
+        Project,
+        verbose_name="project_id",
+        related_name="tasks",
+        on_delete=models.CASCADE,
+    )
     input_data = models.ForeignKey(
         DatasetBase,
         verbose_name="input_data",
@@ -73,15 +84,30 @@ class Task(models.Model):
         blank=True,
         related_name="output_data",
     )
+
+    is_reviewable = models.BooleanField(default=False)
     # domain_type = models.CharField(verbose_name= 'dataset_domain_type', choices = DOMAIN_CHOICES, max_length = 100, default  = 'monolingual')
-    correct_annotation = models.ForeignKey('Annotation', on_delete=models.SET_NULL, null=True, blank=True, 
-        related_name="correct_annotation", help_text=("Correct Annotation of the task"))
-    
+    correct_annotation = models.ForeignKey(
+        "Annotation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="correct_annotation",
+        help_text=("Correct Annotation of the task"),
+    )
+
     annotation_users = models.ManyToManyField(
-        User, related_name="annotation_users", verbose_name="annotation_users", blank=True
+        User,
+        related_name="annotation_users",
+        verbose_name="annotation_users",
+        blank=True,
     )
     review_user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="review_users", verbose_name="review_users",  blank=True
+        User,
+        on_delete=models.CASCADE,
+        related_name="review_users",
+        verbose_name="review_users",
+        blank=True,
     )
     task_status = models.CharField(
         choices=TASK_STATUS,
@@ -99,29 +125,23 @@ class Task(models.Model):
         """
         for user in users:
             self.annotation_users.add(user)
-    
-    def reviewable(self):
-        """
-        Review the annotations
-        """
-        return self.annotation_users.count >= self.project_id.required_annotators_per_task
-    
+
     # def review(self):
-        
+
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
         return 1
         # if settings.TASK_LOCK_TTL is not None:
         #     return settings.TASK_LOCK_TTL
         # return settings.TASK_LOCK_MIN_TTL
-    
+
     def clear_expired_locks(self):
         self.locks.filter(expire_at__lt=now()).delete()
 
     @property
     def num_locks(self):
         return self.locks.filter(expire_at__gt=now()).count()
-    
+
     def set_lock(self, user):
         """Lock current task by specified user. Lock lifetime is set by `expire_in_secs`"""
         num_locks = self.num_locks
@@ -130,7 +150,9 @@ class Task(models.Model):
             expire_at = now() + timedelta(seconds=lock_ttl)
             TaskLock.objects.create(task=self, user=user, expire_at=expire_at)
         else:
-            raise Exception("Setting lock failed. Num locks > max annotators. Please call has_lock() before setting the lock.")
+            raise Exception(
+                "Setting lock failed. Num locks > max annotators. Please call has_lock() before setting the lock."
+            )
             # logger.error(
             #     f"Current number of locks for task {self.id} is {num_locks}, but overlap={self.overlap}: "
             #     f"that's a bug because this task should not be taken in a label stream (task should be locked)")
@@ -145,7 +167,6 @@ class Task(models.Model):
         else:
             self.locks.all().delete()
         self.clear_expired_locks()
-
 
     def is_locked(self, user=None):
         """Check whether current task has been locked by some user"""
@@ -184,13 +205,31 @@ class Task(models.Model):
         return str(self.id)
 
 
+@receiver(pre_save, sender=Task)
+def check_if_reviewable(instance, sender, *args, **kwargs):
+    """
+    Are the annotations reviewable?
+    Conditions:
+    1. Number of allotted annotators is atleast equal to the number required.
+    """
+
+    instance.is_reviewable = (
+        instance.annotation_users.count
+        >= instance.project_id.required_annotators_per_task
+    )
+
+
 class TaskLock(models.Model):
     task = models.ForeignKey(
-        Task, on_delete=models.CASCADE, related_name='locks', help_text='Locked task')
-    expire_at = models.DateTimeField('expire_at')
+        Task, on_delete=models.CASCADE, related_name="locks", help_text="Locked task"
+    )
+    expire_at = models.DateTimeField("expire_at")
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='task_locks',
-        help_text='User who locked this task')
+        User,
+        on_delete=models.CASCADE,
+        related_name="task_locks",
+        help_text="User who locked this task",
+    )
 
 
 class Annotation(models.Model):
@@ -199,14 +238,25 @@ class Annotation(models.Model):
     """
 
     id = models.AutoField(verbose_name="annotation_id", primary_key=True)
-    result = models.JSONField(verbose_name="annotation_result_json", 
-        help_text=("Has the annotation done by the annotator"))
-    task = models.ForeignKey(
-        Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name="annotations"
+    result = models.JSONField(
+        verbose_name="annotation_result_json",
+        help_text=("Has the annotation done by the annotator"),
     )
-    completed_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="annotation_completed_by")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="annotation_created_at")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="annotation_updated_at")
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        verbose_name="annotation_task_id",
+        related_name="annotations",
+    )
+    completed_by = models.ForeignKey(
+        User, on_delete=models.CASCADE, verbose_name="annotation_completed_by"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name="annotation_created_at"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True, verbose_name="annotation_updated_at"
+    )
     lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
 
@@ -215,13 +265,17 @@ class Annotation(models.Model):
 
 
 class Prediction(models.Model):
-    """ ML predictions
-    """
+    """ML predictions"""
 
     id = models.AutoField(verbose_name="prediction_id", primary_key=True)
-    result = models.JSONField("result", null=True, default=dict, help_text="Prediction result")
+    result = models.JSONField(
+        "result", null=True, default=dict, help_text="Prediction result"
+    )
     task = models.ForeignKey(
-        Task, on_delete=models.CASCADE, verbose_name="prediction_task_id", related_name="predictions"
+        Task,
+        on_delete=models.CASCADE,
+        verbose_name="prediction_task_id",
+        related_name="predictions",
     )
     # created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     # updated_at = models.DateTimeField(_('updated at'), auto_now=True)
@@ -361,16 +415,25 @@ class DataExport(object):
             formats.append(format_info)
         return sorted(formats, key=lambda f: f.get("disabled", False))
 
-    
     @staticmethod
-    def generate_export_file(project, tasks, output_format, download_resources, get_args):
+    def generate_export_file(
+        project, tasks, output_format, download_resources, get_args
+    ):
         # prepare for saving
         now = datetime.now()
         data = json.dumps(tasks, ensure_ascii=False)
-        md5 = hashlib.md5(json.dumps(data).encode('utf-8')).hexdigest()
-        name = 'project-' + str(project.id) + '-at-' + now.strftime('%Y-%m-%d-%H-%M') + f'-{md5[0:8]}'
+        md5 = hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
+        name = (
+            "project-"
+            + str(project.id)
+            + "-at-"
+            + now.strftime("%Y-%m-%d-%H-%M")
+            + f"-{md5[0:8]}"
+        )
 
-        input_json = DataExport.save_export_files(project, now, get_args, data, md5, name)
+        input_json = DataExport.save_export_files(
+            project, now, get_args, data, md5, name
+        )
 
         converter = Converter(
             config=parse_config(project.label_config),
@@ -385,18 +448,17 @@ class DataExport(object):
             if len(os.listdir(tmp_dir)) == 1:
                 output_file = files[0]
                 ext = os.path.splitext(output_file)[-1]
-                content_type = f'application/{ext}'
+                content_type = f"application/{ext}"
                 out = read_bytes_stream(output_file)
                 filename = name + os.path.splitext(output_file)[-1]
                 return out, content_type, filename
 
             # otherwise pack output directory into archive
-            shutil.make_archive(tmp_dir, 'zip', tmp_dir)
-            out = read_bytes_stream(os.path.abspath(tmp_dir + '.zip'))
-            content_type = 'application/zip'
-            filename = name + '.zip'
+            shutil.make_archive(tmp_dir, "zip", tmp_dir)
+            out = read_bytes_stream(os.path.abspath(tmp_dir + ".zip"))
+            content_type = "application/zip"
+            filename = name + ".zip"
             return out, content_type, filename
-
 
     @staticmethod
     def export_csv_file(project, tasks, download_resources, get_args):
@@ -404,9 +466,17 @@ class DataExport(object):
         now = datetime.now()
         data = json.dumps(tasks, ensure_ascii=False)
         md5 = hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
-        name = "project-" + str(project.id) + "-at-" + now.strftime("%Y-%m-%d-%H-%M") + f"-{md5[0:8]}"
+        name = (
+            "project-"
+            + str(project.id)
+            + "-at-"
+            + now.strftime("%Y-%m-%d-%H-%M")
+            + f"-{md5[0:8]}"
+        )
 
-        input_json = DataExport.save_export_files(project, now, get_args, data, md5, name)
+        input_json = DataExport.save_export_files(
+            project, now, get_args, data, md5, name
+        )
 
         converter = Converter(
             config=parse_config(project.label_config),

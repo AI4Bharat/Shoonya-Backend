@@ -8,18 +8,28 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('tasks', '0020_merge_20220430_0708'),
+        ("tasks", "0020_merge_20220430_0708"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='task',
-            name='annotation_users',
-            field=models.ManyToManyField(blank=True, related_name='annotation_users', to=settings.AUTH_USER_MODEL, verbose_name='annotation_users'),
+            model_name="task",
+            name="annotation_users",
+            field=models.ManyToManyField(
+                blank=True,
+                related_name="annotation_users",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="annotation_users",
+            ),
         ),
         migrations.AlterField(
-            model_name='task',
-            name='review_user',
-            field=models.ManyToManyField(blank=True, related_name='review_users', to=settings.AUTH_USER_MODEL, verbose_name='review_users'),
+            model_name="task",
+            name="review_user",
+            field=models.ManyToManyField(
+                blank=True,
+                related_name="review_users",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="review_users",
+            ),
         ),
     ]
