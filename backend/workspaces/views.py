@@ -179,25 +179,25 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
             if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization)==(workspace.organization)) or ((request.user.role==User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
                 return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
 
-            emails = user_id.split(',')
-            invalid_emails = []
-            for email in emails:
+            user_ids = user_id.split(',')
+            invalid_user_ids = []
+            for user_id in user_ids:
                 try:
-                    user = User.objects.get(email=email)
+                    user = User.objects.get(pk=user_id)
                     if((user.organization) == (workspace.organization)):
                         workspace.users.add(user)
                     else:
-                        invalid_emails.append(email)
+                        invalid_user_ids.append(user_id)
                 except User.DoesNotExist:
-                    invalid_emails.append(email)
+                    invalid_user_ids.append(user_id)
 
             workspace.save()
-            if len(invalid_emails) == 0:
+            if len(invalid_user_ids) == 0:
                 return Response({"message": "users added successfully"}, status=status.HTTP_200_OK)
-            elif len(invalid_emails)==len(emails):
-                return Response({"message": "No valid emails found"}, status=status.HTTP_400_BAD_REQUEST)
+            elif len(invalid_user_ids)==len(user_ids):
+                return Response({"message": "No valid user_ids found"}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({"message": f"users added partially! Invalid emails: {','.join(invalid_emails)}"}, status=status.HTTP_200_OK)
+            return Response({"message": f"users added partially! Invalid user_ids: {','.join(invalid_user_ids)}"}, status=status.HTTP_200_OK)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
@@ -216,7 +216,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
 
             try:
-                user = User.objects.get(email=user_id)
+                user = User.objects.get(pk=user_id)
                 if user in workspace.users.all():
                     workspace.users.remove(user)
                     return Response({"message": "User removed successfully"}, status=status.HTTP_200_OK)
