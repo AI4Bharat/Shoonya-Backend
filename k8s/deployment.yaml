@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shoonya-web
+  labels:
+    app: shoonya-web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: shoonya-web
+  template:
+    metadata:
+      labels:
+        app: shoonya-web
+    spec:
+      containers:
+        - name: shoonya-web-container
+          imagePullPolicy: Always
+          image: testregistry69.azurecr.io/shoonya:v1.0.0
+          ports:
+          - containerPort: 8000
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DJANGO_SECRET_KEY
+              value: random-test-key
+      imagePullSecrets:
+        - name: acr-secret
