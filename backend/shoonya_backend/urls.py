@@ -61,5 +61,4 @@ router.register(r"annotation", AnnotationViewSet, basename="annotation")
 router.register(r"prediction", PredictionViewSet, basename="prediction")
 router.register(r"review", ReviewViewSet, basename="review")
 
-print(router.urls)
 urlpatterns += router.urls
