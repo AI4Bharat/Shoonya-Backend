@@ -11,8 +11,6 @@ router = routers.DefaultRouter()
 router.register(r"invite", InviteViewSet, basename="invite")
 router.register(r"account", UserViewSet, basename="account")
 
-print(router.urls)
-
 urlpatterns = [
     path("auth/", include("djoser.urls")),
     path("auth/", include("djoser.urls.jwt")),
