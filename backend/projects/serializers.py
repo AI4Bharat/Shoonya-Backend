@@ -3,9 +3,11 @@ from rest_framework import serializers
 from .models import *
 from users.serializers import UserProfileSerializer
 
+
 class ProjectSerializer(serializers.ModelSerializer):
     users = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
+
     class Meta:
         model = Project
 

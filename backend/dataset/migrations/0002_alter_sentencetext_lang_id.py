@@ -6,13 +6,30 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataset', '0001_initial'),
+        ("dataset", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='sentencetext',
-            name='lang_id',
-            field=models.CharField(choices=[('bn', 'Bengali'), ('gu', 'Gujarati'), ('en', 'English'), ('hi', 'Hindi'), ('kn', 'Kannada'), ('mr', 'Marathi'), ('ne', 'Nepali'), ('ne', 'Odia'), ('pa', 'Punjabi'), ('sa', 'Sanskrit'), ('ta', 'Tamil'), ('te', 'Telugu')], max_length=3, verbose_name='language_id'),
+            model_name="sentencetext",
+            name="lang_id",
+            field=models.CharField(
+                choices=[
+                    ("bn", "Bengali"),
+                    ("gu", "Gujarati"),
+                    ("en", "English"),
+                    ("hi", "Hindi"),
+                    ("kn", "Kannada"),
+                    ("mr", "Marathi"),
+                    ("ne", "Nepali"),
+                    ("ne", "Odia"),
+                    ("pa", "Punjabi"),
+                    ("sa", "Sanskrit"),
+                    ("ta", "Tamil"),
+                    ("te", "Telugu"),
+                ],
+                max_length=3,
+                verbose_name="language_id",
+            ),
         ),
     ]

@@ -5,7 +5,9 @@ from organizations.models import Organization
 from rest_framework.response import Response
 from rest_framework import status
 
-PERMISSION_ERROR = {"message": "You do not have enough permissions to access this view!"}
+PERMISSION_ERROR = {
+    "message": "You do not have enough permissions to access this view!"
+}
 WORKSPACE_IS_ARCHIVED_ERROR = {"message": "This Workspace is archived!"}
 NOT_IN_WORKSPACE_ERROR = {"message": "You do not belong to this workspace!"}
 
@@ -14,7 +16,7 @@ def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
         if (
-            request.user.role == User.ORGANIZAION_OWNER
+            request.user.role == User.ORGANIZATION_OWNER
             or request.user.role == User.WORKSPACE_MANAGER
             or request.user.is_superuser
         ):
@@ -34,8 +36,10 @@ def is_particular_workspace_manager(f):
                 and request.user in Workspace.objects.get(pk=pk).managers.all()
             )
             or (
-                request.user.role == User.ORGANIZAION_OWNER
-                and Organization.objects.get(pk=Workspace.objects.get(pk=pk).organization.pk).created_by
+                request.user.role == User.ORGANIZATION_OWNER
+                and Organization.objects.get(
+                    pk=Workspace.objects.get(pk=pk).organization.pk
+                ).created_by
                 == request.user
             )
             or request.user.is_superuser
@@ -66,4 +70,5 @@ def is_workspace_member(f):
             return f(self, request, pk, *args, **kwargs)
         else:
             return Response(NOT_IN_WORKSPACE_ERROR, status=status.HTTP_403_FORBIDDEN)
+
     return wrapper

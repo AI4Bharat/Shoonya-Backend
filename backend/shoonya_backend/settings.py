@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
+if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
     from google.cloud import logging as gc_logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -73,16 +73,14 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
 
 CORS_ALLOW_CREDENTIALS = True
 
-AUTHENTICATION_BACKENDS = (
-    "django.contrib.auth.backends.ModelBackend",
-)
+AUTHENTICATION_BACKENDS = ("django.contrib.auth.backends.ModelBackend",)
 
 ROOT_URLCONF = "shoonya_backend.urls"
 
@@ -164,8 +162,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 MEDIA_URL = "/media/"
 # STATIC_URL = "/static/"
 # STATIC_ROOT = BASE_DIR / "static"
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 AUTH_USER_MODEL = "users.User"
 
@@ -174,23 +172,27 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
-    'DEFAULT_PAGINATION_CLASS': 'shoonya_backend.pagination.CustomPagination'
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    "DEFAULT_PAGINATION_CLASS": "shoonya_backend.pagination.CustomPagination",
 }
 
 
 # Email Settings
-EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend"
-EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"
-EMAIL_PORT = 465
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = os.getenv("EMAIL_PORT")
 EMAIL_HOST_USER = os.getenv("SMTP_USERNAME")
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = "admin@shoonya.ai4bharat.org"
+EMAIL_USE_TLS = bool(os.getenv("EMAIL_USE_TLS"), True)
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
-DOMAIN = "shoonya.ai4bharat.org"
-SITE_NAME = "shoonya.ai4bharat.org"
+DOMAIN = os.getenv("DOMAIN")
+SITE_NAME = os.getenv("SITE_NAME")
 
 DJOSER = {
+    "USER_ID_FIELD": "email",
     "PASSWORD_RESET_CONFIRM_URL": "forget-password/confirm/{uid}/{token}",
     "USERNAME_RESET_CONFIRM_URL": "users/auth/users/username/reset/confirm/{uid}/{token}",
     "ACTIVATION_URL": "users/auth/users/activation/{uid}/{token}",
@@ -200,84 +202,82 @@ DJOSER = {
 
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("JWT",),
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": bool(os.getenv("BLACKLIST_AFTER_ROTATION", False)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=20),
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=100)
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=100),
 }
 
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400   # higher than the count of fields
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400  # higher than the count of fields
 
 # Logging Configuration
 
 # # Get loglevel from env
-LOGLEVEL = os.getenv('LOG_LEVEL', 'INFO')
+LOGLEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Make a new directory for logs
-Path(BASE_DIR / 'logs').mkdir(exist_ok=True)
+Path(BASE_DIR / "logs").mkdir(exist_ok=True)
 
 # Define the list of formatters
 formatters = {
-    'console': {
-        '()': 'shoonya_backend.logger.ConsoleFormatter',
-        'format': '({server_time}) {console_msg}',
-        'style': '{'
+    "console": {
+        "()": "shoonya_backend.logger.ConsoleFormatter",
+        "format": "({server_time}) {console_msg}",
+        "style": "{",
     },
-    'file': {
-        'format': '{levelname} ({asctime}) [{module}:{process}|{thread}] {message}',
-        'style': '{'
+    "file": {
+        "format": "{levelname} ({asctime}) [{module}:{process}|{thread}] {message}",
+        "style": "{",
     },
-    'csvfile': {
-        'format': '{levelname},{asctime},{module},{process},{thread},{message}',
-        'style': '{'
-    }
+    "csvfile": {
+        "format": "{levelname},{asctime},{module},{process},{thread},{message}",
+        "style": "{",
+    },
 }
 
 # Define the list of handlers
 handlers = {
-    'console': {
-        'level': LOGLEVEL,
-        'class': 'logging.StreamHandler',
-        'formatter': 'console',
+    "console": {
+        "level": LOGLEVEL,
+        "class": "logging.StreamHandler",
+        "formatter": "console",
     },
-    'file': {
-        'level': 'WARNING',
-        'class': 'logging.FileHandler',
-        'filename': os.path.join(BASE_DIR, 'logs/default.log'),
-        'formatter': 'file'
+    "file": {
+        "level": "WARNING",
+        "class": "logging.FileHandler",
+        "filename": os.path.join(BASE_DIR, "logs/default.log"),
+        "formatter": "file",
     },
-    'csvfile': {
-        'level': 'WARNING',
-        'class': 'logging.FileHandler',
-        'filename': os.path.join(BASE_DIR, 'logs/logs.csv'),
-        'formatter': 'csvfile'
-    }
+    "csvfile": {
+        "level": "WARNING",
+        "class": "logging.FileHandler",
+        "filename": os.path.join(BASE_DIR, "logs/logs.csv"),
+        "formatter": "csvfile",
+    },
 }
 
 # Setup the Cloud Logging Client
-if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
+if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
     client = gc_logging.Client()
     client.setup_logging(log_level=logging.WARNING)
-    handlers['gcloud-logging'] = {
-        'class': 'google.cloud.logging.handlers.CloudLoggingHandler',
-        'client': client
+    handlers["gcloud-logging"] = {
+        "class": "google.cloud.logging.handlers.CloudLoggingHandler",
+        "client": client,
     }
 
 # Define logger configuration
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': formatters,
-    'handlers': handlers,
-    'loggers': {
-        '': {
-            'level': LOGLEVEL,
-            'handlers': handlers.keys(),
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": formatters,
+    "handlers": handlers,
+    "loggers": {
+        "": {
+            "level": LOGLEVEL,
+            "handlers": handlers.keys(),
         },
-        'django': {
-            'handlers': [],
+        "django": {
+            "handlers": [],
         },
-        'django.server': {
-            'propagate': True
-        }
-    }
+        "django.server": {"propagate": True},
+    },
 }
