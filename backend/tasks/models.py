@@ -83,7 +83,7 @@ class Task(models.Model):
         User, related_name="annotation_users", verbose_name="annotation_users", blank=True
     )
     review_user = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, related_name="review_users", verbose_name="review_users",  blank=True
+        User, on_delete=models.SET_NULL, null=True, related_name="review_user", verbose_name="review_user",  blank=True
     )
     task_status = models.CharField(
         choices=TASK_STATUS,
@@ -209,7 +209,7 @@ class Annotation(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="annotation_updated_at")
     lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
     parent_annotation = models.ForeignKey(
-        'self', verbose_name='annotation_parent_annotation', null = True, blank = True, default = None, on_delete = models.PROTECT
+        'self', verbose_name='parent_annotation', null = True, blank = True, default = None, on_delete = models.PROTECT
     )
 
     def __str__(self):
