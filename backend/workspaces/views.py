@@ -1,9 +1,10 @@
+from ast import Is
 import re
 from urllib import response
 from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
@@ -210,3 +211,68 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             projects = Project.objects.filter(workspace_id=workspace)
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class WorkspaceusersViewSet(viewsets.ViewSet):
+    
+    @is_organization_owner_or_workspace_manager
+    @permission_classes((IsAuthenticated,))
+    @action(detail=True, methods=['POST'], url_path='addusers', url_name='add_users')
+    def add_users(self, request,pk=None):
+        user_id = request.data.get('user_id',"")
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+
+            if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization)==(workspace.organization)) or ((request.user.role==User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
+                return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
+
+            user_ids = user_id.split(',')
+            invalid_user_ids = []
+            for user_id in user_ids:
+                try:
+                    user = User.objects.get(pk=user_id)
+                    if((user.organization) == (workspace.organization)):
+                        workspace.users.add(user)
+                    else:
+                        invalid_user_ids.append(user_id)
+                except User.DoesNotExist:
+                    invalid_user_ids.append(user_id)
+
+            workspace.save()
+            if len(invalid_user_ids) == 0:
+                return Response({"message": "users added successfully"}, status=status.HTTP_200_OK)
+            elif len(invalid_user_ids)==len(user_ids):
+                return Response({"message": "No valid user_ids found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({"message": f"users added partially! Invalid user_ids: {','.join(invalid_user_ids)}"}, status=status.HTTP_200_OK)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @is_organization_owner_or_workspace_manager
+    @permission_classes((IsAuthenticated,))
+    @action(detail=True, methods=['POST'], url_path='removeusers', url_name='remove_users')
+    def remove_users(self, request,pk=None):
+        user_id = request.data.get('user_id',"")
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+
+            if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization) == (workspace.organization)) or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
+                return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
+
+            try:
+                user = User.objects.get(pk=user_id)
+                if user in workspace.users.all():
+                    workspace.users.remove(user)
+                    return Response({"message": "User removed successfully"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"message": "User not in workspace"}, status=status.HTTP_404_NOT_FOUND)
+
+            except User.DoesNotExist:
+                return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
