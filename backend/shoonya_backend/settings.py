@@ -185,7 +185,7 @@ EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = os.getenv("EMAIL_PORT")
 EMAIL_HOST_USER = os.getenv("SMTP_USERNAME")
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
-EMAIL_USE_TLS = bool(os.getenv("EMAIL_USE_TLS"))
+EMAIL_USE_TLS = bool(os.getenv("EMAIL_USE_TLS"), True)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 DOMAIN = os.getenv("DOMAIN")
@@ -202,7 +202,7 @@ DJOSER = {
 
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("JWT",),
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": bool(os.getenv("BLACKLIST_AFTER_ROTATION", False)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=20),
     "ACCESS_TOKEN_LIFETIME": timedelta(days=100),
 }
