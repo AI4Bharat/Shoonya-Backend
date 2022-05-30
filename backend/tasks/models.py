@@ -38,12 +38,14 @@ SKIPPED = "skipped"
 ACCEPTED = "accepted"
 REJECTED = "rejected"
 FREEZED = "freezed"
+ACCEPTED_WITH_CHANGES = "accepted_with_changes"
 
 TASK_STATUS = (
     (UNLABELED, "unlabeled"),
     (LABELED, "labeled"),
     (SKIPPED, "skipped"),
     (ACCEPTED, "accepted"),
+    (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
     (FREEZED, "freezed"),
     (REJECTED, "rejected"),
 )
@@ -80,8 +82,8 @@ class Task(models.Model):
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", blank=True
     )
-    review_user = models.ManyToManyField(
-        User, related_name="review_users", verbose_name="review_users",  blank=True
+    review_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="review_users", verbose_name="review_users",  blank=True
     )
     task_status = models.CharField(
         choices=TASK_STATUS,
@@ -99,7 +101,13 @@ class Task(models.Model):
         """
         for user in users:
             self.annotation_users.add(user)
-    
+
+    def assign_reviewer(self, user):
+        """
+        Assign review user for a task
+        """
+        self.review_user = user
+
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
         return 1
@@ -200,7 +208,9 @@ class Annotation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="annotation_created_at")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="annotation_updated_at")
     lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
-    # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
+    parent_annotation = models.ForeignKey(
+        'self', verbose_name='annotation_parent_annotation', null = True, blank = True, default = None, on_delete = models.PROTECT
+    )
 
     def __str__(self):
         return str(self.id)

@@ -39,6 +39,44 @@ class TaskViewSet(viewsets.ModelViewSet,
         task.assign(users)
         return Response({"message": "Task assigned"}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='assign_reviewer')
+    def assign_reviewer(self, request, pk):
+        """
+            Assigns a user as review user for a task
+        """
+        task = self.get_object()
+        user_id = request.data.get('user_id')
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if task.task_status == ACCEPTED:
+            return Response({"message": "Task already reviewed"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Verify whether reviewer is also the annotator for same task
+        if user in task.annotation_users.all():
+            return Response({"message": "Cannot review own annotation"}, status=status.HTTP_403_FORBIDDEN)
+
+        task.assign_reviewer(user)
+        task.save()
+        return Response({"message": "Reviewer assigned"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='reject_task_annotations')
+    def reject_task_annotations(self, request, pk):
+        """
+            Marks the task status rejected after review
+        """
+        task = self.get_object()
+        if request.user != task.review_user:
+            return Response({"message": "You are not assigned to review this task"}, status=status.HTTP_403_FORBIDDEN)
+        if task.task_status != LABELED:
+            return Response({"message": "This task is not up for review"}, status=status.HTTP_403_FORBIDDEN)
+
+        task.task_status = REJECTED
+        task.save()
+        return Response({"message": "Task annotations reviewed as Rejected"}, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['get'], url_path='annotations')
     def annotations(self, request, pk):
         """
@@ -121,50 +159,101 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
 
     def create(self, request):
         # TODO: Correction annotation to be filled by validator
-        task_id = request.data["task"]
-        task = Task.objects.get(pk=task_id)
-        if request.user not in task.annotation_users.all():
-            ret_dict = {"message": "You are trying to impersonate another user :("}
-            ret_status = status.HTTP_403_FORBIDDEN
-            return Response(ret_dict, status=ret_status)
+        mode = "annotate"
+        if "mode" in dict(request.data):
+            mode = request.data["mode"]
 
-        user_id = int(request.data["completed_by"])
-        try:
-            # Check if user id does not match with authorized user
-            assert user_id == request.user.id
-        except AssertionError:
-            ret_dict = {"message": "You are trying to impersonate another user :("}
-            ret_status = status.HTTP_403_FORBIDDEN
-            return Response(ret_dict, status=ret_status)
-        if task.project_id.required_annotators_per_task <= task.annotations.count():
-            ret_dict = {"message": "Required annotations criteria is already satisfied!"}
-            ret_status = status.HTTP_403_FORBIDDEN
-            return Response(ret_dict, status=ret_status)
-        if task.task_status == FREEZED:
-            ret_dict = {"message": "Task is freezed!"}
-            ret_status = status.HTTP_403_FORBIDDEN
-            return Response(ret_dict, status=ret_status)
+        if mode == "annotate":
+            # new annotation creation mode
+            task_id = request.data["task"]
+            task = Task.objects.get(pk=task_id)
+            if request.user not in task.annotation_users.all():
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
 
-        if len(task.annotations.filter(completed_by__exact=request.user.id)) > 0:
-            ret_dict = {"message": "Cannot add more than one annotation per user!"}
-            ret_status = status.HTTP_403_FORBIDDEN
-            return Response(ret_dict, status=ret_status)
-        annotation_response = super().create(request)
-        annotation_id = annotation_response.data["id"]
-        annotation = Annotation.objects.get(pk=annotation_id)
-        task.release_lock(request.user)
-        # project = Project.objects.get(pk=task.project_id.id)
-        if task.project_id.required_annotators_per_task == task.annotations.count():
-        # if True:
-            task.task_status = LABELED
-            # TODO: Support accepting annotations manually
-            if task.annotations.count() == 1:
-                task.correct_annotation = annotation
-                task.task_status = ACCEPTED
+            user_id = int(request.data["completed_by"])
+            try:
+                # Check if user id does not match with authorized user
+                assert user_id == request.user.id
+            except AssertionError:
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+            if task.project_id.required_annotators_per_task <= task.annotations.count():
+                ret_dict = {"message": "Required annotations criteria is already satisfied!"}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+            if task.task_status == FREEZED:
+                ret_dict = {"message": "Task is freezed!"}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+
+            if len(task.annotations.filter(completed_by__exact=request.user.id)) > 0:
+                ret_dict = {"message": "Cannot add more than one annotation per user!"}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+            annotation_response = super().create(request)
+            annotation_id = annotation_response.data["id"]
+            annotation = Annotation.objects.get(pk=annotation_id)
+            task.release_lock(request.user)
+            # project = Project.objects.get(pk=task.project_id.id)
+            if task.project_id.required_annotators_per_task == task.annotations.count():
+            # if True:
+                task.task_status = LABELED
+                # TODO: Support accepting annotations manually
+                #if task.annotations.count() == 1:
+                 #   task.correct_annotation = annotation
+                  #  task.task_status = ACCEPTED
+            else:
+                task.task_status = UNLABELED
+            task.save()
+            return annotation_response
         else:
-            task.task_status = UNLABELED
-        task.save()
-        return annotation_response
+            # review annotation creation mode
+            task_id = request.data["task"]
+            try:
+                task = Task.objects.get(pk=task_id)
+            except Task.DoesNotExist:
+                ret_dict = {"message": "Task does not exist"}
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+            if request.user != task.review_user:
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+
+            user_id = int(request.data["completed_by"])
+            try:
+                # Check if user id does not match with authorized user
+                assert user_id == request.user.id
+            except AssertionError:
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+            if task.task_status == ACCEPTED:
+                ret_dict = {"message": "Task is already reviewed and accepted!"}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+            parent_annotation_id = request.data["parent_annotation"]
+            parent_annotation = Annotation.objects.get(pk=parent_annotation_id)
+
+            # Verify that parent annotation is one of the task annotations
+            if not parent_annotation or parent_annotation not in task.annotations.all():
+                ret_dict = {"message": "Parent annotation Invalid/Null"}
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+
+            annotation_response = super().create(request)
+            annotation_id = annotation_response.data["id"]
+            annotation = Annotation.objects.get(pk=annotation_id)
+            task.correct_annotation = annotation
+            if annotation.result == parent_annotation.result:
+                task.task_status = ACCEPTED
+            else:
+                task.task_status = ACCEPTED_WITH_CHANGES
+            task.save()
+            return annotation_response
     
     def partial_update(self, request, pk=None):
         # task_id = request.data["task"]

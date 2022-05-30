@@ -408,7 +408,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
-
+    @action(detail=True, methods=["GET"], name="Get Tasks for Review of a Project", url_name="get_project_tasks_review")
+    @project_is_archived
+    def get_project_tasks_review(self, request, pk=None, *args, **kwargs):
+        """
+        Get the list of tasks available for review in a project
+        """
+        ret_dict = {}
+        ret_status = 0
+        try:
+            tasks = Task.objects.filter(project_id=pk, review_user=request.user, task_status=LABELED).order_by('id')
+            serializer = TaskSerializer(tasks, many=True)
+            ret_dict = serializer.data
+            ret_status = status.HTTP_200_OK
+        except Project.DoesNotExist:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        return Response(ret_dict, status=ret_status)
 
     @action(detail=True, methods=["POST"], name="Get Completed Tasks of a Project", url_name="get_analytics")
     @project_is_archived
