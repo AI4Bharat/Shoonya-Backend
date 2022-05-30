@@ -5,13 +5,14 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from yaml import serialize
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
 from projects.models import Project
 from users.models import User
 from users.serializers import UserProfileSerializer
 
-from .serializers import WorkspaceManagerSerializer, WorkspaceSerializer
+from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
 from .decorators import (
     is_workspace_member,
@@ -147,12 +148,20 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         return Response(ret_dict, status=ret_status)
 
     @action(detail=True, methods=["POST"], name="Unassign Manager", url_name="unassign_manager")
-    @is_particular_workspace_manager
+    # @is_particular_organization_owner
     def unassign_manager(self, request, pk=None, *args, **kwargs):
         """
         API Endpoint for unassigning an workspace manager
         """
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         
+        serializer = UnAssignManagerSerializer(workspace, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        saved_workspace = serializer.save()
+        return Response({"done":True}, status=status.HTTP_200_OK)
         
 
     @swagger_auto_schema(responses={200: ProjectSerializer})

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import *
+from users.models import User
 from users.serializers import UserProfileSerializer
 
 
@@ -31,4 +32,21 @@ class WorkspaceManagerSerializer(serializers.ModelSerializer):
 class UnAssignManagerSerializer(serializers.Serializer):
     emails = serializers.ListField(child=serializers.EmailField())
 
-    
+    def validate_emails(self, emails):
+        users = User.objects.filter(email__in=emails).all()
+        
+        if len(users) != len(emails):
+            raise serializers.ValidationError("Enter existing user emails")
+        
+        return emails
+
+    def update(self, workspace, validated_data):
+        emails = validated_data.pop('emails')
+        users = User.objects.filter(email__in=emails).all()
+
+        for user in users:
+            workspace.managers.remove(user)
+        workspace.save()
+        
+        return workspace
+
