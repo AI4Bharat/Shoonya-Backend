@@ -17,6 +17,8 @@ from django.forms.models import model_to_dict
 from django.http import HttpResponse
 from django.core.files import File
 import pandas as pd
+from datetime import datetime
+from django.db.models import Q
 
 try:
     from yaml import CLoader as Loader
@@ -405,6 +407,123 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
+
+
+    @action(detail=True, methods=["POST"], name="Get Completed Tasks of a Project", url_name="get_analytics")
+    @project_is_archived
+    def get_analytics(self, request, pk=None, *args, **kwargs):
+        """
+        Get the list of completed  tasks in the project
+        """
+        ret_dict = {}
+        ret_status = 0
+        count=0
+        from_date = request.data.get('from_date')
+        to_date = request.data.get('to_date')
+        from_date = from_date + ' 00:00'
+        to_date = to_date + ' 23:59'
+         # from_date= '2022-05-23' 
+        # to_date = '2022-05-28' 
+        start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
+        end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+        try:
+            # role check
+            if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
+                project_details = Project.objects.filter(id=pk)
+                project_users = project_details.values('users')
+                final_result = []
+                for each_user in project_users:
+                    userid = each_user['users']
+                    this_project_task_id = Task.objects.filter(project_id=pk).order_by('id')
+                    all_ids_related_to_project = this_project_task_id.values("id")
+                    annoted_tasks = Annotation_model.objects.filter(Q(completed_by = userid) & Q(created_at__range = [start_date, end_date])).order_by('id')
+                    annoted_tasks_ids = annoted_tasks.values('task_id')
+                    project_related_ids = []
+                    all_task_ids = []
+                    for i in all_ids_related_to_project:
+                        project_related_ids.append(i['id'])
+                    for j in annoted_tasks_ids:
+                        all_task_ids.append(j['task_id'])
+
+                    set1 = set(project_related_ids)
+                    set2 = set(all_task_ids)
+                    count = len(set1.intersection(set2))
+                    if count == 0:
+                        avg_leadtime = 0
+                    else :
+                        project_user_tasks_ids =  list(set1.intersection(set2))
+                        lead_time = 0
+                        for each_id in project_user_tasks_ids:
+                            annot_object1 = Annotation_model.objects.get(task_id=each_id)
+                            lead_time += annot_object1.lead_time
+                        avg_leadtime = lead_time / count 
+                    user_details = User.objects.get(id=userid)
+                    each_usermail = user_details.email
+                    user_name = user_details.username
+                    user_id = user_details.id
+
+                    all_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(annotation_users = user_id) ).order_by('id')
+                    total_tasks = len(all_tasks_in_project.values())
+
+                    all_skipped_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "skipped") & Q(annotation_users = user_id)).order_by('id')
+                    total_skipped_tasks = len(all_skipped_tasks_in_project.values())
+
+                    all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id)).order_by('id')
+                    total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
+                    #pending_tasks = total_tasks -( count + total_skipped_tasks )
+                    final_result.append({"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time" : avg_leadtime , "total_assigned_tasks" : total_tasks,"skipped_tasks" : total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks})
+                ret_status = status.HTTP_200_OK
+
+            elif request.user.role == User.ANNOTATOR:
+                user_details = User.objects.get(email = request.user.email)
+                userid = user_details.id
+                this_project_task_id = Task.objects.filter(project_id = pk).order_by('id')
+                all_ids_related_to_project = this_project_task_id.values("id")
+                annoted_tasks = Annotation_model.objects.filter(Q(completed_by = userid) & Q(created_at__range = [start_date, end_date])).order_by('id')
+                annoted_tasks_ids = annoted_tasks.values('task_id')
+                project_related_ids = []
+                all_task_ids = []
+                for i in all_ids_related_to_project:
+                    project_related_ids.append(i['id'])
+                for j in annoted_tasks_ids:
+                    all_task_ids.append(j['task_id'])
+
+                set1 = set(project_related_ids)
+                set2 = set(all_task_ids)
+                count = len(set1.intersection(set2))
+
+                if count == 0:
+                    avg_leadtime = 0
+                else :
+                    project_user_tasks_ids =  list(set1.intersection(set2))
+                    lead_time = 0
+                    for each_id in project_user_tasks_ids:
+                        annot_object1 = Annotation_model.objects.get(task_id=each_id)
+                        lead_time += annot_object1.lead_time
+                    avg_leadtime = lead_time / count 
+
+                user_name = user_details.username
+                each_usermail = user_details.email
+                user_id = user_details.id
+
+                all_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(annotation_users = user_id) ).order_by('id')
+                total_tasks = len(all_tasks_in_project.values())
+
+                all_skipped_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "skipped") & Q(annotation_users = user_id)).order_by('id')
+                total_skipped_tasks = len(all_skipped_tasks_in_project.values())
+
+                all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id) ).order_by('id')
+                total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
+
+
+                #pending_tasks = total_tasks -( count + total_skipped_tasks )
+                final_result = [{"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time":avg_leadtime , "total_assigned_tasks" : total_tasks , "skipped_tasks":total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks}]
+                ret_status = status.HTTP_200_OK
+        except Project.DoesNotExist:
+            final_result = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        return Response(final_result , status = ret_status)
 
     @action(detail=True, methods=["POST"], name="Add Project Users", url_name="add_project_users")
     @project_is_archived
