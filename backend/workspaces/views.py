@@ -146,6 +146,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             ret_status = status.HTTP_400_BAD_REQUEST
         return Response(ret_dict, status=ret_status)
 
+    @action(detail=True, methods=["POST"], name="Unassign Manager", url_name="unassign_manager")
+    @is_particular_workspace_manager
+    def unassign_manager(self, request, pk=None, *args, **kwargs):
+        """
+        API Endpoint for unassigning an workspace manager
+        """
+        
+        
+
     @swagger_auto_schema(responses={200: ProjectSerializer})
     @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
     @is_workspace_member

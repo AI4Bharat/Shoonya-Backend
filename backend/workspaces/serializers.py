@@ -27,3 +27,8 @@ class WorkspaceManagerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Workspace
         fields = ["id", "workspace_name", "managers"]
+
+class UnAssignManagerSerializer(serializers.Serializer):
+    emails = serializers.ListField(child=serializers.EmailField())
+
+    
