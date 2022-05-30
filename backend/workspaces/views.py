@@ -14,11 +14,11 @@ from users.serializers import UserProfileSerializer
 from .serializers import WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
 from .decorators import (
-    is_organization_owner_or_workspace_manager,
     is_workspace_member,
     workspace_is_archived,
     is_particular_workspace_manager,
 )
+from organizations.decorators import is_particular_organization_owner
 
 # Create your views here.
 
@@ -57,7 +57,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
-    @is_organization_owner_or_workspace_manager
+    @is_particular_organization_owner
     def create(self, request, *args, **kwargs):
         # TODO: Make sure to add the user to the workspace and created_by
         # return super().create(request, *args, **kwargs)
