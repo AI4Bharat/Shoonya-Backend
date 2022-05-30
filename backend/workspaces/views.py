@@ -148,7 +148,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         return Response(ret_dict, status=ret_status)
 
     @action(detail=True, methods=["POST"], name="Unassign Manager", url_name="unassign_manager")
-    # @is_particular_organization_owner
+    @is_particular_organization_owner
     def unassign_manager(self, request, pk=None, *args, **kwargs):
         """
         API Endpoint for unassigning an workspace manager
