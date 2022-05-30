@@ -108,7 +108,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @action(
         detail=True, methods=["POST"], name="Archive Workspace", url_name="archive",
     )
-    @is_particular_workspace_manager
+    @is_particular_organization_owner
     def archive(self, request, pk=None, *args, **kwargs):
         workspace = Workspace.objects.get(pk=pk)
         workspace.is_archived = not workspace.is_archived
@@ -117,7 +117,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
     # TODO: Add serializer
     @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
-    @is_particular_workspace_manager
+    @is_particular_organization_owner
     def assign_manager(self, request, pk=None, *args, **kwargs):
         """
         API for assigning manager to a workspace
