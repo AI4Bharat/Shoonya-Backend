@@ -62,25 +62,31 @@ class TaskViewSet(viewsets.ModelViewSet,
     def list(self, request, *args, **kwargs):
         if "project_id" in dict(request.query_params):
             # Step 1: get the logged-in user details
-            # Step 2:if he is superuser, or manager or org owner, dont filter
-            # Step 3: else filter on the basis of logged-in user id
+            # Step 2: if - he is NOT (superuser, or manager or org owner), filter based on logged in user.
+            # Step 3: else - if user_filter passed, filter based on user
+            # Step 4: else - else don't filter
 
             user = request.user
             userRole = user.role
             user_obj = User.objects.get(pk=user.id)
+
             if(userRole == 1 and not user_obj.is_superuser):
                 queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(annotation_users=user.id)
             else:
-                queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
+                if "user_filter" in dict(request.query_params):
+                    queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(annotation_users=request.query_params["user_filter"])
+                else:
+                    queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
 
         else:
             queryset = Task.objects.all()
             
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
+        
         else:
             queryset = queryset.filter(task_status=UNLABELED)
-            
+
         queryset = queryset.order_by("id")
         
         page = request.GET.get('page')
