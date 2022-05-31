@@ -205,19 +205,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = Project.objects.get(pk=pk)
         user_role = request.user.role
 
-        # Check if task_statuses are passed
-        if "task_statuses" in dict(request.query_params):
+        # Check if task_status is passed
+        if "task_status" in dict(request.query_params):
 
             if user_role == 1 and not request.user.is_superuser:
                 queryset = Task.objects.filter(
                     project_id__exact=project.id,
                     annotation_users=request.user.id,
-                    task_status__in=task_statuses,
+                    task_status=request.query_params["task_status"],
                 )
             else:
                 # TODO : Refactor code to reduce DB calls
-                task_statuses = request.query_params["task_statuses"].split(',')
-                queryset = queryset.filter(task_status__in=task_statuses)
+                queryset = Task.objects.filter(task_status=request.query_params["task_status"])
             
             queryset = queryset.order_by("id")
 
@@ -230,6 +229,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.set_lock(request.user)
                     task_dict = TaskSerializer(task, many=False).data
                     return Response(task_dict)
+
+            ret_dict = {"message": "No more tasks available!"}
+            ret_status = status.HTTP_204_NO_CONTENT
+            return Response(ret_dict, status=ret_status)
         
         else:
             # Check if there are unlabelled tasks
@@ -255,9 +258,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_dict = TaskSerializer(task, many=False).data
                     return Response(task_dict)
 
-        ret_dict = {"message": "No more unlabeled tasks!"}
-        ret_status = status.HTTP_204_NO_CONTENT
-        return Response(ret_dict, status=ret_status)
+            ret_dict = {"message": "No more unlabeled tasks!"}
+            ret_status = status.HTTP_204_NO_CONTENT
+            return Response(ret_dict, status=ret_status)
 
     @is_organization_owner_or_workspace_manager
     def create(self, request, *args, **kwargs):
