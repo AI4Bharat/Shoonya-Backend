@@ -64,3 +64,5 @@ class UserFetchSerializer(serializers.ModelSerializer):
         ]
 
 
+class LanguageSerializer(serializers.Serializer):
+    language = serializers.ListField(child=serializers.CharField())
