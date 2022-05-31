@@ -1,11 +1,11 @@
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.response import Response
 
 DEFAULT_PAGE = 1
 DEFAULT_PAGE_SIZE = 10
 
+
 class CustomPagination(PageNumberPagination):
-    ''' 
+    '''
     Creates custom pagination class with overridden attributes.
     '''
     page = DEFAULT_PAGE
