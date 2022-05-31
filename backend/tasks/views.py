@@ -151,8 +151,8 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
         if "mode" in dict(request.data):
             if request.data["mode"] == "review":
                 return self.create_review_annotation(request)
-        else:
-            return self.create_base_annotation(request)
+
+        return self.create_base_annotation(request)
 
     # Creates a base annotation
     def create_base_annotation(self, request):
