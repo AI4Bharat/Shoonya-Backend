@@ -127,25 +127,21 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         """
         ret_dict = {}
         ret_status = 0
-        email = str(request.data["email"])
+        username = str(request.data["username"])
         try:
-            if re.fullmatch(EMAIL_VALIDATION_REGEX, email):
-                user = User.objects.get(email=email)
-                workspace = Workspace.objects.get(pk=pk)
-                workspace.managers.add(user)
-                workspace.users.add(user)
-                workspace.save()
-                serializer = WorkspaceManagerSerializer(workspace, many=False)
-                ret_dict = serializer.data
-                ret_status = status.HTTP_200_OK
-            else:
-                ret_dict = {"message": "Enter a valid Email!"}
-                ret_status = status.HTTP_400_BAD_REQUEST
+            user = User.objects.get(username=username)
+            workspace = Workspace.objects.get(pk=pk)
+            workspace.managers.add(user)
+            workspace.users.add(user)
+            workspace.save()
+            serializer = WorkspaceManagerSerializer(workspace, many=False)
+            ret_dict = {"done":True}
+            ret_status = status.HTTP_200_OK
         except User.DoesNotExist:
-            ret_dict = {"message": "User with such Email does not exist!"}
+            ret_dict = {"message": "User with such Username does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
-        except Exception:
-            ret_dict = {"message": "Email is required!"}
+        except Exception as e:
+            ret_dict = {"message": str(e)}
             ret_status = status.HTTP_400_BAD_REQUEST
         return Response(ret_dict, status=ret_status)
 
