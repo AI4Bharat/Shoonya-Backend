@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
+import json
+
 from tasks.models import *
 from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer
 
@@ -12,6 +14,29 @@ from users.models import User
 from projects.models import Project
 
 # Create your views here.
+
+
+def process_search_query(query_dict: dict) -> dict:
+    new_dict: dict = {}
+
+    try:
+        for i, j in query_dict["data"].items():
+            new_dict[f"data__{i}"] = j
+    except Exception as e:
+        print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
+    return new_dict
+
+
+def process_request_body_params(request_body: str) -> bool:
+    request_body = request_body.decode('utf-8')
+    if len(request_body) == 0:
+        return False
+    
+    if request_body[0] != '{' or request_body[-1] != '}':
+        return False
+    
+    return True
+
 
 class TaskViewSet(viewsets.ModelViewSet,
     mixins.ListModelMixin):
@@ -75,7 +100,22 @@ class TaskViewSet(viewsets.ModelViewSet,
 
         else:
             queryset = Task.objects.all()
-            
+        
+        ## Search Query block
+        search_data = {}
+        
+        if process_request_body_params(request.body):
+            if "search" in json.loads(request.body):
+                search_data = json.loads(request.body).get("search")
+
+        # print(process_search_query(search_data))
+        
+        queryset = queryset.filter(**process_search_query(search_data))
+        
+        # print(queryset)
+        
+        ## End Search Query Block
+    
         if "task_statuses" in dict(request.query_params):
             task_statuses = request.query_params["task_statuses"].split(',')
             queryset = queryset.filter(task_status__in=task_statuses)
@@ -109,7 +149,7 @@ class TaskViewSet(viewsets.ModelViewSet,
         task = Task.objects.get(pk=task_id)
         task.release_lock(request.user)
         return task_response
-        
+    
 
 class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
