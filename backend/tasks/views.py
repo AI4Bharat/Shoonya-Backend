@@ -76,10 +76,11 @@ class TaskViewSet(viewsets.ModelViewSet,
         else:
             queryset = Task.objects.all()
             
-        if "task_statuses" in dict(request.query_params):
-            task_statuses = request.query_params["task_statuses"].split(',')
-            queryset = queryset.filter(task_status__in=task_statuses)
-        
+        if "task_status" in dict(request.query_params):
+            queryset = queryset.filter(task_status=request.query_params["task_status"])
+        else:
+            queryset = queryset.filter(task_status=UNLABELED)
+            
         queryset = queryset.order_by("id")
         
         page = request.GET.get('page')
