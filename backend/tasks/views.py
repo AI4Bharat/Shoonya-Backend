@@ -17,6 +17,9 @@ from projects.models import Project
 
 
 def process_search_query(query_dict: dict) -> dict:
+    """
+    Flattens nested search fields to enable them to be added to a queryset filter dictionary.
+    """
     new_dict: dict = {}
 
     try:
@@ -28,6 +31,9 @@ def process_search_query(query_dict: dict) -> dict:
 
 
 def process_request_body_params(request_body: str) -> bool:
+    """
+    Checks if the request body is parseable into a dictionary or not
+    """
     request_body = request_body.decode('utf-8')
     if len(request_body) == 0:
         return False
