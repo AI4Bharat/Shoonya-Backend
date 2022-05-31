@@ -7,11 +7,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import permission_classes
 from drf_yasg.utils import swagger_auto_schema
-from .serializers import UserProfileSerializer, UserSignUpSerializer, UserUpdateSerializer
+from .serializers import UserProfileSerializer, UserSignUpSerializer, UserUpdateSerializer, LanguageSerializer
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
-from users.models import User
+from users.models import LANG_CHOICES, User
 from rest_framework.decorators import action
 
 
@@ -65,7 +65,7 @@ class InviteViewSet(viewsets.ViewSet):
         else:
             ret_dict = {"message": f"Invites sent partially! Invalid emails: {','.join(invalid_emails)}"}
             ret_status = status.HTTP_201_CREATED
-    
+
         users = User.objects.bulk_create(users)
 
         Invite.create_invite(organization=org, users=users)
@@ -135,3 +135,17 @@ class UserViewSet(viewsets.ViewSet):
         serialized = UserProfileSerializer(user)
         return Response(serialized.data, status=status.HTTP_200_OK)
 
+
+class LanguageViewSet(viewsets.ViewSet):
+    permission_classes = (AllowAny, )
+
+    @swagger_auto_schema(responses={200: LanguageSerializer})
+    @action(detail=False, methods=["get"], url_path="fetch")
+    def fetch_language(self, request):
+        """
+        Fetches all language choices available to the user.
+        """
+        serialized = LanguageSerializer(data={'language': [lang[0] for lang in LANG_CHOICES]})
+        if serialized.is_valid():
+            return Response(serialized.data, status=status.HTTP_200_OK)
+        return Response(serialized.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
