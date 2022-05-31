@@ -30,19 +30,19 @@ class WorkspaceManagerSerializer(serializers.ModelSerializer):
         fields = ["id", "workspace_name", "managers"]
 
 class UnAssignManagerSerializer(serializers.Serializer):
-    emails = serializers.ListField(child=serializers.EmailField())
+    usernames = serializers.ListField(child=serializers.CharField())
 
-    def validate_emails(self, emails):
-        users = User.objects.filter(email__in=emails).all()
+    def validate_emails(self, usernames):
+        users = User.objects.filter(username__in=usernames).all()
         
-        if len(users) != len(emails):
-            raise serializers.ValidationError("Enter existing user emails")
+        if len(users) != len(usernames):
+            raise serializers.ValidationError("Enter existing user usernames")
         
-        return emails
+        return usernames
 
     def update(self, workspace, validated_data):
-        emails = validated_data.pop('emails')
-        users = User.objects.filter(email__in=emails).all()
+        usernames = validated_data.pop('usernames')
+        users = User.objects.filter(username__in=usernames).all()
 
         for user in users:
             workspace.managers.remove(user)

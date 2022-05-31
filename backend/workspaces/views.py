@@ -19,6 +19,7 @@ from .decorators import (
     is_workspace_member,
     workspace_is_archived,
     is_particular_workspace_manager,
+    is_organization_owner_or_workspace_manager
 )
 from organizations.decorators import is_particular_organization_owner
 
@@ -161,7 +162,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         
         serializer = UnAssignManagerSerializer(workspace, data=request.data)
         serializer.is_valid(raise_exception=True)
-        saved_workspace = serializer.save()
+        serializer.save()
         return Response({"done":True}, status=status.HTTP_200_OK)
         
 
