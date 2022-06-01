@@ -30,20 +30,6 @@ def process_search_query(query_dict: dict) -> dict:
     return new_dict
 
 
-def process_request_body_params(request_body: str) -> bool:
-    """
-    Checks if the request body is parseable into a dictionary or not
-    """
-    request_body = request_body.decode('utf-8')
-    if len(request_body) == 0:
-        return False
-    
-    if request_body[0] != '{' or request_body[-1] != '}':
-        return False
-    
-    return True
-
-
 class TaskViewSet(viewsets.ModelViewSet,
     mixins.ListModelMixin):
     """
@@ -108,11 +94,7 @@ class TaskViewSet(viewsets.ModelViewSet,
             queryset = Task.objects.all()
         
         ## Search Query block
-        search_data = {}
-        
-        if process_request_body_params(request.body):
-            if "search" in json.loads(request.body):
-                search_data = json.loads(request.body).get("search")
+        search_data = request.GET.get("search")
         
         queryset = queryset.filter(**process_search_query(search_data))
 
