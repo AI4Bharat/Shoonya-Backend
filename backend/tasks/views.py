@@ -113,13 +113,9 @@ class TaskViewSet(viewsets.ModelViewSet,
         if process_request_body_params(request.body):
             if "search" in json.loads(request.body):
                 search_data = json.loads(request.body).get("search")
-
-        # print(process_search_query(search_data))
         
         queryset = queryset.filter(**process_search_query(search_data))
-        
-        # print(queryset)
-        
+
         ## End Search Query Block
     
         if "task_statuses" in dict(request.query_params):
