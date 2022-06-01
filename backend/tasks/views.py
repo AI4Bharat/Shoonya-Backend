@@ -15,19 +15,39 @@ from projects.models import Project
 
 # Create your views here.
 
+def parse_for_data_types(string: str):
+    """
+    Convert variables to their appropriate type
+    """
+    try:  # Try to convert to a int
+        return int(string)
+    except Exception:
+        pass
+
+    try:  # Try to convert to a float
+        return float(string)
+    except Exception:
+        pass
+
+    if string.lower() in ["true", "false"]:
+        return bool(string)
+
+    return string  # If none work, return a string
+
 
 def process_search_query(query_dict: dict) -> dict:
     """
-    Flattens nested search fields to enable them to be added to a queryset filter dictionary.
+    Extract the query params into a queryset dictionary.
     """
-    new_dict: dict = {}
+    queryset_dict: dict = {}
 
     try:
-        for i, j in query_dict["data"].items():
-            new_dict[f"data__{i}"] = j
+        for i, j in query_dict.items():
+            queryset_dict[f"data__{i}"] = parse_for_data_types(j)
     except Exception as e:
         print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
-    return new_dict
+
+    return queryset_dict
 
 
 class TaskViewSet(viewsets.ModelViewSet,
@@ -94,9 +114,9 @@ class TaskViewSet(viewsets.ModelViewSet,
             queryset = Task.objects.all()
         
         ## Search Query block
-        search_data = request.GET.get("search")
+        search_data = request.GET#.get("search")
         
-        queryset = queryset.filter(**process_search_query(search_data))
+        queryset = queryset.filter(**process_search_query(request.GET))
 
         ## End Search Query Block
     
