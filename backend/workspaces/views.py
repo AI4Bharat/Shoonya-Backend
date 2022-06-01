@@ -185,8 +185,8 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
     
     @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
-    @action(detail=True, methods=['POST'], url_path='addusers', url_name='add_users')
-    def add_users(self, request,pk=None):
+    @action(detail=True, methods=['POST'], url_path='addannotators', url_name='add_annotators')
+    def add_annotators(self, request,pk=None):
         user_id = request.data.get('user_id',"")
         try:
             workspace = Workspace.objects.get(pk=pk)
@@ -221,8 +221,8 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
     @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
-    @action(detail=True, methods=['POST'], url_path='removeusers', url_name='remove_users')
-    def remove_users(self, request,pk=None):
+    @action(detail=True, methods=['POST'], url_path='removeannotators', url_name='remove_annotators')
+    def remove_annotators(self, request,pk=None):
         user_id = request.data.get('user_id',"")
         try:
             workspace = Workspace.objects.get(pk=pk)
