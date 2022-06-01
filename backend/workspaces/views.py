@@ -116,7 +116,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         workspace = Workspace.objects.get(pk=pk)
         workspace.is_archived = not workspace.is_archived
         workspace.save()
-        return super().retrieve(request, *args, **kwargs)
+        return Response({"done":True}, status=status.HTTP_200_OK)
 
     # TODO: Add serializer
     @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
