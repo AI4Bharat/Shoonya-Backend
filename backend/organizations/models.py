@@ -6,9 +6,6 @@ from shoonya_backend.mixins import DummyModelMixin
 import secrets
 from django.core.mail import send_mail
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 from django.conf import settings
 

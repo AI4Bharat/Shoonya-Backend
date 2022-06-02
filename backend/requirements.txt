@@ -7,9 +7,8 @@ django-smtp-ssl
 djoser
 drf-yasg
 gunicorn
-psycopg2
-python-dotenv
-pillow
+psycopg2-binary
+django-dotenv
 pyyaml
 label-studio>=1.4
 label-studio-converter>=0.0.39
