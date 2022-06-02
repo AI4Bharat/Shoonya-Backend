@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "functions",
     "corsheaders",
     "import_export",
+    "background_task",
 ]
 
 CSRF_COOKIE_SECURE = False
