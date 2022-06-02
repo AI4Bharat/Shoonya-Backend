@@ -1,5 +1,6 @@
 from tablib import Dataset
 from django.apps import apps
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
@@ -38,11 +39,16 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         Accepted methods: POST
         '''
         # Get the dataset type using the instance ID
-        dataset_type = DatasetInstance.objects.get(pk=pk).dataset_type
+        dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
 
         # Fetch the file from the POST request body (key is dataset)
+        if 'dataset' not in request.FILES:
+            return Response({
+                "message": "Please provide a file with key 'dataset'.",
+            }, status=status.HTTP_400_BAD_REQUEST)
         new_dataset_csv = request.FILES['dataset']
 
+        # Ensure that the content type is CSV, return error otherwise
         if new_dataset_csv.content_type != 'text/csv':
             return Response({
                 "message": "Invalid Dataset File. Only accepts .csv files.",
@@ -63,7 +69,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # If validation checks fail, raise the Exception
         except Exception as e:
             return Response({
-                "message": "Invalid Dataset Format",
+                "message": "Dataset validation failed.",
                 "exception": e
             }, status=status.HTTP_400_BAD_REQUEST)
 
