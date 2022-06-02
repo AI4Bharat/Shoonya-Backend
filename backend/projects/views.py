@@ -20,6 +20,11 @@ import pandas as pd
 from datetime import datetime
 from django.db.models import Q
 
+# task queue imports 
+from time import sleep
+# from .tasks import create_parameters_for_task_creation
+from background_task import background
+
 try:
     from yaml import CLoader as Loader
 except ImportError:
@@ -69,12 +74,13 @@ def batch(iterable, n=1):
 
 
 def create_tasks_from_dataitems(items, project):
-
+    print("ENTER FUNCTION 2")
     project_type = project.project_type
     registry_helper = ProjectRegistry.get_instance()
     input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
     output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
     variable_parameters = project.variable_parameters
+    
     # Create task objects
     tasks = []
     for item in items:
@@ -87,6 +93,7 @@ def create_tasks_from_dataitems(items, project):
                 item[output_field] = item[input_field]
                 del item[input_field]
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
+        
         # Remove data id because it's not needed in task.data
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
@@ -153,6 +160,79 @@ def assign_users_to_tasks(tasks, users):
             task.annotation_users.add(user_obj)
             # updated_tasks.append(task)
             task.save()
+
+@background(schedule=1)
+def create_parameters_for_task_creation(project_type, dataset_instance_ids, filter_string, sampling_mode, sampling_parameters, variable_parameters, project_id) -> None: 
+    """Function to create the paramters for the task creation process. The function is passed arguments from the frontend which decide how the sentences have to be filtered and sampled. 
+
+    Args:
+        project_type (str): Describes the type of project passed by the user
+        dataset_instance_ids (int): ID of the dataset that has been provided for the annotation task 
+        filter_string (str): _description_
+        sampling_mode (str): Method of sampling
+        sampling_parameters (dict): Parameters for sampling
+        variable_parameters (dict): _description_
+        project_id (int): ID of the project object created in this iteration
+
+    """
+    print("ENTER FUNCTION 1")
+
+    # Testing sleep method 
+    # sleep(20)
+
+    # Load the dataset model from the instance id using the project registry
+    registry_helper = ProjectRegistry.get_instance()
+    input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
+    output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
+
+    dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
+
+    # Get items corresponding to the instance id
+    data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids).order_by('id')
+
+    # Apply filtering
+    query_params = dict(parse_qsl(filter_string))
+    query_params = filter.fix_booleans_in_dict(query_params)
+    filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
+
+    # Get the input dataset fields from the filtered items
+    if input_dataset_info["prediction"] is not None:
+        filtered_items = list(
+            filtered_items.values("id", *input_dataset_info["fields"], input_dataset_info["prediction"])
+        )
+    else:
+        filtered_items = list(filtered_items.values("id", *input_dataset_info["fields"]))
+
+    # Apply sampling
+    if sampling_mode == RANDOM:
+        try:
+            sampling_count = sampling_parameters["count"]
+        except KeyError:
+            sampling_fraction = sampling_parameters["fraction"]
+            sampling_count = int(sampling_fraction * len(filtered_items))
+
+        sampled_items = random.sample(filtered_items, k=sampling_count)
+    elif sampling_mode == BATCH:
+        batch_size = sampling_parameters["batch_size"]
+        try:
+            batch_number = sampling_parameters["batch_number"]
+        except KeyError:
+            batch_number = 1
+        sampled_items = filtered_items[batch_size * (batch_number - 1) : batch_size * (batch_number)]
+    else:
+        sampled_items = filtered_items
+    
+    # Load the project object using the project id
+    project = Project.objects.get(pk=project_id)
+
+    # Set the labelstudio label config
+    label_config = registry_helper.get_label_studio_jsx_payload(project_type)
+
+    project.label_config = label_config
+    project.save()
+
+    # Create Tasks from Parameters
+    create_tasks_from_dataitems(sampled_items, project)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -265,10 +345,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_mode = request.data.get("project_mode")
 
         if project_mode == Collection:
+            
             # Create project object
             project_response = super().create(request, *args, **kwargs)
 
         else:
+            # sleep(10)
+            
+            # Collect the POST request parameters 
             dataset_instance_ids = request.data.get("dataset_id")
             if type(dataset_instance_ids) != list:
                 dataset_instance_ids = [dataset_instance_ids]
@@ -277,60 +361,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             sampling_parameters = request.data.get("sampling_parameters_json")
             variable_parameters = request.data.get("variable_parameters")
 
-            # Load the dataset model from the instance id using the project registry
-            registry_helper = ProjectRegistry.get_instance()
-            input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
-            output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
-
-            dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
-
-            # Get items corresponding to the instance id
-            data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids).order_by('id')
-
-            # Apply filtering
-            query_params = dict(parse_qsl(filter_string))
-            query_params = filter.fix_booleans_in_dict(query_params)
-            filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
-
-            # Get the input dataset fields from the filtered items
-            if input_dataset_info["prediction"] is not None:
-                filtered_items = list(
-                    filtered_items.values("id", *input_dataset_info["fields"], input_dataset_info["prediction"])
-                )
-            else:
-                filtered_items = list(filtered_items.values("id", *input_dataset_info["fields"]))
-
-            # Apply sampling
-            if sampling_mode == RANDOM:
-                try:
-                    sampling_count = sampling_parameters["count"]
-                except KeyError:
-                    sampling_fraction = sampling_parameters["fraction"]
-                    sampling_count = int(sampling_fraction * len(filtered_items))
-
-                sampled_items = random.sample(filtered_items, k=sampling_count)
-            elif sampling_mode == BATCH:
-                batch_size = sampling_parameters["batch_size"]
-                try:
-                    batch_number = sampling_parameters["batch_number"]
-                except KeyError:
-                    batch_number = 1
-                sampled_items = filtered_items[batch_size * (batch_number - 1) : batch_size * (batch_number)]
-            else:
-                sampled_items = filtered_items
-
             # Create project object
             project_response = super().create(request, *args, **kwargs)
             project_id = project_response.data["id"]
-            project = Project.objects.get(pk=project_id)
 
-            # Set the labelstudio label config
-            label_config = registry_helper.get_label_studio_jsx_payload(project_type)
-
-            project.label_config = label_config
-            project.save()
-
-            create_tasks_from_dataitems(sampled_items, project)
+            # Function call to create the paramters for the sampling and filtering of sentences 
+            create_parameters_for_task_creation(project_type, dataset_instance_ids, filter_string, sampling_mode, sampling_parameters, variable_parameters, project_id)
 
         # Return the project response
         return project_response
