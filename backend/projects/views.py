@@ -20,9 +20,6 @@ import pandas as pd
 from datetime import datetime
 from django.db.models import Q
 
-# task queue imports 
-from time import sleep
-# from .tasks import create_parameters_for_task_creation
 from background_task import background
 
 try:
@@ -74,7 +71,6 @@ def batch(iterable, n=1):
 
 
 def create_tasks_from_dataitems(items, project):
-    print("ENTER FUNCTION 2")
     project_type = project.project_type
     registry_helper = ProjectRegistry.get_instance()
     input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
@@ -175,10 +171,6 @@ def create_parameters_for_task_creation(project_type, dataset_instance_ids, filt
         project_id (int): ID of the project object created in this iteration
 
     """
-    print("ENTER FUNCTION 1")
-
-    # Testing sleep method 
-    # sleep(20)
 
     # Load the dataset model from the instance id using the project registry
     registry_helper = ProjectRegistry.get_instance()
@@ -350,7 +342,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_response = super().create(request, *args, **kwargs)
 
         else:
-            # sleep(10)
             
             # Collect the POST request parameters 
             dataset_instance_ids = request.data.get("dataset_id")
