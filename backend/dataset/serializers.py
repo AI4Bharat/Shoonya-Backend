@@ -12,6 +12,26 @@ class DatasetItemsSerializer(serializers.ModelSerializer):
         model = DatasetBase
         fields = ["instance_id"]
 
+class TranslationPairSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TranslationPair
+        fields='__all__'
+
+class SentenceTextSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SentenceText
+        fields = '__all__'
+
+class BlockTextSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BlockText
+        fields = '__all__'
+
+class OCRDocumentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OCRDocument
+        fields = '__all__'
+
 # class CollectionDatasetSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = CollectionDataset
