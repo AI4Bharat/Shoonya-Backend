@@ -282,3 +282,6 @@ LOGGING = {
         }
     }
 }
+
+# Set Django-background-tasks settings 
+BACKGROUND_TASK_RUN_ASYNC = True
