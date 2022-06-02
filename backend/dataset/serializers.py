@@ -22,7 +22,7 @@ class SentenceTextSerializer(serializers.ModelSerializer):
     '''
     class Meta:
         model = SentenceText
-        exclude = ['corrected_text', 'quality_status']
+        fields='__all__'
 
 class TranslationPairSerializer(serializers.ModelSerializer):
     '''
@@ -30,7 +30,7 @@ class TranslationPairSerializer(serializers.ModelSerializer):
     '''
     class Meta:
         model = TranslationPair
-        exclude = ['labse_score', 'rating']
+        fields='__all__'
 
 class OCRDocumentSerializer(serializers.ModelSerializer):
     '''
@@ -38,7 +38,7 @@ class OCRDocumentSerializer(serializers.ModelSerializer):
     '''
     class Meta:
         model = OCRDocument
-        exclude = ['prediction_json']
+        fields='__all__'
 
 class BlockTextSerializer(serializers.ModelSerializer):
     '''
@@ -46,7 +46,7 @@ class BlockTextSerializer(serializers.ModelSerializer):
     '''
     class Meta:
         model = BlockText
-        exclude = ['splitted_text_prediction', 'splitted_text']
+        fields='__all__'
 
 # Define a mapping between dataset instance type and serializer
 SERIALIZER_MAP = {

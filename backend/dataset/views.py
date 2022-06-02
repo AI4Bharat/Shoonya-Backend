@@ -93,20 +93,41 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['POST'], name='Get data Items')
     def get_data_items(self, request, *args, **kwargs):
         dataset_instance_ids = request.data.get('instance_ids')
-        dataset_type = request.data.get('dataset_type')
+        dataset_type = request.data.get('dataset_type',"")
         if type(dataset_instance_ids) != list:
             dataset_instance_ids = [dataset_instance_ids]
         filter_string = request.data.get('filter_string')
-        # DEPRICIATED: Get dataset type from first dataset instance
-        # dataset_type = models.DatasetInstance.objects.get(instance_id=dataset_instance_id[0]).dataset_type
+        #  Get dataset type from first dataset instance if dataset_type not passed in json data from frontend
+        if dataset_type=="":
+            dataset_type = models.DatasetInstance.objects.get(instance_id=dataset_instance_ids[0]).dataset_type
         dataset_model = getattr(models, dataset_type)
         data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
         query_params = dict(parse_qsl(filter_string))
         query_params = filter.fix_booleans_in_dict(query_params)
         filtered_set = filter.filter_using_dict_and_queryset(query_params, data_items)
-        filtered_data = filtered_set.values()
+        # filtered_data = filtered_set.values()
         # serializer = DatasetItemsSerializer(filtered_set, many=True)
-        return Response(filtered_data)
+        page = request.GET.get('page')
+        try:
+            page = self.paginate_queryset(filtered_set)
+        except Exception as e:
+            page = []
+            data = page
+            return Response({
+                "status": status.HTTP_200_OK,
+                "message": 'No more record.',
+                #TODO: should be results. Needs testing to be sure.
+                "data": data
+            })
+
+        if page is not None:
+            datset_serializer=getattr(serializers, dataset_type+"Serializer")
+            serializer=datset_serializer(page,many=True)
+            data=serializer.data
+            return self.get_paginated_response(data)
+
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+        # return Response(filtered_data)
 
 
 class DatasetTypeView(APIView):
