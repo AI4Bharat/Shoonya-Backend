@@ -105,6 +105,13 @@ docker-compose exec web python manage.py createsuperuser
 
 If there were no errors, congratulations! The project is up and running.
 
+### Running background tasks 
+To run background tasks for project creation, we need to run the following command in the terminal. This will added to the docker image soon. 
+
+```bash 
+docker-compose exec web python manage.py process_tasks
+``` 
+
 ### Running Linters
 
 Installing the dev requirements file would have also installed linters. We have `flake8` and `pylint`, available.
