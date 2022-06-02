@@ -1,18 +1,14 @@
-FROM python:3.7
+FROM python:3.9.7-slim
 
-WORKDIR /usr/src/backend
+RUN apt-get update && apt-get install gcc -y
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+COPY . /app
+WORKDIR /app
 
-RUN pip install --upgrade pip
-COPY ./deploy/requirements.txt /usr/src/backend/requirements.txt
-RUN pip install -r requirements.txt
+RUN python3 -m venv /opt/venv
 
-COPY ./entrypoint.sh /usr/src/backend/entrypoint.sh
+RUN /opt/venv/bin/pip install pip --upgrade && \
+    /opt/venv/bin/pip install -r requirements.txt && \
+    chmod +x entrypoint.sh
 
-COPY . /usr/src/backend/
-
-RUN ["chmod", "+x", "/usr/src/backend/entrypoint.sh"]
-
-ENTRYPOINT ["sh", "/usr/src/backend/entrypoint.sh"]
+CMD ["/app/entrypoint.sh"]

@@ -14,9 +14,10 @@ import logging
 import os
 from datetime import timedelta
 from pathlib import Path
-from dotenv import load_dotenv
+import os
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv() # TODO: Is it required?
 
 if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
     from google.cloud import logging as gc_logging
@@ -29,16 +30,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("ENV") == "dev"
-
-if DEBUG:
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
-else:
-    ALLOWED_HOSTS = ["shoonya.ai4bharat.org", "0.0.0.0"]
-
+DEBUG = str(os.environ.get('DEBUG')) == "1"
+ENV_ALLOWED_HOST = os.environ.get("ENV_ALLOWED_HOST")
+ALLOWED_HOSTS = ['*']
+if ENV_ALLOWED_HOST:
+    ALLOWED_HOSTS = [ ENV_ALLOWED_HOST ]
 # Application definition
 
 INSTALLED_APPS = [
@@ -110,15 +109,41 @@ WSGI_APPLICATION = "shoonya_backend.wsgi.application"
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST"),
-        "PORT": os.getenv("DB_PORT"),
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+DB_USERNAME = os.environ.get("POSTGRES_USER")
+DB_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
+DB_DATABASE = os.environ.get("POSTGRES_DB")
+DB_HOST = os.environ.get("POSTGRES_HOST")
+DB_PORT = os.environ.get("POSTGRES_PORT")
+DB_IS_AVAIL = all([
+    DB_USERNAME,
+    DB_PASSWORD,
+    DB_DATABASE,
+    DB_HOST,
+    DB_PORT
+])
+DB_IGNORE_SSL=os.environ.get("DB_IGNORE_SSL") == "true"
+
+if DB_IS_AVAIL:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": DB_DATABASE,
+            "USER": DB_USERNAME,
+            "PASSWORD": DB_PASSWORD,
+            "HOST": DB_HOST,
+            "PORT": DB_PORT,
+        }
+    }
+    if not DB_IGNORE_SSL:
+         DATABASES["default"]["OPTIONS"] = {
+            "sslmode": "require"
+         }
 
 
 # Password validation
@@ -183,8 +208,8 @@ REST_FRAMEWORK = {
 EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend"
 EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"
 EMAIL_PORT = 465
-EMAIL_HOST_USER = os.getenv("SMTP_USERNAME")
-EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
+EMAIL_HOST_USER = os.environ.get("SMTP_USERNAME")
+EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD")
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = "admin@shoonya.ai4bharat.org"
 

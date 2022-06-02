@@ -11,7 +11,6 @@ static/
 frontend/
 
 # Env
-.env
 myvenv/
 venv/
 env/

@@ -276,54 +276,63 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def next(self, request, pk):
         project = Project.objects.get(pk=pk)
         user_role = request.user.role
-        # Check if there are unlabelled tasks
-        if user_role == 1 and not request.user.is_superuser:
-            unlabelled_tasks = Task.objects.filter(
-                project_id__exact=project.id,
-                annotation_users=request.user.id,
-                task_status__exact=UNLABELED,
-            )
-        else:
-            # TODO : Refactor code to reduce DB calls
-            unlabelled_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=UNLABELED)
+
+        # Check if task_status is passed
+        if "task_status" in dict(request.query_params):
+
+            if user_role == 1 and not request.user.is_superuser:
+                queryset = Task.objects.filter(
+                    project_id__exact=project.id,
+                    annotation_users=request.user.id,
+                    task_status=request.query_params["task_status"],
+                )
+            else:
+                # TODO : Refactor code to reduce DB calls
+                queryset = Task.objects.filter(task_status=request.query_params["task_status"])
+            
+            queryset = queryset.order_by("id")
+
+            if "current_task_id" in dict(request.query_params):
+                current_task_id = request.query_params["current_task_id"]
+                queryset = queryset.filter(id__gt=current_task_id)
+
+            for task in queryset:
+                if not task.is_locked(request.user):
+                    task.set_lock(request.user)
+                    task_dict = TaskSerializer(task, many=False).data
+                    return Response(task_dict)
+
+            ret_dict = {"message": "No more tasks available!"}
+            ret_status = status.HTTP_204_NO_CONTENT
+            return Response(ret_dict, status=ret_status)
         
-        unlabelled_tasks = unlabelled_tasks.order_by("id")
-
-        if "current_task_id" in dict(request.query_params):
-            current_task_id = request.query_params["current_task_id"]
-            unlabelled_tasks = unlabelled_tasks.filter(id__gt=current_task_id)
-
-        for task in unlabelled_tasks:
-            if not task.is_locked(request.user):
-                task.set_lock(request.user)
-                task_dict = TaskSerializer(task, many=False).data
-                return Response(task_dict)
-
-        # Check if there are skipped tasks
-        if user_role == 1 and not request.user.is_superuser:
-            skipped_tasks = Task.objects.filter(
-                project_id__exact=project.id,
-                annotation_users=request.user.id,
-                task_status__exact=SKIPPED,
-            )
         else:
-            skipped_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=SKIPPED)
+            # Check if there are unlabelled tasks
+            if user_role == 1 and not request.user.is_superuser:
+                unlabelled_tasks = Task.objects.filter(
+                    project_id__exact=project.id,
+                    annotation_users=request.user.id,
+                    task_status__exact=UNLABELED,
+                )
+            else:
+                # TODO : Refactor code to reduce DB calls
+                unlabelled_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=UNLABELED)
+            
+            unlabelled_tasks = unlabelled_tasks.order_by("id")
 
-        skipped_tasks = skipped_tasks.order_by("id")
+            if "current_task_id" in dict(request.query_params):
+                current_task_id = request.query_params["current_task_id"]
+                unlabelled_tasks = unlabelled_tasks.filter(id__gt=current_task_id)
 
-        if "current_task_id" in dict(request.query_params):
-            current_task_id = request.query_params["current_task_id"]
-            skipped_tasks = skipped_tasks.filter(id__gt=current_task_id)
+            for task in unlabelled_tasks:
+                if not task.is_locked(request.user):
+                    task.set_lock(request.user)
+                    task_dict = TaskSerializer(task, many=False).data
+                    return Response(task_dict)
 
-        for task in skipped_tasks:
-            if not task.is_locked(request.user):
-                task.set_lock(request.user)
-                task_dict = TaskSerializer(task, many=False).data
-                return Response(task_dict)
-
-        ret_dict = {"message": "No more unlabeled tasks!"}
-        ret_status = status.HTTP_204_NO_CONTENT
-        return Response(ret_dict, status=ret_status)
+            ret_dict = {"message": "No more unlabeled tasks!"}
+            ret_status = status.HTTP_204_NO_CONTENT
+            return Response(ret_dict, status=ret_status)
 
     @is_organization_owner_or_workspace_manager
     def create(self, request, *args, **kwargs):
