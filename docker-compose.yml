@@ -19,6 +19,13 @@ services:
     depends_on:
       - db
       - redis
+  process:
+    build: ./backend
+    command: python manage.py process_tasks
+    volumes:
+      - ./backend/:/usr/src/backend/
+    ports:
+      - 8001:8001
   redis:
     image: "redis"
 
