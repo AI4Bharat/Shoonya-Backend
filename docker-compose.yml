@@ -19,7 +19,7 @@ services:
     depends_on:
       - db
       - redis
-  process:
+  task-queue:
     build: ./backend
     command: python manage.py process_tasks
     volumes:

@@ -106,8 +106,7 @@ docker-compose exec web python manage.py createsuperuser
 If there were no errors, congratulations! The project is up and running.
 
 ### Running background tasks 
-To run background tasks for project creation, we need to run the following command in the terminal. This will added to the docker image soon. 
-
+To run background tasks for project creation, we need to run the following command in the terminal. This has also been added into the `docker-compose.yml` file.
 ```bash 
 docker-compose exec web python manage.py process_tasks
 ``` 
