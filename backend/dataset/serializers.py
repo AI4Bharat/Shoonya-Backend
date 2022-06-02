@@ -1,5 +1,9 @@
+'''
+Module to store Django REST Framework Serializers for dataset related models
+'''
 from rest_framework import serializers
 from .models import *
+
 
 class DatasetInstanceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,6 +15,46 @@ class DatasetItemsSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatasetBase
         fields = ["instance_id"]
+
+class SentenceTextSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for SentenceText data
+    '''
+    class Meta:
+        model = SentenceText
+        exclude = ['corrected_text', 'quality_status']
+
+class TranslationPairSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for TranslationPair data
+    '''
+    class Meta:
+        model = TranslationPair
+        exclude = ['labse_score', 'rating']
+
+class OCRDocumentSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for OCRDocument data
+    '''
+    class Meta:
+        model = OCRDocument
+        exclude = ['prediction_json']
+
+class BlockTextSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for BlockText data
+    '''
+    class Meta:
+        model = BlockText
+        exclude = ['splitted_text_prediction', 'splitted_text']
+
+# Define a mapping between dataset instance type and serializer
+SERIALIZER_MAP = {
+    'SentenceText': SentenceTextSerializer,
+    'TranslationPair': TranslationPairSerializer,
+    'OCRDocument': OCRDocumentSerializer,
+    'BlockText': BlockTextSerializer
+}
 
 # class CollectionDatasetSerializer(serializers.ModelSerializer):
 #     class Meta:
