@@ -70,6 +70,8 @@ class TaskViewSet(viewsets.ModelViewSet,
             user_obj = User.objects.get(pk=user.id)
             if(userRole == 1 and not user_obj.is_superuser):
                 queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(annotation_users=user.id)
+            elif (userRole == 2 and not user_obj.is_superuser):
+                queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
             else:
                 queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
 
@@ -103,6 +105,31 @@ class TaskViewSet(viewsets.ModelViewSet,
         #serializer = TaskSerializer(queryset, many=True)
         return Response(status=status.HTTP_400_BAD_REQUEST)
     
+    def list_for_review(self, request, *args, **kwargs):
+        # if "task_id" in dict(request.query_params):
+        queryset = Annotation.objects.filter(task__exact=request.query_params["task_id"]).filter(review_user=request.user.id)
+        # else:
+            # queryset = Task.objects.all()
+
+        if "task_statuses" in dict(request.query_params):
+            task_statuses = request.query_params["task_statuses"].split(',')
+            queryset = queryset.filter(task_status__in=task_statuses)
+        
+        queryset = queryset.order_by("id")
+        
+        page = request.GET.get('page')
+        try: 
+            page = self.paginate_queryset(queryset)
+        except Exception as e:
+            page = []
+            data = page
+            return Response({
+                "status": status.HTTP_200_OK,
+                "message": 'No more record.',
+            })
+            
+        
+        
     def partial_update(self, request, pk=None):
         task_response = super().partial_update(request)
         task_id = task_response.data["id"]
