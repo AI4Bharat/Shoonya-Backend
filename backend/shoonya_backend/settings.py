@@ -205,15 +205,15 @@ REST_FRAMEWORK = {
 
 # Email Settings
 EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend"
-EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"
-EMAIL_PORT = 465
+EMAIL_HOST = os.environ.get("EMAIL_HOST")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT"))
 EMAIL_HOST_USER = os.environ.get("SMTP_USERNAME")
 EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD")
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = "admin@shoonya.ai4bharat.org"
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS") == "True"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
 
-DOMAIN = "shoonya.ai4bharat.org"
-SITE_NAME = "shoonya.ai4bharat.org"
+DOMAIN = os.environ.get("DOMAIN")
+SITE_NAME = os.environ.get("SITE_NAME")
 
 DJOSER = {
     "PASSWORD_RESET_CONFIRM_URL": "forget-password/confirm/{uid}/{token}",
@@ -225,7 +225,7 @@ DJOSER = {
 
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("JWT",),
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": os.environ.get("BLACKLIST_AFTER_ROTATION") == "True",
     "REFRESH_TOKEN_LIFETIME": timedelta(days=20),
     "ACCESS_TOKEN_LIFETIME": timedelta(days=100)
 }
