@@ -16,13 +16,13 @@ services:
     command: sh -c "chmod +x /app/migrate.sh && chmod +x /app/entrypoint.sh && sh /app/migrate.sh && /app/entrypoint.sh"
     volumes:
        - ./backend:/app/
-  task-queue:
-    build: ./backend
-    command: python manage.py process_tasks
-    volumes:
-      - ./backend/:/usr/src/backend/
-    ports:
-      - 8001:8001
+  # task-queue:
+  #   build: ./backend
+  #   command: python manage.py process_tasks
+  #   volumes:
+  #     - ./backend/:/usr/src/backend/
+  #   ports:
+  #     - "8001:8001"
   postgres_db:
     image: postgres
     command: -p 5434

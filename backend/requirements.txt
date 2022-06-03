@@ -17,4 +17,4 @@ pandas
 mosestokenizer
 indic-nlp-library
 whitenoise
-django-background-tasks
+django4-background-tasks
