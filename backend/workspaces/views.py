@@ -154,6 +154,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         """
         API for getting all projects of a workspace
         """
+        only_active=str(request.GET.get('only_active','false'))
+        only_active=True if only_active=='true' else False
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
@@ -162,6 +164,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             projects = Project.objects.filter(users=request.user, workspace_id=workspace)
         else:
             projects = Project.objects.filter(workspace_id=workspace)
+        
+        if only_active==True:
+            projects=projects.filter(is_archived=False)
+        
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
