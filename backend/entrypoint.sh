@@ -1,5 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
-APP_PORT=${PORT:-8000}
-cd /app/
-/opt/venv/bin/gunicorn --worker-tmp-dir /dev/shm shoonya_backend.wsgi:application --bind "0.0.0.0:${APP_PORT}" --timeout 600
+python manage.py makemigrations organizations
+python manage.py makemigrations workspaces
+python manage.py migrate
+python manage.py collectstatic --no-input -v 2 --clear
+
+exec "$@"
