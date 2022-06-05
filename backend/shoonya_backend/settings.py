@@ -60,7 +60,6 @@ INSTALLED_APPS = [
     "functions",
     "corsheaders",
     "import_export",
-    "background_task",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -283,5 +282,9 @@ LOGGING = {
     }
 }
 
-# Set Django-background-tasks settings 
-BACKGROUND_TASK_RUN_ASYNC = True
+# Celery settings
+CELERY_BROKER_URL = 'redis://localhost:6380'
+result_backend = 'redis://localhost:6380'
+accept_content = 'json'
+result_serializer = 'json'
+task_serializer = 'json'

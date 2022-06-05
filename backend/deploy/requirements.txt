@@ -18,4 +18,5 @@ pandas
 mosestokenizer
 indic-nlp-library
 whitenoise
-django4-background-tasks
+celery
+django-celery-results
