@@ -40,13 +40,32 @@ def process_search_query(query_dict: dict) -> dict:
     Extract the query params into a queryset dictionary.
     """
     queryset_dict: dict = {}
+    terms_not_in_data: list = [
+        "id",
+        "task_status",
+        "metadata_json",
+        "project_id",
+        "input_data",
+        "output_data",
+        "correct_annotation",
+        "annotation_users",
+        "review_user",
+    ]
 
     try:
         for i, j in query_dict.items():
-            queryset_dict[f"data__{i}"] = parse_for_data_types(j)
+            if j not in terms_not_in_data:
+                parsed_value = parse_for_data_types(j)
+                if type(parsed_value) == str:
+                    queryset_dict[f"data__{i}__icontains"] = parsed_value
+                else:
+                    queryset_dict[f"data__{i}"] = parsed_value
+            else:
+                queryset_dict[i] = parse_for_data_types(j)
     except Exception as e:
         print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
 
+    print(queryset_dict)
     return queryset_dict
 
 
