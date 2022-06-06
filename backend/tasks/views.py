@@ -15,6 +15,7 @@ from projects.models import Project
 
 # Create your views here.
 
+
 def parse_for_data_types(string: str):
     """
     Convert variables to their appropriate type
@@ -35,33 +36,45 @@ def parse_for_data_types(string: str):
     return string  # If none work, return a string
 
 
+def extract_search_params(query_dict: dict) -> dict:
+    new_dict: dict = {}
+    for i in query_dict.items():
+        if "search_" in i[0]:
+            new_dict[i[0]] = i[1]
+
+    return new_dict
+
+
 def process_search_query(query_dict: dict) -> dict:
     """
     Extract the query params into a queryset dictionary.
     """
     queryset_dict: dict = {}
     terms_not_in_data: list = [
-        "id",
-        "task_status",
-        "metadata_json",
-        "project_id",
-        "input_data",
-        "output_data",
-        "correct_annotation",
-        "annotation_users",
-        "review_user",
+        "search_id",
+        "search_task_status",
+        "search_metadata_json",
+        "search_project_id",
+        "search_input_data",
+        "search_output_data",
+        "search_correct_annotation",
+        "search_annotation_users",
+        "search_review_user",
     ]
 
     try:
-        for i, j in query_dict.items():
-            if j not in terms_not_in_data:
+        for i, j in extract_search_params(query_dict).items():
+            if i not in terms_not_in_data:
                 parsed_value = parse_for_data_types(j)
                 if type(parsed_value) == str:
-                    queryset_dict[f"data__{i}__icontains"] = parsed_value
+                    queryset_dict[f"data__{i}__contains"] = parsed_value
                 else:
                     queryset_dict[f"data__{i}"] = parsed_value
             else:
-                queryset_dict[i] = parse_for_data_types(j)
+                if type(parsed_value) == str:
+                    queryset_dict[i] = parse_for_data_types(j)
+                else:
+                    queryset_dict[f"{i}__contains"] = parsed_value
     except Exception as e:
         print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
 
@@ -69,46 +82,47 @@ def process_search_query(query_dict: dict) -> dict:
     return queryset_dict
 
 
-class TaskViewSet(viewsets.ModelViewSet,
-    mixins.ListModelMixin):
+class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     """
-        Model Viewset for Tasks. All Basic CRUD operations are covered here.
+    Model Viewset for Tasks. All Basic CRUD operations are covered here.
     """
 
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
-    @action(detail=True, methods=['post'], url_path='assign')
+    @action(detail=True, methods=["post"], url_path="assign")
     def assign(self, request, pk):
         """
-            Assigns users with the given user IDs to the particular task.
+        Assigns users with the given user IDs to the particular task.
         """
         task = self.get_object()
-        user_ids = request.data.get('user_ids')
+        user_ids = request.data.get("user_ids")
         users = []
         for u_id in user_ids:
             try:
                 users.append(User.objects.get(id=u_id))
             except User.DoesNotExist:
-                return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                )
         task.assign(users)
         return Response({"message": "Task assigned"}, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['get'], url_path='annotations')
+    @action(detail=True, methods=["get"], url_path="annotations")
     def annotations(self, request, pk):
         """
-            Returns all the annotations associated with a particular task.
+        Returns all the annotations associated with a particular task.
         """
         task = self.get_object()
         annotations = Annotation.objects.filter(task=task)
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
-    
-    @action(detail=True, methods=['get'], url_path='predictions')
+
+    @action(detail=True, methods=["get"], url_path="predictions")
     def predictions(self, request, pk):
         """
-            Returns all the predictions associated with a particular task.
+        Returns all the predictions associated with a particular task.
         """
         task = self.get_object()
         predictions = Prediction.objects.filter(task=task)
@@ -126,60 +140,75 @@ class TaskViewSet(viewsets.ModelViewSet,
             userRole = user.role
             user_obj = User.objects.get(pk=user.id)
 
-            if(userRole == 1 and not user_obj.is_superuser):
-                queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(annotation_users=user.id)
+            if userRole == 1 and not user_obj.is_superuser:
+                queryset = Task.objects.filter(
+                    project_id__exact=request.query_params["project_id"]
+                ).filter(annotation_users=user.id)
             else:
                 if "user_filter" in dict(request.query_params):
-                    queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(annotation_users=request.query_params["user_filter"])
+                    queryset = Task.objects.filter(
+                        project_id__exact=request.query_params["project_id"]
+                    ).filter(annotation_users=request.query_params["user_filter"])
                 else:
-                    queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
+                    queryset = Task.objects.filter(
+                        project_id__exact=request.query_params["project_id"]
+                    )
 
         else:
             queryset = Task.objects.all()
-        
+
         # Handle search query (if any)
         queryset = queryset.filter(**process_search_query(request.GET))
-            
+
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
         else:
             queryset = queryset.filter(task_status=UNLABELED)
 
         queryset = queryset.order_by("id")
-        
-        page = request.GET.get('page')
-        try: 
+
+        page = request.GET.get("page")
+        try:
             page = self.paginate_queryset(queryset)
         except Exception as e:
             page = []
             data = page
-            return Response({
-                "status": status.HTTP_200_OK,
-                "message": 'No more record.',
-                #TODO: should be results. Needs testing to be sure.
-                "data" : data
-                })
+            return Response(
+                {
+                    "status": status.HTTP_200_OK,
+                    "message": "No more record.",
+                    # TODO: should be results. Needs testing to be sure.
+                    "data": data,
+                }
+            )
 
         if page is not None:
             serializer = TaskSerializer(page, many=True)
             data = serializer.data
             return self.get_paginated_response(data)
 
-        #serializer = TaskSerializer(queryset, many=True)
+        # serializer = TaskSerializer(queryset, many=True)
         return Response(status=status.HTTP_400_BAD_REQUEST)
-    
+
     def partial_update(self, request, pk=None):
         task_response = super().partial_update(request)
         task_id = task_response.data["id"]
         task = Task.objects.get(pk=task_id)
         task.release_lock(request.user)
         return task_response
-    
 
-class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+
+class AnnotationViewSet(
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
     """
-        Annotation Viewset with create and update operations.
+    Annotation Viewset with create and update operations.
     """
+
     queryset = Annotation.objects.all()
     serializer_class = AnnotationSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -202,7 +231,9 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
         if task.project_id.required_annotators_per_task <= task.annotations.count():
-            ret_dict = {"message": "Required annotations criteria is already satisfied!"}
+            ret_dict = {
+                "message": "Required annotations criteria is already satisfied!"
+            }
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
         if task.task_status == FREEZED:
@@ -220,7 +251,7 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
         task.release_lock(request.user)
         # project = Project.objects.get(pk=task.project_id.id)
         if task.project_id.required_annotators_per_task == task.annotations.count():
-        # if True:
+            # if True:
             task.task_status = LABELED
             # TODO: Support accepting annotations manually
             if task.annotations.count() == 1:
@@ -230,7 +261,7 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
             task.task_status = UNLABELED
         task.save()
         return annotation_response
-    
+
     def partial_update(self, request, pk=None):
         # task_id = request.data["task"]
         # task = Task.objects.get(pk=task_id)
@@ -250,7 +281,7 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
             return Response(ret_dict, status=ret_status)
 
         if task.project_id.required_annotators_per_task == task.annotations.count():
-        # if True:
+            # if True:
             task.task_status = LABELED
             # TODO: Support accepting annotations manually
             if task.annotations.count() == 1:
@@ -258,10 +289,9 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
                 task.task_status = ACCEPTED
         else:
             task.task_status = UNLABELED
-        
+
         task.save()
         return annotation_response
-
 
     def destroy(self, request, pk=None):
 
@@ -274,7 +304,7 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
 
         annotation_response = super().destroy(request)
 
-        return Response({"message": "Annotation Deleted"}, status=status.HTTP_200_OK)    
+        return Response({"message": "Annotation Deleted"}, status=status.HTTP_200_OK)
 
     # def update(self, request, pk=None):
     #     annotation_response = super().partial_update(request)
@@ -291,15 +321,18 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
     #             task.task_status = ACCEPTED
     #     else:
     #         task.task_status = UNLABELED
-        
+
     #     task.save()
     #     return annotation_response
 
 
-class PredictionViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
+class PredictionViewSet(
+    mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
+):
     """
-        Prediction Viewset with create and update operations.
+    Prediction Viewset with create and update operations.
     """
+
     queryset = Prediction.objects.all()
     serializer_class = PredictionSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
