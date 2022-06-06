@@ -242,7 +242,7 @@ handlers = {
 }
 
 # If logging is enabled, add file handlers
-if os.getenv("LOGGING") == 'true':
+if os.getenv("LOGGING", 'False').lower() in ('true', '1', 't', 'yes', 'y'):
     handlers['file'] = {
         'level': 'WARNING',
         'class': 'logging.FileHandler',
