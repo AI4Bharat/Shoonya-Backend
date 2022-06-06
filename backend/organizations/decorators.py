@@ -1,4 +1,3 @@
-from pyparsing import Or
 from users.models import User
 from rest_framework.response import Response
 from .models import Organization
