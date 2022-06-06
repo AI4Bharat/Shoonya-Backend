@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "functions",
     "corsheaders",
     "import_export",
+    "django_celery_results",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -283,8 +284,8 @@ LOGGING = {
 }
 
 # Celery settings
-CELERY_BROKER_URL = 'redis://localhost:6380'
-result_backend = 'redis://localhost:6380'
-accept_content = 'json'
+CELERY_BROKER_URL = 'redis://localhost:6379'
+result_backend = 'django-db'
+accept_content = ['application/json']
 result_serializer = 'json'
 task_serializer = 'json'

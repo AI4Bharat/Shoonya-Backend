@@ -364,7 +364,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_id = project_response.data["id"]
 
             # Function call to create the paramters for the sampling and filtering of sentences 
-            create_parameters_for_task_creation(project_type, dataset_instance_ids, filter_string, sampling_mode, sampling_parameters, variable_parameters, project_id).delay()
+            create_parameters_for_task_creation.delay(project_type, dataset_instance_ids, filter_string, sampling_mode, sampling_parameters, variable_parameters, project_id)
 
         # Return the project response
         return project_response

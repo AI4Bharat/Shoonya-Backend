@@ -1,7 +1,7 @@
 import random
 from typing import Dict
 from urllib.parse import parse_qsl
-from celery import shared_task
+from celery import shared_task, Celery
 
 from users.models import User
 from tasks.models import Task
@@ -74,7 +74,7 @@ def create_tasks_from_dataitems(items, project):
 
 #### CELERY SHARED TASKS
 
-@shared_task(bind=True)
+@shared_task
 def create_parameters_for_task_creation(project_type, dataset_instance_ids, filter_string, sampling_mode, sampling_parameters, variable_parameters, project_id) -> None: 
     """Function to create the paramters for the task creation process. The function is passed arguments from the frontend which decide how the sentences have to be filtered and sampled. 
 
