@@ -193,7 +193,7 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
 
         if task.project_id.required_annotators_per_task == task.annotations.count():
         # if True:
-            task.task_status = LABELED
+            task.task_status = ACCEPTED
             # TODO: Support accepting annotations manually
             if task.annotations.count() == 1:
                 task.correct_annotation = annotation
