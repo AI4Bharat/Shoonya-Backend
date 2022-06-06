@@ -6,20 +6,22 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from yaml import serialize
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
 from projects.models import Project
 from users.models import User
 from users.serializers import UserProfileSerializer
 
-from .serializers import WorkspaceManagerSerializer, WorkspaceSerializer
+from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
 from .decorators import (
-    is_organization_owner_or_workspace_manager,
     is_workspace_member,
     workspace_is_archived,
     is_particular_workspace_manager,
+    is_organization_owner_or_workspace_manager
 )
+from organizations.decorators import is_particular_organization_owner
 
 # Create your views here.
 
@@ -58,7 +60,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
-    @is_organization_owner_or_workspace_manager
+    @is_particular_organization_owner
     def create(self, request, *args, **kwargs):
         # TODO: Make sure to add the user to the workspace and created_by
         # return super().create(request, *args, **kwargs)
@@ -109,43 +111,56 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @action(
         detail=True, methods=["POST"], name="Archive Workspace", url_name="archive",
     )
-    @is_particular_workspace_manager
+    @is_particular_organization_owner
     def archive(self, request, pk=None, *args, **kwargs):
         workspace = Workspace.objects.get(pk=pk)
         workspace.is_archived = not workspace.is_archived
         workspace.save()
-        return super().retrieve(request, *args, **kwargs)
+        return Response({"done":True}, status=status.HTTP_200_OK)
 
     # TODO: Add serializer
     @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
-    @is_particular_workspace_manager
+    @is_particular_organization_owner
     def assign_manager(self, request, pk=None, *args, **kwargs):
         """
         API for assigning manager to a workspace
         """
         ret_dict = {}
         ret_status = 0
-        email = str(request.data["email"])
+        username = str(request.data["username"])
         try:
-            if re.fullmatch(EMAIL_VALIDATION_REGEX, email):
-                user = User.objects.get(email=email)
-                workspace = Workspace.objects.get(pk=pk)
-                workspace.managers.add(user)
-                workspace.users.add(user)
-                workspace.save()
-                serializer = WorkspaceManagerSerializer(workspace, many=False)
-                ret_dict = serializer.data
-                ret_status = status.HTTP_200_OK
-            else:
-                ret_dict = {"message": "Enter a valid Email!"}
-                ret_status = status.HTTP_400_BAD_REQUEST
+            user = User.objects.get(username=username)
+            workspace = Workspace.objects.get(pk=pk)
+            workspace.managers.add(user)
+            workspace.users.add(user)
+            workspace.save()
+            serializer = WorkspaceManagerSerializer(workspace, many=False)
+            ret_dict = {"done":True}
+            ret_status = status.HTTP_200_OK
         except User.DoesNotExist:
-            ret_dict = {"message": "User with such Email does not exist!"}
+            ret_dict = {"message": "User with such Username does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
-        except Exception:
-            ret_dict = {"message": "Email is required!"}
+        except Exception as e:
+            ret_dict = {"message": str(e)}
             ret_status = status.HTTP_400_BAD_REQUEST
         return Response(ret_dict, status=ret_status)
+
+    @action(detail=True, methods=["POST"], name="Unassign Manager", url_name="unassign_manager")
+    @is_particular_organization_owner
+    def unassign_manager(self, request, pk=None, *args, **kwargs):
+        """
+        API Endpoint for unassigning an workspace manager
+        """
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = UnAssignManagerSerializer(workspace, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"done":True}, status=status.HTTP_200_OK)
+        
 
     @swagger_auto_schema(responses={200: ProjectSerializer})
     @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
@@ -154,6 +169,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         """
         API for getting all projects of a workspace
         """
+        only_active=str(request.GET.get('only_active','false'))
+        only_active=True if only_active=='true' else False
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
@@ -162,6 +179,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             projects = Project.objects.filter(users=request.user, workspace_id=workspace)
         else:
             projects = Project.objects.filter(workspace_id=workspace)
+        
+        if only_active==True:
+            projects=projects.filter(is_archived=False)
+        
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -170,8 +191,8 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
     
     @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
-    @action(detail=True, methods=['POST'], url_path='addusers', url_name='add_users')
-    def add_users(self, request,pk=None):
+    @action(detail=True, methods=['POST'], url_path='addannotators', url_name='add_annotators')
+    def add_annotators(self, request,pk=None):
         user_id = request.data.get('user_id',"")
         try:
             workspace = Workspace.objects.get(pk=pk)
@@ -206,8 +227,8 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
     @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
-    @action(detail=True, methods=['POST'], url_path='removeusers', url_name='remove_users')
-    def remove_users(self, request,pk=None):
+    @action(detail=True, methods=['POST'], url_path='removeannotators', url_name='remove_annotators')
+    def remove_annotators(self, request,pk=None):
         user_id = request.data.get('user_id',"")
         try:
             workspace = Workspace.objects.get(pk=pk)
