@@ -70,14 +70,14 @@ def process_search_query(query_dict: dict) -> dict:
             print({i:j})
             if i not in terms_not_in_data:
                 if type(parsed_value) == str:
-                    queryset_dict[f"data__{i}__unaccent__icontains"] = parsed_value
+                    queryset_dict[f"data__{i}__unaccent__icontains"] = parsed_value  # Unaccent doesn't work as intended.
                 else:
                     queryset_dict[f"data__{i}"] = parsed_value
             else:
                 if type(parsed_value) != str:
                     queryset_dict[i] = parse_for_data_types(j)
                 else:
-                    queryset_dict[f"{i}__icontains"] = parsed_value
+                    queryset_dict[f"{i}__icontains"] = parsed_value  # Unaccent is not supported for CharField
     except Exception as e:
         print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
 
