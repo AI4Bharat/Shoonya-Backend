@@ -19,7 +19,7 @@ from django.core.files import File
 import pandas as pd
 from datetime import datetime
 from django.db.models import Q
-
+from .word_count import no_of_words
 try:
     from yaml import CLoader as Loader
 except ImportError:
@@ -460,28 +460,31 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     count = len(set1.intersection(set2))
                     if count == 0:
                         avg_leadtime = 0
+                        word_count1 = 0
                     else :
                         project_user_tasks_ids =  list(set1.intersection(set2))
                         lead_time = 0
+                        word_count1 = 0
                         for each_id in project_user_tasks_ids:
                             annot_object1 = Annotation_model.objects.get(task_id=each_id)
                             lead_time += annot_object1.lead_time
+                            task_object = Task.objects.get(id = each_id)
+                            word_count1 = (no_of_words(task_object.data['input_text'])) + word_count1
                         avg_leadtime = lead_time / count 
+                        avg_leadtime = round(avg_leadtime,2)
                     user_details = User.objects.get(id=userid)
                     each_usermail = user_details.email
                     user_name = user_details.username
                     user_id = user_details.id
 
                     all_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(annotation_users = user_id) ).order_by('id')
-                    total_tasks = len(all_tasks_in_project.values())
-
+                    total_tasks = all_tasks_in_project.count()
                     all_skipped_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "skipped") & Q(annotation_users = user_id)).order_by('id')
-                    total_skipped_tasks = len(all_skipped_tasks_in_project.values())
-
+                    total_skipped_tasks = all_skipped_tasks_in_project.count()
                     all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id)).order_by('id')
-                    total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
+                    total_unlabeled_tasks = all_pending_tasks_in_project.count()
                     #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                    final_result.append({"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time" : avg_leadtime , "total_assigned_tasks" : total_tasks,"skipped_tasks" : total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks})
+                    final_result.append({"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time" : avg_leadtime , "total_assigned_tasks" : total_tasks,"skipped_tasks" : total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks , "word_count": word_count1})
                 ret_status = status.HTTP_200_OK
 
             elif request.user.role == User.ANNOTATOR:
@@ -504,30 +507,34 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 if count == 0:
                     avg_leadtime = 0
+                    word_count1 = 0
                 else :
                     project_user_tasks_ids =  list(set1.intersection(set2))
                     lead_time = 0
+                    word_count1 = 0
                     for each_id in project_user_tasks_ids:
                         annot_object1 = Annotation_model.objects.get(task_id=each_id)
                         lead_time += annot_object1.lead_time
+                        task_object = Task.objects.get(id = each_id)
+                        word_count1 = (no_of_words(task_object.data['input_text'])) + word_count1
                     avg_leadtime = lead_time / count 
+                    avg_leadtime = round(avg_leadtime,2)
 
                 user_name = user_details.username
                 each_usermail = user_details.email
                 user_id = user_details.id
 
                 all_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(annotation_users = user_id) ).order_by('id')
-                total_tasks = len(all_tasks_in_project.values())
+                total_tasks = all_tasks_in_project.count()
 
                 all_skipped_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "skipped") & Q(annotation_users = user_id)).order_by('id')
-                total_skipped_tasks = len(all_skipped_tasks_in_project.values())
+                total_skipped_tasks = all_skipped_tasks_in_project.count()
 
                 all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id) ).order_by('id')
-                total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
-
+                total_unlabeled_tasks = all_pending_tasks_in_project.count()
 
                 #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                final_result = [{"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time":avg_leadtime , "total_assigned_tasks" : total_tasks , "skipped_tasks":total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks}]
+                final_result = [{"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time":avg_leadtime , "total_assigned_tasks" : total_tasks , "skipped_tasks":total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks , "word_count": word_count1}]
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             final_result = {"message": "Project does not exist!"}
