@@ -12,6 +12,7 @@ from drf_yasg.utils import swagger_auto_schema
 from projects.models import Project
 from users.models import User
 from users.serializers import UserProfileSerializer
+from tasks.models import Task
 
 from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
@@ -185,6 +186,60 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+    @action(detail=True, methods=["GET"], name="Workspace Details", url_path="get_workspace_analytics", url_name="get_workspace_analytics")
+    @is_workspace_member
+    def get_workspace_analytics(self, request, pk=None):
+        """
+        API for getting analytics of a workspace
+        """
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        ret_status = 0
+        if(((request.user.role) == (User.ORGANIZAION_OWNER)) or ((request.user.role)==(User.WORKSPACE_MANAGER))):
+            projects_objs = Project.objects.filter(workspace_id=pk)
+            final_result=[]
+            if projects_objs.count() !=0:
+                for proj in projects_objs:
+                    project_id = proj.id
+                    project_name = proj.title
+                    project_type = proj.project_type
+                    all_tasks = Task.objects.filter(project_id = proj.id)
+                    total_tasks = all_tasks.count()
+                    annotators_id_list = [annotator_id['annotation_users']  for annotator_id in list(all_tasks.values('annotation_users'))]
+                    no_of_annotators_assigned = len(set(annotators_id_list))
+                    un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
+                    labeled_count = total_tasks - un_labeled_count
+                    project_progress = (labeled_count / total_tasks) * 100
+                    result = {"project_id":project_id,"project_name":project_name , "project_type" : project_type ,"no_of_tasks" : total_tasks , "no_of_annotators_assigned" : no_of_annotators_assigned,"no_of_labeled_tasks" : labeled_count , "no_of_unlabeled_tasks" : un_labeled_count , "project_progress" : project_progress}
+                    final_result.append(result)
+            ret_status = status.HTTP_200_OK
+            return Response(final_result , status = ret_status )
+
+        else : 
+            projects_objs = Project.objects.filter(workspace_id=pk , users = request.user.id )
+            final_result=[]
+            if projects_objs.count() !=0:
+                for proj in projects_objs:
+                    project_id = proj.id
+                    project_name = proj.title
+                    project_type = proj.project_type
+                    all_tasks = Task.objects.filter(project_id = proj.id)
+                    total_tasks = all_tasks.count()
+                    annotators_id_list = [annotator_id['annotation_users']  for annotator_id in list(all_tasks.values('annotation_users'))]
+                    no_of_annotators_assigned = len(set(annotators_id_list))
+                    un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
+                    labeled_count = total_tasks - un_labeled_count
+                    project_progress = (labeled_count / total_tasks) * 100
+                    result = {"project_id":project_id,"project_name":project_name , "project_type" : project_type ,"no_of_tasks" : total_tasks , "no_of_annotators_assigned" : no_of_annotators_assigned,"no_of_labeled_tasks" : labeled_count , "no_of_unlabeled_tasks" : un_labeled_count , "project_progress" : project_progress}
+                    final_result.append(result)
+            ret_status = status.HTTP_200_OK
+            return Response(final_result , status = ret_status )
+
 
 
 class WorkspaceusersViewSet(viewsets.ViewSet):
