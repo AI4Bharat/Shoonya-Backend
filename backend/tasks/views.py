@@ -168,6 +168,7 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
             if task.annotations.count() == 1:
                 task.correct_annotation = annotation
                 task.task_status = request.data["task_status"]
+                
         else:
             task.task_status = UNLABELED
         task.save()
