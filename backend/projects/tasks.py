@@ -1,7 +1,6 @@
 import random
-from typing import Dict
 from urllib.parse import parse_qsl
-from celery import shared_task, Celery
+from celery import shared_task
 
 from users.models import User
 from tasks.models import Task
@@ -14,11 +13,11 @@ from .models import *
 from filters import filter
 from utils.monolingual.sentence_splitter import split_sentences
 
+from time import sleep
 
-# Create the celery async tasks here 
-
-### Utility functions for the tasks 
+## Utility functions for the tasks 
 def create_tasks_from_dataitems(items, project):
+    print("Enter Function 2")
     project_type = project.project_type
     registry_helper = ProjectRegistry.get_instance()
     input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
@@ -88,7 +87,9 @@ def create_parameters_for_task_creation(project_type, dataset_instance_ids, filt
         project_id (int): ID of the project object created in this iteration
 
     """
-
+    print("Enter function 1")
+    sleep(20)
+    
     # Load the dataset model from the instance id using the project registry
     registry_helper = ProjectRegistry.get_instance()
     input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
