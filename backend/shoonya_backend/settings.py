@@ -284,8 +284,4 @@ LOGGING = {
 }
 
 # Celery settings
-CELERY_BROKER_URL = 'redis://localhost:6379'
-result_backend = 'django-db'
-accept_content = ['application/json']
-result_serializer = 'json'
-task_serializer = 'json'
+CELERY_BROKER_URL = 'redis://redis:6379/0'
