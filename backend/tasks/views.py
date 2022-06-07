@@ -165,9 +165,9 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
         # if True:
             task.task_status = request.data["task_status"]
             # TODO: Support accepting annotations manually
-            # if task.annotations.count() == 1:
-            #     task.correct_annotation = annotation
-            #     task.task_status = ACCEPTED
+            if task.annotations.count() == 1:
+                task.correct_annotation = annotation
+                task.task_status = request.data["task_status"]
         else:
             task.task_status = UNLABELED
         task.save()
