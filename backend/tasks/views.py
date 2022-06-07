@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 import json
+from urllib.parse import unquote
 
 from tasks.models import *
 from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer
@@ -40,7 +41,7 @@ def extract_search_params(query_dict: dict) -> dict:
     new_dict: dict = {}
     for i in query_dict.items():
         if "search_" in i[0]:
-            new_dict[i[0]] = i[1]
+            new_dict[i[0][7:]] = unquote(i[1])
 
     return new_dict
 
@@ -49,36 +50,37 @@ def process_search_query(query_dict: dict) -> dict:
     """
     Extract the query params into a queryset dictionary.
     """
+    parsed_value: any = None
     queryset_dict: dict = {}
     terms_not_in_data: list = [
-        "search_id",
-        "search_task_status",
-        "search_metadata_json",
-        "search_project_id",
-        "search_input_data",
-        "search_output_data",
-        "search_correct_annotation",
-        "search_annotation_users",
-        "search_review_user",
+        "id",
+        "task_status",
+        "metadata_json",
+        "project_id",
+        "input_data",
+        "output_data",
+        "correct_annotation",
+        "annotation_users",
+        "review_user",
     ]
 
     try:
         for i, j in extract_search_params(query_dict).items():
+            parsed_value = parse_for_data_types(j)
+            print({i:j})
             if i not in terms_not_in_data:
-                parsed_value = parse_for_data_types(j)
                 if type(parsed_value) == str:
-                    queryset_dict[f"data__{i}__contains"] = parsed_value
+                    queryset_dict[f"data__{i}__unaccent__icontains"] = parsed_value
                 else:
                     queryset_dict[f"data__{i}"] = parsed_value
             else:
-                if type(parsed_value) == str:
+                if type(parsed_value) != str:
                     queryset_dict[i] = parse_for_data_types(j)
                 else:
-                    queryset_dict[f"{i}__contains"] = parsed_value
+                    queryset_dict[f"{i}__icontains"] = parsed_value
     except Exception as e:
         print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
 
-    print(queryset_dict)
     return queryset_dict
 
 
