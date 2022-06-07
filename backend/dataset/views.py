@@ -35,6 +35,25 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         serializer = DatasetInstanceSerializer(queryset, many=True)
         return Response(serializer.data)
 
+    @action(methods=['GET'], detail=True, name="Download Dataset in CSV format")
+    def download(self, request, pk):
+        """
+        View to download a dataset in CSV format
+        URL: /data/instances/<instance-id>/download/
+        Accepted methods: GET
+        """
+        try:
+            # Get the dataset instance for the id
+            dataset_instance = models.DatasetInstance.objects.get(instance_id=pk)
+        except models.DatasetInstance.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+        dataset_model = getattr(models, dataset_instance.dataset_type)
+        data_items = dataset_model.objects.filter(instance_id=pk)
+        dataset_resource = getattr(admin, dataset_instance.dataset_type+"Resource")
+        exported_items = dataset_resource().export(data_items)
+        return HttpResponse(exported_items.csv, status=status.HTTP_200_OK, content_type='text/csv')
+
 class DatasetItemsViewSet(viewsets.ModelViewSet):
     '''
     ViewSet for Dataset Items
@@ -100,26 +119,7 @@ class DatasetTypeView(APIView):
             except:
                 dict[field.name] = {'name':str(field.get_internal_type()),'choices':None}
         return Response(dict,status=status.HTTP_200_OK)
-
-
-class DatasetDownloadView(APIView):
-    """
-    View to download a dataset in CSV format
-    URL: /data/instances/<instance-id>/upload/
-    Accepted methods: GET
-    """
-
-    def get(self, request, instance_id):
-        try:
-            dataset_instance = models.DatasetInstance.objects.get(instance_id=instance_id)
-        except models.DatasetInstance.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-        
-        dataset_model = getattr(models, dataset_instance.dataset_type)
-        data_items = dataset_model.objects.filter(instance_id=instance_id)
-        dataset_resource = getattr(admin, dataset_instance.dataset_type+"Resource")
-        exported_items = dataset_resource().export(data_items)
-        return HttpResponse(exported_items.csv, status=status.HTTP_200_OK, content_type='text/csv')
+ 
 
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
