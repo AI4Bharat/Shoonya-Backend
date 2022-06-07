@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import permission_classes, action
 from rest_framework.views import APIView
+from django.http import HttpResponse
 
 from urllib.parse import parse_qsl
 from dataset import admin
@@ -113,12 +114,12 @@ class DatasetDownloadView(APIView):
             dataset_instance = models.DatasetInstance.objects.get(instance_id=instance_id)
         except models.DatasetInstance.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST)
-            
+        
         dataset_model = getattr(models, dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=instance_id)
         dataset_resource = getattr(admin, dataset_instance.dataset_type+"Resource")
         exported_items = dataset_resource().export(data_items)
-        return Response(exported_items.csv, status=status.HTTP_200_OK, content_type='text/csv')
+        return HttpResponse(exported_items.csv, status=status.HTTP_200_OK, content_type='text/csv')
 
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
