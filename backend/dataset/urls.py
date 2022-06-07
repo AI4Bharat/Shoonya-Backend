@@ -20,4 +20,5 @@ router.register(r"dataitems", DatasetItemsViewSet)
 urlpatterns = [
     path("", include(router.urls)),
     path('dataset_fields/<str:dataset_type>/', DatasetTypeView.as_view()),
+    path('instances/<int:instance_id>/download', DatasetDownloadView.as_view()),
 ]

@@ -23,7 +23,7 @@ class TranslationPairResource(resources.ModelResource):
         import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)
         model = models.TranslationPair
-
+        
 class SentenceTextResource(resources.ModelResource):
     class Meta:
         import_id_fields = ('id',)

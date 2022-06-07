@@ -7,6 +7,7 @@ from rest_framework.decorators import permission_classes, action
 from rest_framework.views import APIView
 
 from urllib.parse import parse_qsl
+from dataset import admin
 
 from users.models import User
 
@@ -98,6 +99,27 @@ class DatasetTypeView(APIView):
             except:
                 dict[field.name] = {'name':str(field.get_internal_type()),'choices':None}
         return Response(dict,status=status.HTTP_200_OK)
+
+
+class DatasetDownloadView(APIView):
+    """
+    View to download a dataset in CSV format
+    URL: /data/instances/<instance-id>/upload/
+    Accepted methods: GET
+    """
+
+    def get(self, request, instance_id):
+        try:
+            dataset_instance = models.DatasetInstance.objects.get(instance_id=instance_id)
+        except models.DatasetInstance.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+            
+        dataset_model = getattr(models, dataset_instance.dataset_type)
+        data_items = dataset_model.objects.filter(instance_id=instance_id)
+        dataset_resource = getattr(admin, dataset_instance.dataset_type+"Resource")
+        exported_items = dataset_resource().export(data_items)
+        return Response(exported_items.csv, status=status.HTTP_200_OK, content_type='text/csv')
+
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
 #     serializer_class = SentenceTextSerializer
