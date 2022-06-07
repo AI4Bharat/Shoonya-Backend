@@ -13,14 +13,14 @@ from .models import *
 from filters import filter
 from utils.monolingual.sentence_splitter import split_sentences
 
-## Utility functions for the tasks 
+## Utility functions for the tasks
 def create_tasks_from_dataitems(items, project):
     project_type = project.project_type
     registry_helper = ProjectRegistry.get_instance()
     input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
     output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
     variable_parameters = project.variable_parameters
-    
+
     # Create task objects
     tasks = []
     for item in items:
@@ -29,11 +29,13 @@ def create_tasks_from_dataitems(items, project):
             for var_param in output_dataset_info["fields"]["variable_parameters"]:
                 item[var_param] = variable_parameters[var_param]
         if "copy_from_input" in output_dataset_info["fields"]:
-            for input_field, output_field in output_dataset_info["fields"]["copy_from_input"].items():
+            for input_field, output_field in output_dataset_info["fields"][
+                "copy_from_input"
+            ].items():
                 item[output_field] = item[input_field]
                 del item[input_field]
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
-        
+
         # Remove data id because it's not needed in task.data
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
@@ -52,14 +54,22 @@ def create_tasks_from_dataitems(items, project):
             if project_type == "SentenceSplitting":
                 item[prediction_field] = [
                     {
-                        "value": {"text": ["\n".join(split_sentences(item["text"], item["language"]))]},
+                        "value": {
+                            "text": [
+                                "\n".join(
+                                    split_sentences(item["text"], item["language"])
+                                )
+                            ]
+                        },
                         "id": "0",
                         "from_name": "splitted_text",
                         "to_name": "text",
                         "type": "textarea",
                     }
                 ]
-            prediction = Annotation_model(result=item[prediction_field], task=task, completed_by=user_object)
+            prediction = Annotation_model(
+                result=item[prediction_field], task=task, completed_by=user_object
+            )
             predictions.append(prediction)
         #
         # Prediction.objects.bulk_create(predictions)
@@ -70,13 +80,22 @@ def create_tasks_from_dataitems(items, project):
 
 #### CELERY SHARED TASKS
 
+
 @shared_task
-def create_parameters_for_task_creation(project_type, dataset_instance_ids, filter_string, sampling_mode, sampling_parameters, variable_parameters, project_id) -> None: 
-    """Function to create the paramters for the task creation process. The function is passed arguments from the frontend which decide how the sentences have to be filtered and sampled. 
+def create_parameters_for_task_creation(
+    project_type,
+    dataset_instance_ids,
+    filter_string,
+    sampling_mode,
+    sampling_parameters,
+    variable_parameters,
+    project_id,
+) -> None:
+    """Function to create the paramters for the task creation process. The function is passed arguments from the frontend which decide how the sentences have to be filtered and sampled.
 
     Args:
         project_type (str): Describes the type of project passed by the user
-        dataset_instance_ids (int): ID of the dataset that has been provided for the annotation task 
+        dataset_instance_ids (int): ID of the dataset that has been provided for the annotation task
         filter_string (str): _description_
         sampling_mode (str): Method of sampling
         sampling_parameters (dict): Parameters for sampling
@@ -84,7 +103,7 @@ def create_parameters_for_task_creation(project_type, dataset_instance_ids, filt
         project_id (int): ID of the project object created in this iteration
 
     """
-    
+
     # Load the dataset model from the instance id using the project registry
     registry_helper = ProjectRegistry.get_instance()
     input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
@@ -93,7 +112,9 @@ def create_parameters_for_task_creation(project_type, dataset_instance_ids, filt
     dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
 
     # Get items corresponding to the instance id
-    data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids).order_by('id')
+    data_items = dataset_model.objects.filter(
+        instance_id__in=dataset_instance_ids
+    ).order_by("id")
 
     # Apply filtering
     query_params = dict(parse_qsl(filter_string))
@@ -103,17 +124,21 @@ def create_parameters_for_task_creation(project_type, dataset_instance_ids, filt
     # Get the input dataset fields from the filtered items
     if input_dataset_info["prediction"] is not None:
         filtered_items = list(
-            filtered_items.values("id", *input_dataset_info["fields"], input_dataset_info["prediction"])
+            filtered_items.values(
+                "id", *input_dataset_info["fields"], input_dataset_info["prediction"]
+            )
         )
     else:
-        filtered_items = list(filtered_items.values("id", *input_dataset_info["fields"]))
+        filtered_items = list(
+            filtered_items.values("id", *input_dataset_info["fields"])
+        )
 
     # Create a dummy sampling parameter
-    sampling_parameters = { 
-        'count': 10, 
-        'fraction': 23, 
-        'batch_size': 10, 
-        'batch_number': 10 
+    sampling_parameters = {
+        "count": 10,
+        "fraction": 23,
+        "batch_size": 10,
+        "batch_number": 10,
     }
 
     # Apply sampling
@@ -131,10 +156,12 @@ def create_parameters_for_task_creation(project_type, dataset_instance_ids, filt
             batch_number = sampling_parameters["batch_number"]
         except KeyError:
             batch_number = 1
-        sampled_items = filtered_items[batch_size * (batch_number - 1) : batch_size * (batch_number)]
+        sampled_items = filtered_items[
+            batch_size * (batch_number - 1) : batch_size * (batch_number)
+        ]
     else:
         sampled_items = filtered_items
-    
+
     # Load the project object using the project id
     project = Project.objects.get(pk=project_id)
 
