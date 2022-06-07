@@ -1,3 +1,5 @@
+from urllib.parse import unquote
+
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
@@ -5,14 +7,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
-import json
-from urllib.parse import unquote
 
 from tasks.models import *
 from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer
 
 from users.models import User
-from projects.models import Project
 
 # Create your views here.
 
@@ -38,6 +37,9 @@ def parse_for_data_types(string: str):
 
 
 def extract_search_params(query_dict: dict) -> dict:
+    """
+    Extract the parameters from the request params that start with ```search_```
+    """
     new_dict: dict = {}
     for i in query_dict.items():
         if "search_" in i[0]:
@@ -172,7 +174,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         page = request.GET.get("page")
         try:
             page = self.paginate_queryset(queryset)
-        except Exception as e:
+        except Exception:
             page = []
             data = page
             return Response(
