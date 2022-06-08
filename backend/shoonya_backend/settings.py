@@ -238,24 +238,20 @@ handlers = {
         'level': LOGLEVEL,
         'class': 'logging.StreamHandler',
         'formatter': 'console',
-    }
-}
-
-# If logging is enabled, add file handlers
-if os.getenv("LOGGING", 'False').lower() in ('true', '1', 't', 'yes', 'y'):
-    handlers['file'] = {
+    },
+    'file': {
         'level': 'WARNING',
         'class': 'logging.FileHandler',
         'filename': os.path.join(BASE_DIR, 'logs/default.log'),
         'formatter': 'file'
-    }
-
-    handlers['csvfile'] = {
+    },
+    'csvfile': {
         'level': 'WARNING',
         'class': 'logging.FileHandler',
         'filename': os.path.join(BASE_DIR, 'logs/logs.csv'),
         'formatter': 'csvfile'
     }
+}
 
 # Setup the Cloud Logging Client
 if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
