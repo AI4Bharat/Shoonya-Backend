@@ -1,43 +1,96 @@
+from tablib import Dataset
 from django.apps import apps
-from django.shortcuts import render
-from rest_framework import viewsets, mixins, status
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
-from rest_framework.decorators import permission_classes, action
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.decorators import action
 from rest_framework.views import APIView
-
 from urllib.parse import parse_qsl
 
-from users.models import User
-
-from .serializers import DatasetItemsSerializer, DatasetInstanceSerializer, TranslationPairSerializer 
-from dataset import models
 from filters import filter
-from dataset import serializers
+from .models import *
+from .serializers import *
+from .resources import RESOURCE_MAP
+
 
 # Create your views here.
-
 class DatasetInstanceViewSet(viewsets.ModelViewSet):
     '''
     ViewSet for Dataset Instance
     '''
-    queryset = models.DatasetInstance.objects.all()
-    serializer_class = DatasetInstanceSerializer
+    queryset = DatasetInstance.objects.all()
     permission_classes = (IsAuthenticatedOrReadOnly, )
+
+    def get_serializer_class(self):
+        if self.action == 'upload':
+            return DatasetInstanceUploadSerializer
+        return DatasetInstanceSerializer
 
     def list(self, request, *args, **kwargs):
         if "dataset_type" in dict(request.query_params):
-            queryset = models.DatasetInstance.objects.filter(dataset_type__exact=request.query_params["dataset_type"])
+            queryset = DatasetInstance.objects.filter(dataset_type__exact=request.query_params["dataset_type"])
         else:
-            queryset = models.DatasetInstance.objects.all()
+            queryset = DatasetInstance.objects.all()
         serializer = DatasetInstanceSerializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(methods=['POST'], detail=True, name="Upload CSV Dataset")
+    def upload(self, request, pk):
+        '''
+        View to upload a dataset in CSV format
+        URL: /data/instances/<instance-id>/upload/
+        Accepted methods: POST
+        '''
+        # Get the dataset type using the instance ID
+        dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
+
+        # Fetch the file from the POST request body (key is dataset)
+        if 'dataset' not in request.FILES:
+            return Response({
+                "message": "Please provide a file with key 'dataset'.",
+            }, status=status.HTTP_400_BAD_REQUEST)
+        dataset = request.FILES['dataset']
+
+        # Ensure that the content type is CSV, return error otherwise
+        if dataset.content_type != 'text/csv':
+            return Response({
+                "message": "Invalid Dataset File. Only accepts .csv files.",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create a new tablib Dataset and load the data into this dataset
+        imported_data = Dataset().load(dataset.read().decode(), format='csv')
+
+        # Add the instance_id column to all rows in the dataset
+        imported_data.append_col([pk]*len(imported_data), header="instance_id")
+
+        # Declare the appropriate resource map based on dataset type
+        resource = RESOURCE_MAP[dataset_type]()
+
+        # Import the data into the database
+        try:
+            resource.import_data(imported_data, raise_errors=True)
+        # If validation checks fail, raise the Exception
+        except Exception as e:
+            return Response({
+                "message": "Dataset validation failed.",
+                "exception": e
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch the imported data from the model and return it to the frontend
+        model = apps.get_model('dataset', dataset_type)
+        data = model.objects.filter(instance_id=pk)
+        serializer = SERIALIZER_MAP[dataset_type](data, many=True)
+        return Response({
+            "message": f"Uploaded {dataset_type} data to Dataset {pk}",
+            "data": serializer.data
+        }, status=status.HTTP_201_CREATED)
 
 class DatasetItemsViewSet(viewsets.ModelViewSet):
     '''
     ViewSet for Dataset Items
     '''
-    queryset = models.DatasetBase.objects.all()
+    queryset = DatasetBase.objects.all()
     serializer_class = DatasetItemsSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
@@ -52,7 +105,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         if dataset_type=="":
             dataset_type = models.DatasetInstance.objects.get(instance_id=dataset_instance_ids[0]).dataset_type
         dataset_model = getattr(models, dataset_type)
-        data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)        
+        data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
         query_params = dict(parse_qsl(filter_string))
         query_params = filter.fix_booleans_in_dict(query_params)
         filtered_set = filter.filter_using_dict_and_queryset(query_params, data_items)
@@ -87,7 +140,6 @@ class DatasetTypeView(APIView):
     '''
     permission_classes = (IsAuthenticatedOrReadOnly, )
 
-    
     def get(self, request, dataset_type):
         model = apps.get_model('dataset', dataset_type)
         fields = model._meta.get_fields()
