@@ -163,11 +163,12 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
         # project = Project.objects.get(pk=task.project_id.id)
         if task.project_id.required_annotators_per_task == task.annotations.count():
         # if True:
-            task.task_status = LABELED
+            task.task_status = request.data["task_status"]
             # TODO: Support accepting annotations manually
             if task.annotations.count() == 1:
                 task.correct_annotation = annotation
-                task.task_status = ACCEPTED
+                task.task_status = request.data["task_status"]
+                
         else:
             task.task_status = UNLABELED
         task.save()
@@ -193,11 +194,11 @@ class AnnotationViewSet(mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins
 
         if task.project_id.required_annotators_per_task == task.annotations.count():
         # if True:
-            task.task_status = LABELED
+            task.task_status = ACCEPTED
             # TODO: Support accepting annotations manually
             if task.annotations.count() == 1:
                 task.correct_annotation = annotation
-                task.task_status = ACCEPTED
+                task.task_status = request.data["task_status"]
         else:
             task.task_status = UNLABELED
         
