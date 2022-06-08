@@ -10,6 +10,11 @@ class DatasetInstanceSerializer(serializers.ModelSerializer):
         model = DatasetInstance
         fields = '__all__'
 
+class DatasetInstanceUploadSerializer(serializers.Serializer):
+    dataset = serializers.FileField()
+    class Meta:
+        fields=['dataset']
+
 
 class DatasetItemsSerializer(serializers.ModelSerializer):
     class Meta:

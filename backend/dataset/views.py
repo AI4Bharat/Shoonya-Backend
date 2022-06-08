@@ -20,8 +20,12 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     ViewSet for Dataset Instance
     '''
     queryset = DatasetInstance.objects.all()
-    serializer_class = DatasetInstanceSerializer
     permission_classes = (IsAuthenticatedOrReadOnly, )
+
+    def get_serializer_class(self):
+        if self.action == 'upload':
+            return DatasetInstanceUploadSerializer
+        return DatasetInstanceSerializer
 
     def list(self, request, *args, **kwargs):
         if "dataset_type" in dict(request.query_params):
@@ -46,16 +50,16 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return Response({
                 "message": "Please provide a file with key 'dataset'.",
             }, status=status.HTTP_400_BAD_REQUEST)
-        new_dataset_csv = request.FILES['dataset']
+        dataset = request.FILES['dataset']
 
         # Ensure that the content type is CSV, return error otherwise
-        if new_dataset_csv.content_type != 'text/csv':
+        if dataset.content_type != 'text/csv':
             return Response({
                 "message": "Invalid Dataset File. Only accepts .csv files.",
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create a new tablib Dataset and load the data into this dataset
-        imported_data = Dataset().load(new_dataset_csv.read().decode(), format='csv')
+        imported_data = Dataset().load(dataset.read().decode(), format='csv')
 
         # Add the instance_id column to all rows in the dataset
         imported_data.append_col([pk]*len(imported_data), header="instance_id")
