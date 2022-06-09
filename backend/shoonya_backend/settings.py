@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "functions",
     "corsheaders",
     "import_export",
+    "django_celery_results",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -285,3 +286,6 @@ LOGGING = {
         }
     }
 }
+
+# Celery settings
+CELERY_BROKER_URL = 'redis://redis:6379/0'
