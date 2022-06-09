@@ -38,6 +38,7 @@ SKIPPED = "skipped"
 ACCEPTED = "accepted"
 REJECTED = "rejected"
 FREEZED = "freezed"
+DRAFT = "draft"
 
 TASK_STATUS = (
     (UNLABELED, "unlabeled"),
@@ -46,6 +47,7 @@ TASK_STATUS = (
     (ACCEPTED, "accepted"),
     (FREEZED, "freezed"),
     (REJECTED, "rejected"),
+    (DRAFT, "draft"),
 )
 
 
