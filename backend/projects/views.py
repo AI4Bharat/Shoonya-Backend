@@ -181,7 +181,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             queryset = queryset.filter(
                 **process_search_query(
-                    request.GET, "data", list(request.GET.get("data"))
+                    request.GET, "data", list(queryset.first().data.keys())
                 )
             )
 
