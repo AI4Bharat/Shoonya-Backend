@@ -161,7 +161,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Project.objects.all()
-    # serializer_class = ProjectSerializer
+    serializer_class = ProjectSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def retrieve(self, request, pk, *args, **kwargs):
@@ -695,7 +695,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
             
-    @action(detail=True, methods=["POST", "GET"], name="Export Project")
+    @action(detail=True, methods=["POST"], name="Export Project")
     @project_is_archived
     @is_organization_owner_or_workspace_manager
     def project_export(self, request, pk=None, *args, **kwargs):
