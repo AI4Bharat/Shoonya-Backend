@@ -132,15 +132,7 @@ def create_parameters_for_task_creation(
         filtered_items = list(
             filtered_items.values("id", *input_dataset_info["fields"])
         )
-
-    # Create a dummy sampling parameter
-    sampling_parameters = {
-        "count": 10,
-        "fraction": 23,
-        "batch_size": 10,
-        "batch_number": 10,
-    }
-
+        
     # Apply sampling
     if sampling_mode == RANDOM:
         try:
