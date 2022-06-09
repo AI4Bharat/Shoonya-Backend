@@ -3,6 +3,7 @@ from dataset import models
 from import_export import resources, fields
 from import_export.admin import ImportExportActionModelAdmin
 from import_export.widgets import ForeignKeyWidget
+from .mixins import ResourceMixin
 
 class DatasetInstanceResource(resources.ModelResource):
     class Meta:
@@ -18,25 +19,25 @@ admin.site.register(models.DatasetInstance, DatasetInstanceAdmin)
 
 # TODO: Find a clean generic way to do this:
 
-class TranslationPairResource(resources.ModelResource):
+class TranslationPairResource(resources.ModelResource, ResourceMixin):
     class Meta:
         import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)
         model = models.TranslationPair
         
-class SentenceTextResource(resources.ModelResource):
+class SentenceTextResource(resources.ModelResource, ResourceMixin):
     class Meta:
         import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)
         model = models.SentenceText
 
-class OCRResource(resources.ModelResource):
+class OCRResource(resources.ModelResource, ResourceMixin):
     class Meta:
         import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)
         model = models.OCRDocument
 
-class BlockTextResource(resources.ModelResource):
+class BlockTextResource(resources.ModelResource, ResourceMixin):
     class Meta:
         import_id_fields = ('id',)
         exclude = ('datasetbase_ptr',)

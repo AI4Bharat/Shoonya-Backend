@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import permission_classes, action
 from rest_framework.views import APIView
-from django.http import HttpResponse
+from django.http import StreamingHttpResponse
 
 from urllib.parse import parse_qsl
 from dataset import admin
@@ -51,8 +51,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         dataset_model = getattr(models, dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
         dataset_resource = getattr(admin, dataset_instance.dataset_type+"Resource")
-        exported_items = dataset_resource().export(data_items)
-        return HttpResponse(exported_items.csv, status=status.HTTP_200_OK, content_type='text/csv')
+        exported_items = dataset_resource().export_as_generator(data_items)
+        return StreamingHttpResponse(exported_items, status=status.HTTP_200_OK, content_type='text/csv')
 
 class DatasetItemsViewSet(viewsets.ModelViewSet):
     '''
