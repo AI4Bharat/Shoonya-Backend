@@ -5,6 +5,8 @@ def parse_for_data_types(string: str):
     """
     Convert variables to their appropriate type
     """
+
+    # Need to implement datetime field as well to implement datetime-based filters
     try:  # Try to convert to a int
         return int(string)
     except Exception:
@@ -32,7 +34,8 @@ def extract_search_params(query_dict: dict) -> dict:
 
     return new_dict
 
-def flatten(to_flatten, sep="__"):
+
+def flatten(to_flatten: dict, sep: str = "__") -> dict:
     new_dict = {}
     for i, j in to_flatten.items():
         if isinstance(j, dict):
@@ -44,8 +47,9 @@ def flatten(to_flatten, sep="__"):
 
     return new_dict
 
+
 def process_search_query(
-    query_dict: dict, search_field_name: str, required_fields: list
+    query_dict: dict, search_field_name: str, searchable_fields: list
 ) -> dict:
     """
     Extract the query params into a queryset dictionary.
@@ -59,7 +63,7 @@ def process_search_query(
         for i, j in flatten(extract_search_params(query_dict)).items():
             parsed_value = parse_for_data_types(j)
             print({i: j})
-            if i in required_fields:
+            if i in searchable_fields:
                 if type(parsed_value) == str:
                     queryset_dict[
                         f"{search_field_name}__{i}__icontains"
@@ -76,5 +80,4 @@ def process_search_query(
     except Exception as e:
         print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
 
-    print(queryset_dict)
     return queryset_dict

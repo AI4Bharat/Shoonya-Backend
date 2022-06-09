@@ -92,7 +92,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             queryset = Task.objects.all()
 
         # Handle search query (if any)
-        queryset = queryset.filter(**process_search_query(request.GET, "data", request.GET.get("data")))
+        queryset = queryset.filter(**process_search_query(request.GET, "data", list(queryset.first().data.keys())))
 
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])

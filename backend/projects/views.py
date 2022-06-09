@@ -315,7 +315,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(project_id=pk).order_by('id')
             elif request.user.role == User.ANNOTATOR:
                 tasks = Task.objects.filter(project_id=pk, annotation_users=request.user).order_by('id')
-            tasks = tasks.filter(**process_search_query(request.GET, "data", list(request.GET.get("data"))))
+            tasks = tasks.filter(**process_search_query(request.GET, "data", list(tasks.first().data.keys())))
             serializer = TaskSerializer(tasks, many=True)
             ret_dict = serializer.data
             ret_status = status.HTTP_200_OK
