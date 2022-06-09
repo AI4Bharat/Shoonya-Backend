@@ -50,6 +50,7 @@ from .decorators import (
 )
 from filters import filter
 from utils.monolingual.sentence_splitter import split_sentences
+from .utils import is_valid_date
 
 
 # Create your views here.
@@ -334,10 +335,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
         to_date = request.data.get('to_date')
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+
          # from_date= '2022-05-23' 
         # to_date = '2022-05-28' 
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+
+        if start_date > end_date:
+            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
+
+        print("start-date: ", start_date)
+        
         try:
             # role check
             if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
