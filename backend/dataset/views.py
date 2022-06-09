@@ -1,3 +1,4 @@
+import resource
 from tablib import Dataset
 from django.apps import apps
 from django.shortcuts import get_object_or_404
@@ -6,12 +7,15 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.views import APIView
+from django.http import StreamingHttpResponse
+
 from urllib.parse import parse_qsl
 
 from filters import filter
 from .models import *
 from .serializers import *
 from .resources import RESOURCE_MAP
+from . import resources
 
 
 # Create your views here.
@@ -34,6 +38,26 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             queryset = DatasetInstance.objects.all()
         serializer = DatasetInstanceSerializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(methods=['GET'], detail=True, name="Download Dataset in CSV format")
+    def download(self, request, pk):
+        """
+        View to download a dataset in CSV format
+        URL: /data/instances/<instance-id>/download/
+        Accepted methods: GET
+        """
+        try:
+            # Get the dataset instance for the id
+            dataset_instance = DatasetInstance.objects.get(instance_id=pk)
+        except DatasetInstance.DoesNotExist:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+        dataset_model = apps.get_model('dataset', dataset_instance.dataset_type)
+        data_items = dataset_model.objects.filter(instance_id=pk)
+        dataset_resource = getattr(resources, dataset_instance.dataset_type+"Resource")
+        exported_items = dataset_resource().export_as_generator(data_items)
+        return StreamingHttpResponse(exported_items, status=status.HTTP_200_OK, content_type='text/csv')
+    
 
     @action(methods=['POST'], detail=True, name="Upload CSV Dataset")
     def upload(self, request, pk):
@@ -85,6 +109,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             "message": f"Uploaded {dataset_type} data to Dataset {pk}",
             "data": serializer.data
         }, status=status.HTTP_201_CREATED)
+
 
 class DatasetItemsViewSet(viewsets.ModelViewSet):
     '''
@@ -150,6 +175,8 @@ class DatasetTypeView(APIView):
             except:
                 dict[field.name] = {'name':str(field.get_internal_type()),'choices':None}
         return Response(dict,status=status.HTTP_200_OK)
+ 
+
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
 #     serializer_class = SentenceTextSerializer
