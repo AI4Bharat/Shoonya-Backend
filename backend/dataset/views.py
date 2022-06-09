@@ -103,8 +103,8 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         filter_string = request.data.get('filter_string')
         #  Get dataset type from first dataset instance if dataset_type not passed in json data from frontend
         if dataset_type=="":
-            dataset_type = models.DatasetInstance.objects.get(instance_id=dataset_instance_ids[0]).dataset_type
-        dataset_model = getattr(models, dataset_type)
+            dataset_type = DatasetInstance.objects.get(instance_id=dataset_instance_ids[0]).dataset_type
+        dataset_model = apps.get_model('dataset', dataset_type)
         data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
         query_params = dict(parse_qsl(filter_string))
         query_params = filter.fix_booleans_in_dict(query_params)
@@ -125,7 +125,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             })
 
         if page is not None:
-            datset_serializer=getattr(serializers, dataset_type+"Serializer")
+            datset_serializer=SERIALIZER_MAP[dataset_type]
             serializer=datset_serializer(page,many=True)
             data=serializer.data
             return self.get_paginated_response(data)

@@ -105,6 +105,20 @@ docker-compose exec web python manage.py createsuperuser
 
 If there were no errors, congratulations! The project is up and running.
 
+### Running background tasks 
+To run background tasks for project creation, we need to run the following command in the terminal. This has also been added into the `docker-compose.yml` file.
+```bash 
+celery command - celery -A shoonya_backend.celery worker -l info
+``` 
+
+We can set the concurrency and autoscale in the process as well to manage the number of worker processes in the background. Read more [here](https://stackoverflow.com/a/72366865/9757174). 
+
+The commands will be as follows 
+```bash 
+celery -A shoonya_backend.celery worker --concurrency=2 --loglevel=info
+celery -A shoonya_backend.celery worker --autoscale=10,3 --loglevel=info
+```
+
 ### Running Linters
 
 Installing the dev requirements file would have also installed linters. We have `flake8` and `pylint`, available.

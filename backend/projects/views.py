@@ -39,6 +39,7 @@ from tasks.models import *
 from tasks.models import Annotation as Annotation_model
 from tasks.serializers import TaskSerializer
 from .registry_helper import ProjectRegistry
+from .tasks import create_parameters_for_task_creation, create_tasks_from_dataitems
 
 from projects.serializers import ProjectSerializer, ProjectUsersSerializer
 from tasks.serializers import TaskSerializer
@@ -68,59 +69,6 @@ def batch(iterable, n=1):
     l = len(iterable)
     for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
-
-
-def create_tasks_from_dataitems(items, project):
-
-    project_type = project.project_type
-    registry_helper = ProjectRegistry.get_instance()
-    input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
-    output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
-    variable_parameters = project.variable_parameters
-    # Create task objects
-    tasks = []
-    for item in items:
-        data_id = item["id"]
-        if "variable_parameters" in output_dataset_info["fields"]:
-            for var_param in output_dataset_info["fields"]["variable_parameters"]:
-                item[var_param] = variable_parameters[var_param]
-        if "copy_from_input" in output_dataset_info["fields"]:
-            for input_field, output_field in output_dataset_info["fields"]["copy_from_input"].items():
-                item[output_field] = item[input_field]
-                del item[input_field]
-        data = dataset_models.DatasetBase.objects.get(pk=data_id)
-        # Remove data id because it's not needed in task.data
-        del item["id"]
-        task = Task(data=item, project_id=project, input_data=data)
-        tasks.append(task)
-
-    # Bulk create the tasks
-    Task.objects.bulk_create(tasks)
-
-    if input_dataset_info["prediction"] is not None:
-        user_object = User.objects.get(email="prediction@ai4bharat.org")
-
-        predictions = []
-        prediction_field = input_dataset_info["prediction"]
-        for task, item in zip(tasks, items):
-
-            if project_type == "SentenceSplitting":
-                item[prediction_field] = [
-                    {
-                        "value": {"text": ["\n".join(split_sentences(item["text"], item["language"]))]},
-                        "id": "0",
-                        "from_name": "splitted_text",
-                        "to_name": "text",
-                        "type": "textarea",
-                    }
-                ]
-            prediction = Annotation_model(result=item[prediction_field], task=task, completed_by=user_object)
-            predictions.append(prediction)
-        #
-        # Prediction.objects.bulk_create(predictions)
-        Annotation_model.objects.bulk_create(predictions)
-
-    return tasks
 
 
 def assign_users_to_tasks(tasks, users):
@@ -155,7 +103,6 @@ def assign_users_to_tasks(tasks, users):
             task.annotation_users.add(user_obj)
             # updated_tasks.append(task)
             task.save()
-
 
 class ProjectViewSet(viewsets.ModelViewSet):
     """
@@ -278,10 +225,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_mode = request.data.get("project_mode")
 
         if project_mode == Collection:
+            
             # Create project object
             project_response = super().create(request, *args, **kwargs)
 
         else:
+            
+            # Collect the POST request parameters 
             dataset_instance_ids = request.data.get("dataset_id")
             if type(dataset_instance_ids) != list:
                 dataset_instance_ids = [dataset_instance_ids]
@@ -290,60 +240,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             sampling_parameters = request.data.get("sampling_parameters_json")
             variable_parameters = request.data.get("variable_parameters")
 
-            # Load the dataset model from the instance id using the project registry
-            registry_helper = ProjectRegistry.get_instance()
-            input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
-            output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
-
-            dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
-
-            # Get items corresponding to the instance id
-            data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids).order_by('id')
-
-            # Apply filtering
-            query_params = dict(parse_qsl(filter_string))
-            query_params = filter.fix_booleans_in_dict(query_params)
-            filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
-
-            # Get the input dataset fields from the filtered items
-            if input_dataset_info["prediction"] is not None:
-                filtered_items = list(
-                    filtered_items.values("id", *input_dataset_info["fields"], input_dataset_info["prediction"])
-                )
-            else:
-                filtered_items = list(filtered_items.values("id", *input_dataset_info["fields"]))
-
-            # Apply sampling
-            if sampling_mode == RANDOM:
-                try:
-                    sampling_count = sampling_parameters["count"]
-                except KeyError:
-                    sampling_fraction = sampling_parameters["fraction"]
-                    sampling_count = int(sampling_fraction * len(filtered_items))
-
-                sampled_items = random.sample(filtered_items, k=sampling_count)
-            elif sampling_mode == BATCH:
-                batch_size = sampling_parameters["batch_size"]
-                try:
-                    batch_number = sampling_parameters["batch_number"]
-                except KeyError:
-                    batch_number = 1
-                sampled_items = filtered_items[batch_size * (batch_number - 1) : batch_size * (batch_number)]
-            else:
-                sampled_items = filtered_items
-
             # Create project object
             project_response = super().create(request, *args, **kwargs)
             project_id = project_response.data["id"]
-            project = Project.objects.get(pk=project_id)
 
-            # Set the labelstudio label config
-            label_config = registry_helper.get_label_studio_jsx_payload(project_type)
-
-            project.label_config = label_config
-            project.save()
-
-            create_tasks_from_dataitems(sampled_items, project)
+            # Function call to create the paramters for the sampling and filtering of sentences 
+            create_parameters_for_task_creation.delay(project_type, dataset_instance_ids, filter_string, sampling_mode, sampling_parameters, variable_parameters, project_id)
 
         # Return the project response
         return project_response
