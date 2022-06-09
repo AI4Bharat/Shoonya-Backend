@@ -34,7 +34,8 @@ class DatasetInstance(models.Model):
     """
 
     instance_id = models.AutoField(
-        verbose_name="dataset_instance_id", primary_key=True
+        verbose_name="dataset_instance_id", primary_key=True,
+        help_text=("ID of the Dataset instance")
     )
 
     parent_instance_id = models.IntegerField(
@@ -53,7 +54,7 @@ class DatasetInstance(models.Model):
         verbose_name="dataset_type",
         choices=DATASET_TYPE_CHOICES,
         max_length=100,
-        help_text=("Dataset Type which is specific for each annotation task")
+        help_text=("Dataset Type can be one of (SentenceText, TranslationPair, OCRDocument, BlockText)")
     )
     users = models.ManyToManyField(User, related_name="dataset_users")
 
@@ -80,7 +81,7 @@ class DatasetBase(models.Model):
     instance_id = models.ForeignKey(DatasetInstance, on_delete=models.CASCADE)
     metadata_json = models.JSONField(
         verbose_name="metadata_json", null=True, blank=True,
-        help_text=("Metadata having details related to the annotation tasks or functions this data was involved in")
+        help_text=("Metadata to track details of functions / annotations applied on the data item")
     )
 
     # class Meta:
@@ -143,42 +144,53 @@ class OCRDocument(DatasetBase):
     """
 
     file_type = models.CharField(
-        verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=3
+        verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=3,
+        help_text=("Indicates whether a file is a PDF or an image (IMG)")
     )
     file_url = models.URLField(
-        verbose_name = 'bucket_url_for_file', max_length = 500, null=True, blank=True
+        verbose_name = 'bucket_url_for_file', max_length = 500, null=True, blank=True,
+        help_text=("Stores the bucket url for the pdf file")
     )
     image_url = models.URLField(
-        verbose_name = 'bucket_url_for_image', max_length = 500
+        verbose_name = 'bucket_url_for_image', max_length = 500,
+        help_text=("Stores the bucket url for the image of a single page")
     )
-    page_number = models.IntegerField(verbose_name="page_number", default=1)
+    page_number = models.IntegerField(verbose_name="page_number", default=1,
+    help_text=("Optionally store the page number for multipage documents"))
     language = models.CharField(
-        verbose_name="language", choices=LANG_CHOICES, max_length=15
+        verbose_name="language", choices=LANG_CHOICES, max_length=15,
+        help_text=("Language of the document text")
     )
     ocr_type = models.CharField(
-        verbose_name="ocr_type", choices=OCR_TYPE_CHOICES, max_length=3
+        verbose_name="ocr_type", choices=OCR_TYPE_CHOICES, max_length=3,
+        help_text=("Type of OCR Document - SceneText (ST) or DenseText (DT)")
     )
     ocr_domain = models.CharField(
-        verbose_name="ocr_domain", choices=OCR_DOMAIN_CHOICES, max_length=3
+        verbose_name="ocr_domain", choices=OCR_DOMAIN_CHOICES, max_length=3,
+        help_text=("Domain of OCR Document - Books (BO), Forms (FO) or others (OT)")
     )
     # annotation_json = models.JSONField(
     #     verbose_name="annotation_json", null=True, blank=True
     # )
 
     annotation_bboxes = models.JSONField(
-        verbose_name="annotation_bboxes", null=True, blank=True
+        verbose_name="annotation_bboxes", null=True, blank=True,
+        help_text=("Bounding boxes of the annotation stored in LabelStudio format")
     )
 
     annotation_transcripts = models.JSONField(
-        verbose_name="annotation_transcripts", null=True, blank=True
+        verbose_name="annotation_transcripts", null=True, blank=True,
+        help_text=("The corresponding transcripts for the annotations stored as a list (LabelStudio format)")
     )
 
     annotation_labels = models.JSONField(
-        verbose_name="annotation_labels", null=True, blank=True
+        verbose_name="annotation_labels", null=True, blank=True,
+        help_text=("Labels of the annotations stored in LabelStudio format")
     )
 
     prediction_json = models.JSONField(
-        verbose_name="prediction_json", null=True, blank=True
+        verbose_name="prediction_json", null=True, blank=True,
+        help_text=("OCR prediction to be shown to the user (in LabelStudio format)")
     )
 
     def __str__(self):
@@ -196,10 +208,10 @@ class BlockText(DatasetBase):
         help_text=("A block of text having many sentences"))
     splitted_text_prediction = models.JSONField(
         verbose_name="splitted_text_prediction", null=True, blank=True, 
-        help_text=("Prediction showing the block text split into sentences")
+        help_text=("Prediction showing the block text split into sentences (Machine generated output)")
     )
     splitted_text = models.TextField(verbose_name="splitted_text", null=True, blank=True, 
-        help_text=("Sentences Split from the Block Text"))
+        help_text=("Sentences Split from the Block Text (Labelled by Annotators)"))
     domain = models.CharField(verbose_name="domain", max_length=1024,
         help_text=("Domain of the block text"))
    

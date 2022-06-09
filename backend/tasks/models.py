@@ -90,7 +90,8 @@ class Task(models.Model):
         verbose_name="task_status",
     )
     metadata_json = models.JSONField(
-        verbose_name="metadata json", null=True, blank=True
+        verbose_name="metadata json", null=True, blank=True,
+        help_text=("Metadata to track functions applied on a task")
     )
 
     def assign(self, users):
@@ -194,12 +195,15 @@ class Annotation(models.Model):
     result = models.JSONField(verbose_name="annotation_result_json", 
         help_text=("Has the annotation done by the annotator"))
     task = models.ForeignKey(
-        Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name="annotations"
+        Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name="annotations",
+        help_text=("Foreign key to the task associated with the annotation")
     )
-    completed_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="annotation_completed_by")
+    completed_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="annotation_completed_by",
+    help_text=("Foreign key to the user who performed the annotation"))
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="annotation_created_at")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="annotation_updated_at")
-    lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
+    lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time",
+    help_text=("Time taken for the annotator to complete the annotation"))
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
 
     def __str__(self):

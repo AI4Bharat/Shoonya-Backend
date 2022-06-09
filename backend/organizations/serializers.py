@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from users.models import User
 
 
 # Imported user model here coz circular import errors popped up when we tried defining UserReadSerializer in users.serializers and importing it here
@@ -8,7 +9,7 @@ from .models import *
 class InviteGenerationSerializer(serializers.Serializer):
     emails = serializers.ListField(child=serializers.EmailField())
     organization_id = serializers.IntegerField()
-    role = serializers.IntegerField()
+    role = serializers.ChoiceField(choices=User.ROLE_CHOICES)
 
 class UserReadSerializer(serializers.ModelSerializer):
     class Meta:

@@ -101,7 +101,7 @@ class Project(models.Model):
         help_text=("Variable parameters specific for each project type")) 
 
     metadata_json = models.JSONField(verbose_name="metadata json", null=True, blank=True,
-        help_text=("Metadata for project"))
+        help_text=("Metadata to store information about functions and shoonya chains."))
     # maximum_annotators
     # total_annotations
     required_annotators_per_task = models.IntegerField(verbose_name="required_annotators_per_task", default=1,
