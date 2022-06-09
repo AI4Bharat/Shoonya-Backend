@@ -20,6 +20,8 @@ import pandas as pd
 from datetime import datetime
 from django.db.models import Q
 
+from utils.search import process_search_query
+
 try:
     from yaml import CLoader as Loader
 except ImportError:
@@ -218,6 +220,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 # TODO : Refactor code to reduce DB calls
                 queryset = Task.objects.filter(task_status=request.query_params["task_status"])
             
+            queryset = queryset.filter(**process_search_query(request.GET, "data", list(request.GET.get("data"))))
+            
             queryset = queryset.order_by("id")
 
             if "current_task_id" in dict(request.query_params):
@@ -409,6 +413,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(project_id=pk).order_by('id')
             elif request.user.role == User.ANNOTATOR:
                 tasks = Task.objects.filter(project_id=pk, annotation_users=request.user).order_by('id')
+            tasks = tasks.filter(**process_search_query(request.GET, "data", list(request.GET.get("data"))))
             serializer = TaskSerializer(tasks, many=True)
             ret_dict = serializer.data
             ret_status = status.HTTP_200_OK

@@ -13,79 +13,8 @@ from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSe
 
 from users.models import User
 
+from utils.search import process_search_query
 # Create your views here.
-
-
-def parse_for_data_types(string: str):
-    """
-    Convert variables to their appropriate type
-    """
-    try:  # Try to convert to a int
-        return int(string)
-    except Exception:
-        pass
-
-    try:  # Try to convert to a float
-        return float(string)
-    except Exception:
-        pass
-
-    if string.lower() in ["true", "false"]:
-        return bool(string)
-
-    return string  # If none work, return a string
-
-
-def extract_search_params(query_dict: dict) -> dict:
-    """
-    Extract the parameters from the request params that start with ```search_```
-    """
-    new_dict: dict = {}
-    for i in query_dict.items():
-        if "search_" in i[0]:
-            new_dict[i[0][7:]] = unquote(i[1])
-
-    return new_dict
-
-
-def process_search_query(query_dict: dict) -> dict:
-    """
-    Extract the query params into a queryset dictionary.
-    """
-    parsed_value: any = None
-    queryset_dict: dict = {}
-    terms_not_in_data: list = [
-        "id",
-        "task_status",
-        "metadata_json",
-        "project_id",
-        "input_data",
-        "output_data",
-        "correct_annotation",
-        "annotation_users",
-        "review_user",
-    ]
-
-    try:
-        for i, j in extract_search_params(query_dict).items():
-            parsed_value = parse_for_data_types(j)
-            print({i:j})
-            if i not in terms_not_in_data:
-                if type(parsed_value) == str:
-                    queryset_dict[f"data__{i}__icontains"] = parsed_value  # Unaccent doesn't work as intended.
-                else:
-                    queryset_dict[f"data__{i}"] = parsed_value
-            else:
-                if type(parsed_value) != str:
-                    queryset_dict[i] = parse_for_data_types(j)
-                else:
-                    queryset_dict[f"{i}__icontains"] = parsed_value  # Unaccent is not supported for CharField
-    except Exception as e:
-        print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
-
-    print(queryset_dict)
-    return queryset_dict
-
 
 class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     """
@@ -163,7 +92,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             queryset = Task.objects.all()
 
         # Handle search query (if any)
-        queryset = queryset.filter(**process_search_query(request.GET))
+        queryset = queryset.filter(**process_search_query(request.GET, "data", request.GET.get("data")))
 
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
