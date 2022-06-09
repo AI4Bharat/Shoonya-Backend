@@ -1,3 +1,4 @@
+import resource
 from tablib import Dataset
 from django.apps import apps
 from django.shortcuts import get_object_or_404
@@ -9,12 +10,12 @@ from rest_framework.views import APIView
 from django.http import StreamingHttpResponse
 
 from urllib.parse import parse_qsl
-from dataset import admin
 
 from filters import filter
 from .models import *
 from .serializers import *
 from .resources import RESOURCE_MAP
+from . import resources
 
 
 # Create your views here.
@@ -47,13 +48,13 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         """
         try:
             # Get the dataset instance for the id
-            dataset_instance = models.DatasetInstance.objects.get(instance_id=pk)
-        except models.DatasetInstance.DoesNotExist:
+            dataset_instance = DatasetInstance.objects.get(instance_id=pk)
+        except DatasetInstance.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST)
         
-        dataset_model = getattr(models, dataset_instance.dataset_type)
+        dataset_model = apps.get_model('dataset', dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
-        dataset_resource = getattr(admin, dataset_instance.dataset_type+"Resource")
+        dataset_resource = getattr(resources, dataset_instance.dataset_type+"Resource")
         exported_items = dataset_resource().export_as_generator(data_items)
         return StreamingHttpResponse(exported_items, status=status.HTTP_200_OK, content_type='text/csv')
     
