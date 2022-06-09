@@ -14,7 +14,9 @@ from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSe
 from users.models import User
 
 from utils.search import process_search_query
+
 # Create your views here.
+
 
 class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     """
@@ -92,7 +94,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             queryset = Task.objects.all()
 
         # Handle search query (if any)
-        queryset = queryset.filter(**process_search_query(request.GET, "data", list(queryset.first().data.keys())))
+        queryset = queryset.filter(
+            **process_search_query(
+                request.GET, "data", list(queryset.first().data.keys())
+            )
+        )
 
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
@@ -185,13 +191,13 @@ class AnnotationViewSet(
         task.release_lock(request.user)
         # project = Project.objects.get(pk=task.project_id.id)
         if task.project_id.required_annotators_per_task == task.annotations.count():
-        # if True:
+            # if True:
             task.task_status = request.data["task_status"]
             # TODO: Support accepting annotations manually
             if task.annotations.count() == 1:
                 task.correct_annotation = annotation
                 task.task_status = request.data["task_status"]
-                
+
         else:
             task.task_status = UNLABELED
         task.save()
@@ -216,7 +222,7 @@ class AnnotationViewSet(
             return Response(ret_dict, status=ret_status)
 
         if task.project_id.required_annotators_per_task == task.annotations.count():
-        # if True:
+            # if True:
             task.task_status = ACCEPTED
             # TODO: Support accepting annotations manually
             if task.annotations.count() == 1:
