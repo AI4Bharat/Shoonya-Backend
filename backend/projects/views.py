@@ -20,6 +20,8 @@ import pandas as pd
 from datetime import datetime
 from django.db.models import Q
 
+from utils.search import process_search_query
+
 try:
     from yaml import CLoader as Loader
 except ImportError:
@@ -102,6 +104,7 @@ def assign_users_to_tasks(tasks, users):
             # updated_tasks.append(task)
             task.save()
 
+
 class ProjectViewSet(viewsets.ModelViewSet):
     """
     Project ViewSet
@@ -125,13 +128,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # projects = self.queryset.filter(users=request.user)
 
             if request.user.role == User.ORGANIZAION_OWNER:
-                projects = self.queryset.filter(organization_id=request.user.organization)
+                projects = self.queryset.filter(
+                    organization_id=request.user.organization
+                )
             else:
                 projects = self.queryset.filter(users=request.user)
             projects_json = self.serializer_class(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
-            return Response({"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
     @action(detail=True, methods=["post"], url_name="remove")
     def remove_user(self, request, pk=None):
@@ -143,9 +150,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.save()
             return Response({"message": "User removed"}, status=status.HTTP_201_CREATED)
         except User.DoesNotExist:
-            return Response({"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
         except:
-            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"message": "Server Error occured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @action(detail=True, methods=["post"], url_path="next")
     def next(self, request, pk):
@@ -163,8 +175,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             else:
                 # TODO : Refactor code to reduce DB calls
-                queryset = Task.objects.filter(task_status=request.query_params["task_status"])
-            
+                queryset = Task.objects.filter(
+                    task_status=request.query_params["task_status"]
+                )
+
+            queryset = queryset.filter(
+                **process_search_query(
+                    request.GET, "data", list(queryset.first().data.keys())
+                )
+            )
+
             queryset = queryset.order_by("id")
 
             if "current_task_id" in dict(request.query_params):
@@ -180,7 +200,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "No more tasks available!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
-        
+
         else:
             # Check if there are unlabelled tasks
             if user_role == 1 and not request.user.is_superuser:
@@ -191,8 +211,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             else:
                 # TODO : Refactor code to reduce DB calls
-                unlabelled_tasks = Task.objects.filter(project_id__exact=project.id, task_status__exact=UNLABELED)
-            
+                unlabelled_tasks = Task.objects.filter(
+                    project_id__exact=project.id, task_status__exact=UNLABELED
+                )
+
             unlabelled_tasks = unlabelled_tasks.order_by("id")
 
             if "current_task_id" in dict(request.query_params):
@@ -221,13 +243,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_mode = request.data.get("project_mode")
 
         if project_mode == Collection:
-            
+
             # Create project object
             project_response = super().create(request, *args, **kwargs)
 
         else:
-            
-            # Collect the POST request parameters 
+
+            # Collect the POST request parameters
             dataset_instance_ids = request.data.get("dataset_id")
             if type(dataset_instance_ids) != list:
                 dataset_instance_ids = [dataset_instance_ids]
@@ -240,8 +262,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_response = super().create(request, *args, **kwargs)
             project_id = project_response.data["id"]
 
-            # Function call to create the paramters for the sampling and filtering of sentences 
-            create_parameters_for_task_creation.delay(project_type, dataset_instance_ids, filter_string, sampling_mode, sampling_parameters, variable_parameters, project_id)
+            # Function call to create the paramters for the sampling and filtering of sentences
+            create_parameters_for_task_creation.delay(
+                project_type,
+                dataset_instance_ids,
+                filter_string,
+                sampling_mode,
+                sampling_parameters,
+                variable_parameters,
+                project_id,
+            )
 
         # Return the project response
         return project_response
@@ -279,7 +309,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.save()
         return super().retrieve(request, *args, **kwargs)
 
-    @action(detail=True, methods=["GET"], name="Get Project Users", url_name="get_project_users")
+    @action(
+        detail=True,
+        methods=["GET"],
+        name="Get Project Users",
+        url_name="get_project_users",
+    )
     @project_is_archived
     def get_project_users(self, request, pk=None, *args, **kwargs):
         """
@@ -297,7 +332,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
-    @action(detail=True, methods=["GET"], name="Get Tasks of a Project", url_name="get_project_tasks")
+    @action(
+        detail=True,
+        methods=["GET"],
+        name="Get Tasks of a Project",
+        url_name="get_project_tasks",
+    )
     @project_is_archived
     def get_project_tasks(self, request, pk=None, *args, **kwargs):
         """
@@ -307,10 +347,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ret_status = 0
         try:
             # role check
-            if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
-                tasks = Task.objects.filter(project_id=pk).order_by('id')
+            if (
+                request.user.role == User.ORGANIZAION_OWNER
+                or request.user.role == User.WORKSPACE_MANAGER
+                or request.user.is_superuser
+            ):
+                tasks = Task.objects.filter(project_id=pk).order_by("id")
             elif request.user.role == User.ANNOTATOR:
-                tasks = Task.objects.filter(project_id=pk, annotation_users=request.user).order_by('id')
+                tasks = Task.objects.filter(
+                    project_id=pk, annotation_users=request.user
+                ).order_by("id")
+            tasks = tasks.filter(
+                **process_search_query(
+                    request.GET, "data", list(tasks.first().data.keys())
+                )
+            )
             serializer = TaskSerializer(tasks, many=True)
             ret_dict = serializer.data
             ret_status = status.HTTP_200_OK
@@ -319,9 +370,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
-
-
-    @action(detail=True, methods=["POST"], name="Get Completed Tasks of a Project", url_name="get_analytics")
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get Completed Tasks of a Project",
+        url_name="get_analytics",
+    )
     @project_is_archived
     def get_analytics(self, request, pk=None, *args, **kwargs):
         """
@@ -329,76 +383,109 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         ret_dict = {}
         ret_status = 0
-        count=0
-        from_date = request.data.get('from_date')
-        to_date = request.data.get('to_date')
-        from_date = from_date + ' 00:00'
-        to_date = to_date + ' 23:59'
-         # from_date= '2022-05-23' 
-        # to_date = '2022-05-28' 
-        start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
-        end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+        count = 0
+        from_date = request.data.get("from_date")
+        to_date = request.data.get("to_date")
+        from_date = from_date + " 00:00"
+        to_date = to_date + " 23:59"
+        # from_date= '2022-05-23'
+        # to_date = '2022-05-28'
+        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
+        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
         try:
             # role check
-            if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
+            if (
+                request.user.role == User.ORGANIZAION_OWNER
+                or request.user.role == User.WORKSPACE_MANAGER
+                or request.user.is_superuser
+            ):
                 project_details = Project.objects.filter(id=pk)
-                project_users = project_details.values('users')
+                project_users = project_details.values("users")
                 final_result = []
                 for each_user in project_users:
-                    userid = each_user['users']
-                    this_project_task_id = Task.objects.filter(project_id=pk).order_by('id')
+                    userid = each_user["users"]
+                    this_project_task_id = Task.objects.filter(project_id=pk).order_by(
+                        "id"
+                    )
                     all_ids_related_to_project = this_project_task_id.values("id")
-                    annoted_tasks = Annotation_model.objects.filter(Q(completed_by = userid) & Q(created_at__range = [start_date, end_date])).order_by('id')
-                    annoted_tasks_ids = annoted_tasks.values('task_id')
+                    annoted_tasks = Annotation_model.objects.filter(
+                        Q(completed_by=userid)
+                        & Q(created_at__range=[start_date, end_date])
+                    ).order_by("id")
+                    annoted_tasks_ids = annoted_tasks.values("task_id")
                     project_related_ids = []
                     all_task_ids = []
                     for i in all_ids_related_to_project:
-                        project_related_ids.append(i['id'])
+                        project_related_ids.append(i["id"])
                     for j in annoted_tasks_ids:
-                        all_task_ids.append(j['task_id'])
+                        all_task_ids.append(j["task_id"])
 
                     set1 = set(project_related_ids)
                     set2 = set(all_task_ids)
                     count = len(set1.intersection(set2))
                     if count == 0:
                         avg_leadtime = 0
-                    else :
-                        project_user_tasks_ids =  list(set1.intersection(set2))
+                    else:
+                        project_user_tasks_ids = list(set1.intersection(set2))
                         lead_time = 0
                         for each_id in project_user_tasks_ids:
-                            annot_object1 = Annotation_model.objects.get(task_id=each_id)
+                            annot_object1 = Annotation_model.objects.get(
+                                task_id=each_id
+                            )
                             lead_time += annot_object1.lead_time
-                        avg_leadtime = lead_time / count 
+                        avg_leadtime = lead_time / count
                     user_details = User.objects.get(id=userid)
                     each_usermail = user_details.email
                     user_name = user_details.username
                     user_id = user_details.id
 
-                    all_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(annotation_users = user_id) ).order_by('id')
+                    all_tasks_in_project = Task.objects.filter(
+                        Q(project_id=pk) & Q(annotation_users=user_id)
+                    ).order_by("id")
                     total_tasks = len(all_tasks_in_project.values())
 
-                    all_skipped_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "skipped") & Q(annotation_users = user_id)).order_by('id')
+                    all_skipped_tasks_in_project = Task.objects.filter(
+                        Q(project_id=pk)
+                        & Q(task_status="skipped")
+                        & Q(annotation_users=user_id)
+                    ).order_by("id")
                     total_skipped_tasks = len(all_skipped_tasks_in_project.values())
 
-                    all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id)).order_by('id')
+                    all_pending_tasks_in_project = Task.objects.filter(
+                        Q(project_id=pk)
+                        & Q(task_status="unlabeled")
+                        & Q(annotation_users=user_id)
+                    ).order_by("id")
                     total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
-                    #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                    final_result.append({"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time" : avg_leadtime , "total_assigned_tasks" : total_tasks,"skipped_tasks" : total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks})
+                    # pending_tasks = total_tasks -( count + total_skipped_tasks )
+                    final_result.append(
+                        {
+                            "username": user_name,
+                            "mail": each_usermail,
+                            "total_annoted_tasks": count,
+                            "avg_lead_time": avg_leadtime,
+                            "total_assigned_tasks": total_tasks,
+                            "skipped_tasks": total_skipped_tasks,
+                            "total_pending_tasks": total_unlabeled_tasks,
+                        }
+                    )
                 ret_status = status.HTTP_200_OK
 
             elif request.user.role == User.ANNOTATOR:
-                user_details = User.objects.get(email = request.user.email)
+                user_details = User.objects.get(email=request.user.email)
                 userid = user_details.id
-                this_project_task_id = Task.objects.filter(project_id = pk).order_by('id')
+                this_project_task_id = Task.objects.filter(project_id=pk).order_by("id")
                 all_ids_related_to_project = this_project_task_id.values("id")
-                annoted_tasks = Annotation_model.objects.filter(Q(completed_by = userid) & Q(created_at__range = [start_date, end_date])).order_by('id')
-                annoted_tasks_ids = annoted_tasks.values('task_id')
+                annoted_tasks = Annotation_model.objects.filter(
+                    Q(completed_by=userid) & Q(created_at__range=[start_date, end_date])
+                ).order_by("id")
+                annoted_tasks_ids = annoted_tasks.values("task_id")
                 project_related_ids = []
                 all_task_ids = []
                 for i in all_ids_related_to_project:
-                    project_related_ids.append(i['id'])
+                    project_related_ids.append(i["id"])
                 for j in annoted_tasks_ids:
-                    all_task_ids.append(j['task_id'])
+                    all_task_ids.append(j["task_id"])
 
                 set1 = set(project_related_ids)
                 set2 = set(all_task_ids)
@@ -406,37 +493,61 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 if count == 0:
                     avg_leadtime = 0
-                else :
-                    project_user_tasks_ids =  list(set1.intersection(set2))
+                else:
+                    project_user_tasks_ids = list(set1.intersection(set2))
                     lead_time = 0
                     for each_id in project_user_tasks_ids:
                         annot_object1 = Annotation_model.objects.get(task_id=each_id)
                         lead_time += annot_object1.lead_time
-                    avg_leadtime = lead_time / count 
+                    avg_leadtime = lead_time / count
 
                 user_name = user_details.username
                 each_usermail = user_details.email
                 user_id = user_details.id
 
-                all_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(annotation_users = user_id) ).order_by('id')
+                all_tasks_in_project = Task.objects.filter(
+                    Q(project_id=pk) & Q(annotation_users=user_id)
+                ).order_by("id")
                 total_tasks = len(all_tasks_in_project.values())
 
-                all_skipped_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "skipped") & Q(annotation_users = user_id)).order_by('id')
+                all_skipped_tasks_in_project = Task.objects.filter(
+                    Q(project_id=pk)
+                    & Q(task_status="skipped")
+                    & Q(annotation_users=user_id)
+                ).order_by("id")
                 total_skipped_tasks = len(all_skipped_tasks_in_project.values())
 
-                all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id) ).order_by('id')
+                all_pending_tasks_in_project = Task.objects.filter(
+                    Q(project_id=pk)
+                    & Q(task_status="unlabeled")
+                    & Q(annotation_users=user_id)
+                ).order_by("id")
                 total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
 
-
-                #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                final_result = [{"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time":avg_leadtime , "total_assigned_tasks" : total_tasks , "skipped_tasks":total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks}]
+                # pending_tasks = total_tasks -( count + total_skipped_tasks )
+                final_result = [
+                    {
+                        "username": user_name,
+                        "mail": each_usermail,
+                        "total_annoted_tasks": count,
+                        "avg_lead_time": avg_leadtime,
+                        "total_assigned_tasks": total_tasks,
+                        "skipped_tasks": total_skipped_tasks,
+                        "total_pending_tasks": total_unlabeled_tasks,
+                    }
+                ]
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             final_result = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
-        return Response(final_result , status = ret_status)
+        return Response(final_result, status=ret_status)
 
-    @action(detail=True, methods=["POST"], name="Add Project Users", url_name="add_project_users")
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Add Project Users",
+        url_name="add_project_users",
+    )
     @project_is_archived
     @is_particular_workspace_manager
     def add_project_users(self, request, pk=None, *args, **kwargs):
@@ -469,7 +580,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_dict = {"message": "Users added!"}
                 ret_status = status.HTTP_201_CREATED
             else:
-                ret_dict = {"message": f"Users partially added! Invalid emails: {','.join(invalid_emails)}"}
+                ret_dict = {
+                    "message": f"Users partially added! Invalid emails: {','.join(invalid_emails)}"
+                }
                 ret_status = status.HTTP_201_CREATED
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
@@ -487,10 +600,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         # project_registry = ProjectRegistry()
         try:
-            return Response(ProjectRegistry.get_instance().data, status=status.HTTP_200_OK)
+            return Response(
+                ProjectRegistry.get_instance().data, status=status.HTTP_200_OK
+            )
         except Exception:
             print(Exception.args)
-            return Response({"message": "Error Occured"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "Error Occured"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
     def get_task_queryset(self, queryset):
         return queryset
@@ -510,14 +627,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 project_type = project.project_type
                 registry_helper = ProjectRegistry.get_instance()
-                input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
-                dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
+                input_dataset_info = registry_helper.get_input_dataset_and_fields(
+                    project_type
+                )
+                dataset_model = getattr(
+                    dataset_models, input_dataset_info["dataset_type"]
+                )
                 tasks = Task.objects.filter(project_id__exact=project)
-                all_items = dataset_model.objects.filter(instance_id__in=list(project.dataset_id.all()))
+                all_items = dataset_model.objects.filter(
+                    instance_id__in=list(project.dataset_id.all())
+                )
                 items = all_items.exclude(id__in=tasks.values("input_data"))
                 # Get the input dataset fields from the filtered items
                 if input_dataset_info["prediction"] is not None:
-                    items = list(items.values("id", *input_dataset_info["fields"], input_dataset_info["prediction"]))
+                    items = list(
+                        items.values(
+                            "id",
+                            *input_dataset_info["fields"],
+                            input_dataset_info["prediction"],
+                        )
+                    )
                 else:
                     items = list(items.values("id", *input_dataset_info["fields"]))
 
@@ -535,7 +664,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
     @project_is_archived
@@ -556,11 +684,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_dict = {"message": "No tasks in project!"}
                 ret_status = status.HTTP_200_OK
                 return Response(ret_dict, status=ret_status)
-            
+
             tasks_list = []
             for task in tasks:
                 task_dict = model_to_dict(task)
-                if export_type != 'JSON':
+                if export_type != "JSON":
                     task_dict["data"]["task_status"] = task.task_status
                 # Rename keys to match label studio converter
                 # task_dict['id'] = task_dict['task_id']
@@ -573,20 +701,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     # annotation_dict['result'] = annotation_dict['result_json']
                     # del annotation_dict['result_json']
                     # print(annotation_dict)
-                    annotation_dict["created_at"] = str(task.correct_annotation.created_at)
-                    annotation_dict["updated_at"] = str(task.correct_annotation.updated_at)
+                    annotation_dict["created_at"] = str(
+                        task.correct_annotation.created_at
+                    )
+                    annotation_dict["updated_at"] = str(
+                        task.correct_annotation.updated_at
+                    )
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
-                    task_dict["annotations"] = [OrderedDict({'result':{}})]
+                    task_dict["annotations"] = [OrderedDict({"result": {}})]
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
                 tasks_list.append(OrderedDict(task_dict))
             download_resources = True
-            export_stream, content_type, filename = DataExport.generate_export_file(project, tasks_list, export_type, download_resources, request.GET)
+            export_stream, content_type, filename = DataExport.generate_export_file(
+                project, tasks_list, export_type, download_resources, request.GET
+            )
 
             response = HttpResponse(File(export_stream), content_type=content_type)
-            response['Content-Disposition'] = 'attachment; filename="%s"' % filename
-            response['filename'] = filename
+            response["Content-Disposition"] = 'attachment; filename="%s"' % filename
+            response["filename"] = filename
             return response
 
         except Project.DoesNotExist:
@@ -596,7 +730,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-            
+
     @action(detail=True, methods=["POST", "GET"], name="Export Project")
     @project_is_archived
     @is_organization_owner_or_workspace_manager
@@ -609,7 +743,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_type = dict(PROJECT_TYPE_CHOICES)[project.project_type]
             # Read registry to get output dataset model, and output fields
             registry_helper = ProjectRegistry.get_instance()
-            output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
+            output_dataset_info = registry_helper.get_output_dataset_and_fields(
+                project_type
+            )
 
             dataset_model = getattr(dataset_models, output_dataset_info["dataset_type"])
 
@@ -617,12 +753,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
                 data_items = []
-                tasks = Task.objects.filter(project_id__exact=project, task_status__exact=ACCEPTED)
+                tasks = Task.objects.filter(
+                    project_id__exact=project, task_status__exact=ACCEPTED
+                )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
-
 
                 tasks_list = []
                 annotated_tasks = []
@@ -641,10 +778,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     del task_dict["review_user"]
                     tasks_list.append(OrderedDict(task_dict))
                 download_resources = True
-                tasks_df = DataExport.export_csv_file(project, tasks_list, download_resources, request.GET)
+                tasks_df = DataExport.export_csv_file(
+                    project, tasks_list, download_resources, request.GET
+                )
                 tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
 
-                for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
+                for (ta, tl, task) in zip(
+                    tasks_annotations, tasks_list, annotated_tasks
+                ):
 
                     task.output_data = task.input_data
                     task.save()
@@ -666,12 +807,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotation_fields = output_dataset_info["fields"]["annotations"]
                 task_annotation_fields = []
                 if "variable_parameters" in output_dataset_info["fields"]:
-                    task_annotation_fields += output_dataset_info["fields"]["variable_parameters"]
+                    task_annotation_fields += output_dataset_info["fields"][
+                        "variable_parameters"
+                    ]
                 if "copy_from_input" in output_dataset_info["fields"]:
-                    task_annotation_fields += list(output_dataset_info["fields"]["copy_from_input"].values())
+                    task_annotation_fields += list(
+                        output_dataset_info["fields"]["copy_from_input"].values()
+                    )
 
                 data_items = []
-                tasks = Task.objects.filter(project_id__exact=project, task_status__exact=ACCEPTED)
+                tasks = Task.objects.filter(
+                    project_id__exact=project, task_status__exact=ACCEPTED
+                )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
@@ -701,7 +848,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if project.project_mode == Collection:
                     for (tl, task) in zip(tasks_list, annotated_tasks):
                         if task.output_data is not None:
-                            data_item = dataset_model.objects.get(id__exact=task.output_data.id)
+                            data_item = dataset_model.objects.get(
+                                id__exact=task.output_data.id
+                            )
                         else:
                             data_item = dataset_model()
                             data_item.instance_id = export_dataset_instance
@@ -721,13 +870,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     # export_stream, content_type, filename = DataExport.generate_export_file(
                     #     project, tasks_list, 'CSV', download_resources, request.GET
                     # )
-                    tasks_df = DataExport.export_csv_file(project, tasks_list, download_resources, request.GET)
+                    tasks_df = DataExport.export_csv_file(
+                        project, tasks_list, download_resources, request.GET
+                    )
                     tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
 
                     for (ta, task) in zip(tasks_annotations, annotated_tasks):
                         # data_item = dataset_model.objects.get(id__exact=task.id.id)
                         if task.output_data is not None:
-                            data_item = dataset_model.objects.get(id__exact=task.output_data.id)
+                            data_item = dataset_model.objects.get(
+                                id__exact=task.output_data.id
+                            )
                         else:
                             data_item = dataset_model()
                             data_item.instance_id = export_dataset_instance
@@ -780,7 +933,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             users = serializer.data["users"]
 
             if len(users) < project.required_annotators_per_task:
-                ret_dict = {"message": "Number of annotators is less than required annotators per task"}
+                ret_dict = {
+                    "message": "Number of annotators is less than required annotators per task"
+                }
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
 
@@ -812,4 +967,3 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-
