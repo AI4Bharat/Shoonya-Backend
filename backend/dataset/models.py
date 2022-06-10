@@ -1,11 +1,11 @@
 """
 Model definitions for Dataset Management
 """
-
 from django.db import models
 from users.models import User, LANG_CHOICES
 from organizations.models import Organization
 from workspaces.models import Workspace
+
 
 # List of all dataset types
 DATASET_TYPE_CHOICES = [
@@ -15,7 +15,6 @@ DATASET_TYPE_CHOICES = [
     ("BlockText","BlockText")
 ]
 
-
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
 
 OCR_FILE_CHOICES = (('PDF', "pdf"), (('IMG', 'image')))
@@ -24,7 +23,7 @@ OCR_DOMAIN_CHOICES = (
     ("BO", "Books"),
     ("FO", "Forms"),
     ("OT", "Others"),
-) 
+)
 
 QUALITY_CHOICES = (('Unchecked', 'Unchecked'), ('Clean', 'Clean'), ('Profane', 'Profane'), ('Corrupt', 'Corrupt'))
 
@@ -38,7 +37,7 @@ class DatasetInstance(models.Model):
     )
 
     parent_instance_id = models.IntegerField(
-        verbose_name="parent_instance_id", blank=True, null=True, 
+        verbose_name="parent_instance_id", blank=True, null=True,
         help_text=("The instance id of the source dataset")
     )
     instance_name = models.CharField(
@@ -118,14 +117,14 @@ class TranslationPair(DatasetBase):
         verbose_name="output_language", choices=LANG_CHOICES, max_length=15
     )
     input_text = models.TextField(verbose_name="input_text", help_text=("The text to be translated"))
-    output_text = models.TextField(verbose_name="output_text", null=True, blank=True, 
+    output_text = models.TextField(verbose_name="output_text", null=True, blank=True,
         help_text=("The translation of the sentence"))
     machine_translation = models.TextField(
         verbose_name="machine_translation", null=True, blank=True,
         help_text=("Machine translation of the sentence")
     )
     context = models.TextField(
-        verbose_name="context", null=True, blank=True, 
+        verbose_name="context", null=True, blank=True,
         help_text=("Context of the sentence to be translated")
     )
     labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True,
@@ -192,17 +191,17 @@ class BlockText(DatasetBase):
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
-    text = models.TextField(verbose_name="text", 
+    text = models.TextField(verbose_name="text",
         help_text=("A block of text having many sentences"))
     splitted_text_prediction = models.JSONField(
-        verbose_name="splitted_text_prediction", null=True, blank=True, 
+        verbose_name="splitted_text_prediction", null=True, blank=True,
         help_text=("Prediction showing the block text split into sentences")
     )
-    splitted_text = models.TextField(verbose_name="splitted_text", null=True, blank=True, 
+    splitted_text = models.TextField(verbose_name="splitted_text", null=True, blank=True,
         help_text=("Sentences Split from the Block Text"))
     domain = models.CharField(verbose_name="domain", max_length=1024,
         help_text=("Domain of the block text"))
-   
+
     def __str__(self):
         return str(self.id)
 
