@@ -754,8 +754,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # If save_type is 'in_place'
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
-                print("THIS IS DATA TYPE", type(annotation_fields), type(request.GET))
-                print(dict(request.GET))
+                
                 data_items = []
                 tasks = Task.objects.filter(
                     project_id__exact=project, task_status__exact=ACCEPTED
