@@ -1071,7 +1071,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # FIXME: Allow export multiple times
             # project.is_archived=True
             # project.save()
-            ret_dict = {"message": "Success"}
+            ret_dict = {"message": "SUCCESS!"}
             ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
