@@ -352,8 +352,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if start_date > end_date:
             return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
-        print("start-date: ", start_date)
-        
         try:
             # role check
             if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
@@ -396,10 +394,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     all_skipped_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "skipped") & Q(annotation_users = user_id)).order_by('id')
                     total_skipped_tasks = len(all_skipped_tasks_in_project.values())
 
-                    all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id)).order_by('id')
+                    all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled")  & Q(task_status = "draft") & Q(annotation_users = user_id) ).order_by('id')
+                    
                     total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
+
+                    all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
+                    total_draft_tasks = len(all_draft_tasks_in_project.values())
+                    
                     #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                    final_result.append({"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time" : avg_leadtime , "total_assigned_tasks" : total_tasks,"skipped_tasks" : total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks})
+                    final_result.append({"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time" : avg_leadtime , "total_assigned_tasks" : total_tasks,"skipped_tasks" : total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks, "total_draft_tasks": total_draft_tasks})
                 ret_status = status.HTTP_200_OK
 
             elif request.user.role == User.ANNOTATOR:
@@ -440,12 +443,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 all_skipped_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "skipped") & Q(annotation_users = user_id)).order_by('id')
                 total_skipped_tasks = len(all_skipped_tasks_in_project.values())
 
-                all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id) ).order_by('id')
-                total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
+                all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled")  & Q(task_status = "draft") & Q(annotation_users = user_id) ).order_by('id')
 
+                all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
+                total_draft_tasks = len(all_draft_tasks_in_project.values())
 
                 #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                final_result = [{"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time":avg_leadtime , "total_assigned_tasks" : total_tasks , "skipped_tasks":total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks}]
+                final_result = [{"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time":avg_leadtime , "total_assigned_tasks" : total_tasks , "skipped_tasks":total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks, "total_draft_tasks": total_draft_tasks}]
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             final_result = {"message": "Project does not exist!"}
