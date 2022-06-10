@@ -362,7 +362,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     userid = each_user['users']
                     this_project_task_id = Task.objects.filter(project_id=pk).order_by('id')
                     all_ids_related_to_project = this_project_task_id.values("id")
-                    annoted_tasks = Annotation_model.objects.filter(Q(completed_by = userid) & Q(created_at__range = [start_date, end_date])).order_by('id')
+                    annoted_tasks = Annotation_model.objects.filter(Q(completed_by = userid)& Q(created_at__range = [start_date, end_date]) & Q(task__task_status="accepted")).order_by('id')
                     annoted_tasks_ids = annoted_tasks.values('task_id')
                     project_related_ids = []
                     all_task_ids = []
