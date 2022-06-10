@@ -13,7 +13,6 @@ from projects.models import Project
 from users.models import User
 from users.serializers import UserProfileSerializer
 from tasks.models import Task
-from organizations.models import Organization
 
 from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
@@ -190,62 +189,56 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
 
 
-    @action(detail=True, methods=["GET"], name="Workspace Details", url_path="analytics", url_name="analytics")
+    @action(detail=True, methods=["GET"], name="Workspace Details", url_path="get_workspace_analytics", url_name="get_workspace_analytics")
     @is_workspace_member
-    def analytics(self, request, pk=None):
+    def get_workspace_analytics(self, request, pk=None):
         """
         API for getting analytics of a workspace
         """
         try:
-            ws = Workspace.objects.get(pk=pk)
+            workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         ret_status = 0
-        try:
-            ws_owner = ws.created_by.get_username()
-        except :
-            ws_owner = ""
-        try : 
-            org_id =  ws.organization.id
-            org_obj= Organization.objects.get(id=org_id)
-            org_owner = org_obj.created_by.get_username()
-        except :
-            org_owner = ""
-
         if(((request.user.role) == (User.ORGANIZAION_OWNER)) or ((request.user.role)==(User.WORKSPACE_MANAGER))):
             projects_objs = Project.objects.filter(workspace_id=pk)
-        else :
-            projects_objs = Project.objects.filter(workspace_id=pk , users = request.user.id )
-        final_result=[]
-        if projects_objs.count() !=0:
-            for proj in projects_objs:
-                owners = [org_owner , ws_owner ]
-                project_id = proj.id
-                project_name = proj.title
-                project_type = proj.project_type
-                all_tasks = Task.objects.filter(project_id = proj.id)
-                total_tasks = all_tasks.count()
-                #annotators_id_list = [annotator_id['annotation_users']  for annotator_id in list(all_tasks.values('annotation_users'))]
-                #no_of_annotators_assigned = len(set(annotators_id_list))
-                annotators_list = [ user_.get_username()  for user_ in   proj.users.all()]
-                try :
-                    proj_owner =  proj.created_by.get_username()
-                    owners.append(proj_owner)
-                except :
-                    pass
-                no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
-                un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
-                labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'accepted').count()
-                skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
-                if total_tasks == 0:
-                    project_progress = 0.0
-                else :
+            final_result=[]
+            if projects_objs.count() !=0:
+                for proj in projects_objs:
+                    project_id = proj.id
+                    project_name = proj.title
+                    project_type = proj.project_type
+                    all_tasks = Task.objects.filter(project_id = proj.id)
+                    total_tasks = all_tasks.count()
+                    annotators_id_list = [annotator_id['annotation_users']  for annotator_id in list(all_tasks.values('annotation_users'))]
+                    no_of_annotators_assigned = len(set(annotators_id_list))
+                    un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
+                    labeled_count = total_tasks - un_labeled_count
                     project_progress = (labeled_count / total_tasks) * 100
-                result = {"project_id":project_id,"project_name":project_name , "project_type" : project_type ,"no_of_tasks" : total_tasks , "no_of_annotators_assigned" : no_of_annotators_assigned,"no_of_labeled_tasks" : labeled_count , "no_of_unlabeled_tasks" : un_labeled_count ,"no_of_skipped_tasks": skipped_count, "project_progress" : project_progress}
-                final_result.append(result)
-        ret_status = status.HTTP_200_OK
-        return Response(final_result , status = ret_status )
+                    result = {"project_id":project_id,"project_name":project_name , "project_type" : project_type ,"no_of_tasks" : total_tasks , "no_of_annotators_assigned" : no_of_annotators_assigned,"no_of_labeled_tasks" : labeled_count , "no_of_unlabeled_tasks" : un_labeled_count , "project_progress" : project_progress}
+                    final_result.append(result)
+            ret_status = status.HTTP_200_OK
+            return Response(final_result , status = ret_status )
 
+        else : 
+            projects_objs = Project.objects.filter(workspace_id=pk , users = request.user.id )
+            final_result=[]
+            if projects_objs.count() !=0:
+                for proj in projects_objs:
+                    project_id = proj.id
+                    project_name = proj.title
+                    project_type = proj.project_type
+                    all_tasks = Task.objects.filter(project_id = proj.id)
+                    total_tasks = all_tasks.count()
+                    annotators_id_list = [annotator_id['annotation_users']  for annotator_id in list(all_tasks.values('annotation_users'))]
+                    no_of_annotators_assigned = len(set(annotators_id_list))
+                    un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
+                    labeled_count = total_tasks - un_labeled_count
+                    project_progress = (labeled_count / total_tasks) * 100
+                    result = {"project_id":project_id,"project_name":project_name , "project_type" : project_type ,"no_of_tasks" : total_tasks , "no_of_annotators_assigned" : no_of_annotators_assigned,"no_of_labeled_tasks" : labeled_count , "no_of_unlabeled_tasks" : un_labeled_count , "project_progress" : project_progress}
+                    final_result.append(result)
+            ret_status = status.HTTP_200_OK
+            return Response(final_result , status = ret_status )
 
 
 
