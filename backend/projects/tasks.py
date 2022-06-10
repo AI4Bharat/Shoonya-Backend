@@ -185,7 +185,6 @@ def export_project_in_place(
         get_request_data (dict): Dictionary of the GET request data
     """
 
-    print("ENTER FUNCTION 1")
     # Read registry to get output dataset model, and output fields
     registry_helper = ProjectRegistry.get_instance()
     output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
@@ -230,7 +229,6 @@ def export_project_in_place(
             setattr(data_item, field, ta[field])
         data_items.append(data_item)
 
-    print("Reached here also")
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
@@ -254,8 +252,6 @@ def export_project_new_record(
         task_annotation_fields (list): List of annotated task
         get_request_data (dict): Dictionary of the GET request data
     """
-
-    print("Enter function 2")
 
     # Read registry to get output dataset model, and output fields
     registry_helper = ProjectRegistry.get_instance()
