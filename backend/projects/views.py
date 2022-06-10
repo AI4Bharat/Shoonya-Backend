@@ -19,6 +19,7 @@ from django.core.files import File
 import pandas as pd
 from datetime import datetime
 from django.db.models import Q
+from django.db.models import Count
 
 from utils.search import process_search_query
 
@@ -369,6 +370,44 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
+    @action(detail=True, methods=["POST"], name="Assign new tasks to user", url_name="assign_new_tasks")
+    @project_is_published
+    def assign_new_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of unassigned tasks for this project
+        and assign to the user
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+        serializer = ProjectUsersSerializer(project, many=False)
+        users = serializer.data["users"]
+        user_objs = []
+        for user in users:
+            user_obj = User.objects.get(pk=user["id"])
+            user_objs.append(user_obj)
+        # verify if user belongs in project users
+        if not cur_user in user_objs:
+            return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
+
+        # check if user has pending tasks
+        assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
+        assigned_tasks = assigned_tasks_queryset.count()
+        completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
+        pending_tasks = assigned_tasks - completed_tasks
+        if pending_tasks > project.max_pending_tasks_per_user:
+            return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
+
+        # check if the project contains eligible tasks to pull
+        tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
+        tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
+        if not tasks:
+            return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
+
+        #assign via background task in celery
+        assign_project_tasks.delay(pk, request.user.id, project.tasks_pull_count_per_batch)
+
+        return Response({"message": "your request for tasks is queued, please refresh"}, status=status.HTTP_200_OK)
 
     @action(
         detail=True,

@@ -25,18 +25,29 @@ services:
     ports:
       - 6379:6379
 
-  celery:
-    container_name: celery
+  celery_worker_long_running_tasks:
+    container_name: celery_worker_long_running_tasks
     restart: always
     build: ./backend
-    command: celery -A shoonya_backend.celery worker --concurrency=2 --loglevel=info 
+    command: celery -A shoonya_backend.celery worker --concurrency=2 --loglevel=info -Q celery
     volumes:
       - ./backend/:/usr/src/backend/
     depends_on:
       - db
       - redis
-      - web 
+      - web
 
+  celery_worker_quick_tasks:
+    container_name: celery_worker_quick_tasks
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker --concurrency=1 --loglevel=info -Q quick_tasks
+    volumes:
+      - ./backend/:/usr/src/backend/
+    depends_on:
+      - db
+      - redis
+      - web
 
 volumes:
   postgres_data:

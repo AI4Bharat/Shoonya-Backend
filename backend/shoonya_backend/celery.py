@@ -14,6 +14,7 @@ celery_app = Celery(
     task_serializer="json",
 )
 
+celery_app.conf.task_routes = {'projects.tasks.assign_project_tasks': {'queue': 'quick_tasks'}}
 celery_app.config_from_object("django.conf:settings", namespace="CELERY")
 celery_app.autodiscover_tasks()
 

@@ -12,6 +12,7 @@ from .registry_helper import ProjectRegistry
 from .models import *
 from filters import filter
 from utils.monolingual.sentence_splitter import split_sentences
+from django.db.models import Count
 
 ## Utility functions for the tasks
 def create_tasks_from_dataitems(items, project):
@@ -165,3 +166,18 @@ def create_parameters_for_task_creation(
 
     # Create Tasks from Parameters
     create_tasks_from_dataitems(sampled_items, project)
+
+@shared_task
+def assign_project_tasks(project_id, user_id, task_count):
+    project = Project.objects.get(pk=project_id)
+
+    # get all unlabeled tasks for this project along with count for annotators assigned to each task
+    tasks_query = Task.objects.filter(project_id=project_id).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
+
+    # filter out tasks which meet the annotator count threshold
+    # and assign the ones with least count to user, so as to maintain uniformity
+    tasks_query = tasks_query.filter(annotator_count__lt=project.required_annotators_per_task).order_by('annotator_count')[:task_count]
+    user_obj = User.objects.get(pk=user_id)
+    for task in tasks_query:
+        task.annotation_users.add(user_obj)
+        task.save()
