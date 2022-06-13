@@ -3,6 +3,7 @@ Module to store Import-Export resource classes
 '''
 from import_export.resources import ModelResource
 from .models import *
+from .mixins import ResourceMixin
 
 
 class DatasetInstanceResource(ModelResource):
@@ -13,7 +14,7 @@ class DatasetInstanceResource(ModelResource):
         import_id_fields = ('id',)
         model = DatasetInstance
 
-class TranslationPairResource(ModelResource):
+class TranslationPairResource(ModelResource, ResourceMixin):
     '''
     Import/Export Resource for TranslationPair
     '''
@@ -23,7 +24,7 @@ class TranslationPairResource(ModelResource):
         model = TranslationPair
         clean_model_instances = True
 
-class SentenceTextResource(ModelResource):
+class SentenceTextResource(ModelResource, ResourceMixin):
     '''
     Import/Export Resource for SentenceText
     '''
@@ -33,7 +34,7 @@ class SentenceTextResource(ModelResource):
         model = SentenceText
         clean_model_instances = True
 
-class OCRResource(ModelResource):
+class OCRResource(ModelResource, ResourceMixin):
     '''
     Import/Export Resource for OCRDocument
     '''
@@ -43,7 +44,7 @@ class OCRResource(ModelResource):
         model = OCRDocument
         clean_model_instances = True
 
-class BlockTextResource(ModelResource):
+class BlockTextResource(ModelResource, ResourceMixin):
     '''
     Import/Export Resource for BlockText
     '''
