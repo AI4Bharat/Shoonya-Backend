@@ -240,7 +240,17 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     project_progress = 0.0
                 else :
                     project_progress = (labeled_count / total_tasks) * 100
-                result = {"project_id":project_id,"project_name":project_name , "project_type" : project_type ,"no_of_tasks" : total_tasks , "no_of_annotators_assigned" : no_of_annotators_assigned,"no_of_labeled_tasks" : labeled_count , "no_of_unlabeled_tasks" : un_labeled_count ,"no_of_skipped_tasks": skipped_count, "project_progress" : project_progress}
+                result = {
+                    "Project Id" : project_id,
+                    "Project Name" : project_name,
+                    "Project Type" : project_type,
+                    "Total No.Of Tasks" : total_tasks,
+                    "Total No.Of Annotators Assigned" : no_of_annotators_assigned,
+                    "Total No.Of Labeled Tasks" : labeled_count,
+                    "Total No.Of Unlabeled Tasks" : un_labeled_count,
+                    "Total No.Of Skipped Tasks": skipped_count,
+                    "Project Progress" : project_progress
+                    }
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
         return Response(final_result , status = ret_status )
