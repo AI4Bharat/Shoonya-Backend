@@ -467,9 +467,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                     all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
                     total_draft_tasks = len(all_draft_tasks_in_project.values())
-                    
                     #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                    final_result.append({"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time" : avg_leadtime , "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Pending Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks})
+                    final_result.append({"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time" : round(avg_leadtime, 2), "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Pending Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks})
                 ret_status = status.HTTP_200_OK
 
             elif request.user.role == User.ANNOTATOR:
@@ -525,7 +524,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 total_draft_tasks = len(all_draft_tasks_in_project.values())
 
                 #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                final_result = [{"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time":avg_leadtime , "Assigned Tasks" : total_tasks , "Skipped Tasks":total_skipped_tasks , "Pending Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks}]
+                final_result = [{"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time": round(avg_leadtime, 2) , "Assigned Tasks" : total_tasks , "Skipped Tasks":total_skipped_tasks , "Pending Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks}]
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             final_result = {"message": "Project does not exist!"}
