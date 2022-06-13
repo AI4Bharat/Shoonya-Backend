@@ -470,7 +470,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     total_draft_tasks = len(all_draft_tasks_in_project.values())
                     
                     #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                    final_result.append({"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time" : avg_leadtime , "total_assigned_tasks" : total_tasks,"skipped_tasks" : total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks, "total_draft_tasks": total_draft_tasks})
+                    final_result.append({"Name":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time" : avg_leadtime , "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Pending Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks})
                 ret_status = status.HTTP_200_OK
 
             elif request.user.role == User.ANNOTATOR:
@@ -525,7 +525,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 total_draft_tasks = len(all_draft_tasks_in_project.values())
 
                 #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                final_result = [{"username":user_name,"mail":each_usermail , "total_annoted_tasks" : count ,"avg_lead_time":avg_leadtime , "total_assigned_tasks" : total_tasks , "skipped_tasks":total_skipped_tasks , "total_pending_tasks" : total_unlabeled_tasks, "total_draft_tasks": total_draft_tasks}]
+                final_result = [{"Name":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time":avg_leadtime , "Assigned Tasks" : total_tasks , "Skipped Tasks":total_skipped_tasks , "Pending Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks}]
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             final_result = {"message": "Project does not exist!"}
