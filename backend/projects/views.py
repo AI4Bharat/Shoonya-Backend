@@ -463,7 +463,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     total_skipped_tasks = len(all_skipped_tasks_in_project.values())
 
                     all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled")  & Q(task_status = "draft") & Q(annotation_users = user_id) ).order_by('id')
-                    
                     total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
 
                     all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
@@ -520,6 +519,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 total_skipped_tasks = len(all_skipped_tasks_in_project.values())
 
                 all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled")  & Q(task_status = "draft") & Q(annotation_users = user_id) ).order_by('id')
+                total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
 
                 all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
                 total_draft_tasks = len(all_draft_tasks_in_project.values())
