@@ -72,23 +72,41 @@ def batch(iterable, n=1):
     for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
 
-# def get_project_status(pk): 
+def get_project_status(pk) -> str: 
+    """Function to return the status of the project that is queried.
 
-#     # Check the celery task creation status 
-#     task_creation_status = TaskResult.objects.filter(
-#         status="SUCCESS", 
-#         task_args=(),
-#         task_name='projects.tasks.create_parameters_for_task_creation',
-#     ).exclude(
-#         status='SUCCESS'
-#     )
-    
-#     if project.is_archived:
-#         return "Archived"
-#     elif project.is_published:
-#         return "Published"
-#     else:
-#         return "Draft"
+    Args:
+        pk (int): The primary key of the project
+
+    Returns:
+        str: Project Status
+    """
+
+    # Get the project object 
+    project = Project.objects.get(pk=pk)
+
+    # Create the keyword argument for project ID 
+    project_id_keyword_arg = "'project_id': " + str(pk) + "}"
+
+    # Check the celery task creation status 
+    task_queryset = TaskResult.objects.filter(
+        task_name='projects.tasks.create_parameters_for_task_creation',
+        task_kwargs__contains=project_id_keyword_arg,
+    )
+
+    # If the celery TaskResults table returns 
+    if task_queryset: 
+        task_creation_status = task_queryset.first().as_dict()['status']
+        if task_creation_status != 'SUCCESS':
+            return "Creating Project Tasks"
+
+    # If the background task function has already run, check the status of the project
+    if project.is_archived:
+        return "Archived"
+    elif project.is_published:
+        return "Published"
+    else:
+        return "Draft"
 
 def assign_users_to_tasks(tasks, users):
     annotatorList = []
@@ -140,7 +158,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response = super().retrieve(request, *args, **kwargs)
  
         # Add a new field to the project response to indicate project status
-        project_response.data["status"] = "Test Status"
+        project_response.data["status"] = get_project_status(pk)
 
         return project_response
 
@@ -288,12 +306,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # Function call to create the paramters for the sampling and filtering of sentences
             create_parameters_for_task_creation.delay(
-                project_type,
-                dataset_instance_ids,
-                filter_string,
-                sampling_mode,
-                sampling_parameters,
-                variable_parameters,
+                project_type=project_type,
+                dataset_instance_ids=dataset_instance_ids,
+                filter_string=filter_string,
+                sampling_mode=sampling_mode,
+                sampling_parameters=sampling_parameters,
+                variable_parameters=variable_parameters,
                 project_id=project_id,
             )
 
