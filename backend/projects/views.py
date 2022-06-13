@@ -37,6 +37,7 @@ from tasks.models import Task
 from dataset import models as dataset_models
 from tasks.models import *
 from tasks.models import Annotation as Annotation_model
+from django_celery_results.models import TaskResult
 from tasks.serializers import TaskSerializer
 from .registry_helper import ProjectRegistry
 from .tasks import create_parameters_for_task_creation, create_tasks_from_dataitems
@@ -71,6 +72,23 @@ def batch(iterable, n=1):
     for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
 
+# def get_project_status(pk): 
+
+#     # Check the celery task creation status 
+#     task_creation_status = TaskResult.objects.filter(
+#         status="SUCCESS", 
+#         task_args=(),
+#         task_name='projects.tasks.create_parameters_for_task_creation',
+#     ).exclude(
+#         status='SUCCESS'
+#     )
+    
+#     if project.is_archived:
+#         return "Archived"
+#     elif project.is_published:
+#         return "Published"
+#     else:
+#         return "Draft"
 
 def assign_users_to_tasks(tasks, users):
     annotatorList = []
@@ -119,7 +137,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Retrieves a project given its ID
         """
-        return super().retrieve(request, *args, **kwargs)
+        project_response = super().retrieve(request, *args, **kwargs)
+ 
+        # Add a new field to the project response to indicate project status
+        project_response.data["status"] = "Test Status"
+
+        return project_response
 
     def list(self, request, *args, **kwargs):
         """
@@ -271,7 +294,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 sampling_mode,
                 sampling_parameters,
                 variable_parameters,
-                project_id,
+                project_id=project_id,
             )
 
         # Return the project response
