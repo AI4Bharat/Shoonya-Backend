@@ -77,7 +77,7 @@ class Project(models.Model):
 
     filter_string = models.CharField(max_length=1000, null=True, blank=True, 
         help_text=("Filter string for filtering data for project"))
-    label_config = models.CharField(verbose_name="XML Template Config", max_length=1000, null=True, blank=True, 
+    label_config = models.TextField(verbose_name="XML Template Config", null=True, blank=True, 
         help_text=("Label Studio Config XML to be used to show annotation task UI"))
 
     color = models.CharField(max_length=6, null=True, blank=True, help_text=("Colour"))
