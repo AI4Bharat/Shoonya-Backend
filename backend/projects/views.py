@@ -518,9 +518,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             )
                             lead_time += annot_object1.lead_time
                             task_object = Task.objects.get(id = each_id)
-                            word_count1 = (
-                                no_of_words(task_object.data['input_text'])
-                            ) + word_count1
+                            if is_translation_project :
+                                word_count1 = (
+                                    no_of_words(task_object.data['input_text'])
+                                ) + word_count1
                         avg_leadtime = lead_time / count 
                         avg_leadtime = round(avg_leadtime,2)
                     user_details = User.objects.get(id=userid)
@@ -593,9 +594,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         annot_object1 = Annotation_model.objects.get(task_id=each_id)
                         lead_time += annot_object1.lead_time
                         task_object = Task.objects.get(id = each_id)
-                        word_count1 = (
-                            no_of_words(task_object.data['input_text'])
-                        ) + word_count1
+                        if is_translation_project :
+                            word_count1 = (
+                                no_of_words(task_object.data['input_text'])
+                            ) + word_count1
                     avg_leadtime = lead_time / count 
                     avg_leadtime = round(avg_leadtime,2)
 
