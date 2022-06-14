@@ -19,6 +19,7 @@ from django.core.files import File
 import pandas as pd
 from datetime import datetime
 from django.db.models import Q
+from users.serializers import UserEmailSerializer
 
 from utils.search import process_search_query
 
@@ -52,7 +53,10 @@ from .decorators import (
 )
 from filters import filter
 from utils.monolingual.sentence_splitter import split_sentences
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from .utils import is_valid_date
+
 
 
 # Create your views here.
@@ -140,7 +144,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
             )
-
+    
+    @swagger_auto_schema(
+        method='post',
+        request_body=UserEmailSerializer,
+        responses={
+            201:"User removed",
+            404:"User does not exist",
+            500:"Server error occured"
+        }
+    )
     @action(detail=True, methods=["post"], url_name="remove")
     def remove_user(self, request, pk=None):
         try:
@@ -159,7 +172,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "Server Error occured"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
+    
+    @swagger_auto_schema(
+        method="post",
+        manual_parameters=[
+            openapi.Parameter(
+                "task_status",openapi.IN_QUERY,
+                description=("A string that denotes the status of task"),
+                type=openapi.TYPE_STRING,
+                enum=[task_status[0] for task_status in TASK_STATUS],
+                required=False
+            ),
+            openapi.Parameter(
+                "current_task_id",openapi.IN_QUERY,
+                description=("The unique id identifying the current task"),
+                type=openapi.TYPE_INTEGER,
+                required=False
+            ),
+        ],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={},
+        ),
+        responses={
+            201:TaskSerializer,
+            204:"No more tasks available! or No more unlabeled tasks!"
+            }
+    )
     @action(detail=True, methods=["post"], url_path="next")
     def next(self, request, pk):
         project = Project.objects.get(pk=pk)
@@ -370,7 +409,36 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-
+    
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "from_date":openapi.Schema(type=openapi.TYPE_STRING,description="The start date",format="date"),
+                "to_date":openapi.Schema(type=openapi.TYPE_STRING,description="The end date",format="date")
+            },
+            required=["from_date","to_date"]
+        ),
+        responses={
+            200:openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Items(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "username":openapi.Schema(type=openapi.TYPE_STRING),
+                        "mail":openapi.Schema(type=openapi.TYPE_STRING,format="email"),
+                        "total_annoted_tasks":openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "avg_lead_time":openapi.Schema(type=openapi.TYPE_NUMBER,format="float"),
+                        "total_assigned_tasks":openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "skipped_tasks":openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "total_pending_tasks":openapi.Schema(type=openapi.TYPE_INTEGER)
+                    }
+                    )
+            ),
+            404:"Project does not exist!"
+        }
+    )
     @action(
         detail=True,
         methods=["POST"],
@@ -530,7 +598,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
             final_result = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(final_result, status=ret_status)
-
+    
+    @swagger_auto_schema(
+        method='post',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "emails":openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_STRING,format="email"),
+                    description="List of email addresses of users to be added to project"
+                )
+            },
+            required=["emails"]
+        ),
+        responses={
+            201:"Users added",
+            404:"Project does not exist or User does not exist",
+            200:"Project is published error"
+        }
+    )
     @action(
         detail=True,
         methods=["POST"],
@@ -719,7 +806,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-
+    
+    @swagger_auto_schema(
+        method="get",
+        responses={
+            200:"No tasks to export!"
+        }
+    )
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "export_dataset_instance_id":openapi.Schema(type=openapi.TYPE_INTEGER,
+                description="A unique integer identifying the dataset instance"),
+            },
+            description="Optional Post request body for projects which have save_type == new_record"
+        ),
+        responses={
+            200:"No tasks to export! or SUCCESS!",
+            404:"Project does not exist! or User does not exist!"
+        }
+    )
     @action(detail=True, methods=["POST", "GET"], name="Export Project")
     @project_is_archived
     @is_organization_owner_or_workspace_manager
