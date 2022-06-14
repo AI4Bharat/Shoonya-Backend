@@ -458,24 +458,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
 
-        cond, invalid_message = is_valid_date(from_date)
-        if not cond:
-            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        # cond, invalid_message = is_valid_date(from_date)
+        # if not cond:
+        #     return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
         
-        cond, invalid_message = is_valid_date(to_date)
-        if not cond:
-            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        # cond, invalid_message = is_valid_date(to_date)
+        # if not cond:
+        #     return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
 
-         # from_date= '2022-05-23' 
+        # from_date= '2022-05-23' 
         # to_date = '2022-05-28' 
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
 
-        if start_date > end_date:
-            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
+        # if start_date > end_date:
+        #     return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # role check
             if (
                 request.user.role == User.ORGANIZAION_OWNER
                 or request.user.role == User.WORKSPACE_MANAGER
@@ -541,18 +540,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ).order_by("id")
                     total_skipped_tasks = len(all_skipped_tasks_in_project.values())
 
-                    all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled")  & Q(task_status = "draft") & Q(annotation_users = user_id) ).order_by('id')
+                    all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id) ).order_by('id')
                     total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
 
                     all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
                     total_draft_tasks = len(all_draft_tasks_in_project.values())
                     #pending_tasks = total_tasks -( count + total_skipped_tasks )
                     if is_translation_project :
-                        final_result.append({"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time" : round(avg_leadtime, 2), "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Pending Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks , "Word Count" : word_count1})
+                        final_result.append({"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time" : round(avg_leadtime, 2), "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Unlabeled Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks , "Word Count" : word_count1})
                     else:
-                        final_result.append({"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time" : round(avg_leadtime, 2), "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Pending Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks })
+                        final_result.append({"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time" : round(avg_leadtime, 2), "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Unlabeled Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks })
 
                 ret_status = status.HTTP_200_OK
+
+
 
             elif request.user.role == User.ANNOTATOR:
                 project_details = Project.objects.filter(id=pk)
@@ -621,9 +622,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     & Q(annotation_users = user_id)
                     ).order_by('id')
                 total_unlabeled_tasks = all_pending_tasks_in_project.count()
-
-                all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled")  & Q(task_status = "draft") & Q(annotation_users = user_id) ).order_by('id')
-                total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
 
                 all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
                 total_draft_tasks = len(all_draft_tasks_in_project.values())
