@@ -466,8 +466,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if not cond:
             return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
 
-        # from_date= '2022-05-23' 
-        # to_date = '2022-05-28' 
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
 
