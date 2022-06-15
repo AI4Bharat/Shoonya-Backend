@@ -168,7 +168,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        tasks = Task.objects.filter(Q(project_id=project.id) & Q(annotation_users__in=[user])).all()
+        tasks = (
+            Task.objects.filter(Q(project_id=project.id) & Q(annotation_users__in=[user]))
+            .filter(Q(task_status="unlabeled") | Q(task_status="draft"))
+            .all()
+        )
 
         for task in tasks:
             task.annotation_users.remove(user)
