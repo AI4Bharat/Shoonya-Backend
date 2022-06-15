@@ -96,7 +96,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
 class WorkspaceCustomViewSet(viewsets.ViewSet):
     @swagger_auto_schema(responses={200: UserProfileSerializer})
-    @is_particular_workspace_manager
+    @is_organization_owner_or_workspace_manager
     @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
     def users(self, request, pk=None):
         """
@@ -208,7 +208,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         ]
     )
     @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
-    @is_workspace_member
+    @is_organization_owner_or_workspace_manager
     def get_projects(self, request, pk=None):
         """
         API for getting all projects of a workspace
@@ -232,7 +232,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
 
     @action(detail=True, methods=["GET"], name="Workspace Details", url_path="analytics", url_name="analytics")
-    @is_particular_workspace_manager
+    @is_organization_owner_or_workspace_manager
     def analytics(self, request, pk=None):
         """
         API for getting analytics of a workspace
@@ -261,8 +261,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 project_type = proj.project_type
                 all_tasks = Task.objects.filter(project_id = proj.id)
                 total_tasks = all_tasks.count()
-                #annotators_id_list = [annotator_id['annotation_users']  for annotator_id in list(all_tasks.values('annotation_users'))]
-                #no_of_annotators_assigned = len(set(annotators_id_list))
                 annotators_list = [ user_.get_username()  for user_ in   proj.users.all()]
                 try :
                     proj_owner =  proj.created_by.get_username()
