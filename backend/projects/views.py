@@ -458,21 +458,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
 
-        # cond, invalid_message = is_valid_date(from_date)
-        # if not cond:
-        #     return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
         
-        # cond, invalid_message = is_valid_date(to_date)
-        # if not cond:
-        #     return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
 
         # from_date= '2022-05-23' 
         # to_date = '2022-05-28' 
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
 
-        # if start_date > end_date:
-        #     return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
+        if start_date > end_date:
+            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             if (
