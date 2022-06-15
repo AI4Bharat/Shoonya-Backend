@@ -156,22 +156,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["post"], url_name="remove")
     def remove_user(self, request, pk=None):
-        try:
-            email = request.data["email"]
-            user = User.objects.get(email=email)
-            project = Project.objects.get(pk=pk)
-            project.users.remove(user)
-            project.save()
-            return Response({"message": "User removed"}, status=status.HTTP_201_CREATED)
-        except User.DoesNotExist:
+        user = User.objects.filter(email=request.data["email"]).first()
+        if not user:
             return Response(
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-        except:
+
+        project = Project.objects.filter(pk=pk).first()
+        if not project:
             return Response(
-                {"message": "Server Error occured"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
+
+        tasks = Task.objects.filter(Q(project_id=project.id) & Q(annotation_users__in=[user])).all()
+
+        for task in tasks:
+            task.annotation_users.remove(user)
+            
+        project.users.remove(user)
+        project.save()
+        
+        return Response({"message": "User removed"}, status=status.HTTP_201_CREATED)
     
     @swagger_auto_schema(
         method="post",
