@@ -232,7 +232,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
 
     @action(detail=True, methods=["GET"], name="Workspace Details", url_path="analytics", url_name="analytics")
-    @is_workspace_member
+    @is_particular_workspace_manager
     def analytics(self, request, pk=None):
         """
         API for getting analytics of a workspace
@@ -241,7 +241,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             ws = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
-        ret_status = 0
         try:
             ws_owner = ws.created_by.get_username()
         except :
@@ -252,11 +251,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             org_owner = org_obj.created_by.get_username()
         except :
             org_owner = ""
-
-        if(((request.user.role) == (User.ORGANIZAION_OWNER)) or ((request.user.role)==(User.WORKSPACE_MANAGER))):
-            projects_objs = Project.objects.filter(workspace_id=pk)
-        else :
-            projects_objs = Project.objects.filter(workspace_id=pk , users = request.user.id )
+        projects_objs = Project.objects.filter(workspace_id=pk)
         final_result=[]
         if projects_objs.count() !=0:
             for proj in projects_objs:
