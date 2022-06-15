@@ -9,6 +9,9 @@
   	<Choices name="quality_status" toName="text" choice="single" required="true">
     	<Choice value="Clean" selected="true"/>
     	<Choice value="Profane" />
+      <Choice value="Difficult vocabulary" />
+      <Choice value="Ambiguous sentence" />
+      <Choice value="Context incomplete" />
     	<Choice value="Corrupt" />
   	</Choices>
   </View>
