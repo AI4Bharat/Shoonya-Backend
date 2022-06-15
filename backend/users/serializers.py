@@ -66,3 +66,9 @@ class UserFetchSerializer(serializers.ModelSerializer):
 
 class LanguageSerializer(serializers.Serializer):
     language = serializers.ListField(child=serializers.CharField())
+
+
+class UserEmailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields =["email"]

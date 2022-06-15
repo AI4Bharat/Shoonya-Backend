@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from yaml import serialize
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from projects.models import Project
 from users.models import User
 from users.serializers import UserProfileSerializer
@@ -119,6 +120,30 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         return Response({"done":True}, status=status.HTTP_200_OK)
 
     # TODO: Add serializer
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "username": openapi.Schema(type=openapi.TYPE_STRING,format="email")
+            },
+            required=["username"]
+        ),
+        responses={
+            200:"Done",
+            404:"User with such Username does not exist!",
+            400:"Bad request,Some exception occured"
+        },
+        manual_parameters=[
+            openapi.Parameter(
+                "id",openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ]
+
+    )
     @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
     @is_particular_organization_owner
     def assign_manager(self, request, pk=None, *args, **kwargs):
@@ -162,7 +187,24 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         return Response({"done":True}, status=status.HTTP_200_OK)
         
 
-    @swagger_auto_schema(responses={200: ProjectSerializer})
+    @swagger_auto_schema(
+        method="get",
+        responses={200: ProjectSerializer(many=True)},
+        manual_parameters=[
+            openapi.Parameter(
+                "only_active",openapi.IN_QUERY,
+                description=("It is passed as true to get all the projects which are not archived,to get all it is passed as false"),
+                type=openapi.TYPE_BOOLEAN,
+                required=False
+            ),
+            openapi.Parameter(
+                "id", openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ]
+    )
     @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
     @is_workspace_member
     def get_projects(self, request, pk=None):
@@ -189,6 +231,32 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
 class WorkspaceusersViewSet(viewsets.ViewSet):
     
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_STRING, description="String containing emails separated by commas")
+            },
+            required=["user_id"]
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id", openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ],
+        responses={
+            200:"Users added Successfully",
+            403:"Not authorized",
+            400:"No valid user_ids found",
+            404:"Workspace not found",
+            500:"Server error occured"
+        }
+
+    )
     @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
     @action(detail=True, methods=['POST'], url_path='addannotators', url_name='add_annotators')
@@ -224,7 +292,31 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
         except ValueError:
             return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
+    
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_STRING, format="email")
+            },
+            required=["user_id"]
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id", openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ],
+        responses={
+            200: "User removed Successfully",
+            403: "Not authorized",
+            404: "Workspace not found/User not in the workspace/User not found",
+            500: "Server error occured"
+        }
+    )
     @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
     @action(detail=True, methods=['POST'], url_path='removeannotators', url_name='remove_annotators')
