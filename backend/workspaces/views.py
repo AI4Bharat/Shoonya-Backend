@@ -15,6 +15,9 @@ from users.models import User
 from users.serializers import UserProfileSerializer
 from tasks.models import Task
 from organizations.models import Organization
+from django.db.models import Q
+from projects.word_count import  no_of_words
+from tasks.models import Annotation
 
 from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
@@ -289,6 +292,98 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
         return Response(final_result , status = ret_status )
+
+    @action(detail=True, methods=["GET"], name="Workspace annotator Details", url_path="user_analytics", url_name="user_analytics")
+    @is_organization_owner_or_workspace_manager
+    def user_analytics(self, request, pk=None):
+        """
+        API for getting user_analytics of a workspace
+        """
+        try:
+            ws = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            ws_owner = ws.created_by.get_username()
+        except :
+            ws_owner = ""
+        try : 
+            org_id =  ws.organization.id
+            org_obj= Organization.objects.get(id=org_id)
+            org_owner = org_obj.created_by.get_username()
+        except :
+            org_owner = ""
+
+        user_mail =[user.get_username() for user in ws.users.all()]
+        user_name =[user.username for user in ws.users.all()]
+        users_id = [user.id for user in ws.users.all()]
+
+        final_result =[]
+        for index,each_user in enumerate(users_id):
+            projects_objs = Project.objects.filter(workspace_id=pk, users = each_user)
+            proj_ids = [eachid['id'] for eachid in projects_objs.values('id')]
+            
+            name = user_name[index]
+            email = user_mail[index]
+            assigned_tasks = 0
+            annotated_tasks = 0
+            total_word_count = 0
+            avg_lead_time = 0
+            total_skipped_tasks =0
+            all_pending_tasks_in_project = 0 
+            all_draft_tasks_in_project = 0
+ 	
+            for each_project in proj_ids :
+ 	
+                all_tasks_in_project = Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user )).order_by("id")
+                assigned_tasks += all_tasks_in_project.count()
+                
+                annotated_tasks_objs =Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user ) & Q(task_status='accepted') )
+                annotated_tasks += annotated_tasks_objs.count()
+                                
+                annotated_task_ids  = [task.id for task in annotated_tasks_objs]
+                annotated_table_objs = Annotation.objects.filter(task_id__in =annotated_task_ids)
+                lead_time_list = [obj.lead_time for obj in annotated_table_objs]
+                if len(lead_time_list) > 0 :
+                    avg_lead_time +=sum(lead_time_list) / len(lead_time_list)
+                else :
+                    pass
+                total_count_list = [no_of_words(Task.objects.get(id = id1).data['input_text']) for  id1 in annotated_task_ids]
+                total_word_count += sum(total_count_list)
+                
+                
+                all_skipped_tasks_in_project = Task.objects.filter(
+                        Q(project_id=each_project)
+                        & Q(task_status="skipped")
+                        & Q(annotation_users=each_user)
+                    ).order_by("id")
+                total_skipped_tasks += all_skipped_tasks_in_project.count()
+ 
+                all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & (Q(task_status = "unlabeled")  | Q(task_status = "draft") )& Q(annotation_users = each_user) ).order_by('id')
+                all_pending_tasks_in_project += all_pending_tasks_in_project_objs.count()
+
+                all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & Q(task_status = "draft") & Q(annotation_users = each_user)).order_by('id')
+                all_draft_tasks_in_project += all_draft_tasks_in_project_objs.count()
+            
+            result = {
+                "Username":name,
+                "Email":email,
+                "Annotated Tasks" : annotated_tasks ,
+                "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
+                "Assigned Tasks" : assigned_tasks,
+                "Skipped Tasks" : total_skipped_tasks,
+                "Pending Tasks" : all_pending_tasks_in_project,
+                "Draft Tasks": all_draft_tasks_in_project,
+                "Word Count" : total_word_count
+                }
+            if email == ws_owner or email == org_owner :
+                pass
+            else:
+                final_result.append(result)
+            
+        return Response(final_result)
+
+
 
 
 class WorkspaceusersViewSet(viewsets.ViewSet):
