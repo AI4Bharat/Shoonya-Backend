@@ -18,6 +18,8 @@ from organizations.models import Organization
 from django.db.models import Q
 from projects.word_count import  no_of_words
 from tasks.models import Annotation
+from projects.utils import is_valid_date
+from datetime import datetime
 
 from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
@@ -316,6 +318,23 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         except :
             org_owner = ""
 
+        from_date = request.data.get('from_date')
+        to_date = request.data.get('to_date')
+        from_date = from_date + ' 00:00'
+        to_date = to_date + ' 23:59'
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
+        end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+
+
         user_mail =[user.get_username() for user in ws.users.all()]
         user_name =[user.username for user in ws.users.all()]
         users_id = [user.id for user in ws.users.all()]
@@ -327,6 +346,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         final_result =[]
         for index,each_user in enumerate(users_id):
             projects_objs = Project.objects.filter(workspace_id=pk, users = each_user,project_type = project_type)
+            project_count = projects_objs.count()
             proj_ids = [eachid['id'] for eachid in projects_objs.values('id')]
             
             name = user_name[index]
@@ -344,7 +364,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 all_tasks_in_project = Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user )).order_by("id")
                 assigned_tasks += all_tasks_in_project.count()
                 
-                annotated_tasks_objs =Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user ) & Q(task_status='accepted') )
+                annotated_tasks_objs =Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user ) & Q(task_status='accepted')
+                & Q (correct_annotation__created_at__range = [start_date, end_date]))
                 annotated_tasks += annotated_tasks_objs.count()
                                 
                 annotated_task_ids  = [task.id for task in annotated_tasks_objs]
@@ -375,6 +396,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 result = {
                     "Username":name,
                     "Email":email,
+                    "No.of Projects":project_count,
                     "Annotated Tasks" : annotated_tasks ,
                     "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
@@ -387,6 +409,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 result = {
                     "Username":name,
                     "Email":email,
+                    "No.of Projects":project_count,
                     "Annotated Tasks" : annotated_tasks ,
                     "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
