@@ -171,23 +171,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         if project.frozen_users.contains(user):
             return Response(
-                {"message": "User is already frozen in this project"}, status=status.HTTP_400_BAD_REQUEST
+                {"message": "User is already frozen in this project"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        tasks = (
-            Task.objects.filter(Q(project_id=project.id) & Q(annotation_users__in=[user]))
-            .filter(Q(task_status="unlabeled") | Q(task_status="draft"))
-        )
+        tasks = Task.objects.filter(
+            Q(project_id=project.id) & Q(annotation_users__in=[user])
+        ).filter(Q(task_status="unlabeled") | Q(task_status="draft"))
 
-        Annotation_model.objects.filter(Q(completed_by=user) & Q(task__task_status="draft")).delete() # delete all draft annotations by the user
+        Annotation_model.objects.filter(
+            Q(completed_by=user) & Q(task__task_status="draft")
+        ).delete()  # delete all draft annotations by the user
 
         for task in tasks:
             task.annotation_users.remove(user)
 
-        tasks.update(task_status="unlabeled") # unassign user from tasks
+        tasks.update(task_status="unlabeled")  # unassign user from tasks
 
         project.frozen_users.add(user)
-        
+
         return Response({"message": "User removed"}, status=status.HTTP_201_CREATED)
     
     @swagger_auto_schema(
