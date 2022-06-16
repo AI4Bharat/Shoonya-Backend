@@ -13,6 +13,8 @@ from drf_yasg import openapi
 from projects.models import Project
 from users.models import User
 from users.serializers import UserProfileSerializer
+from tasks.models import Task
+from organizations.models import Organization
 
 from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
@@ -94,7 +96,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
 class WorkspaceCustomViewSet(viewsets.ViewSet):
     @swagger_auto_schema(responses={200: UserProfileSerializer})
-    @is_particular_workspace_manager
+    @is_organization_owner_or_workspace_manager
     @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
     def users(self, request, pk=None):
         """
@@ -206,7 +208,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         ]
     )
     @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
-    @is_workspace_member
+    @is_organization_owner_or_workspace_manager
     def get_projects(self, request, pk=None):
         """
         API for getting all projects of a workspace
@@ -227,6 +229,66 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+    @action(detail=True, methods=["GET"], name="Workspace Details", url_path="analytics", url_name="analytics")
+    @is_organization_owner_or_workspace_manager
+    def analytics(self, request, pk=None):
+        """
+        API for getting analytics of a workspace
+        """
+        try:
+            ws = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            ws_owner = ws.created_by.get_username()
+        except :
+            ws_owner = ""
+        try : 
+            org_id =  ws.organization.id
+            org_obj= Organization.objects.get(id=org_id)
+            org_owner = org_obj.created_by.get_username()
+        except :
+            org_owner = ""
+        projects_objs = Project.objects.filter(workspace_id=pk)
+        final_result=[]
+        if projects_objs.count() !=0:
+            for proj in projects_objs:
+                owners = [org_owner , ws_owner ]
+                project_id = proj.id
+                project_name = proj.title
+                project_type = proj.project_type
+                all_tasks = Task.objects.filter(project_id = proj.id)
+                total_tasks = all_tasks.count()
+                annotators_list = [ user_.get_username()  for user_ in   proj.users.all()]
+                try :
+                    proj_owner =  proj.created_by.get_username()
+                    owners.append(proj_owner)
+                except :
+                    pass
+                no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
+                un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
+                labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'accepted').count()
+                skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
+                if total_tasks == 0:
+                    project_progress = 0.0
+                else :
+                    project_progress = (labeled_count / total_tasks) * 100
+                result = {
+                    "Project Id" : project_id,
+                    "Project Name" : project_name,
+                    "Project Type" : project_type,
+                    "Total No.Of Tasks" : total_tasks,
+                    "Total No.Of Annotators Assigned" : no_of_annotators_assigned,
+                    "Total No.Of Labeled Tasks" : labeled_count,
+                    "Total No.Of Unlabeled Tasks" : un_labeled_count,
+                    "Total No.Of Skipped Tasks": skipped_count,
+                    "Project Progress" : project_progress
+                    }
+                final_result.append(result)
+        ret_status = status.HTTP_200_OK
+        return Response(final_result , status = ret_status )
 
 
 class WorkspaceusersViewSet(viewsets.ViewSet):
