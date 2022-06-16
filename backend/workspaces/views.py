@@ -234,11 +234,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-    @action(detail=True, methods=["GET"], name="Workspace Details", url_path="analytics", url_name="analytics")
+    @action(detail=True, methods=["POST"], name="Workspace Project Details", url_path="project_analytics", url_name="project_analytics")
     @is_organization_owner_or_workspace_manager
-    def analytics(self, request, pk=None):
+    def project_analytics(self, request, pk=None):
         """
-        API for getting analytics of a workspace
+        API for getting project_analytics of a workspace
         """
         try:
             ws = Workspace.objects.get(pk=pk)
@@ -254,7 +254,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             org_owner = org_obj.created_by.get_username()
         except :
             org_owner = ""
-        projects_objs = Project.objects.filter(workspace_id=pk)
+        project_type = request.data.get("project_type")
+        projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type)
         final_result=[]
         if projects_objs.count() !=0:
             for proj in projects_objs:
@@ -293,7 +294,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         ret_status = status.HTTP_200_OK
         return Response(final_result , status = ret_status )
 
-    @action(detail=True, methods=["GET"], name="Workspace annotator Details", url_path="user_analytics", url_name="user_analytics")
+
+    @action(detail=True, methods=["POST"], name="Workspace annotator Details", url_path="user_analytics", url_name="user_analytics")
     @is_organization_owner_or_workspace_manager
     def user_analytics(self, request, pk=None):
         """
@@ -318,9 +320,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         user_name =[user.username for user in ws.users.all()]
         users_id = [user.id for user in ws.users.all()]
 
+        project_type = request.data.get("project_type")
+        project_type_lower =  project_type.lower()
+        is_translation_project = True if  "translation" in  project_type_lower  else False
+
         final_result =[]
         for index,each_user in enumerate(users_id):
-            projects_objs = Project.objects.filter(workspace_id=pk, users = each_user)
+            projects_objs = Project.objects.filter(workspace_id=pk, users = each_user,project_type = project_type)
             proj_ids = [eachid['id'] for eachid in projects_objs.values('id')]
             
             name = user_name[index]
@@ -348,8 +354,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     avg_lead_time +=sum(lead_time_list) / len(lead_time_list)
                 else :
                     pass
-                total_count_list = [no_of_words(Task.objects.get(id = id1).data['input_text']) for  id1 in annotated_task_ids]
-                total_word_count += sum(total_count_list)
+                if is_translation_project:
+                    total_count_list = [no_of_words(Task.objects.get(id = id1).data['input_text']) for  id1 in annotated_task_ids]
+                    total_word_count += sum(total_count_list)
                 
                 
                 all_skipped_tasks_in_project = Task.objects.filter(
@@ -364,18 +371,30 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                 all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & Q(task_status = "draft") & Q(annotation_users = each_user)).order_by('id')
                 all_draft_tasks_in_project += all_draft_tasks_in_project_objs.count()
-            
-            result = {
-                "Username":name,
-                "Email":email,
-                "Annotated Tasks" : annotated_tasks ,
-                "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
-                "Assigned Tasks" : assigned_tasks,
-                "Skipped Tasks" : total_skipped_tasks,
-                "Pending Tasks" : all_pending_tasks_in_project,
-                "Draft Tasks": all_draft_tasks_in_project,
-                "Word Count" : total_word_count
-                }
+            if is_translation_project :
+                result = {
+                    "Username":name,
+                    "Email":email,
+                    "Annotated Tasks" : annotated_tasks ,
+                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
+                    "Assigned Tasks" : assigned_tasks,
+                    "Skipped Tasks" : total_skipped_tasks,
+                    "Pending Tasks" : all_pending_tasks_in_project,
+                    "Draft Tasks": all_draft_tasks_in_project,
+                    "Word Count" : total_word_count
+                    }
+            else:
+                result = {
+                    "Username":name,
+                    "Email":email,
+                    "Annotated Tasks" : annotated_tasks ,
+                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
+                    "Assigned Tasks" : assigned_tasks,
+                    "Skipped Tasks" : total_skipped_tasks,
+                    "Pending Tasks" : all_pending_tasks_in_project,
+                    "Draft Tasks": all_draft_tasks_in_project,
+                    }
+
             if email == ws_owner or email == org_owner :
                 pass
             else:
