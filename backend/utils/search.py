@@ -49,7 +49,7 @@ def flatten(to_flatten: dict, sep: str = "__") -> dict:
 
 
 def process_search_query(
-    query_dict: dict, search_field_name: str, searchable_fields: list
+    query_dict: dict, json_field_key: str, searchable_json_fields: list
 ) -> dict:
     """
     Extract the query params into a queryset dictionary.
@@ -63,13 +63,13 @@ def process_search_query(
         for i, j in flatten(extract_search_params(query_dict)).items():
             parsed_value = parse_for_data_types(j)
             print({i: j})
-            if i in searchable_fields:
+            if i in searchable_json_fields:
                 if type(parsed_value) == str:
                     queryset_dict[
-                        f"{search_field_name}__{i}__icontains"
+                        f"{json_field_key}__{i}__icontains"
                     ] = parsed_value  # Unaccent doesn't work as intended.
                 else:
-                    queryset_dict[f"{search_field_name}__{i}"] = parsed_value
+                    queryset_dict[f"{json_field_key}__{i}"] = parsed_value
             else:
                 if type(parsed_value) != str:
                     queryset_dict[i] = parse_for_data_types(j)
