@@ -78,6 +78,35 @@ def batch(iterable, n=1):
     for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
 
+def get_project_export_status(pk):
+
+    # Create the keyword argument for project ID 
+    project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
+    
+    # Check the celery project export status 
+    task_queryset = TaskResult.objects.filter(
+        task_name__in=[
+            'projects.tasks.export_project_in_place', 
+            'projects.tasks.export_project_new_record'
+        ],
+        # task_name = 'projects.tasks.export_project_in_place',
+        task_kwargs__contains=project_id_keyword_arg,
+    ) 
+
+    # If the celery TaskResults table returns
+    if task_queryset:
+
+        # Sort the tasks by newest items first by date 
+        task_queryset = task_queryset.order_by('-date_done')
+
+        # Get the export task status and last update date
+        task_status = task_queryset.first().as_dict()['status']
+        task_date = task_queryset.first().as_dict()['date_done']
+    
+        return task_status, task_date
+    
+    return "Success", "Synchronously Completed. No Date."
+
 def get_project_status(pk) -> str: 
     """Function to return the status of the project that is queried.
 
@@ -106,7 +135,7 @@ def get_project_status(pk) -> str:
 
         # Check if the task has failed 
         if task_creation_status == 'FAILURE': 
-            return 'Task Creation Process Failed!'
+            return "Task Creation Process Failed!"
 
         if task_creation_status != 'SUCCESS':
             return "Creating Annotation Tasks."
@@ -170,6 +199,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
  
         # Add a new field to the project response to indicate project status
         project_response.data["status"] = get_project_status(pk)
+        
+        # Add a new field to the project to indicate the async project export status and last export date
+        project_export_status, last_project_export_date = get_project_export_status(pk)
+        project_response.data["last_project_export_status"] = project_export_status
+        project_response.data["last_project_export_date"] = last_project_export_date
 
         return project_response
 
@@ -946,7 +980,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     return Response(ret_dict, status=ret_status)
 
                 # Perform task export function for inpalce functions 
-                export_project_in_place.delay(annotation_fields, pk, project_type, dict(request.GET))
+                export_project_in_place.delay(
+                    annotation_fields=annotation_fields, 
+                    project_id=pk, 
+                    project_type=project_type, 
+                    get_request_data=dict(request.GET)
+                )
 
             # If save_type is 'new_record'
             elif output_dataset_info["save_type"] == "new_record":
@@ -975,7 +1014,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
 
-                export_project_new_record.delay(annotation_fields, pk, project_type, export_dataset_instance_id, task_annotation_fields, dict(request.GET))
+                export_project_new_record.delay(
+                    annotation_fields=annotation_fields, 
+                    project_id=pk, 
+                    project_type=project_type, 
+                    export_dataset_instance_id=export_dataset_instance_id, 
+                    task_annotation_fields=task_annotation_fields, 
+                    get_request_data=dict(request.GET)
+                )
 
                 # data_items.append(data_item)
 
