@@ -116,7 +116,7 @@ def get_project_export_status(pk):
     
     return "Success", "Synchronously Completed. No Date."
 
-def get_project_status(pk) -> str: 
+def get_project_creation_status(pk) -> str: 
     """Function to return the status of the project that is queried.
 
     Args:
@@ -207,7 +207,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response = super().retrieve(request, *args, **kwargs)
  
         # Add a new field to the project response to indicate project status
-        project_response.data["status"] = get_project_status(pk)
+        project_response.data["status"] = get_project_creation_status(pk)
         
         # Add a new field to the project to indicate the async project export status and last export date
         project_export_status, last_project_export_date = get_project_export_status(pk)
