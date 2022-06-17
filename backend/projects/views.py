@@ -447,7 +447,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         lock_set = False
         while(lock_set == False):
             if project.is_locked():
-                sleep(settings.PROJECT_LOCK_TTL)
+                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
                 continue
             else:
                 try:
@@ -460,6 +460,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
         tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
         if not tasks:
+            project.release_lock()
             return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
 
         # filter out tasks which meet the annotator count threshold
