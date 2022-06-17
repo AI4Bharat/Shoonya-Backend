@@ -41,7 +41,9 @@ from tasks.models import *
 from tasks.models import Annotation as Annotation_model
 from tasks.serializers import TaskSerializer
 from .registry_helper import ProjectRegistry
-from .tasks import create_parameters_for_task_creation, create_tasks_from_dataitems
+
+# Import celery tasks
+from .tasks import create_parameters_for_task_creation, create_tasks_from_dataitems, export_project_in_place, export_project_new_record
 
 from projects.serializers import ProjectSerializer, ProjectUsersSerializer
 from tasks.serializers import TaskSerializer
@@ -65,7 +67,6 @@ from .utils import is_valid_date
 EMAIL_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
 PROJECT_IS_PUBLISHED_ERROR = {"message": "This project is already published!"}
-
 
 def get_task_field(annotation_json, field):
     return annotation_json[field]
@@ -876,6 +877,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
             project_type = dict(PROJECT_TYPE_CHOICES)[project.project_type]
+            
             # Read registry to get output dataset model, and output fields
             registry_helper = ProjectRegistry.get_instance()
             output_dataset_info = registry_helper.get_output_dataset_and_fields(
@@ -887,6 +889,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # If save_type is 'in_place'
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
+                
                 data_items = []
                 tasks = Task.objects.filter(
                     project_id__exact=project, task_status__exact=ACCEPTED
@@ -896,41 +899,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
 
-                tasks_list = []
-                annotated_tasks = []
-                for task in tasks:
-                    task_dict = model_to_dict(task)
-                    # Rename keys to match label studio converter
-                    # task_dict['id'] = task_dict['task_id']
-                    # del task_dict['task_id']
-                    if task.correct_annotation is not None:
-                        annotated_tasks.append(task)
-                        annotation_dict = model_to_dict(task.correct_annotation)
-                        # annotation_dict['result'] = annotation_dict['result_json']
-                        # del annotation_dict['result_json']
-                        task_dict["annotations"] = [OrderedDict(annotation_dict)]
-                    del task_dict["annotation_users"]
-                    del task_dict["review_user"]
-                    tasks_list.append(OrderedDict(task_dict))
-                download_resources = True
-                tasks_df = DataExport.export_csv_file(
-                    project, tasks_list, download_resources, request.GET
-                )
-                tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
-
-                for (ta, tl, task) in zip(
-                    tasks_annotations, tasks_list, annotated_tasks
-                ):
-
-                    task.output_data = task.input_data
-                    task.save()
-                    data_item = dataset_model.objects.get(id__exact=tl["input_data"])
-                    for field in annotation_fields:
-                        setattr(data_item, field, ta[field])
-                    data_items.append(data_item)
-
-                # Write json to dataset columns
-                dataset_model.objects.bulk_update(data_items, annotation_fields)
+                # Perform task export function for inpalce functions 
+                export_project_in_place.delay(annotation_fields, pk, project_type, dict(request.GET))
 
             # If save_type is 'new_record'
             elif output_dataset_info["save_type"] == "new_record":
@@ -959,78 +929,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
 
-                tasks_list = []
-                annotated_tasks = []  #
-                for task in tasks:
-                    task_dict = model_to_dict(task)
-                    # Rename keys to match label studio converter
-                    # task_dict['id'] = task_dict['task_id']
-                    # del task_dict['task_id']
-                    if project.project_mode == Annotation:
-                        if task.correct_annotation is not None:
-                            annotated_tasks.append(task)
-                            annotation_dict = model_to_dict(task.correct_annotation)
-                            # annotation_dict['result'] = annotation_dict['result_json']
-                            # del annotation_dict['result_json']
-                            task_dict["annotations"] = [OrderedDict(annotation_dict)]
-                    elif project.project_mode == Collection:
-                        annotated_tasks.append(task)
+                export_project_new_record.delay(annotation_fields, pk, project_type, export_dataset_instance_id, task_annotation_fields, dict(request.GET))
 
-                    del task_dict["annotation_users"]
-                    del task_dict["review_user"]
-                    tasks_list.append(OrderedDict(task_dict))
-
-                if project.project_mode == Collection:
-                    for (tl, task) in zip(tasks_list, annotated_tasks):
-                        if task.output_data is not None:
-                            data_item = dataset_model.objects.get(
-                                id__exact=task.output_data.id
-                            )
-                        else:
-                            data_item = dataset_model()
-                            data_item.instance_id = export_dataset_instance
-
-                        for field in annotation_fields:
-                            setattr(data_item, field, tl["data"][field])
-                        for field in task_annotation_fields:
-                            setattr(data_item, field, tl["data"][field])
-
-                        data_item.save()
-                        task.output_data = data_item
-                        task.save()
-
-                elif project.project_mode == Annotation:
-
-                    download_resources = True
-                    # export_stream, content_type, filename = DataExport.generate_export_file(
-                    #     project, tasks_list, 'CSV', download_resources, request.GET
-                    # )
-                    tasks_df = DataExport.export_csv_file(
-                        project, tasks_list, download_resources, request.GET
-                    )
-                    tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
-
-                    for (ta, task) in zip(tasks_annotations, annotated_tasks):
-                        # data_item = dataset_model.objects.get(id__exact=task.id.id)
-                        if task.output_data is not None:
-                            data_item = dataset_model.objects.get(
-                                id__exact=task.output_data.id
-                            )
-                        else:
-                            data_item = dataset_model()
-                            data_item.instance_id = export_dataset_instance
-                            data_item.parent_data = task.input_data
-
-                        for field in annotation_fields:
-                            setattr(data_item, field, ta[field])
-                        for field in task_annotation_fields:
-                            setattr(data_item, field, ta[field])
-
-                        data_item.save()
-                        task.output_data = data_item
-                        task.save()
-
-                    # data_items.append(data_item)
+                # data_items.append(data_item)
 
                 # TODO: implement bulk create if possible (only if non-hacky)
                 # dataset_model.objects.bulk_create(data_items)
