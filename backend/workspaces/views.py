@@ -256,6 +256,23 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             org_owner = org_obj.created_by.get_username()
         except :
             org_owner = ""
+        
+        from_date = request.data.get('from_date')
+        to_date = request.data.get('to_date')
+        from_date = from_date + ' 00:00'
+        to_date = to_date + ' 23:59'
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
+        end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+
         project_type = request.data.get("project_type")
         projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type)
         final_result=[]
@@ -275,8 +292,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     pass
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
                 un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
-                labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'accepted').count()
+                labeled_count = Task.objects.filter(Q (project_id = proj.id) & Q(task_status = 'accepted') & Q (correct_annotation__created_at__range = [start_date, end_date])).count()
                 skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
+                dropped_tasks = Task.objects.filter(project_id = proj.id,task_status = 'draft').count()
                 if total_tasks == 0:
                     project_progress = 0.0
                 else :
@@ -290,6 +308,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Total No.Of Labeled Tasks" : labeled_count,
                     "Total No.Of Unlabeled Tasks" : un_labeled_count,
                     "Total No.Of Skipped Tasks": skipped_count,
+                    "Total No.Of Draft Tasks" : dropped_tasks,
                     "Project Progress" : project_progress
                     }
                 final_result.append(result)
@@ -387,7 +406,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     ).order_by("id")
                 total_skipped_tasks += all_skipped_tasks_in_project.count()
  
-                all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & (Q(task_status = "unlabeled")  | Q(task_status = "draft") )& Q(annotation_users = each_user) ).order_by('id')
+                all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) ).order_by('id')
                 all_pending_tasks_in_project += all_pending_tasks_in_project_objs.count()
 
                 all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & Q(task_status = "draft") & Q(annotation_users = each_user)).order_by('id')
@@ -401,7 +420,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
                     "Skipped Tasks" : total_skipped_tasks,
-                    "Pending Tasks" : all_pending_tasks_in_project,
+                    "Unlabeled Tasks" : all_pending_tasks_in_project,
                     "Draft Tasks": all_draft_tasks_in_project,
                     "Word Count" : total_word_count
                     }
@@ -414,7 +433,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
                     "Skipped Tasks" : total_skipped_tasks,
-                    "Pending Tasks" : all_pending_tasks_in_project,
+                    "Unlabeled Tasks" : all_pending_tasks_in_project,
                     "Draft Tasks": all_draft_tasks_in_project,
                     }
 
