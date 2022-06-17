@@ -79,6 +79,15 @@ def batch(iterable, n=1):
         yield iterable[ndx : min(ndx + n, l)]
 
 def get_project_export_status(pk):
+    """Function to return status of the project export background task. 
+
+    Args:
+        pk (int): Primary key of the project
+
+    Returns:
+        str: Status of the project export
+        str: Date when the last time project was exported
+    """
 
     # Create the keyword argument for project ID 
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
