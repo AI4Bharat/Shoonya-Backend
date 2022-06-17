@@ -289,3 +289,6 @@ LOGGING = {
 
 # Celery settings
 CELERY_BROKER_URL = 'redis://redis:6379/0'
+
+# Project lock TTL for task pulling(in seconds)
+PROJECT_LOCK_TTL = 1
