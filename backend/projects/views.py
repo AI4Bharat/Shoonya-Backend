@@ -169,7 +169,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if project.frozen_users.contains(user):
+        if project.frozen_users.filter(id=user.id).exists():
             return Response(
                 {"message": "User is already frozen in this project"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -190,7 +190,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         project.frozen_users.add(user)
 
-        return Response({"message": "User removed"}, status=status.HTTP_201_CREATED)
+        return Response({"message": "User removed"}, status=status.HTTP_200_OK)
     
     @swagger_auto_schema(
         method="post",
