@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from django.http import StreamingHttpResponse
+from django_celery_results.models import TaskResult
 
 from urllib.parse import parse_qsl
 
@@ -18,6 +19,45 @@ from .serializers import *
 from .resources import RESOURCE_MAP
 from . import resources
 
+
+## Utility functions used inside the view functions 
+def get_project_export_status(pk):
+    """Function to return status of the project export background task. 
+
+    Args:
+        pk (int): Primary key of the project
+
+    Returns:
+        str: Status of the project export
+        str: Date when the last time project was exported
+    """
+
+    # Create the keyword argument for project ID 
+    project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
+    
+    # Check the celery project export status 
+    task_queryset = TaskResult.objects.filter(
+        task_name__in=[
+            'projects.tasks.export_project_in_place', 
+            'projects.tasks.export_project_new_record'
+        ],
+        # task_name = 'projects.tasks.export_project_in_place',
+        task_kwargs__contains=project_id_keyword_arg,
+    ) 
+
+    # If the celery TaskResults table returns
+    if task_queryset:
+
+        # Sort the tasks by newest items first by date 
+        task_queryset = task_queryset.order_by('-date_done')
+
+        # Get the export task status and last update date
+        task_status = task_queryset.first().as_dict()['status']
+        task_date = task_queryset.first().as_dict()['date_done']
+    
+        return task_status, task_date
+    
+    return "Success", "Synchronously Completed. No Date."
 
 # Create your views here.
 class DatasetInstanceViewSet(viewsets.ModelViewSet):
@@ -123,6 +163,15 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Serialize the projects and return them to the frontend
         serializer = ProjectSerializer(projects, many=True)
+
+        # Add new fields to the serializer data to show project exprot status and date 
+        for project in serializer.data:
+
+            # Get project export status details 
+            project_export_status, last_project_export_date = get_project_export_status(project.get('id'))
+            project["last_project_export_status"] = project_export_status 
+            project["last_project_export_date"] = last_project_export_date
+
         return Response(serializer.data)
 
 
