@@ -110,13 +110,18 @@ def get_project_export_status(pk):
 
         # Get the export task status and last update date
         task_status = task_queryset.first().as_dict()['status']
-        task_date = task_queryset.first().as_dict()['date_done']
-    
-        return task_status, task_date
-    
-    return "Success", "Synchronously Completed. No Date."
+        task_datetime = task_queryset.first().as_dict()['date_done']
 
-def get_project_creation_status(pk) -> str: 
+        # Extract date and time from the datetime object 
+        task_date = task_datetime.date()
+        task_time = str(task_datetime.time().replace(microsecond=0)) + " UTC"
+    
+        return task_status, task_date, task_time
+    
+    return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
+
+def get_project_creation_status(pk) -> str:
+    # sourcery skip: use-named-expression
     """Function to return the status of the project that is queried.
 
     Args:
@@ -210,9 +215,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["status"] = get_project_creation_status(pk)
         
         # Add a new field to the project to indicate the async project export status and last export date
-        project_export_status, last_project_export_date = get_project_export_status(pk)
+        project_export_status, last_project_export_date, last_project_export_time = get_project_export_status(pk)
         project_response.data["last_project_export_status"] = project_export_status
         project_response.data["last_project_export_date"] = last_project_export_date
+        project_response.data["last_project_export_time"] = last_project_export_time
 
         return project_response
 

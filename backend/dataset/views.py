@@ -53,11 +53,15 @@ def get_project_export_status(pk):
 
         # Get the export task status and last update date
         task_status = task_queryset.first().as_dict()['status']
-        task_date = task_queryset.first().as_dict()['date_done']
+        task_datetime = task_queryset.first().as_dict()['date_done']
+
+        # Extract date and time from the datetime object 
+        task_date = task_datetime.date()
+        task_time = str(task_datetime.time().replace(microsecond=0)) + " UTC"
     
-        return task_status, task_date
+        return task_status, task_date, task_time
     
-    return "Success", "Synchronously Completed. No Date."
+    return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
 
 # Create your views here.
 class DatasetInstanceViewSet(viewsets.ModelViewSet):
@@ -168,9 +172,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         for project in serializer.data:
 
             # Get project export status details 
-            project_export_status, last_project_export_date = get_project_export_status(project.get('id'))
+            project_export_status, last_project_export_date, last_project_export_time = get_project_export_status(project.get('id'))
             project["last_project_export_status"] = project_export_status 
             project["last_project_export_date"] = last_project_export_date
+            project["last_project_export_time"] = last_project_export_time
 
         return Response(serializer.data)
 
