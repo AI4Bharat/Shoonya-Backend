@@ -103,8 +103,13 @@ def get_project_status(pk) -> str:
     # If the celery TaskResults table returns 
     if task_queryset: 
         task_creation_status = task_queryset.first().as_dict()['status']
+
+        # Check if the task has failed 
+        if task_creation_status == 'FAILURE': 
+            return 'Task Creation Process Failed!'
+
         if task_creation_status != 'SUCCESS':
-            return "Creating Project Tasks"
+            return "Creating Annotation Tasks."
 
     # If the background task function has already run, check the status of the project
     if project.is_archived:
