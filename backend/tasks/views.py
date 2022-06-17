@@ -15,6 +15,8 @@ from users.models import User
 
 from utils.search import process_search_query
 
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 # Create your views here.
 
 
@@ -26,7 +28,25 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-
+    
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_ids":openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_STRING,format="email"),
+                    description="List of emails"
+                    )
+            },
+            required=["user_ids"]
+        ),
+        responses={
+            200:"Task assigned",
+            404:"User not found"
+        },
+    )
     @action(detail=True, methods=["post"], url_path="assign")
     def assign(self, request, pk):
         """
