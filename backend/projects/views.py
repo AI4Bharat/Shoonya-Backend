@@ -706,6 +706,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "project_type",openapi.IN_QUERY,
+                description=("A string to pass the project tpye"),
+                type=openapi.TYPE_STRING,
+                required=False
+            ),
+        ],
+        responses={
+            200:"Return types of project and its details"
+        }
+    )
     @action(detail=False, methods=["GET"], name="Get Project Types", url_name="types")
     @is_organization_owner_or_workspace_manager
     def types(self, request, *args, **kwargs):
@@ -714,9 +728,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         # project_registry = ProjectRegistry()
         try:
-            return Response(
-                ProjectRegistry.get_instance().data, status=status.HTTP_200_OK
-            )
+            if "project_type" in dict(request.query_params):
+                return Response(
+                    ProjectRegistry.get_instance().project_types[request.query_params["project_type"]], status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    ProjectRegistry.get_instance().data, status=status.HTTP_200_OK
+                )
         except Exception:
             print(Exception.args)
             return Response(
