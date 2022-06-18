@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 
 from tasks.models import *
-from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer
+from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer, NestedAnnotationSerializer, TaskAnnotationSerializer
 
 from users.models import User
 
@@ -28,23 +28,23 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-    
+
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "user_ids":openapi.Schema(
+                "user_ids": openapi.Schema(
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(type=openapi.TYPE_STRING,format="email"),
+                    items=openapi.Items(type=openapi.TYPE_STRING, format="email"),
                     description="List of emails"
-                    )
+                )
             },
             required=["user_ids"]
         ),
         responses={
-            200:"Task assigned",
-            404:"User not found"
+            200: "Task assigned",
+            404: "User not found"
         },
     )
     @action(detail=True, methods=["post"], url_path="assign")
@@ -120,8 +120,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
         )
 
+        task_status = UNLABELED
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
+            task_status = request.query_params["task_status"]
         else:
             queryset = queryset.filter(task_status=UNLABELED)
 
@@ -142,7 +144,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 }
             )
 
-        if page is not None:
+        if ((page is not None) and (task_status == ACCEPTED or task_status == DRAFT)):
+            serializer = TaskAnnotationSerializer(page, many=True)
+            data = serializer.data
+            for index, each_data in enumerate(data):
+                data[index]["data"]["output_text"] = each_data["correct_annotation"]["result"][0]["value"]["text"][0]
+                each_data["correct_annotation"]=each_data["correct_annotation"]["id"]
+            return self.get_paginated_response(data)
+        elif page is not None:
             serializer = TaskSerializer(page, many=True)
             data = serializer.data
             return self.get_paginated_response(data)
