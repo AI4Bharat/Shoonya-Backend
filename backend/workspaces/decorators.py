@@ -35,8 +35,8 @@ def is_particular_workspace_manager(f):
             )
             or (
                 request.user.role == User.ORGANIZAION_OWNER
-                and Organization.objects.get(pk=Workspace.objects.get(pk=pk).organization.pk).created_by
-                == request.user
+                and Workspace.objects.get(pk=pk).organization
+                == request.user.organization
             )
             or request.user.is_superuser
         ):
@@ -57,7 +57,7 @@ def workspace_is_archived(f):
 
     return wrapper
 
-
+# Check if user is a workspace member
 def is_workspace_member(f):
     @wraps(f)
     def wrapper(self, request, pk=None, *args, **kwargs):
@@ -66,4 +66,15 @@ def is_workspace_member(f):
             return f(self, request, pk, *args, **kwargs)
         else:
             return Response(NOT_IN_WORKSPACE_ERROR, status=status.HTTP_403_FORBIDDEN)
+    return wrapper
+
+# Check if user is the organization owner in which the workspace is present in.
+def is_particular_organization_owner(f):
+    @wraps(f)
+    def wrapper(self, request, pk=None, *args, **kwargs):
+        workspace = Workspace.objects.get(pk=pk)
+        if request.user.organization == workspace.organization and request.user.role == User.ORGANIZAION_OWNER:
+            return f(self, request, pk, *args, **kwargs)
+        else:
+            return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
     return wrapper

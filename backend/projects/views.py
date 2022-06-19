@@ -48,8 +48,8 @@ from tasks.serializers import TaskSerializer
 from .models import *
 from .decorators import (
     is_organization_owner_or_workspace_manager,
+    is_project_editor,
     project_is_archived,
-    is_particular_workspace_manager,
     project_is_published,
 )
 from filters import filter
@@ -155,7 +155,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             500:"Server error occured"
         }
     )
+    @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove")
+    #TODO: Refactor code to handle better role access
     def remove_user(self, request, pk=None):
         try:
             email = request.data["email"]
@@ -317,7 +319,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Return the project response
         return project_response
 
-    @is_particular_workspace_manager
+    @is_project_editor
     @project_is_archived
     def update(self, request, pk=None, *args, **kwargs):
         """
@@ -325,12 +327,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         return super().update(request, *args, **kwargs)
 
-    @is_particular_workspace_manager
+    @is_project_editor
     @project_is_archived
     def partial_update(self, request, pk=None, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
 
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     @project_is_published
     def destroy(self, request, pk=None, *args, **kwargs):
         """
@@ -340,7 +342,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     # TODO : add exceptions
     @action(detail=True, methods=["POST", "GET"], name="Archive Project")
-    @is_particular_workspace_manager
+    @is_project_editor
     def archive(self, request, pk=None, *args, **kwargs):
         """
         Archive a published project
@@ -663,7 +665,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         url_name="add_project_users",
     )
     @project_is_archived
-    @is_particular_workspace_manager
+    @is_project_editor
     def add_project_users(self, request, pk=None, *args, **kwargs):
         """
         Add annotators to the project
@@ -707,7 +709,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(ret_dict, status=ret_status)
 
     @action(detail=False, methods=["GET"], name="Get Project Types", url_name="types")
-    @is_organization_owner_or_workspace_manager
+    @is_organization_owner_or_workspace_manager 
     def types(self, request, *args, **kwargs):
         """
         Fetches project types
@@ -728,7 +730,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     def pull_new_items(self, request, pk=None, *args, **kwargs):
         """
         Pull New Data Items to the Project
@@ -781,7 +783,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
     @project_is_archived
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     def download(self, request, pk=None, *args, **kwargs):
         """
         Download a project
@@ -868,7 +870,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["POST", "GET"], name="Export Project")
     @project_is_archived
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     def project_export(self, request, pk=None, *args, **kwargs):
         """
         Export a project
@@ -1052,7 +1054,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Publish Project")
     @project_is_archived
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     def project_publish(self, request, pk=None, *args, **kwargs):
         """
         Publish a project
