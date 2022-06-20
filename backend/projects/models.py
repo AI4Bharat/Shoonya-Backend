@@ -52,6 +52,7 @@ class Project(models.Model):
     )
 
     users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="project_users", help_text=("Project Users"))
+    frozen_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="frozen_project_users", blank=True, help_text=("Frozen Project Users"))
     organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, help_text=("Organization to which the Project belongs"))
     workspace_id = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, help_text=("Workspace to which the Project belongs"))
     dataset_id = models.ManyToManyField(DatasetInstance, related_name="project_dataset_instances", blank=True, help_text=("Dataset Instances that are available for project creation"))
