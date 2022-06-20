@@ -1,4 +1,3 @@
-import traceback
 from urllib.parse import parse_qsl
 
 from django.apps import apps
