@@ -1,3 +1,4 @@
+import traceback
 from urllib.parse import parse_qsl
 
 from django.apps import apps
@@ -12,7 +13,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from tasks import upload_data_to_data_instance
+from .tasks import upload_data_to_data_instance
 
 from . import resources
 from .models import *
@@ -20,6 +21,22 @@ from .serializers import *
 
 
 ## Utility functions used inside the view functions 
+
+def extract_status_date_time_from_task_queryset(task_queryset):
+    
+    # Sort the tasks by newest items first by date 
+    task_queryset = task_queryset.order_by('-date_done')
+
+    # Get the export task status and last update date
+    task_status = task_queryset.first().as_dict()['status']
+    task_datetime = task_queryset.first().as_dict()['date_done']
+
+    # Extract date and time from the datetime object 
+    task_date = task_datetime.date()
+    task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
+
+    return task_status, task_date, task_time
+
 def get_project_export_status(pk):
     """Function to return status of the project export background task. 
 
@@ -29,11 +46,12 @@ def get_project_export_status(pk):
     Returns:
         str: Status of the project export
         str: Date when the last time project was exported
+        str: Time when the last time project was exported
     """
 
     # Create the keyword argument for project ID 
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
-    
+
     # Check the celery project export status 
     task_queryset = TaskResult.objects.filter(
         task_name__in=[
@@ -46,21 +64,68 @@ def get_project_export_status(pk):
 
     # If the celery TaskResults table returns
     if task_queryset:
-
-        # Sort the tasks by newest items first by date 
-        task_queryset = task_queryset.order_by('-date_done')
-
-        # Get the export task status and last update date
-        task_status = task_queryset.first().as_dict()['status']
-        task_datetime = task_queryset.first().as_dict()['date_done']
-
-        # Extract date and time from the datetime object 
-        task_date = task_datetime.date()
-        task_time = str(task_datetime.time().replace(microsecond=0)) + " UTC"
-    
+        task_status, task_date, task_time =  extract_status_date_time_from_task_queryset(task_queryset)
         return task_status, task_date, task_time
-    
+
     return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
+
+
+def add_dataset_upload_status(serializer):
+    """Function to return status of the dataset upload background task.
+
+    Args:
+        serializer (DatasetInstanceSerializer): Dataset Instance Serializer object with the response data 
+
+    Returns:
+        serializer (DatasetInstanceSerializer): Dataset Instance Serializer object with the response data
+    """
+
+    # Iterate through the serializer data 
+    for dataset_instance in serializer.data:
+
+        # Get the primary key of the dataset instance 
+        dataset_instance_pk = dataset_instance['instance_id']
+
+        # Create the keyword argument for dataset instance ID
+        instance_id_keyword_arg = "{'pk': " + "'" + str(dataset_instance_pk) + "'" + ","
+
+        # Check the celery project export status 
+        task_queryset = TaskResult.objects.filter(
+            task_name='dataset.tasks.upload_data_to_data_instance',
+            task_kwargs__contains=instance_id_keyword_arg,
+        )
+
+        # If the celery TaskResults table returns data
+        if task_queryset:
+                
+            # Sort the tasks by newest items first by date 
+            task_status, task_date, task_time =  extract_status_date_time_from_task_queryset(task_queryset)
+
+            # Add the status and date to the dataset instance serializer
+            dataset_instance["last_upload_date"] = task_date
+            dataset_instance["last_upload_date"] = task_time
+
+            # Get the error messages if the task is a failure 
+            if task_status == "FAILURE":
+                dataset_instance["status"] = "Ingestion Failed!"
+                dataset_instance["traceback"] = task_queryset.first().as_dict()['traceback']
+                dataset_instance["result"] = task_queryset.first().as_dict()['result']
+            
+            # If the task is in progress
+            elif task_status != "SUCCESS":
+                dataset_instance["status"] = "Ingestion in progress."
+            
+            # If the task is a success  
+            else: 
+                dataset_instance["status"] = "Ingestion Successful!"
+        
+        # If no entry is found for the celery task 
+        else: 
+            dataset_instance["last_upload_date"] = "Synchronously Completed. No Date."
+            dataset_instance["last_upload_time"] = "Synchronously Completed. No Time."
+
+    return serializer 
+
 
 # Create your views here.
 class DatasetInstanceViewSet(viewsets.ModelViewSet):
@@ -81,6 +146,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         else:
             queryset = DatasetInstance.objects.all()
         serializer = DatasetInstanceSerializer(queryset, many=True)
+
+        # Add status fields to the serializer data 
+        serializer = add_dataset_upload_status(serializer) 
+
         return Response(serializer.data)
 
     @action(methods=['GET'], detail=True, name="Download Dataset in CSV format")
@@ -130,34 +199,18 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         dataset_string = dataset.read().decode()
 
         # Uplod the dataset to the dataset instance
-        upload_data_to_data_instance(
-            pk=pk, 
+        upload_data_to_data_instance.delay(
+            pk=pk,  
+            dataset_type=dataset_type, 
             dataset_string=dataset_string, 
-            dataset_type=dataset_type
         )
 
-        # # Create a new tablib Dataset and load the data into this dataset
-        # imported_data = Dataset().load(dataset.read().decode(), format='csv')
-
-        # # Add the instance_id column to all rows in the dataset
-        # imported_data.append_col([pk]*len(imported_data), header="instance_id")
-
-        # # Declare the appropriate resource map based on dataset type
-        # resource = RESOURCE_MAP[dataset_type]()
-
-        # # Import the data into the database
-        # try:
-        #     resource.import_data(imported_data, raise_errors=True)
-        # # If validation checks fail, raise the Exception
-        # except Exception as e:
-        #     return Response({
-        #         "message": "Dataset validation failed.",
-        #         "exception": e
-        #     }, status=status.HTTP_400_BAD_REQUEST)
-
+        # Get name of the dataset instance 
+        dataset_name = get_object_or_404(DatasetInstance, pk=pk).instance_name
         return Response({
-            "message": f"Uploading {dataset_type} data to Dataset {pk}",
-        }, status=status.HTTP_201_CREATED)
+            "message": f"Uploading {dataset_type} data to Dataset Instance: {dataset_name}",
+        }, 
+        status=status.HTTP_201_CREATED)
 
     @action(methods=['GET'], detail=True, name="List all Projects using Dataset")
     def projects(self, request, pk):
