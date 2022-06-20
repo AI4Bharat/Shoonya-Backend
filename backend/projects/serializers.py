@@ -6,6 +6,7 @@ from users.serializers import UserProfileSerializer
 class ProjectSerializer(serializers.ModelSerializer):
     users = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
+    frozen_users = UserProfileSerializer(read_only=True, many=True)
     class Meta:
         model = Project
 
@@ -19,6 +20,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "is_archived",
             "is_published",
             "users",
+            "frozen_users",
             "workspace_id",
             "organization_id",
             "filter_string",
