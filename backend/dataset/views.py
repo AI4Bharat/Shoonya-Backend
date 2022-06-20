@@ -1,23 +1,22 @@
-import resource
-from tablib import Dataset
-from django.apps import apps
-from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework.decorators import action
-from rest_framework.views import APIView
-from django.http import StreamingHttpResponse
-from django_celery_results.models import TaskResult
-
 from urllib.parse import parse_qsl
 
+from django.apps import apps
+from django.http import StreamingHttpResponse
+from django.shortcuts import get_object_or_404
+from django_celery_results.models import TaskResult
 from filters import filter
 from projects.serializers import ProjectSerializer
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from tasks import upload_data_to_data_instance
+
+from . import resources
 from .models import *
 from .serializers import *
-from .resources import RESOURCE_MAP
-from . import resources
 
 
 ## Utility functions used inside the view functions 
@@ -127,32 +126,37 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 "message": "Invalid Dataset File. Only accepts .csv files.",
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create a new tablib Dataset and load the data into this dataset
-        imported_data = Dataset().load(dataset.read().decode(), format='csv')
+        # Read the dataset as a string from the dataset pointer 
+        dataset_string = dataset.read().decode()
 
-        # Add the instance_id column to all rows in the dataset
-        imported_data.append_col([pk]*len(imported_data), header="instance_id")
+        # Uplod the dataset to the dataset instance
+        upload_data_to_data_instance(
+            pk=pk, 
+            dataset_string=dataset_string, 
+            dataset_type=dataset_type
+        )
 
-        # Declare the appropriate resource map based on dataset type
-        resource = RESOURCE_MAP[dataset_type]()
+        # # Create a new tablib Dataset and load the data into this dataset
+        # imported_data = Dataset().load(dataset.read().decode(), format='csv')
 
-        # Import the data into the database
-        try:
-            resource.import_data(imported_data, raise_errors=True)
-        # If validation checks fail, raise the Exception
-        except Exception as e:
-            return Response({
-                "message": "Dataset validation failed.",
-                "exception": e
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # # Add the instance_id column to all rows in the dataset
+        # imported_data.append_col([pk]*len(imported_data), header="instance_id")
 
-        # Fetch the imported data from the model and return it to the frontend
-        model = apps.get_model('dataset', dataset_type)
-        data = model.objects.filter(instance_id=pk)
-        serializer = SERIALIZER_MAP[dataset_type](data, many=True)
+        # # Declare the appropriate resource map based on dataset type
+        # resource = RESOURCE_MAP[dataset_type]()
+
+        # # Import the data into the database
+        # try:
+        #     resource.import_data(imported_data, raise_errors=True)
+        # # If validation checks fail, raise the Exception
+        # except Exception as e:
+        #     return Response({
+        #         "message": "Dataset validation failed.",
+        #         "exception": e
+        #     }, status=status.HTTP_400_BAD_REQUEST)
+
         return Response({
-            "message": f"Uploaded {dataset_type} data to Dataset {pk}",
-            "data": serializer.data
+            "message": f"Uploading {dataset_type} data to Dataset {pk}",
         }, status=status.HTTP_201_CREATED)
 
     @action(methods=['GET'], detail=True, name="List all Projects using Dataset")
