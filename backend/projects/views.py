@@ -555,7 +555,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if pending_tasks >= project.max_pending_tasks_per_user:
             return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
         tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
-        tasks_to_be_assigned = min(tasks_to_be_assigned, project.tasks_pull_count_per_batch)
+
+        if "num_tasks" in dict(request.data):
+            task_pull_count = request.data["num_tasks"]
+        else:
+            task_pull_count = project.tasks_pull_count_per_batch
+
+        tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
         lock_set = False
         while(lock_set == False):
