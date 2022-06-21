@@ -1147,3 +1147,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
+    @action(detail=False, methods=['GET'], name='Get language choices')
+    def language_choices(self, request):
+        return Response(LanguageChoices.choices)

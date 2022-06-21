@@ -32,6 +32,30 @@ Annotation = "Annotation"
 PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
 
 
+class LanguageChoices(models.TextChoices):
+    ASSAMESE =  "assamese", "Assamese"
+    BODO =      "bodo", "Bodo"
+    BENGALI =   "bengali", "Bengali"
+    DOGRI =     "dogri", "Dogri"
+    GUJRATI =   "gujrati", "Gujrati"
+    KANNADA =   "kannada", "Kannada"
+    KASHMIRI =  "kashmiri", "Kashmiri"
+    KONKANI =   "konkani", "Konkani"
+    MAITHILI =  "maithili", "Maithili"
+    MALAYALAM = "malayalam", "Malayalam"
+    MANIPURI =  "manipuri", "Manipuri"
+    MARATHI =   "marathi", "Marathi"
+    NEPALI =    "nepali", "Nepali"
+    ODIA =      "odia", "Odia"
+    OTHERS =    "others", "Others"
+    PUNJABI =   "punjabi", "Punjabi"
+    SANSKRIT =  "sanskrit", "Sanskrit"
+    SANTALI =   "santali", "Santali"
+    SINDHI =    "sindhi", "Sindhi"
+    TAMIL =     "tamil", "Tamil"
+    TELGU =     "telgu", "Telgu"
+    URDU =      "urdu", "Urdu"
+
 # Create your models here.
 class Project(models.Model):
     """
@@ -110,6 +134,21 @@ class Project(models.Model):
     # language = models.CharField(
     #     verbose_name="language", choices=LANG_CHOICES, max_length=3
     # )
+
+    src_language = models.CharField(
+        choices=LanguageChoices.choices,
+        null=True,
+        blank=True,
+        max_length=50,
+        help_text=("Source language of the project"),
+    )
+    tgt_language = models.CharField(
+        choices=LanguageChoices.choices,
+        null=True,
+        blank=True,
+        max_length=50,
+        help_text=("Target language of the project"),
+    )
 
     def __str__(self):
         return str(self.title)
