@@ -32,6 +32,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             "variable_parameters",
             "project_mode",
             "required_annotators_per_task",
+            "src_language",
+            "tgt_language"
         ]
 
 
