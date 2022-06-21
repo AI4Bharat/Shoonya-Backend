@@ -5,7 +5,7 @@ from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
 from .registry_helper import ProjectRegistry
-# from dataset import LANG_CHOICES
+from users.models import LANG_CHOICES
 
 RANDOM = "r"
 BATCH = "b"
@@ -30,31 +30,6 @@ Collection = "Collection"
 Annotation = "Annotation"
 
 PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
-
-
-class LanguageChoices(models.TextChoices):
-    ASSAMESE =  "assamese", "Assamese"
-    BODO =      "bodo", "Bodo"
-    BENGALI =   "bengali", "Bengali"
-    DOGRI =     "dogri", "Dogri"
-    GUJRATI =   "gujrati", "Gujrati"
-    KANNADA =   "kannada", "Kannada"
-    KASHMIRI =  "kashmiri", "Kashmiri"
-    KONKANI =   "konkani", "Konkani"
-    MAITHILI =  "maithili", "Maithili"
-    MALAYALAM = "malayalam", "Malayalam"
-    MANIPURI =  "manipuri", "Manipuri"
-    MARATHI =   "marathi", "Marathi"
-    NEPALI =    "nepali", "Nepali"
-    ODIA =      "odia", "Odia"
-    OTHERS =    "others", "Others"
-    PUNJABI =   "punjabi", "Punjabi"
-    SANSKRIT =  "sanskrit", "Sanskrit"
-    SANTALI =   "santali", "Santali"
-    SINDHI =    "sindhi", "Sindhi"
-    TAMIL =     "tamil", "Tamil"
-    TELGU =     "telgu", "Telgu"
-    URDU =      "urdu", "Urdu"
 
 # Create your models here.
 class Project(models.Model):
@@ -136,14 +111,14 @@ class Project(models.Model):
     # )
 
     src_language = models.CharField(
-        choices=LanguageChoices.choices,
+        choices=LANG_CHOICES,
         null=True,
         blank=True,
         max_length=50,
         help_text=("Source language of the project"),
     )
     tgt_language = models.CharField(
-        choices=LanguageChoices.choices,
+        choices=LANG_CHOICES,
         null=True,
         blank=True,
         max_length=50,

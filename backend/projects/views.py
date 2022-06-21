@@ -21,6 +21,7 @@ from datetime import datetime
 from django.db.models import Q
 from .word_count import no_of_words
 from users.serializers import UserEmailSerializer
+from users.models import LANG_CHOICES
 
 from utils.search import process_search_query
 
@@ -1150,4 +1151,4 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['GET'], name='Get language choices')
     def language_choices(self, request):
-        return Response(LanguageChoices.choices)
+        return Response(LANG_CHOICES)
