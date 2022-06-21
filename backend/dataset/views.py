@@ -80,7 +80,8 @@ def get_project_export_status(pk):
         "Synchronously Completed. No Time.",
     )
 
-def get_dataset_upload_status(dataset_instance_pk): 
+
+def get_dataset_upload_status(dataset_instance_pk):
     """Function to return status of the dataset upload background task.
 
     Args:
@@ -100,7 +101,7 @@ def get_dataset_upload_status(dataset_instance_pk):
         task_name="dataset.tasks.upload_data_to_data_instance",
         task_kwargs__contains=instance_id_keyword_arg,
     )
-    
+
     # If the celery TaskResults table returns data
     if task_queryset:
 
@@ -113,14 +114,14 @@ def get_dataset_upload_status(dataset_instance_pk):
         # Get the error messages if the task is a failure
         if task_status == "FAILURE":
             task_status = "Ingestion Failed!"
-    
+
         # If the task is in progress
         elif task_status != "SUCCESS":
             task_status = "Ingestion in progress."
 
         # If the task is a success
         else:
-           task_status = "Ingestion Successful!"
+            task_status = "Ingestion Successful!"
 
     # If no entry is found for the celery task
     else:
@@ -128,6 +129,7 @@ def get_dataset_upload_status(dataset_instance_pk):
         task_time = "Synchronously Completed. No Time."
 
     return task_status, task_date, task_time
+
 
 # Create your views here.
 class DatasetInstanceViewSet(viewsets.ModelViewSet):
@@ -149,7 +151,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         dataset_instance_response = super().retrieve(request, *args, **kwargs)
 
         # Get the task statuses for the dataset instance
-        dataset_instance_status, dataset_instance_date, dataset_instance_time = get_dataset_upload_status(pk)
+        (
+            dataset_instance_status,
+            dataset_instance_date,
+            dataset_instance_time,
+        ) = get_dataset_upload_status(pk)
 
         # Add the task status and time to the dataset instance response
         dataset_instance_response.data["last_upload_status"] = dataset_instance_status
@@ -169,10 +175,14 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Add status fields to the serializer data
         for dataset_instance in serializer.data:
-            
+
             # Get the task statuses for the dataset instance
-            dataset_instance_status, dataset_instance_date, dataset_instance_time = get_dataset_upload_status(dataset_instance["instance_id"])
-            
+            (
+                dataset_instance_status,
+                dataset_instance_date,
+                dataset_instance_time,
+            ) = get_dataset_upload_status(dataset_instance["instance_id"])
+
             # Add the task status and time to the dataset instance response
             dataset_instance["last_upload_status"] = dataset_instance_status
             dataset_instance["last_upload_date"] = dataset_instance_date
@@ -196,8 +206,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
         dataset_resource = getattr(
-            resources, 
-            dataset_instance.dataset_type + "Resource"
+            resources, dataset_instance.dataset_type + "Resource"
         )
         exported_items = dataset_resource().export_as_generator(data_items)
         return StreamingHttpResponse(
@@ -274,8 +283,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 last_project_export_date,
                 last_project_export_time,
             ) = get_project_export_status(project.get("id"))
-            
-            # Add the export status and date to the project instance serializer 
+
+            # Add the export status and date to the project instance serializer
             project["last_project_export_status"] = project_export_status
             project["last_project_export_date"] = last_project_export_date
             project["last_project_export_time"] = last_project_export_time
