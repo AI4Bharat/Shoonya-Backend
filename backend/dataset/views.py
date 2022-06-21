@@ -80,66 +80,54 @@ def get_project_export_status(pk):
         "Synchronously Completed. No Time.",
     )
 
-
-def add_dataset_upload_status(serializer):
+def get_dataset_upload_status(dataset_instance_pk): 
     """Function to return status of the dataset upload background task.
 
     Args:
-        serializer (DatasetInstanceSerializer): Dataset Instance Serializer object with the response data
+        dataset_instance_pk (int): Primary key of the dataset instance
 
     Returns:
-        serializer (DatasetInstanceSerializer): Dataset Instance Serializer object with the response data
+        str: Status of the dataset upload
+        str: Date when the last time dataset was uploaded
+        str: Time when the last time dataset was uploaded
     """
 
-    # Iterate through the serializer data
-    for dataset_instance in serializer.data:
+    # Create the keyword argument for dataset instance ID
+    instance_id_keyword_arg = "{'pk': " + "'" + str(dataset_instance_pk) + "'" + ","
 
-        # Get the primary key of the dataset instance
-        dataset_instance_pk = dataset_instance["instance_id"]
+    # Check the celery project export status
+    task_queryset = TaskResult.objects.filter(
+        task_name="dataset.tasks.upload_data_to_data_instance",
+        task_kwargs__contains=instance_id_keyword_arg,
+    )
+    
+    # If the celery TaskResults table returns data
+    if task_queryset:
 
-        # Create the keyword argument for dataset instance ID
-        instance_id_keyword_arg = "{'pk': " + "'" + str(dataset_instance_pk) + "'" + ","
+        (
+            task_status,
+            task_date,
+            task_time,
+        ) = extract_status_date_time_from_task_queryset(task_queryset)
 
-        # Check the celery project export status
-        task_queryset = TaskResult.objects.filter(
-            task_name="dataset.tasks.upload_data_to_data_instance",
-            task_kwargs__contains=instance_id_keyword_arg,
-        )
+        # Get the error messages if the task is a failure
+        if task_status == "FAILURE":
+            task_status = "Ingestion Failed!"
+    
+        # If the task is in progress
+        elif task_status != "SUCCESS":
+            task_status = "Ingestion in progress."
 
-        # If the celery TaskResults table returns data
-        if task_queryset:
-
-            (
-                task_status,
-                task_date,
-                task_time,
-            ) = extract_status_date_time_from_task_queryset(task_queryset)
-
-            # Add the status and date to the dataset instance serializer
-            dataset_instance["last_upload_date"] = task_date
-            dataset_instance["last_upload_date"] = task_time
-
-            # Get the error messages if the task is a failure
-            if task_status == "FAILURE":
-                dataset_instance["status"] = "Ingestion Failed!"
-                dataset_instance["traceback"] = task_queryset.first().as_dict()["traceback"]
-                dataset_instance["result"] = task_queryset.first().as_dict()["result"]
-
-            # If the task is in progress
-            elif task_status != "SUCCESS":
-                dataset_instance["status"] = "Ingestion in progress."
-
-            # If the task is a success
-            else:
-                dataset_instance["status"] = "Ingestion Successful!"
-
-        # If no entry is found for the celery task
+        # If the task is a success
         else:
-            dataset_instance["last_upload_date"] = "Synchronously Completed. No Date."
-            dataset_instance["last_upload_time"] = "Synchronously Completed. No Time."
+           task_status = "Ingestion Successful!"
 
-    return serializer
+    # If no entry is found for the celery task
+    else:
+        task_date = "Synchronously Completed. No Date."
+        task_time = "Synchronously Completed. No Time."
 
+    return task_status, task_date, task_time
 
 # Create your views here.
 class DatasetInstanceViewSet(viewsets.ModelViewSet):
@@ -155,6 +143,21 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return DatasetInstanceUploadSerializer
         return DatasetInstanceSerializer
 
+    def retrieve(self, request, pk, *args, **kwargs):
+        """Retrieves a DatasetInstance given its ID"""
+
+        dataset_instance_response = super().retrieve(request, *args, **kwargs)
+
+        # Get the task statuses for the dataset instance
+        dataset_instance_status, dataset_instance_date, dataset_instance_time = get_dataset_upload_status(pk)
+
+        # Add the task status and time to the dataset instance response
+        dataset_instance_response.data["last_upload_status"] = dataset_instance_status
+        dataset_instance_response.data["last_upload_date"] = dataset_instance_date
+        dataset_instance_response.data["last_upload_time"] = dataset_instance_time
+
+        return dataset_instance_response
+
     def list(self, request, *args, **kwargs):
         if "dataset_type" in dict(request.query_params):
             queryset = DatasetInstance.objects.filter(
@@ -165,7 +168,15 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         serializer = DatasetInstanceSerializer(queryset, many=True)
 
         # Add status fields to the serializer data
-        serializer = add_dataset_upload_status(serializer)
+        for dataset_instance in serializer.data:
+            
+            # Get the task statuses for the dataset instance
+            dataset_instance_status, dataset_instance_date, dataset_instance_time = get_dataset_upload_status(dataset_instance["instance_id"])
+            
+            # Add the task status and time to the dataset instance response
+            dataset_instance["last_upload_status"] = dataset_instance_status
+            dataset_instance["last_upload_date"] = dataset_instance_date
+            dataset_instance["last_upload_time"] = dataset_instance_time
 
         return Response(serializer.data)
 
