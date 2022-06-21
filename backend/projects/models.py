@@ -115,7 +115,7 @@ class Project(models.Model):
     tasks_pull_count_per_batch = models.IntegerField(verbose_name="tasks_pull_count_per_batch", default=10,
         help_text=("Maximum no. of new tasks that can be assigned to a user at once"))
 
-    max_pending_tasks_per_user = models.IntegerField(verbose_name="max_pending_tasks_per_user", default=30,
+    max_pending_tasks_per_user = models.IntegerField(verbose_name="max_pending_tasks_per_user", default=60,
         help_text=("Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks"))
 
 

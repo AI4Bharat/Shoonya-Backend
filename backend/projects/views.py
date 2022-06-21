@@ -548,10 +548,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
 
         # check if user has pending tasks
-        assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
-        assigned_tasks = assigned_tasks_queryset.count()
-        completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
-        pending_tasks = assigned_tasks - completed_tasks
+        # the below logic will work only for required_annotators_per_task=1
+        # TO-DO Modify and use the commented logic to cover all cases
+        pending_tasks = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id).filter(task_status__exact=UNLABELED).count()
+        # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
+        # assigned_tasks = assigned_tasks_queryset.count()
+        # completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
+        # pending_tasks = assigned_tasks - completed_tasks
         if pending_tasks >= project.max_pending_tasks_per_user:
             return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
         tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
@@ -855,8 +858,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
 
-            if project.is_published:
-                return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
+            # if project.is_published:
+            #     return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
 
             emails = request.data.get("emails")
             invalid_emails = []
