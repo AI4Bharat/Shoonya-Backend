@@ -150,6 +150,8 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             for index, each_data in enumerate(data):
                 data[index]["data"]["output_text"] = each_data["correct_annotation"]["result"][0]["value"]["text"][0]
                 each_data["correct_annotation"]=each_data["correct_annotation"]["id"]
+                each_data["machine_translation"]=each_data["data"]["machine_translation"]
+                del each_data["data"]["machine_translation"]
             return self.get_paginated_response(data)
         elif page is not None:
             serializer = TaskSerializer(page, many=True)
