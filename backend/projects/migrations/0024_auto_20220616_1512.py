@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='project',
             name='max_pending_tasks_per_user',
-            field=models.IntegerField(default=30, help_text='Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks', verbose_name='max_pending_tasks_per_user'),
+            field=models.IntegerField(default=60, help_text='Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks', verbose_name='max_pending_tasks_per_user'),
         ),
         migrations.AddField(
             model_name='project',
