@@ -42,12 +42,11 @@ from .models import *
 from .registry_helper import ProjectRegistry
 
 # Import celery tasks
-from .tasks import (create_parameters_for_task_creation,
-                    create_tasks_from_dataitems, 
+from .tasks import (assign_users_to_tasks, 
+                    create_parameters_for_task_creation,
                     export_project_in_place,
-                    export_project_new_record, 
-                    pull_new_data_items_into_project, 
-                    assign_users_to_tasks)
+                    export_project_new_record,
+                    pull_new_data_items_into_project)
 from .utils import is_valid_date
 
 # Create your views here.
