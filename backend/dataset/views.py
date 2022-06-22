@@ -127,6 +127,7 @@ def get_dataset_upload_status(dataset_instance_pk):
     else:
         task_date = "Synchronously Completed. No Date."
         task_time = "Synchronously Completed. No Time."
+        task_status = "None"
 
     return task_status, task_date, task_time
 
