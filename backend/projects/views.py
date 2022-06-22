@@ -5,13 +5,14 @@ import json
 from collections import OrderedDict
 from typing import Dict
 from urllib.parse import parse_qsl
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from rest_framework import viewsets
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from django.core.mail import send_mail
+from django.core.exceptions import ObjectDoesNotExist
 from django.conf import settings
 from django.forms.models import model_to_dict
 from django.http import HttpResponse
@@ -44,8 +45,12 @@ from tasks.serializers import TaskSerializer
 from .registry_helper import ProjectRegistry
 
 # Import celery tasks
-from .tasks import create_parameters_for_task_creation, create_tasks_from_dataitems, export_project_in_place, export_project_new_record
-
+from .tasks import (
+    create_parameters_for_task_creation, 
+    create_tasks_from_dataitems, 
+    export_project_in_place, 
+    export_project_new_record
+) 
 from projects.serializers import ProjectSerializer, ProjectUsersSerializer
 from tasks.serializers import TaskSerializer
 from .models import *
@@ -78,6 +83,21 @@ def batch(iterable, n=1):
     for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
 
+def extract_status_date_time_from_task_queryset(task_queryset):
+
+    # Sort the tasks by newest items first by date 
+    task_queryset = task_queryset.order_by('-date_done')
+
+    # Get the export task status and last update date
+    task_status = task_queryset.first().as_dict()['status']
+    task_datetime = task_queryset.first().as_dict()['date_done']
+
+    # Extract date and time from the datetime object 
+    task_date = task_datetime.date()
+    task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
+
+    return task_status, task_date, task_time
+
 def get_project_export_status(pk):
     """Function to return status of the project export background task. 
 
@@ -91,7 +111,7 @@ def get_project_export_status(pk):
 
     # Create the keyword argument for project ID 
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
-    
+
     # Check the celery project export status 
     task_queryset = TaskResult.objects.filter(
         task_name__in=[
@@ -105,19 +125,7 @@ def get_project_export_status(pk):
     # If the celery TaskResults table returns
     if task_queryset:
 
-        # Sort the tasks by newest items first by date 
-        task_queryset = task_queryset.order_by('-date_done')
-
-        # Get the export task status and last update date
-        task_status = task_queryset.first().as_dict()['status']
-        task_datetime = task_queryset.first().as_dict()['date_done']
-
-        # Extract date and time from the datetime object 
-        task_date = task_datetime.date()
-        task_time = str(task_datetime.time().replace(microsecond=0)) + " UTC"
-    
-        return task_status, task_date, task_time
-    
+        return extract_status_date_time_from_task_queryset(task_queryset)
     return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
 
 def get_project_creation_status(pk) -> str:
@@ -871,6 +879,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if project.sampling_mode != FULL:
                 ret_dict = {"message": "Sampling Mode is not FULL!"}
                 ret_status = status.HTTP_403_FORBIDDEN
+            elif not project: 
+                ret_dict = {"message": "Project does not exist!"}
+                ret_status = status.HTTP_404_NOT_FOUND
             else:
                 project_type = project.project_type
                 registry_helper = ProjectRegistry.get_instance()
