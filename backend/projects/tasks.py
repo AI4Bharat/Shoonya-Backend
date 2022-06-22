@@ -1,22 +1,28 @@
 import random
+from collections import OrderedDict
 from urllib.parse import parse_qsl
+
 from celery import shared_task
+from celery.utils.log import get_task_logger
+from dataset import models as dataset_models
+from django.forms.models import model_to_dict
+from filters import filter
 from rest_framework import status
 from rest_framework.response import Response
-from django.forms.models import model_to_dict
-
 from users.models import User
-from tasks.models import Task
-from dataset import models as dataset_models
-from tasks.models import *
-from tasks.models import Annotation as Annotation_model
-from .registry_helper import ProjectRegistry
-from collections import OrderedDict
 
+from tasks.models import Annotation as Annotation_model
+from tasks.models import *
+from tasks.models import Task
+from utils.monolingual.sentence_splitter import split_sentences
 
 from .models import *
-from filters import filter
-from utils.monolingual.sentence_splitter import split_sentences
+from .registry_helper import ProjectRegistry
+from .serializers import ProjectUsersSerializer
+
+# Celery logger settings 
+logger = get_task_logger(__name__)
+
 
 ## Utility functions for the tasks
 def create_tasks_from_dataitems(items, project):
@@ -81,6 +87,39 @@ def create_tasks_from_dataitems(items, project):
         Annotation_model.objects.bulk_create(predictions)
 
     return tasks
+
+def assign_users_to_tasks(tasks, users):
+    annotatorList = []
+    for user in users:
+        userRole = user["role"]
+        user_obj = User.objects.get(pk=user["id"])
+        if userRole == 1 and not user_obj.is_superuser:
+            annotatorList.append(user)
+
+    total_tasks = len(tasks)
+    total_users = len(annotatorList)
+    # print("Total Users: ",total_users)
+    # print("Total Tasks: ",total_tasks)
+
+    tasks_per_user = total_tasks // total_users
+    chunk = tasks_per_user if total_tasks % total_users == 0 else tasks_per_user + 1
+    # print(chunk)
+
+    # updated_tasks = []
+    for c in range(total_users):
+        st_idx = c * chunk
+        # if c == chunk - 1:
+        #     en_idx = total_tasks
+        # else:
+        #     en_idx = (c+1) * chunk
+
+        en_idx = min((c + 1) * chunk, total_tasks)
+
+        user_obj = User.objects.get(pk=annotatorList[c]["id"])
+        for task in tasks[st_idx:en_idx]:
+            task.annotation_users.add(user_obj)
+            # updated_tasks.append(task)
+            task.save()
 
 
 #### CELERY SHARED TASKS
@@ -336,3 +375,54 @@ def export_project_new_record(
             data_item.save()
             task.output_data = data_item
             task.save()
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    exponential_backoff=2,
+    retry_kwargs={
+        "max_retries": 1,
+        "countdown": 2,
+    },
+)
+def pull_new_data_items_into_project(self, project_id): 
+
+    # Get project instance 
+    project = Project.objects.get(pk=project_id)  
+    project_type = project.project_type
+    registry_helper = ProjectRegistry.get_instance()
+    input_dataset_info = registry_helper.get_input_dataset_and_fields(
+        project_type
+    )
+    dataset_model = getattr(
+        dataset_models, input_dataset_info["dataset_type"]
+    )
+    tasks = Task.objects.filter(project_id__exact=project)
+    all_items = dataset_model.objects.filter(
+        instance_id__in=list(project.dataset_id.all())
+    )
+    items = all_items.exclude(id__in=tasks.values("input_data"))
+    
+    # Get the input dataset fields from the filtered items
+    if input_dataset_info["prediction"] is not None:
+        items = list(
+            items.values(
+                "id",
+                *input_dataset_info["fields"],
+                input_dataset_info["prediction"],
+            )
+        )
+    else:
+        items = list(items.values("id", *input_dataset_info["fields"]))
+
+    new_tasks = create_tasks_from_dataitems(items, project)
+    
+    # Get Project users 
+    serializer = ProjectUsersSerializer(project, many=False)
+    users = serializer.data["users"]
+    assign_users_to_tasks(new_tasks, users)
+
+    # Add information to the logger 
+    # logger.info(
+    #     f"Pulled {len(new_tasks)} new data items into project {project_id}"
+    # )

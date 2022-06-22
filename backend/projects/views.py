@@ -43,8 +43,11 @@ from .registry_helper import ProjectRegistry
 
 # Import celery tasks
 from .tasks import (create_parameters_for_task_creation,
-                    create_tasks_from_dataitems, export_project_in_place,
-                    export_project_new_record)
+                    create_tasks_from_dataitems, 
+                    export_project_in_place,
+                    export_project_new_record, 
+                    pull_new_data_items_into_project, 
+                    assign_users_to_tasks)
 from .utils import is_valid_date
 
 # Create your views here.
@@ -149,38 +152,6 @@ def get_project_creation_status(pk) -> str:
     else:
         return "Draft"
 
-def assign_users_to_tasks(tasks, users):
-    annotatorList = []
-    for user in users:
-        userRole = user["role"]
-        user_obj = User.objects.get(pk=user["id"])
-        if userRole == 1 and not user_obj.is_superuser:
-            annotatorList.append(user)
-
-    total_tasks = len(tasks)
-    total_users = len(annotatorList)
-    # print("Total Users: ",total_users)
-    # print("Total Tasks: ",total_tasks)
-
-    tasks_per_user = total_tasks // total_users
-    chunk = tasks_per_user if total_tasks % total_users == 0 else tasks_per_user + 1
-    # print(chunk)
-
-    # updated_tasks = []
-    for c in range(total_users):
-        st_idx = c * chunk
-        # if c == chunk - 1:
-        #     en_idx = total_tasks
-        # else:
-        #     en_idx = (c+1) * chunk
-
-        en_idx = total_tasks if (c + 1) * chunk > total_tasks else (c + 1) * chunk
-
-        user_obj = User.objects.get(pk=annotatorList[c]["id"])
-        for task in tasks[st_idx:en_idx]:
-            task.annotation_users.add(user_obj)
-            # updated_tasks.append(task)
-            task.save()
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -858,47 +829,52 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if project.sampling_mode != FULL:
                 ret_dict = {"message": "Sampling Mode is not FULL!"}
                 ret_status = status.HTTP_403_FORBIDDEN
-            elif not project: 
-                ret_dict = {"message": "Project does not exist!"}
-                ret_status = status.HTTP_404_NOT_FOUND
             else:
-                project_type = project.project_type
-                registry_helper = ProjectRegistry.get_instance()
-                input_dataset_info = registry_helper.get_input_dataset_and_fields(
-                    project_type
-                )
-                dataset_model = getattr(
-                    dataset_models, input_dataset_info["dataset_type"]
-                )
-                tasks = Task.objects.filter(project_id__exact=project)
-                all_items = dataset_model.objects.filter(
-                    instance_id__in=list(project.dataset_id.all())
-                )
-                items = all_items.exclude(id__in=tasks.values("input_data"))
-                # Get the input dataset fields from the filtered items
-                if input_dataset_info["prediction"] is not None:
-                    items = list(
-                        items.values(
-                            "id",
-                            *input_dataset_info["fields"],
-                            input_dataset_info["prediction"],
-                        )
-                    )
-                else:
-                    items = list(items.values("id", *input_dataset_info["fields"]))
+                # Get serializer with the project user data 
+                try: 
+                    serializer = ProjectUsersSerializer(project, many=False)
+                except User.DoesNotExist:
+                    ret_dict = {"message": "User does not exist!"}
+                    ret_status = status.HTTP_404_NOT_FOUND
+                
+                # Pull new data items in to the project asynchronously 
+                # and return the status of the pull 
+                pull_new_data_items_into_project.delay(project_id=pk)
 
-                new_tasks = create_tasks_from_dataitems(items, project)
-                serializer = ProjectUsersSerializer(project, many=False)
-                # ret_dict = serializer.data
-                users = serializer.data["users"]
-                assign_users_to_tasks(new_tasks, users)
-                ret_dict = {"message": f"{len(new_tasks)} new tasks added."}
+                # project_type = project.project_type
+                # registry_helper = ProjectRegistry.get_instance()
+                # input_dataset_info = registry_helper.get_input_dataset_and_fields(
+                #     project_type
+                # )
+                # dataset_model = getattr(
+                #     dataset_models, input_dataset_info["dataset_type"]
+                # )
+                # tasks = Task.objects.filter(project_id__exact=project)
+                # all_items = dataset_model.objects.filter(
+                #     instance_id__in=list(project.dataset_id.all())
+                # )
+                # items = all_items.exclude(id__in=tasks.values("input_data"))
+                # # Get the input dataset fields from the filtered items
+                # if input_dataset_info["prediction"] is not None:
+                #     items = list(
+                #         items.values(
+                #             "id",
+                #             *input_dataset_info["fields"],
+                #             input_dataset_info["prediction"],
+                #         )
+                #     )
+                # else:
+                #     items = list(items.values("id", *input_dataset_info["fields"]))
+
+                # new_tasks = create_tasks_from_dataitems(items, project)
+                
+                # # ret_dict = serializer.data
+                # users = serializer.data["users"]
+                # assign_users_to_tasks(new_tasks, users)
+                ret_dict = {"message": f"new tasks added."}
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        except User.DoesNotExist:
-            ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
