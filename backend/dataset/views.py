@@ -1,28 +1,30 @@
-import resource
 from tablib import Dataset
 from django.apps import apps
 from django.shortcuts import get_object_or_404
+from django.http import StreamingHttpResponse
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.views import APIView
-from django.http import StreamingHttpResponse
 from django_celery_results.models import TaskResult
 
 from urllib.parse import parse_qsl
 
 from filters import filter
 from projects.serializers import ProjectSerializer
+from users.models import User
 from .models import *
 from .serializers import *
 from .resources import RESOURCE_MAP
 from . import resources
+from .permissions import DatasetInstancePermission
 
 
-## Utility functions used inside the view functions 
+## Utility functions used inside the view functions
 def get_project_export_status(pk):
-    """Function to return status of the project export background task. 
+    """Function to return status of the project export background task.
 
     Args:
         pk (int): Primary key of the project
@@ -32,35 +34,35 @@ def get_project_export_status(pk):
         str: Date when the last time project was exported
     """
 
-    # Create the keyword argument for project ID 
+    # Create the keyword argument for project ID
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
-    
-    # Check the celery project export status 
+
+    # Check the celery project export status
     task_queryset = TaskResult.objects.filter(
         task_name__in=[
-            'projects.tasks.export_project_in_place', 
+            'projects.tasks.export_project_in_place',
             'projects.tasks.export_project_new_record'
         ],
         # task_name = 'projects.tasks.export_project_in_place',
         task_kwargs__contains=project_id_keyword_arg,
-    ) 
+    )
 
     # If the celery TaskResults table returns
     if task_queryset:
 
-        # Sort the tasks by newest items first by date 
+        # Sort the tasks by newest items first by date
         task_queryset = task_queryset.order_by('-date_done')
 
         # Get the export task status and last update date
         task_status = task_queryset.first().as_dict()['status']
         task_datetime = task_queryset.first().as_dict()['date_done']
 
-        # Extract date and time from the datetime object 
+        # Extract date and time from the datetime object
         task_date = task_datetime.date()
         task_time = str(task_datetime.time().replace(microsecond=0)) + " UTC"
-    
+
         return task_status, task_date, task_time
-    
+
     return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
 
 # Create your views here.
@@ -69,7 +71,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     ViewSet for Dataset Instance
     '''
     queryset = DatasetInstance.objects.all()
-    permission_classes = (IsAuthenticatedOrReadOnly, )
+    permission_classes = (DatasetInstancePermission, )
 
     def get_serializer_class(self):
         if self.action == 'upload':
@@ -77,11 +79,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         return DatasetInstanceSerializer
 
     def list(self, request, *args, **kwargs):
-        if "dataset_type" in dict(request.query_params):
-            queryset = DatasetInstance.objects.filter(dataset_type__exact=request.query_params["dataset_type"])
-        else:
+        # Org Owners and superusers see all datasets
+        if request.user.role == User.ORGANIZAION_OWNER or request.user.is_superuser:
             queryset = DatasetInstance.objects.all()
-        serializer = DatasetInstanceSerializer(queryset, many=True)
+        # Managers only see datasets that they are added to and public datasets
+        else:
+            queryset = DatasetInstance.objects.filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
+
+        # Filter the queryset based on the query params
+        if "dataset_type" in dict(request.query_params):
+            queryset = queryset.filter(dataset_type__exact=request.query_params["dataset_type"])
+
+        # Serialize the distinct items and sort by instance ID
+        serializer = DatasetInstanceSerializer(queryset.distinct().order_by('instance_id'), many=True)
         return Response(serializer.data)
 
     @action(methods=['GET'], detail=True, name="Download Dataset in CSV format")
@@ -168,12 +178,12 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Serialize the projects and return them to the frontend
         serializer = ProjectSerializer(projects, many=True)
 
-        # Add new fields to the serializer data to show project exprot status and date 
+        # Add new fields to the serializer data to show project exprot status and date
         for project in serializer.data:
 
-            # Get project export status details 
+            # Get project export status details
             project_export_status, last_project_export_date, last_project_export_time = get_project_export_status(project.get('id'))
-            project["last_project_export_status"] = project_export_status 
+            project["last_project_export_status"] = project_export_status
             project["last_project_export_date"] = last_project_export_date
             project["last_project_export_time"] = last_project_export_time
 
