@@ -32,6 +32,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "variable_parameters",
             "project_mode",
             "required_annotators_per_task",
+            "max_pending_tasks_per_user",
         ]
 
 
