@@ -388,6 +388,11 @@ def export_project_new_record(
     },
 )
 def pull_new_data_items_into_project(self, project_id):
+    """Function to pull the dataitems into the project
+
+    Args:
+        project_id (int): ID of the project where the new data items have to be pulled
+    """
 
     # Get project instance
     project = Project.objects.get(pk=project_id)
