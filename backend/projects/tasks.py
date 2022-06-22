@@ -20,7 +20,7 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from .serializers import ProjectUsersSerializer
 
-# Celery logger settings 
+# Celery logger settings
 logger = get_task_logger(__name__)
 
 
@@ -87,6 +87,7 @@ def create_tasks_from_dataitems(items, project):
         Annotation_model.objects.bulk_create(predictions)
 
     return tasks
+
 
 def assign_users_to_tasks(tasks, users):
     annotatorList = []
@@ -376,6 +377,7 @@ def export_project_new_record(
             task.output_data = data_item
             task.save()
 
+
 @shared_task(
     bind=True,
     autoretry_for=(Exception,),
@@ -385,24 +387,20 @@ def export_project_new_record(
         "countdown": 2,
     },
 )
-def pull_new_data_items_into_project(self, project_id): 
+def pull_new_data_items_into_project(self, project_id):
 
-    # Get project instance 
-    project = Project.objects.get(pk=project_id)  
+    # Get project instance
+    project = Project.objects.get(pk=project_id)
     project_type = project.project_type
     registry_helper = ProjectRegistry.get_instance()
-    input_dataset_info = registry_helper.get_input_dataset_and_fields(
-        project_type
-    )
-    dataset_model = getattr(
-        dataset_models, input_dataset_info["dataset_type"]
-    )
+    input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
+    dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
     tasks = Task.objects.filter(project_id__exact=project)
     all_items = dataset_model.objects.filter(
         instance_id__in=list(project.dataset_id.all())
     )
     items = all_items.exclude(id__in=tasks.values("input_data"))
-    
+
     # Get the input dataset fields from the filtered items
     if input_dataset_info["prediction"] is not None:
         items = list(
@@ -416,13 +414,13 @@ def pull_new_data_items_into_project(self, project_id):
         items = list(items.values("id", *input_dataset_info["fields"]))
 
     new_tasks = create_tasks_from_dataitems(items, project)
-    
-    # Get Project users 
+
+    # Get Project users
     serializer = ProjectUsersSerializer(project, many=False)
     users = serializer.data["users"]
     assign_users_to_tasks(new_tasks, users)
 
-    # Add information to the logger 
+    # Add information to the logger
     # logger.info(
     #     f"Pulled {len(new_tasks)} new data items into project {project_id}"
     # )
