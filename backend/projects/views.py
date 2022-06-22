@@ -1,72 +1,51 @@
-import email
 import re
-import random
-import json
 from collections import OrderedDict
+from datetime import datetime
 from typing import Dict
 from urllib.parse import parse_qsl
-from django.shortcuts import get_object_or_404, render
-from rest_framework import viewsets
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from django.core.mail import send_mail
-from django.core.exceptions import ObjectDoesNotExist
-from django.conf import settings
+
+from django.core.files import File
+from django.db.models import Q
 from django.forms.models import model_to_dict
 from django.http import HttpResponse
-from django.core.files import File
-import pandas as pd
-from datetime import datetime
-from django.db.models import Q
-from .word_count import no_of_words
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
 from users.serializers import UserEmailSerializer
 
 from utils.search import process_search_query
 
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
+from .word_count import no_of_words
 
 try:
     from yaml import CLoader as Loader
 except ImportError:
     from yaml import Loader
 
-from users.models import User
-from tasks.models import Task
 from dataset import models as dataset_models
-from tasks.models import *
-from tasks.models import Annotation as Annotation_model
 from django_celery_results.models import TaskResult
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+from users.models import User
+
+from projects.serializers import ProjectSerializer, ProjectUsersSerializer
+from tasks.models import Annotation as Annotation_model
+from tasks.models import *
+from tasks.models import Task
 from tasks.serializers import TaskSerializer
+
+from .decorators import (is_organization_owner_or_workspace_manager,
+                         is_particular_workspace_manager, project_is_archived,
+                         project_is_published)
+from .models import *
 from .registry_helper import ProjectRegistry
 
 # Import celery tasks
-from .tasks import (
-    create_parameters_for_task_creation, 
-    create_tasks_from_dataitems, 
-    export_project_in_place, 
-    export_project_new_record
-) 
-from projects.serializers import ProjectSerializer, ProjectUsersSerializer
-from tasks.serializers import TaskSerializer
-from .models import *
-from .decorators import (
-    is_organization_owner_or_workspace_manager,
-    project_is_archived,
-    is_particular_workspace_manager,
-    project_is_published,
-)
-from filters import filter
-from utils.monolingual.sentence_splitter import split_sentences
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
+from .tasks import (create_parameters_for_task_creation,
+                    create_tasks_from_dataitems, export_project_in_place,
+                    export_project_new_record)
 from .utils import is_valid_date
-
-
 
 # Create your views here.
 
