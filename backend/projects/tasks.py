@@ -381,7 +381,7 @@ def export_project_new_record(
     autoretry_for=(Exception,),
     exponential_backoff=2,
     retry_kwargs={
-        "max_retries": 1,
+        "max_retries": 5,
         "countdown": 2,
     },
 )

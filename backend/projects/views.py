@@ -65,7 +65,7 @@ def batch(iterable, n=1):
     for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
 
-def extract_status_date_time_from_task_queryset(task_queryset):
+def extract_latest_status_date_time_from_task_queryset(task_queryset):
 
     # Sort the tasks by newest items first by date 
     task_queryset = task_queryset.order_by('-date_done')
@@ -79,6 +79,32 @@ def extract_status_date_time_from_task_queryset(task_queryset):
     task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
 
     return task_status, task_date, task_time
+
+def get_project_pull_status(pk):
+    """Function to return status of the last pull data items task. 
+
+    Args:
+        pk (int): Primary key of the project
+
+    Returns:
+        str: Status of the project export
+        str: Date when the last time project was exported
+    """
+
+    # Create the keyword argument for project ID 
+    project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + "}"
+
+    # Check the celery project export status 
+    task_queryset = TaskResult.objects.filter(
+        task_name='projects.tasks.pull_new_data_items_into_project', 
+        task_kwargs__contains=project_id_keyword_arg,
+    )
+
+    # If the celery TaskResults table returns
+    if task_queryset:
+
+        return extract_latest_status_date_time_from_task_queryset(task_queryset)
+    return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
 
 def get_project_export_status(pk):
     """Function to return status of the project export background task. 
@@ -100,14 +126,13 @@ def get_project_export_status(pk):
             'projects.tasks.export_project_in_place', 
             'projects.tasks.export_project_new_record'
         ],
-        # task_name = 'projects.tasks.export_project_in_place',
         task_kwargs__contains=project_id_keyword_arg,
     ) 
 
     # If the celery TaskResults table returns
     if task_queryset:
 
-        return extract_status_date_time_from_task_queryset(task_queryset)
+        return extract_latest_status_date_time_from_task_queryset(task_queryset)
     return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
 
 def get_project_creation_status(pk) -> str:
@@ -177,6 +202,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_project_export_status"] = project_export_status
         project_response.data["last_project_export_date"] = last_project_export_date
         project_response.data["last_project_export_time"] = last_project_export_time
+
+        # Add the details about the last data pull 
+        last_pull_status, last_pull_date, last_project_export_time = get_project_pull_status(pk)
+        project_response.data["last_pull_status"] = last_pull_status
+        project_response.data["last_pull_date"] = last_pull_date
+        project_response.data["last_pull_time"] = last_project_export_time
 
         return project_response
 
