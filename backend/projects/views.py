@@ -197,6 +197,11 @@ def assign_users_to_tasks(tasks, users):
             # updated_tasks.append(task)
             task.save()
 
+def get_unassigned_task_count(pk):
+    project = Project.objects.get(pk=pk)
+    tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
+    task_count = tasks.filter(annotator_count__lt=project.required_annotators_per_task).count()
+    return task_count
 
 class ProjectViewSet(viewsets.ModelViewSet):
     """
@@ -221,6 +226,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_project_export_status"] = project_export_status
         project_response.data["last_project_export_date"] = last_project_export_date
         project_response.data["last_project_export_time"] = last_project_export_time
+
+        # Add a field to specify the no. of available tasks to be assigned
+        project_response.data["unassigned_task_count"] = get_unassigned_task_count(pk)
 
         return project_response
 
