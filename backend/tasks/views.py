@@ -120,6 +120,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
         )
 
+        if "page" in dict(request.query_params):
+            page = request.query_params["page"]
+            if int(page) == 0:
+                queryset=queryset.order_by("id")
+                serializer=TaskSerializer(queryset, many=True)
+                data = serializer.data
+                return Response(data)
+
         task_status = UNLABELED
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
