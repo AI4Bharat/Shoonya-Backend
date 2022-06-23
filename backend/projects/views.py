@@ -19,7 +19,6 @@ from django.core.files import File
 import pandas as pd
 from datetime import datetime
 from django.db.models import Q
-from .word_count import no_of_words
 from users.serializers import UserEmailSerializer
 from django.db.models import Count
 from time import sleep
@@ -61,7 +60,7 @@ from filters import filter
 from utils.monolingual.sentence_splitter import split_sentences
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
-from .utils import is_valid_date
+from .utils import is_valid_date, no_of_words
 
 
 

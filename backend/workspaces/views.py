@@ -16,7 +16,7 @@ from users.serializers import UserProfileSerializer
 from tasks.models import Task
 from organizations.models import Organization
 from django.db.models import Q
-from projects.word_count import  no_of_words
+from projects.utils import  no_of_words
 from tasks.models import Annotation
 from projects.utils import is_valid_date
 from datetime import datetime
