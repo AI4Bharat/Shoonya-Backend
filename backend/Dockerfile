@@ -11,4 +11,6 @@ RUN /opt/venv/bin/pip install pip --upgrade && \
     /opt/venv/bin/pip install -r requirements.txt && \
     chmod +x entrypoint.sh
 
+RUN /opt/venv/bin/python manage.py collectstatic
+
 CMD ["/app/entrypoint.sh"]

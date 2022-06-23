@@ -10,10 +10,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - shoonya-web-ingress.westeurope.cloudapp.azure.com
+    - django-aks-ingress.westus.cloudapp.azure.com
     secretName: tls-secret
   rules:
-  - host: shoonya-web-ingress.westeurope.cloudapp.azure.com
+  - host: django-aks-ingress.westus.cloudapp.azure.com
     http:
       paths:
         - path: /(.*)
