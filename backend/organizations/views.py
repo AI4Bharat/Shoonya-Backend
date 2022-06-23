@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework import status
-from projects.word_count import no_of_words
+from projects.utils import no_of_words
 from tasks.models import Task
 from datetime import datetime
 from projects.utils import is_valid_date

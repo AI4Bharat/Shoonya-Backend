@@ -19,7 +19,7 @@ from django.core.files import File
 import pandas as pd
 from datetime import datetime
 from django.db.models import Q
-from .word_count import no_of_words
+from .utils import no_of_words
 from users.serializers import UserEmailSerializer
 from django.db.models import Count
 from time import sleep
