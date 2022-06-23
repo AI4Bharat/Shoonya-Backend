@@ -121,6 +121,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         URL: /data/instances/<instance-id>/upload/
         Accepted methods: POST
         '''
+        # Define list of accepted file formats
+        ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
+
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
 
@@ -130,15 +133,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 "message": "Please provide a file with key 'dataset'.",
             }, status=status.HTTP_400_BAD_REQUEST)
         dataset = request.FILES['dataset']
+        content_type = dataset.name.split('.')[-1]
 
-        # Ensure that the content type is CSV, return error otherwise
-        if dataset.content_type != 'text/csv':
+        # Ensure that the content type is accepted, return error otherwise
+        if content_type not in ACCEPTED_FILETYPES:
             return Response({
-                "message": "Invalid Dataset File. Only accepts .csv files.",
+                "message": f"Invalid Dataset File. Only accepts the following file formats: {ACCEPTED_FILETYPES}",
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create a new tablib Dataset and load the data into this dataset
-        imported_data = Dataset().load(dataset.read().decode(), format='csv')
+        if content_type in ['xls', 'xlsx']:
+            imported_data = Dataset().load(dataset.read(), format=content_type)
+        else:
+            imported_data = Dataset().load(dataset.read().decode(), format=content_type)
 
         # Add the instance_id column to all rows in the dataset
         imported_data.append_col([pk]*len(imported_data), header="instance_id")
@@ -156,13 +163,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 "exception": e
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch the imported data from the model and return it to the frontend
-        model = apps.get_model('dataset', dataset_type)
-        data = model.objects.filter(instance_id=pk)
-        serializer = SERIALIZER_MAP[dataset_type](data, many=True)
         return Response({
             "message": f"Uploaded {dataset_type} data to Dataset {pk}",
-            "data": serializer.data
         }, status=status.HTTP_201_CREATED)
 
     @action(methods=['GET'], detail=True, name="List all Projects using Dataset")
