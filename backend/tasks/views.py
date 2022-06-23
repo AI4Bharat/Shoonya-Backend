@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 
 from tasks.models import *
-from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer, NestedAnnotationSerializer, TaskAnnotationSerializer
+from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer,TaskAnnotationSerializer
 
 from users.models import User
 
@@ -28,23 +28,23 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-
+    
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "user_ids": openapi.Schema(
+                "user_ids":openapi.Schema(
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(type=openapi.TYPE_STRING, format="email"),
+                    items=openapi.Items(type=openapi.TYPE_STRING,format="email"),
                     description="List of emails"
-                )
+                    )
             },
             required=["user_ids"]
         ),
         responses={
-            200: "Task assigned",
-            404: "User not found"
+            200:"Task assigned",
+            404:"User not found"
         },
     )
     @action(detail=True, methods=["post"], url_path="assign")
@@ -119,6 +119,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 request.GET, "data", list(queryset.first().data.keys())
             )
         )
+        
+        if "page" in dict(request.query_params):
+            page = request.query_params["page"]
+            if int(page) == 0:
+                queryset = queryset.order_by("id")
+                serializer = TaskSerializer(queryset, many=True)
+                data = serializer.data
+                return Response(data)
 
         task_status = UNLABELED
         if "task_status" in dict(request.query_params):
@@ -143,14 +151,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "data": data,
                 }
             )
-
+        
         if ((page is not None) and (task_status == ACCEPTED or task_status == DRAFT)):
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
             for index, each_data in enumerate(data):
                 data[index]["data"]["output_text"] = each_data["correct_annotation"]["result"][0]["value"]["text"][0]
-                each_data["correct_annotation"]=each_data["correct_annotation"]["id"]
-                each_data["machine_translation"]=each_data["data"]["machine_translation"]
+                each_data["correct_annotation"] = each_data["correct_annotation"]["id"]
+                each_data["machine_translation"] = each_data["data"]["machine_translation"]
                 del each_data["data"]["machine_translation"]
             return self.get_paginated_response(data)
         elif page is not None:

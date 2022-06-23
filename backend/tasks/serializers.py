@@ -20,14 +20,17 @@ class PredictionSerializer(serializers.ModelSerializer):
         model = Prediction
         fields = '__all__'
 
+
 class NestedAnnotationSerializer(serializers.ModelSerializer):
-    
+
     class Meta:
-        model =Annotation
-        fields = ('id','result')
+        model = Annotation
+        fields = ('id', 'result')
+
 
 class TaskAnnotationSerializer(serializers.ModelSerializer):
-    correct_annotation =NestedAnnotationSerializer()
+    correct_annotation = NestedAnnotationSerializer()
+
     class Meta:
         model = Task
         fields = '__all__'
