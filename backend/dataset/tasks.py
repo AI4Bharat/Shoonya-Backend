@@ -37,7 +37,7 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type):
     # Import the data into the database and return Success if all checks are passed 
     result = resource.import_data(imported_data, raise_errors=False)
 
-    return "FAILURE" if result.has_validation_errors() else "SUCCESS"
+    return "FAILURE" if (result.has_validation_errors() or result.has_errors()) else "SUCCESS"
 
     # If validation checks fail, raise the Exception
     # except Exception as e:
