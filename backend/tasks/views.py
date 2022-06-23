@@ -156,7 +156,8 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
             for index, each_data in enumerate(data):
-                data[index]["data"]["output_text"] = each_data["correct_annotation"]["result"][0]["value"]["text"][0]
+                data[index]["annotation_data"]={}
+                data[index]["annotation_data"]["output_text"] = each_data["correct_annotation"]["result"][0]["value"]["text"][0]
                 each_data["correct_annotation"] = each_data["correct_annotation"]["id"]
                 each_data["machine_translation"] = each_data["data"]["machine_translation"]
                 del each_data["data"]["machine_translation"]
