@@ -28,8 +28,12 @@ def extract_status_date_time_from_task_queryset(task_queryset):
     task_queryset = task_queryset.order_by("-date_done")
 
     # Get the export task status and last update date
-    task_status = task_queryset.first().as_dict()["status"]
+    task_status = task_queryset.first().as_dict()["result"]
     task_datetime = task_queryset.first().as_dict()["date_done"]
+
+    # Remove quotes from the status if it is present in the string
+    if '"' in task_status:
+        task_status = task_status.strip('"')
 
     # Extract date and time from the datetime object
     task_date = task_datetime.date()
@@ -110,6 +114,9 @@ def get_dataset_upload_status(dataset_instance_pk):
             task_date,
             task_time,
         ) = extract_status_date_time_from_task_queryset(task_queryset)
+
+        print(task_status)
+        print(task_status == "FAILURE")
 
         # Get the error messages if the task is a failure
         if task_status == "FAILURE":
