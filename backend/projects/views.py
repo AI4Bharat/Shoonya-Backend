@@ -177,7 +177,6 @@ def get_project_creation_status(pk) -> str:
         return "Draft"
 
 
-
 class ProjectViewSet(viewsets.ModelViewSet):
     """
     Project ViewSet
@@ -871,37 +870,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 # and return the status of the pull 
                 pull_new_data_items_into_project.delay(project_id=pk)
 
-                # project_type = project.project_type
-                # registry_helper = ProjectRegistry.get_instance()
-                # input_dataset_info = registry_helper.get_input_dataset_and_fields(
-                #     project_type
-                # )
-                # dataset_model = getattr(
-                #     dataset_models, input_dataset_info["dataset_type"]
-                # )
-                # tasks = Task.objects.filter(project_id__exact=project)
-                # all_items = dataset_model.objects.filter(
-                #     instance_id__in=list(project.dataset_id.all())
-                # )
-                # items = all_items.exclude(id__in=tasks.values("input_data"))
-                # # Get the input dataset fields from the filtered items
-                # if input_dataset_info["prediction"] is not None:
-                #     items = list(
-                #         items.values(
-                #             "id",
-                #             *input_dataset_info["fields"],
-                #             input_dataset_info["prediction"],
-                #         )
-                #     )
-                # else:
-                #     items = list(items.values("id", *input_dataset_info["fields"]))
-
-                # new_tasks = create_tasks_from_dataitems(items, project)
-                
-                # # ret_dict = serializer.data
-                # users = serializer.data["users"]
-                # assign_users_to_tasks(new_tasks, users)
-                ret_dict = {"message": f"new tasks added."}
+                ret_dict = {"message": "Adding new tasks."}
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
