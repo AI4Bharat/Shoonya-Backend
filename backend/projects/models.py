@@ -144,6 +144,7 @@ class Project(models.Model):
         blank=True,
         max_length=50,
         help_text=("Source language of the project"),
+        verbose_name="Source Language"
     )
     tgt_language = models.CharField(
         choices=LANG_CHOICES,
@@ -151,6 +152,7 @@ class Project(models.Model):
         blank=True,
         max_length=50,
         help_text=("Target language of the project"),
+        verbose_name="Target Language"
     )
 
     def __str__(self):
