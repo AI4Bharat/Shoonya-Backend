@@ -18,6 +18,6 @@ class DatasetInstancePermission(permissions.BasePermission):
 
         # Read-Only access is given to all datasets that are public to managers as well as prev condition
         if request.method in permissions.SAFE_METHODS:
-            return bool_check or obj.public_to_managers
+            return bool_check or (request.user.role == User.WORKSPACE_MANAGER and obj.public_to_managers)
         # Write access is given only for users satisfying bool_check
         return bool_check
