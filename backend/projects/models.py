@@ -7,6 +7,7 @@ from dataset.models import DatasetInstance
 from .registry_helper import ProjectRegistry
 from django.utils.timezone import now
 from datetime import datetime, timedelta
+from users.models import LANG_CHOICES
 # from dataset import LANG_CHOICES
 
 RANDOM = "r"
@@ -32,7 +33,6 @@ Collection = "Collection"
 Annotation = "Annotation"
 
 PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
-
 
 # Create your models here.
 class Project(models.Model):
@@ -137,6 +137,23 @@ class Project(models.Model):
             ProjectTaskRequestLock.objects.create(project=self, user=user, expires_at=now()+timedelta(seconds=settings.PROJECT_LOCK_TTL))
         else:
             raise Exception("Project already locked")
+
+    src_language = models.CharField(
+        choices=LANG_CHOICES,
+        null=True,
+        blank=True,
+        max_length=50,
+        help_text=("Source language of the project"),
+        verbose_name="Source Language"
+    )
+    tgt_language = models.CharField(
+        choices=LANG_CHOICES,
+        null=True,
+        blank=True,
+        max_length=50,
+        help_text=("Target language of the project"),
+        verbose_name="Target Language"
+    )
 
     def __str__(self):
         return str(self.title)
