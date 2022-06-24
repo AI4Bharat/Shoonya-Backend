@@ -62,7 +62,7 @@ def project_is_published(f):
 # Only allow workspace managers, organization owners and annotators belonging to the organization to retrieve project info.
 def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
-    def wrapper(self, request, *args, **kwargs):
+    def wrapper(self, request, pk=None, *args, **kwargs):
         if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser or (request.user.role == User.ANNOTATOR and request.user.organization_id == Organization.objects.get(pk=pk).id):
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
