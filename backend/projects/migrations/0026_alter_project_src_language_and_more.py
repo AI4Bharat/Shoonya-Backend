@@ -12,11 +12,6 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterField(
             model_name='project',
-            name='id',
-            field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
-        ),
-        migrations.AlterField(
-            model_name='project',
             name='src_language',
             field=models.CharField(blank=True, choices=[('English', 'English'), ('Assamese', 'Assamese'), ('Bengali', 'Bengali'), ('Bodo', 'Bodo'), ('Dogri', 'Dogri'), ('Gujarati', 'Gujarati'), ('Hindi', 'Hindi'), ('Kannada', 'Kannada'), ('Kashmiri', 'Kashmiri'), ('Konkani', 'Konkani'), ('Maithili', 'Maithili'), ('Malayalam', 'Malayalam'), ('Manipuri', 'Manipuri'), ('Marathi', 'Marathi'), ('Nepali', 'Nepali'), ('Odia', 'Odia'), ('Punjabi', 'Punjabi'), ('Sanskrit', 'Sanskrit'), ('Santali', 'Santali'), ('Sindhi', 'Sindhi'), ('Sinhala', 'Sinhala'), ('Tamil', 'Tamil'), ('Telugu', 'Telugu'), ('Urdu', 'Urdu')], help_text='Source language of the project', max_length=50, null=True, verbose_name='Source Language'),
         ),
@@ -24,10 +19,5 @@ class Migration(migrations.Migration):
             model_name='project',
             name='tgt_language',
             field=models.CharField(blank=True, choices=[('English', 'English'), ('Assamese', 'Assamese'), ('Bengali', 'Bengali'), ('Bodo', 'Bodo'), ('Dogri', 'Dogri'), ('Gujarati', 'Gujarati'), ('Hindi', 'Hindi'), ('Kannada', 'Kannada'), ('Kashmiri', 'Kashmiri'), ('Konkani', 'Konkani'), ('Maithili', 'Maithili'), ('Malayalam', 'Malayalam'), ('Manipuri', 'Manipuri'), ('Marathi', 'Marathi'), ('Nepali', 'Nepali'), ('Odia', 'Odia'), ('Punjabi', 'Punjabi'), ('Sanskrit', 'Sanskrit'), ('Santali', 'Santali'), ('Sindhi', 'Sindhi'), ('Sinhala', 'Sinhala'), ('Tamil', 'Tamil'), ('Telugu', 'Telugu'), ('Urdu', 'Urdu')], help_text='Target language of the project', max_length=50, null=True, verbose_name='Target Language'),
-        ),
-        migrations.AlterField(
-            model_name='projecttaskrequestlock',
-            name='id',
-            field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
         ),
     ]
