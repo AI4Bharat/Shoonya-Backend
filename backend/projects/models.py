@@ -5,6 +5,9 @@ from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
 from .registry_helper import ProjectRegistry
+from django.utils.timezone import now
+from datetime import datetime, timedelta
+from users.models import LANG_CHOICES
 # from dataset import LANG_CHOICES
 
 RANDOM = "r"
@@ -30,7 +33,6 @@ Collection = "Collection"
 Annotation = "Annotation"
 
 PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
-
 
 # Create your models here.
 class Project(models.Model):
@@ -110,6 +112,58 @@ class Project(models.Model):
     # language = models.CharField(
     #     verbose_name="language", choices=LANG_CHOICES, max_length=3
     # )
+    tasks_pull_count_per_batch = models.IntegerField(verbose_name="tasks_pull_count_per_batch", default=10,
+        help_text=("Maximum no. of new tasks that can be assigned to a user at once"))
+
+    max_pending_tasks_per_user = models.IntegerField(verbose_name="max_pending_tasks_per_user", default=60,
+        help_text=("Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks"))
+
+
+    def clear_expired_lock(self):
+        self.lock.filter(expires_at__lt=now()).delete()
+
+    def release_lock(self):
+        self.lock.all().delete()
+
+    def is_locked(self):
+        self.clear_expired_lock()
+        return self.lock.filter(expires_at__gt=now()).count()
+
+    def set_lock(self, user):
+        """
+        Locks the project for a user
+        """
+        if not self.is_locked():
+            ProjectTaskRequestLock.objects.create(project=self, user=user, expires_at=now()+timedelta(seconds=settings.PROJECT_LOCK_TTL))
+        else:
+            raise Exception("Project already locked")
+
+    src_language = models.CharField(
+        choices=LANG_CHOICES,
+        null=True,
+        blank=True,
+        max_length=50,
+        help_text=("Source language of the project"),
+        verbose_name="Source Language"
+    )
+    tgt_language = models.CharField(
+        choices=LANG_CHOICES,
+        null=True,
+        blank=True,
+        max_length=50,
+        help_text=("Target language of the project"),
+        verbose_name="Target Language"
+    )
 
     def __str__(self):
         return str(self.title)
+
+
+class ProjectTaskRequestLock(models.Model):
+    """
+    Basic database lock implementation to handle
+    concurrency in tasks pull requests for same project
+    """
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='lock', help_text='Project locked for task pulling')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_lock', help_text='User locking this project to pull tasks')
+    expires_at = models.DateTimeField('expires_at')

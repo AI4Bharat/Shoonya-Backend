@@ -21,6 +21,9 @@ from datetime import datetime
 from django.db.models import Q
 from .word_count import no_of_words
 from users.serializers import UserEmailSerializer
+from django.db.models import Count
+from time import sleep
+from users.models import LANG_CHOICES
 
 from utils.search import process_search_query
 
@@ -195,6 +198,11 @@ def assign_users_to_tasks(tasks, users):
             # updated_tasks.append(task)
             task.save()
 
+def get_unassigned_task_count(pk):
+    project = Project.objects.get(pk=pk)
+    tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
+    task_count = tasks.filter(annotator_count__lt=project.required_annotators_per_task).count()
+    return task_count
 
 class ProjectViewSet(viewsets.ModelViewSet):
     """
@@ -219,6 +227,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_project_export_status"] = project_export_status
         project_response.data["last_project_export_date"] = last_project_export_date
         project_response.data["last_project_export_time"] = last_project_export_time
+
+        # Add a field to specify the no. of available tasks to be assigned
+        project_response.data["unassigned_task_count"] = get_unassigned_task_count(pk)
 
         return project_response
 
@@ -524,6 +535,75 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
+
+    @action(detail=True, methods=["POST"], name="Assign new tasks to user", url_name="assign_new_tasks")
+    def assign_new_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of unassigned tasks for this project
+        and assign to the user
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+        if not project.is_published:
+            return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
+        serializer = ProjectUsersSerializer(project, many=False)
+        users = serializer.data["users"]
+        user_ids = set()
+        for user in users:
+            user_ids.add(user["id"])
+        # verify if user belongs in project users
+        if not cur_user.id in user_ids:
+            return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
+
+        # check if user has pending tasks
+        # the below logic will work only for required_annotators_per_task=1
+        # TO-DO Modify and use the commented logic to cover all cases
+        pending_tasks = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id).filter(task_status__exact=UNLABELED).count()
+        # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
+        # assigned_tasks = assigned_tasks_queryset.count()
+        # completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
+        # pending_tasks = assigned_tasks - completed_tasks
+        if pending_tasks >= project.max_pending_tasks_per_user:
+            return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
+        tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
+
+        if "num_tasks" in dict(request.data):
+            task_pull_count = request.data["num_tasks"]
+        else:
+            task_pull_count = project.tasks_pull_count_per_batch
+
+        tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
+
+        lock_set = False
+        while(lock_set == False):
+            if project.is_locked():
+                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
+                continue
+            else:
+                try:
+                    project.set_lock(cur_user)
+                    lock_set = True
+                except Exception as e:
+                    continue
+
+        # check if the project contains eligible tasks to pull
+        tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
+        tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
+        if not tasks:
+            project.release_lock()
+            return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
+
+        # filter out tasks which meet the annotator count threshold
+        # and assign the ones with least count to user, so as to maintain uniformity
+        tasks = tasks.order_by('annotator_count')[:tasks_to_be_assigned]
+        for task in tasks:
+            task.annotation_users.add(cur_user)
+            task.save()
+
+        project.release_lock()
+        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+
     
     @swagger_auto_schema(
         method="post",
@@ -787,8 +867,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
 
-            if project.is_published:
-                return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
+            # if project.is_published:
+            #     return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
 
             emails = request.data.get("emails")
             invalid_emails = []
@@ -898,10 +978,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     items = list(items.values("id", *input_dataset_info["fields"]))
 
                 new_tasks = create_tasks_from_dataitems(items, project)
-                serializer = ProjectUsersSerializer(project, many=False)
-                # ret_dict = serializer.data
-                users = serializer.data["users"]
-                assign_users_to_tasks(new_tasks, users)
+                # serializer = ProjectUsersSerializer(project, many=False)
+                # # ret_dict = serializer.data
+                # users = serializer.data["users"]
+                # assign_users_to_tasks(new_tasks, users)
                 ret_dict = {"message": f"{len(new_tasks)} new tasks added."}
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
@@ -1120,9 +1200,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response(ret_dict, status=ret_status)
 
             # get all tasks of a project
-            tasks = Task.objects.filter(project_id=pk)
+            # tasks = Task.objects.filter(project_id=pk)
 
-            assign_users_to_tasks(tasks, users)
+            # assign_users_to_tasks(tasks, users)
 
             # print("Here",task.annotation_users.all().count(), task.annotation_users.all())
             # for user in annotatorList:
@@ -1147,3 +1227,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
+    @action(detail=False, methods=['GET'], name='Get language choices')
+    def language_choices(self, request):
+        return Response(LANG_CHOICES)
