@@ -13,8 +13,8 @@ class DatasetInstanceResource(ModelResource):
     class Meta:
         import_id_fields = ('id',)
         model = DatasetInstance
-        # skip_diff=True
-        # force_init_instance = True
+        skip_diff=True
+        force_init_instance = True
 
 class TranslationPairResource(ModelResource, ResourceMixin):
     '''
@@ -25,8 +25,8 @@ class TranslationPairResource(ModelResource, ResourceMixin):
         exclude = ('datasetbase_ptr',)
         model = TranslationPair
         clean_model_instances = True
-        # skip_diff=True
-        # force_init_instance = True
+        skip_diff=True
+        force_init_instance = True
 
 class SentenceTextResource(ModelResource, ResourceMixin):
     '''
@@ -37,8 +37,8 @@ class SentenceTextResource(ModelResource, ResourceMixin):
         exclude = ('datasetbase_ptr',)
         model = SentenceText
         clean_model_instances = True
-        # skip_diff=True
-        # force_init_instance = True
+        skip_diff=True
+        force_init_instance = True
 
 class OCRResource(ModelResource, ResourceMixin):
     '''
@@ -49,8 +49,8 @@ class OCRResource(ModelResource, ResourceMixin):
         exclude = ('datasetbase_ptr',)
         model = OCRDocument
         clean_model_instances = True
-        # skip_diff=True
-        # force_init_instance = True
+        skip_diff=True
+        force_init_instance = True
 
 class BlockTextResource(ModelResource, ResourceMixin):
     '''
@@ -61,8 +61,8 @@ class BlockTextResource(ModelResource, ResourceMixin):
         exclude = ('datasetbase_ptr',)
         model = BlockText
         clean_model_instances = True
-        # skip_diff=True
-        # force_init_instance = True
+        skip_diff=True
+        force_init_instance = True
 
 # Define a mapping between dataset instance type and resource
 RESOURCE_MAP = {

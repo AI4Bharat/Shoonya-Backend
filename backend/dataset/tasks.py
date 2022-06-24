@@ -12,7 +12,7 @@ from .resources import RESOURCE_MAP
     autoretry_for=(Exception,),
     exponential_backoff=2,
     retry_kwargs={
-        "max_retries": 1,
+        "max_retries": 5,
         "countdown": 2,
     },
 )
@@ -34,18 +34,17 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type):
     # Declare the appropriate resource map based on dataset type
     resource = RESOURCE_MAP[dataset_type]()
 
-    # Import the data into the database and return Success if all checks are passed 
-    result = resource.import_data(imported_data, raise_errors=False)
-
-    return "FAILURE" if (result.has_validation_errors() or result.has_errors()) else "SUCCESS"
+    # Import the data into the database and return Success if all checks are passed
+    try:
+        resource.import_data(imported_data, raise_errors=True)
 
     # If validation checks fail, raise the Exception
-    # except Exception as e:
-
-    #     self.update_state(
-    #         state=states.FAILURE,
-    #         meta={
-    #             "exc_type": type(e).__name__,
-    #             "exc_message": traceback.format_exc().split("\n"),
-    #         },
-    #     )
+    except Exception as e:
+        self.update_state(
+            state="FAILURE",
+            meta={
+                "exc_type": type(e).__name__,
+                "exc_message": traceback.format_exc().split("\n"),
+            },
+        )
+        raise e
