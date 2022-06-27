@@ -648,8 +648,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     continue
 
         # check if the project contains eligible tasks to pull
-        # TO-DO : FIX : This will allow user to pull the task already annotated by them(when required_annotators>1)
-        tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
+        tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).exclude(annotation_users=cur_user.id).annotate(annotator_count=Count("annotation_users"))
         tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
         if not tasks:
             project.release_lock(ANNOTATION_LOCK)
