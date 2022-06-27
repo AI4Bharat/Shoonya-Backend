@@ -10,12 +10,12 @@ on:
 
 # Environment variables available to all jobs and steps in this workflow
 env:
-  REGISTRY_NAME: {shoonyaregistry}
-  CLUSTER_NAME: {shoonya-cluster}
-  CLUSTER_RESOURCE_GROUP: {shoonya}
-  NAMESPACE: {shoonya}
-  SECRET: {shoonya-secrets}
-  APP_NAME: {shoonya-backend}
+  REGISTRY_NAME: shoonyaregistry
+  CLUSTER_NAME: shoonya-cluster
+  CLUSTER_RESOURCE_GROUP: shoonya
+  NAMESPACE: shoonya
+  SECRET: shoonya-secrets
+  APP_NAME: shoonya-backend
   
 jobs:
   build:
