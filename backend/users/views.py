@@ -185,21 +185,21 @@ class AnalyticsViewSet(viewsets.ViewSet):
             return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         if user.organization_id is not request.user.organization_id:
             return Response({"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN)
-        try:
-            ws = Workspace.objects.get(pk=workspace_id)
-        except Workspace.DoesNotExist:
-            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
 
         org_owner = request.user.organization.created_by.email
-        ws = Workspace.objects.get(id=workspace_id)
-        ws_managers = [manager.get_username() for manager in ws.managers.all()]
-        ws_managers.append(org_owner)
+        ws = Workspace.objects.filter(id__in=workspace_id)
+        owners = []
+        for each_ws in ws:
+            ws_managers = [manager.get_username() for manager in each_ws.managers.all()]
+            owners.extend(ws_managers)
+        owners.append(org_owner)
 
-        if request.user.email in ws_managers:
-            return Response({"message": "Workspace managers or organization owners can't access this page"})
+        if request.user.email in owners:
+            return Response({"message": f"Workspace managers or organization owners can't access this page,\
+            please don't select the workspace in which your manager of that workspace "})
 
 
-        project_objs = Project.objects.filter(workspace_id=workspace_id, users = request.user.id,project_type=project_type)
+        project_objs = Project.objects.filter(workspace_id__in=workspace_id, users = request.user.id,project_type=project_type)
 
         final_result =[]
         for  proj in project_objs:
