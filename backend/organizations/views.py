@@ -77,6 +77,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         to_date = request.data.get('to_date')
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
+        tgt_language = request.data.get('tgt_language')
+        project_type = request.data.get("project_type")
+        project_type_lower =  project_type.lower()
+        is_translation_project = True if  "translation" in  project_type_lower  else False
+
+
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -97,35 +103,29 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         for user in users:
             name = user.username
             email = user.get_username()
-            total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user)
-            total_no_of_tasks_count = total_no_of_tasks_assigned.count()
+            # total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user)
+            # total_no_of_tasks_count = total_no_of_tasks_assigned.count()
 
-            annotated_tasks = Task.objects.filter(annotation_users =user,task_status='accepted',correct_annotation__created_at__range = [start_date, end_date])
+            annotated_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,project_id__tgt_language=tgt_language,task_status='accepted',correct_annotation__created_at__range = [start_date, end_date])
             annotated_tasks_count = annotated_tasks.count()
 
-
-            annotated_task_ids  = [task.id for task in annotated_tasks]
-
-            # checking whether the project type is translation  or not for word count 
-            is_translation_project = []
-            for each_id in annotated_task_ids:
-                task = Task.objects.get(id=each_id)
-                project_type = (task.project_id.project_type).lower()
-                if  "translation" in  project_type:
-                    is_translation_project.append(each_id)
-
-            total_word_count_list = [no_of_words(Task.objects.get(id = id1).data['input_text']) for  id1 in is_translation_project]
-            total_word_count = sum(total_word_count_list)
-
-
-            result.append({ 'User Name' : name,
-                            'Email' : email,
-                            'No. of Tasks Assigned' : total_no_of_tasks_count,
-                            'No. of Annotated Tasks' : annotated_tasks_count,
-                            'No. of words' : total_word_count
-                    
-                    } )
-        final_result = sorted(result, key=lambda x: x['No. of words'])
-
-        # serializer = UserFetchSerializer(users, many=True)
-        return Response(final_result)
+            if is_translation_project:
+                total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks]
+                total_word_count = sum(total_word_count_list)
+                result.append({ 'User Name' : name,
+                                'Email' : email,
+                                'Language' : tgt_language,
+                                'No. of Annotated Tasks' : annotated_tasks_count,
+                                'No. of Words' : total_word_count
+                        } )
+            else :
+                result.append({ 'User Name' : name,
+                                'Email' : email,
+                                'Language' : tgt_language,
+                                'No. of Annotated Tasks' : annotated_tasks_count
+                        } )
+        if is_translation_project:
+            final_result = sorted(result, key=lambda x: x['No. of Words'])
+            return Response(final_result)
+        else:
+            return Response(result)
