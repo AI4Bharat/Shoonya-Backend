@@ -1,5 +1,6 @@
 from urllib.parse import parse_qsl
 
+from tablib import Dataset
 from django.apps import apps
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
@@ -7,21 +8,28 @@ from django_celery_results.models import TaskResult
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
+from django.http import StreamingHttpResponse
+from django.db.models import Q
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django_celery_results.models import TaskResult
 
 from .tasks import upload_data_to_data_instance
 
 from . import resources
+from filters import filter
+from projects.serializers import ProjectSerializer
+from users.models import User
 from .models import *
 from .serializers import *
 
 
 ## Utility functions used inside the view functions
-
-
 def extract_status_date_time_from_task_queryset(task_queryset):
 
     # Sort the tasks by newest items first by date
@@ -221,35 +229,44 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
     @action(methods=["POST"], detail=True, name="Upload CSV Dataset")
     def upload(self, request, pk):
-        """
-        View to upload a dataset in CSV format
-        URL: /data/instances/<instance-id>/upload/
-        Accepted methods: POST
-        """
+    """
+    View to upload a dataset in CSV format
+    URL: /data/instances/<instance-id>/upload/
+    Accepted methods: POST
+    """
+        
+        # Define list of accepted file formats
+        ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
+
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
+        
+        if 'dataset' not in request.FILES:
+            return Response({
+                "message": "Please provide a file with key 'dataset'.",
+            }, status=status.HTTP_400_BAD_REQUEST)
+        dataset = request.FILES['dataset']
+        content_type = dataset.name.split('.')[-1]
 
-        # Fetch the file from the POST request body (key is dataset)
-        if "dataset" not in request.FILES:
-            return Response(
-                {
-                    "message": "Please provide a file with key 'dataset'.",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        dataset = request.FILES["dataset"]
+        # Ensure that the content type is accepted, return error otherwise
+        if content_type not in ACCEPTED_FILETYPES:
+            return Response({
+                "message": f"Invalid Dataset File. Only accepts the following file formats: {ACCEPTED_FILETYPES}",
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Ensure that the content type is CSV, return error otherwise
-        if dataset.content_type != "text/csv":
-            return Response(
-                {
-                    "message": "Invalid Dataset File. Only accepts .csv files.",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Read the dataset as a string from the dataset pointer
-        dataset_string = dataset.read().decode()
+        # Create a new tablib Dataset and load the data into this dataset
+        try:
+            if content_type in ['xls', 'xlsx']:
+                imported_data = Dataset().load(dataset.read(), format=content_type)
+            else:
+                # Read the dataset as a string from the dataset pointer
+                dataset_string = dataset.read().decode()
+#                 imported_data = Dataset().load(dataset.read().decode(), format=content_type)
+        except Exception as e:
+            return Response({
+                "message": f"Error while reading file. Please check the file data and try again.",
+                "exception": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Uplod the dataset to the dataset instance
         upload_data_to_data_instance.delay(
@@ -267,7 +284,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @action(methods=["GET"], detail=True, name="List all Projects using Dataset")
+    @action(methods=['GET'], detail=True, name="List all Projects using Dataset")
     def projects(self, request, pk):
         """
         View to list all projects using a dataset
