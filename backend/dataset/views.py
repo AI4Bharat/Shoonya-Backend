@@ -1,28 +1,29 @@
-import resource
 from tablib import Dataset
 from django.apps import apps
 from django.shortcuts import get_object_or_404
+from django.http import StreamingHttpResponse
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.views import APIView
-from django.http import StreamingHttpResponse
 from django_celery_results.models import TaskResult
 
 from urllib.parse import parse_qsl
 
 from filters import filter
 from projects.serializers import ProjectSerializer
+from users.models import User
 from .models import *
 from .serializers import *
 from .resources import RESOURCE_MAP
 from . import resources
 
 
-## Utility functions used inside the view functions 
+## Utility functions used inside the view functions
 def get_project_export_status(pk):
-    """Function to return status of the project export background task. 
+    """Function to return status of the project export background task.
 
     Args:
         pk (int): Primary key of the project
@@ -32,35 +33,35 @@ def get_project_export_status(pk):
         str: Date when the last time project was exported
     """
 
-    # Create the keyword argument for project ID 
+    # Create the keyword argument for project ID
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
-    
-    # Check the celery project export status 
+
+    # Check the celery project export status
     task_queryset = TaskResult.objects.filter(
         task_name__in=[
-            'projects.tasks.export_project_in_place', 
+            'projects.tasks.export_project_in_place',
             'projects.tasks.export_project_new_record'
         ],
         # task_name = 'projects.tasks.export_project_in_place',
         task_kwargs__contains=project_id_keyword_arg,
-    ) 
+    )
 
     # If the celery TaskResults table returns
     if task_queryset:
 
-        # Sort the tasks by newest items first by date 
+        # Sort the tasks by newest items first by date
         task_queryset = task_queryset.order_by('-date_done')
 
         # Get the export task status and last update date
         task_status = task_queryset.first().as_dict()['status']
         task_datetime = task_queryset.first().as_dict()['date_done']
 
-        # Extract date and time from the datetime object 
+        # Extract date and time from the datetime object
         task_date = task_datetime.date()
         task_time = str(task_datetime.time().replace(microsecond=0)) + " UTC"
-    
+
         return task_status, task_date, task_time
-    
+
     return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
 
 # Create your views here.
@@ -111,6 +112,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         URL: /data/instances/<instance-id>/upload/
         Accepted methods: POST
         '''
+        # Define list of accepted file formats
+        ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
+
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
 
@@ -120,15 +124,25 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 "message": "Please provide a file with key 'dataset'.",
             }, status=status.HTTP_400_BAD_REQUEST)
         dataset = request.FILES['dataset']
+        content_type = dataset.name.split('.')[-1]
 
-        # Ensure that the content type is CSV, return error otherwise
-        if dataset.content_type != 'text/csv':
+        # Ensure that the content type is accepted, return error otherwise
+        if content_type not in ACCEPTED_FILETYPES:
             return Response({
-                "message": "Invalid Dataset File. Only accepts .csv files.",
+                "message": f"Invalid Dataset File. Only accepts the following file formats: {ACCEPTED_FILETYPES}",
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create a new tablib Dataset and load the data into this dataset
-        imported_data = Dataset().load(dataset.read().decode(), format='csv')
+        try:
+            if content_type in ['xls', 'xlsx']:
+                imported_data = Dataset().load(dataset.read(), format=content_type)
+            else:
+                imported_data = Dataset().load(dataset.read().decode(), format=content_type)
+        except Exception as e:
+            return Response({
+                "message": f"Error while reading file. Please check the file data and try again.",
+                "exception": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Add the instance_id column to all rows in the dataset
         imported_data.append_col([pk]*len(imported_data), header="instance_id")
@@ -146,13 +160,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 "exception": e
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Fetch the imported data from the model and return it to the frontend
-        model = apps.get_model('dataset', dataset_type)
-        data = model.objects.filter(instance_id=pk)
-        serializer = SERIALIZER_MAP[dataset_type](data, many=True)
         return Response({
             "message": f"Uploaded {dataset_type} data to Dataset {pk}",
-            "data": serializer.data
         }, status=status.HTTP_201_CREATED)
 
     @action(methods=['GET'], detail=True, name="List all Projects using Dataset")
@@ -168,12 +177,12 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Serialize the projects and return them to the frontend
         serializer = ProjectSerializer(projects, many=True)
 
-        # Add new fields to the serializer data to show project exprot status and date 
+        # Add new fields to the serializer data to show project exprot status and date
         for project in serializer.data:
 
-            # Get project export status details 
+            # Get project export status details
             project_export_status, last_project_export_date, last_project_export_time = get_project_export_status(project.get('id'))
-            project["last_project_export_status"] = project_export_status 
+            project["last_project_export_status"] = project_export_status
             project["last_project_export_date"] = last_project_export_date
             project["last_project_export_time"] = last_project_export_time
 
