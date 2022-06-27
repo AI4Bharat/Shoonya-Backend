@@ -1,6 +1,7 @@
 import traceback
 from celery import shared_task, states
 from tablib import Dataset
+from base64 import b64decode
 
 from .resources import RESOURCE_MAP
 
@@ -16,17 +17,21 @@ from .resources import RESOURCE_MAP
         "countdown": 2,
     },
 )
-def upload_data_to_data_instance(self, dataset_string, pk, dataset_type):
-    """Celery background task to upload the data to the dataset instance through CSV
+def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content_type):
+    """Celery background task to upload the data to the dataset instance through file upload
 
     Args:
-        dataset_string (str): The CSV data to be uploaded in string format
+        dataset_string (str): The data to be uploaded in string format
         pk (int): Primary key of the dataset instance
         dataset_type (str): The type of the dataset instance
+        content_type (str): The file format of the uploaded file
     """
 
     # Create a new tablib Dataset and load the data into this dataset
-    imported_data = Dataset().load(dataset_string, format="csv")
+    if content_type in ['xls', 'xlsx']:
+        imported_data = Dataset().load(b64decode(dataset_string), format=content_type)
+    else:
+        imported_data = Dataset().load(dataset_string, format=content_type)
 
     # Add the instance_id column to all rows in the dataset
     imported_data.append_col([pk] * len(imported_data), header="instance_id")

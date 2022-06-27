@@ -18,6 +18,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django_celery_results.models import TaskResult
+from base64 import b64encode
 
 from .tasks import upload_data_to_data_instance
 
@@ -227,20 +228,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             exported_items, status=status.HTTP_200_OK, content_type="text/csv"
         )
 
-    @action(methods=["POST"], detail=True, name="Upload CSV Dataset")
+    @action(methods=["POST"], detail=True, name="Upload Dataset File")
     def upload(self, request, pk):
-    """
-    View to upload a dataset in CSV format
-    URL: /data/instances/<instance-id>/upload/
-    Accepted methods: POST
-    """
-        
+        """
+        View to upload a dataset from a file
+        URL: /data/instances/<instance-id>/upload/
+        Accepted methods: POST
+        """
         # Define list of accepted file formats
         ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
 
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
-        
+
         if 'dataset' not in request.FILES:
             return Response({
                 "message": "Please provide a file with key 'dataset'.",
@@ -254,14 +254,13 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 "message": f"Invalid Dataset File. Only accepts the following file formats: {ACCEPTED_FILETYPES}",
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create a new tablib Dataset and load the data into this dataset
+        # Read the dataset as a string from the dataset pointer
         try:
             if content_type in ['xls', 'xlsx']:
-                imported_data = Dataset().load(dataset.read(), format=content_type)
+                # xls and xlsx files cannot be decoded as a string
+                dataset_string = b64encode(dataset.read()).decode()
             else:
-                # Read the dataset as a string from the dataset pointer
                 dataset_string = dataset.read().decode()
-#                 imported_data = Dataset().load(dataset.read().decode(), format=content_type)
         except Exception as e:
             return Response({
                 "message": f"Error while reading file. Please check the file data and try again.",
@@ -273,6 +272,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             pk=pk,
             dataset_type=dataset_type,
             dataset_string=dataset_string,
+            content_type=content_type
         )
 
         # Get name of the dataset instance
