@@ -16,7 +16,7 @@ from users.serializers import UserProfileSerializer
 from tasks.models import Task
 from organizations.models import Organization
 from django.db.models import Q
-from projects.word_count import  no_of_words
+from projects.utils import  no_of_words
 from tasks.models import Annotation
 from projects.utils import is_valid_date
 from datetime import datetime
@@ -273,6 +273,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
 
+        if start_date > end_date:
+            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
+
         project_type = request.data.get("project_type")
         projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type)
         final_result=[]
@@ -352,6 +355,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+
+        if start_date > end_date:
+            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
 
         user_mail =[user.get_username() for user in ws.users.all()]
