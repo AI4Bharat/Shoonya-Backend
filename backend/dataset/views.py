@@ -133,10 +133,16 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create a new tablib Dataset and load the data into this dataset
-        if content_type in ['xls', 'xlsx']:
-            imported_data = Dataset().load(dataset.read(), format=content_type)
-        else:
-            imported_data = Dataset().load(dataset.read().decode(), format=content_type)
+        try:
+            if content_type in ['xls', 'xlsx']:
+                imported_data = Dataset().load(dataset.read(), format=content_type)
+            else:
+                imported_data = Dataset().load(dataset.read().decode(), format=content_type)
+        except Exception as e:
+            return Response({
+                "message": f"Error while reading file. Please check the file data and try again.",
+                "exception": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # Add the instance_id column to all rows in the dataset
         imported_data.append_col([pk]*len(imported_data), header="instance_id")
