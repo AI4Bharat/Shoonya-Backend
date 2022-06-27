@@ -673,6 +673,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
         )
 
+
     @action(detail=True, methods=["get"], name="Unassign tasks", url_name="unassign_tasks")
     def unassign_tasks(self, request, pk, *args, **kwargs):
         """
@@ -695,6 +696,54 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"message": "Only annotators can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
     
+
+    @action(detail=True, methods=["POST"], name="Assign new tasks for review to user", url_name="assign_new_review_tasks")
+    def assign_new_review_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of labeled tasks and assign to the reviewer
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+        if not project.is_published:
+            return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
+        if not project.enable_task_reviews:
+            return Response({"message": "Task reviews are disabled for this project"}, status=status.HTTP_403_FORBIDDEN)
+        serializer = ProjectUsersSerializer(project, many=False)
+        users = serializer.data["annotation_reviewers"]
+        user_ids = set()
+        for user in users:
+            user_ids.add(user["id"])
+        # verify if user belongs in annotation_reviewers for this project
+        if not cur_user.id in user_ids:
+            return Response({"message": "You are not assigned to review this project"}, status=status.HTTP_403_FORBIDDEN)
+
+        lock_set = False
+        while(lock_set == False):
+            if project.is_locked():
+                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
+                continue
+            else:
+                try:
+                    project.set_lock(cur_user)
+                    lock_set = True
+                except Exception as e:
+                    continue
+
+        # check if the project contains eligible tasks to pull
+        tasks = Task.objects.filter(project_id=pk).filter(task_status=LABELED).filter(review_user__isnull=True).exclude(annotation_users=cur_user.id)
+        if not tasks:
+            project.release_lock()
+            return Response({"message": "No tasks available for review in this project"}, status=status.HTTP_404_NOT_FOUND)
+
+        tasks = tasks[:project.tasks_pull_count_per_batch]
+        for task in tasks:
+            task.review_user = cur_user
+            task.save()
+
+        project.release_lock()
+        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+
+
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
@@ -962,6 +1011,43 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     "message": f"Users partially added! Invalid emails: {','.join(invalid_emails)}"
                 }
                 ret_status = status.HTTP_201_CREATED
+        except Project.DoesNotExist:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        except User.DoesNotExist:
+            ret_dict = {"message": "User does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        return Response(ret_dict, status=ret_status)
+
+    @action(detail=True, methods=["POST"], name="Add Project Reviewers", url_name="add_project_reviewers")
+    @project_is_archived
+    @is_particular_workspace_manager
+    def add_project_reviewers(self, request, pk, *args, **kwargs):
+        """
+        Adds annotation reviewers to the project
+        """
+        ret_dict = {}
+        ret_status = 0
+        try:
+            project = Project.objects.get(pk=pk)
+            if not project.enable_task_reviews:
+                return Response({"message": "Task reviews are disabled for this project"}, status=status.HTTP_403_FORBIDDEN)
+            emails = request.data.get("emails")
+            invalid_emails = []
+            for email in emails:
+                if re.fullmatch(EMAIL_REGEX, email):
+                    user = User.objects.get(email=email)
+                    project.annotation_reviewers.add(user)
+                    project.save()
+                else:
+                    invalid_emails.append(email)
+
+                if invalid_emails:
+                    ret_dict = {"message": f"Users partially added! Invalid emails: {','.join(invalid_emails)}"}
+                    ret_status = status.HTTP_201_CREATED
+                else:
+                    ret_dict = {"message": "Users added!"}
+                    ret_status = status.HTTP_201_CREATED
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND

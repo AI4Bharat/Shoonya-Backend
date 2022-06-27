@@ -52,6 +52,7 @@ class Project(models.Model):
     )
 
     users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="project_users", help_text=("Project Users"))
+    annotation_reviewers = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="review_projects", blank=True, help_text=("Project Annotation Reviewers"))
     frozen_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="frozen_project_users", blank=True, help_text=("Frozen Project Users"))
     organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, help_text=("Organization to which the Project belongs"))
     workspace_id = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, help_text=("Workspace to which the Project belongs"))
@@ -119,6 +120,8 @@ class Project(models.Model):
     max_pending_tasks_per_user = models.IntegerField(verbose_name="max_pending_tasks_per_user", default=60,
         help_text=("Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks"))
 
+    enable_task_reviews = models.BooleanField(verbose_name="enable_task_reviews", default=False,
+        help_text=("Indicates whether the annotations need to be reviewed"))
 
     def clear_expired_lock(self):
         self.lock.filter(expires_at__lt=now()).delete()
