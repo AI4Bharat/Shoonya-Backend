@@ -261,6 +261,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = request.data.get('to_date')
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
+        tgt_language = request.data.get('tgt_language')
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -277,7 +278,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
         project_type = request.data.get("project_type")
-        projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type)
+        projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type,tgt_language = tgt_language)
         final_result=[]
         if projects_objs.count() !=0:
             for proj in projects_objs:
@@ -305,6 +306,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 result = {
                     "Project Id" : project_id,
                     "Project Name" : project_name,
+                    "Language" : tgt_language,
                     "Project Type" : project_type,
                     "Total No.Of Tasks" : total_tasks,
                     "Total No.Of Annotators Assigned" : no_of_annotators_assigned,
@@ -344,6 +346,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = request.data.get('to_date')
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
+        tgt_language = request.data.get('tgt_language')
+
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -370,7 +374,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         final_result =[]
         for index,each_user in enumerate(users_id):
-            projects_objs = Project.objects.filter(workspace_id=pk, users = each_user,project_type = project_type)
+            projects_objs = Project.objects.filter(workspace_id=pk, users = each_user,project_type = project_type,tgt_language = tgt_language)
             project_count = projects_objs.count()
             proj_ids = [eachid['id'] for eachid in projects_objs.values('id')]
             
@@ -421,6 +425,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 result = {
                     "Username":name,
                     "Email":email,
+                    "Language" : tgt_language,
                     "No.of Projects":project_count,
                     "Annotated Tasks" : annotated_tasks ,
                     "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
@@ -434,6 +439,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 result = {
                     "Username":name,
                     "Email":email,
+                    "Language" : tgt_language,
                     "No.of Projects":project_count,
                     "Annotated Tasks" : annotated_tasks ,
                     "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
