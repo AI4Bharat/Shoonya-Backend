@@ -34,6 +34,15 @@ Annotation = "Annotation"
 
 PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
 
+ANNOTATION_LOCK = "annotation_task_pull_lock"
+REVIEW_LOCK = "review_task_pull_lock"
+
+LOCK_CONTEXT = (
+    (ANNOTATION_LOCK, "annotation_lock"),
+    (REVIEW_LOCK, "review_lock"),
+)
+
+
 # Create your models here.
 class Project(models.Model):
     """
@@ -126,19 +135,19 @@ class Project(models.Model):
     def clear_expired_lock(self):
         self.lock.filter(expires_at__lt=now()).delete()
 
-    def release_lock(self):
-        self.lock.all().delete()
+    def release_lock(self, context):
+        self.lock.filter(lock_context=context).delete()
 
-    def is_locked(self):
+    def is_locked(self, context):
         self.clear_expired_lock()
-        return self.lock.filter(expires_at__gt=now()).count()
+        return self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
 
-    def set_lock(self, user):
+    def set_lock(self, user, context):
         """
         Locks the project for a user
         """
-        if not self.is_locked():
-            ProjectTaskRequestLock.objects.create(project=self, user=user, expires_at=now()+timedelta(seconds=settings.PROJECT_LOCK_TTL))
+        if not self.is_locked(context):
+            ProjectTaskRequestLock.objects.create(project=self, user=user, lock_context=context, expires_at=now()+timedelta(seconds=settings.PROJECT_LOCK_TTL))
         else:
             raise Exception("Project already locked")
 
@@ -170,4 +179,5 @@ class ProjectTaskRequestLock(models.Model):
     """
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='lock', help_text='Project locked for task pulling')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_lock', help_text='User locking this project to pull tasks')
+    lock_context = models.CharField(choices=LOCK_CONTEXT, max_length=50, default=ANNOTATION_LOCK, verbose_name="lock_context")
     expires_at = models.DateTimeField('expires_at')

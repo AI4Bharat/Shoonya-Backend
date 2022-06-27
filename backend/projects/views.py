@@ -636,30 +636,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
         lock_set = False
-        while lock_set == False:
-            if project.is_locked():
+        while(lock_set == False):
+            if project.is_locked(ANNOTATION_LOCK):
                 sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
                 continue
             else:
                 try:
-                    project.set_lock(cur_user)
+                    project.set_lock(cur_user, ANNOTATION_LOCK)
                     lock_set = True
                 except Exception as e:
                     continue
 
         # check if the project contains eligible tasks to pull
-        tasks = (
-            Task.objects.filter(project_id=pk)
-            .filter(task_status=UNLABELED)
-            .annotate(annotator_count=Count("annotation_users"))
-        )
+        # TO-DO : FIX : This will allow user to pull the task already annotated by them(when required_annotators>1)
+        tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
         tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
         if not tasks:
-            project.release_lock()
-            return Response(
-                {"message": "No tasks left for assignment in this project"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            project.release_lock(ANNOTATION_LOCK)
+            return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
 
         # filter out tasks which meet the annotator count threshold
         # and assign the ones with least count to user, so as to maintain uniformity
@@ -668,10 +662,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task.annotation_users.add(cur_user)
             task.save()
 
-        project.release_lock()
-        return Response(
-            {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
-        )
+        project.release_lock(ANNOTATION_LOCK)
+        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
 
     @action(detail=True, methods=["get"], name="Unassign tasks", url_name="unassign_tasks")
@@ -719,12 +711,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         lock_set = False
         while(lock_set == False):
-            if project.is_locked():
+            if project.is_locked(REVIEW_LOCK):
                 sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
                 continue
             else:
                 try:
-                    project.set_lock(cur_user)
+                    project.set_lock(cur_user, REVIEW_LOCK)
                     lock_set = True
                 except Exception as e:
                     continue
@@ -732,15 +724,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # check if the project contains eligible tasks to pull
         tasks = Task.objects.filter(project_id=pk).filter(task_status=LABELED).filter(review_user__isnull=True).exclude(annotation_users=cur_user.id)
         if not tasks:
-            project.release_lock()
+            project.release_lock(REVIEW_LOCK)
             return Response({"message": "No tasks available for review in this project"}, status=status.HTTP_404_NOT_FOUND)
 
-        tasks = tasks[:project.tasks_pull_count_per_batch]
+        task_pull_count = project.tasks_pull_count_per_batch
+        if "num_tasks" in dict(request.data):
+            task_pull_count = request.data["num_tasks"]
+
+        tasks = tasks[:task_pull_count]
         for task in tasks:
             task.review_user = cur_user
             task.save()
 
-        project.release_lock()
+        project.release_lock(REVIEW_LOCK)
         return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
 
@@ -1003,7 +999,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.save()
                 else:
                     invalid_emails.append(email)
-            if len(invalid_emails) != 0:
+            if len(invalid_emails) == 0:
                 ret_dict = {"message": "Users added!"}
                 ret_status = status.HTTP_201_CREATED
             else:

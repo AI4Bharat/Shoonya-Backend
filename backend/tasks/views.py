@@ -254,7 +254,8 @@ class AnnotationViewSet(
             # if task.annotations.count() == 1:
             if not task.project_id.enable_task_reviews:
                 task.correct_annotation = annotation
-                task.task_status = ACCEPTED
+                if task.task_status == LABELED:
+                    task.task_status = ACCEPTED
 
         else:
             task.task_status = UNLABELED
