@@ -39,7 +39,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    @is_particular_organization_owner
     @action(
         detail=True, methods=["GET"], name="Get Organization users", url_name="users"
     )

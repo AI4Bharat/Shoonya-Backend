@@ -709,7 +709,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(ret_dict, status=ret_status)
 
     @action(detail=False, methods=["GET"], name="Get Project Types", url_name="types")
-    @is_organization_owner_or_workspace_manager 
     def types(self, request, *args, **kwargs):
         """
         Fetches project types
