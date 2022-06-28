@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 
 from tasks.models import *
-from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer
+from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer,TaskAnnotationSerializer
 
 from users.models import User
 
@@ -119,9 +119,19 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 request.GET, "data", list(queryset.first().data.keys())
             )
         )
+        
+        if "page" in dict(request.query_params):
+            page = request.query_params["page"]
+            if int(page) == 0:
+                queryset = queryset.order_by("id")
+                serializer = TaskSerializer(queryset, many=True)
+                data = serializer.data
+                return Response(data)
 
+        task_status = UNLABELED
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
+            task_status = request.query_params["task_status"]
         else:
             queryset = queryset.filter(task_status=UNLABELED)
 
@@ -141,8 +151,17 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "data": data,
                 }
             )
-
-        if page is not None:
+        
+        if ((page is not None) and (task_status == ACCEPTED or task_status == DRAFT)):
+            serializer = TaskAnnotationSerializer(page, many=True)
+            data = serializer.data
+            for index, each_data in enumerate(data):
+                data[index]["data"]["output_text"] = each_data["correct_annotation"]["result"][0]["value"]["text"][0]
+                each_data["correct_annotation"] = each_data["correct_annotation"]["id"]
+                each_data["machine_translation"] = each_data["data"]["machine_translation"]
+                del each_data["data"]["machine_translation"]
+            return self.get_paginated_response(data)
+        elif page is not None:
             serializer = TaskSerializer(page, many=True)
             data = serializer.data
             return self.get_paginated_response(data)
