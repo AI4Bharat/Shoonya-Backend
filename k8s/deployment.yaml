@@ -28,4 +28,4 @@ spec:
             - name: DJANGO_SECRET_KEY
               value: random-test-key
       imagePullSecrets:
-        - name: acr-secret
+        - name: shoonya-secrets
