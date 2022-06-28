@@ -273,7 +273,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
 
-
         if start_date > end_date:
             return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
