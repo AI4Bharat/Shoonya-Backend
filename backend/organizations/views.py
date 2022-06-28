@@ -79,8 +79,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         project_type_lower =  project_type.lower()
         is_translation_project = True if  "translation" in  project_type_lower  else False
 
-
-
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
             return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
@@ -100,9 +98,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         for user in users:
             name = user.username
             email = user.get_username()
-            # total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user)
-            # total_no_of_tasks_count = total_no_of_tasks_assigned.count()
-
             annotated_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,project_id__tgt_language=tgt_language,task_status='accepted',correct_annotation__created_at__range = [start_date, end_date])
             annotated_tasks_count = annotated_tasks.count()
 
