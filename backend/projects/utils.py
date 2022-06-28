@@ -22,5 +22,3 @@ def is_valid_date(s: str) -> Tuple[bool, str]:
         return (False, "Please select dates upto Today")
 
     return (True, "")
-
-
