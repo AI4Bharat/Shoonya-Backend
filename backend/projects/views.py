@@ -56,7 +56,6 @@ PROJECT_IS_PUBLISHED_ERROR = {"message": "This project is already published!"}
 def get_task_field(annotation_json, field):
     return annotation_json[field]
 
-
 def batch(iterable, n=1):
     l = len(iterable)
     for ndx in range(0, l, n):
@@ -99,9 +98,24 @@ def get_project_pull_status(pk):
 
     # If the celery TaskResults table returns
     if task_queryset:
+         # Sort the tasks by newest items first by date 
+        task_queryset = task_queryset.order_by('-date_done')
 
-        return extract_latest_status_date_time_from_task_queryset(task_queryset)
-    return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
+        # Get the export task status and last update date
+        task_status = task_queryset.first().as_dict()['status']
+        task_datetime = task_queryset.first().as_dict()['date_done']
+        task_result = task_queryset.first().as_dict()['result']
+
+        if '"' in task_result:
+            task_result = task_result.strip('"')
+
+        # Extract date and time from the datetime object 
+        task_date = task_datetime.date()
+        task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
+
+        return task_status, task_date, task_time, task_result
+        
+    return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time.", "No result."
 
 def get_project_export_status(pk):
     """Function to return status of the project export background task. 
@@ -205,10 +219,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_project_export_time"] = last_project_export_time
 
         # Add the details about the last data pull 
-        last_pull_status, last_pull_date, last_project_export_time = get_project_pull_status(pk)
+        last_pull_status, last_pull_date, last_project_export_time, last_project_export_result = get_project_pull_status(pk)
         project_response.data["last_pull_status"] = last_pull_status
         project_response.data["last_pull_date"] = last_pull_date
         project_response.data["last_pull_time"] = last_project_export_time
+        project_response.data["last_pull_result"] = last_project_export_result
         
         # Add a field to specify the no. of available tasks to be assigned
         project_response.data["unassigned_task_count"] = get_unassigned_task_count(pk)
@@ -942,10 +957,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_status = status.HTTP_404_NOT_FOUND
                 
                 # Pull new data items in to the project asynchronously 
-                # and return the status of the pull 
                 pull_new_data_items_into_project.delay(project_id=pk)
 
-                ret_dict = {"message": "Adding new tasks."}
+                ret_dict = {"message": "Adding new tasks to the project."}
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
