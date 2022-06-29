@@ -12,6 +12,7 @@ from tasks.models import *
 from tasks.serializers import TaskSerializer, AnnotationSerializer, PredictionSerializer,TaskAnnotationSerializer
 
 from users.models import User
+from projects.models import Project
 
 from utils.search import process_search_query
 
@@ -152,7 +153,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 }
             )
         
-        if ((page is not None) and (task_status == ACCEPTED or task_status == DRAFT)):
+        project_details = Project.objects.filter(id=request.query_params["project_id"])
+        project_type =  project_details[0].project_type
+        project_type =  project_type.lower()
+        is_translation_project = True if  "translation" in  project_type else False
+
+        if (is_translation_project and (page is not None) and (task_status == ACCEPTED or task_status == DRAFT)):
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
             for index, each_data in enumerate(data):
