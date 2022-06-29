@@ -1,34 +1,24 @@
-from urllib.parse import parse_qsl
 import ast
+from base64 import b64encode
+from urllib.parse import parse_qsl
 
-from tablib import Dataset
 from django.apps import apps
+from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
-from django.http import StreamingHttpResponse
-from django.db.models import Q
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django_celery_results.models import TaskResult
-from base64 import b64encode
-
-from .tasks import upload_data_to_data_instance
 
 from . import resources
-from filters import filter
-from projects.serializers import ProjectSerializer
-from users.models import User
 from .models import *
 from .serializers import *
+from .tasks import upload_data_to_data_instance
 
 
 ## Utility functions used inside the view functions
