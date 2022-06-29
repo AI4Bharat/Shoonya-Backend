@@ -399,7 +399,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             proj_ids = [eachid['id'] for eachid in projects_objs.values('id')]
             
     
-            all_tasks_in_project = Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )).order_by("id")
+            all_tasks_in_project = Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user ))
             assigned_tasks = all_tasks_in_project.count()
                 
             annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user ) & Q(task_status='accepted')
@@ -415,13 +415,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     Q(project_id__in=proj_ids)
                     & Q(task_status="skipped")
                     & Q(annotation_users=each_user)
-                ).order_by("id")
+                )
             total_skipped_tasks = all_skipped_tasks_in_project.count()
 
-            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) ).order_by('id')
+            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) )
             all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
 
-            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "draft") & Q(annotation_users = each_user)).order_by('id')
+            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "draft") & Q(annotation_users = each_user))
             all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
 
             if is_translation_project :
