@@ -10,12 +10,6 @@ from .resources import RESOURCE_MAP
 
 @shared_task(
     bind=True,
-    autoretry_for=(Exception,),
-    exponential_backoff=2,
-    retry_kwargs={
-        "max_retries": 1,
-        "countdown": 2,
-    },
 )
 def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content_type):
     # sourcery skip: raise-specific-error
@@ -37,12 +31,23 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
     # Add the instance_id column to all rows in the dataset
     imported_data.append_col([pk] * len(imported_data), header="instance_id")
 
+    try: 
+        data_headers = imported_data.dict[0].keys()
+    except Exception as e: 
+        self.update_state(
+            state="FAILURE",
+            meta={
+                "Empty Dataset Uploaded.",
+            },
+        )
+        raise e
+
     # Add row numbers to the dataset
     imported_data.append_col(range(1, len(imported_data) + 1), header="row_number")
 
     # Declare the appropriate resource map based on dataset type
     resource = RESOURCE_MAP[dataset_type]()
-
+    
     # List with row numbers that couldn't be uploaded 
     failed_rows = []
 
@@ -54,17 +59,17 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
         del row['row_number']
 
         # Convert row to a tablib dataset
-        row_dataset = Dataset(row)
+        row_dataset = Dataset()
+        row_dataset.headers = data_headers
+
+        # Add the row to the dataset
+        row_dataset.append(tuple(row.values()))
 
         upload_result = resource.import_data(row_dataset, raise_errors=False)
 
         # check if the upload result has errors 
         if (upload_result.has_errors() or upload_result.has_validation_errors()):
             failed_rows.append(row_number)
-
-    # # Import the data into the database and return Success if all checks are passed
-    # try:
-    #     resource.import_data(imported_data, raise_errors=True)
 
     # If there are upload errors return the failed rows and make the task a failure
     if failed_rows:
@@ -77,15 +82,3 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
         raise Exception(f"Upload failed for lines: {failed_rows}")
     else: 
         return "All rows uploaded."
-
-
-    # If validation checks fail, raise the Exception
-    # except Exception as e:
-    #     self.update_state(
-    #         state="FAILURE",
-    #         meta={
-    #             "exc_type": type(e).__name__,
-    #             "exc_message": traceback.format_exc().split("\n"),
-    #         },
-    #     )
-    #     raise e
