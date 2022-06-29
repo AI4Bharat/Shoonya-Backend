@@ -214,8 +214,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                 'No. of Projects' :no_of_projects,
                                 'No. of Workspaces' : no_of_workspaces_objs
                         } )
-        if is_translation_project:
+        if not is_translation_project and sort_by_column_name == 'Word Count Of Annotated Tasks' :
+            return Response({'message' : 'presently sort by word count for non translation projects not activated '})
+        else :
             final_result = sorted(result, key=lambda x: x[sort_by_column_name],reverse=descending_order)
             return Response(final_result)
-        else:
-            return Response(result)
