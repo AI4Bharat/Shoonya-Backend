@@ -23,7 +23,7 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
     """
 
     # Create a new tablib Dataset and load the data into this dataset
-    if content_type in ['xls', 'xlsx']:
+    if content_type in ["xls", "xlsx"]:
         imported_data = Dataset().load(b64decode(dataset_string), format=content_type)
     else:
         imported_data = Dataset().load(dataset_string, format=content_type)
@@ -31,9 +31,9 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
     # Add the instance_id column to all rows in the dataset
     imported_data.append_col([pk] * len(imported_data), header="instance_id")
 
-    try: 
+    try:
         data_headers = imported_data.dict[0].keys()
-    except Exception as e: 
+    except Exception as e:
         self.update_state(
             state="FAILURE",
             meta={
@@ -47,16 +47,16 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
 
     # Declare the appropriate resource map based on dataset type
     resource = RESOURCE_MAP[dataset_type]()
-    
-    # List with row numbers that couldn't be uploaded 
+
+    # List with row numbers that couldn't be uploaded
     failed_rows = []
 
     # Iterate through the dataset and upload each row to the database
     for row in imported_data.dict:
 
         # Remove row number column from the row being uploaded
-        row_number = row['row_number']
-        del row['row_number']
+        row_number = row["row_number"]
+        del row["row_number"]
 
         # Convert row to a tablib dataset
         row_dataset = Dataset()
@@ -67,8 +67,8 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
 
         upload_result = resource.import_data(row_dataset, raise_errors=False)
 
-        # check if the upload result has errors 
-        if (upload_result.has_errors() or upload_result.has_validation_errors()):
+        # check if the upload result has errors
+        if upload_result.has_errors() or upload_result.has_validation_errors():
             failed_rows.append(row_number)
 
     # If there are upload errors return the failed rows and make the task a failure
@@ -80,5 +80,5 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
             },
         )
         raise Exception(f"Upload failed for lines: {failed_rows}")
-    else: 
+    else:
         return "All rows uploaded."
