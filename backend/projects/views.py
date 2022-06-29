@@ -17,11 +17,6 @@ from users.serializers import UserEmailSerializer
 
 from utils.search import process_search_query
 
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
-
 from dataset import models as dataset_models
 from django_celery_results.models import TaskResult
 from drf_yasg import openapi
@@ -34,17 +29,22 @@ from tasks.models import *
 from tasks.models import Task
 from tasks.serializers import TaskSerializer
 
-from .decorators import (is_organization_owner_or_workspace_manager,
-                         is_particular_workspace_manager, project_is_archived,
-                         project_is_published)
+from .decorators import (
+    is_organization_owner_or_workspace_manager,
+    is_particular_workspace_manager,
+    project_is_archived,
+    project_is_published,
+)
 from .models import *
 from .registry_helper import ProjectRegistry
 
 # Import celery tasks
-from .tasks import (create_parameters_for_task_creation,
-                    export_project_in_place, 
-                    export_project_new_record,
-                    pull_new_data_items_into_project)
+from .tasks import (
+    create_parameters_for_task_creation,
+    export_project_in_place,
+    export_project_new_record,
+    pull_new_data_items_into_project,
+)
 from .utils import is_valid_date, no_of_words
 
 # Create your views here.
@@ -53,31 +53,35 @@ EMAIL_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
 PROJECT_IS_PUBLISHED_ERROR = {"message": "This project is already published!"}
 
+
 def get_task_field(annotation_json, field):
     return annotation_json[field]
+
 
 def batch(iterable, n=1):
     l = len(iterable)
     for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
 
+
 def extract_latest_status_date_time_from_task_queryset(task_queryset):
 
-    # Sort the tasks by newest items first by date 
-    task_queryset = task_queryset.order_by('-date_done')
+    # Sort the tasks by newest items first by date
+    task_queryset = task_queryset.order_by("-date_done")
 
     # Get the export task status and last update date
-    task_status = task_queryset.first().as_dict()['status']
-    task_datetime = task_queryset.first().as_dict()['date_done']
+    task_status = task_queryset.first().as_dict()["status"]
+    task_datetime = task_queryset.first().as_dict()["date_done"]
 
-    # Extract date and time from the datetime object 
+    # Extract date and time from the datetime object
     task_date = task_datetime.date()
     task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
 
     return task_status, task_date, task_time
 
+
 def get_project_pull_status(pk):
-    """Function to return status of the last pull data items task. 
+    """Function to return status of the last pull data items task.
 
     Args:
         pk (int): Primary key of the project
@@ -87,38 +91,44 @@ def get_project_pull_status(pk):
         str: Date when the last time project was exported
     """
 
-    # Create the keyword argument for project ID 
+    # Create the keyword argument for project ID
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
 
-    # Check the celery project export status 
+    # Check the celery project export status
     task_queryset = TaskResult.objects.filter(
-        task_name='projects.tasks.pull_new_data_items_into_project', 
+        task_name="projects.tasks.pull_new_data_items_into_project",
         task_kwargs__contains=project_id_keyword_arg,
     )
 
     # If the celery TaskResults table returns
     if task_queryset:
-         # Sort the tasks by newest items first by date 
-        task_queryset = task_queryset.order_by('-date_done')
+        # Sort the tasks by newest items first by date
+        task_queryset = task_queryset.order_by("-date_done")
 
         # Get the export task status and last update date
-        task_status = task_queryset.first().as_dict()['status']
-        task_datetime = task_queryset.first().as_dict()['date_done']
-        task_result = task_queryset.first().as_dict()['result']
+        task_status = task_queryset.first().as_dict()["status"]
+        task_datetime = task_queryset.first().as_dict()["date_done"]
+        task_result = task_queryset.first().as_dict()["result"]
 
         if '"' in task_result:
             task_result = task_result.strip('"')
 
-        # Extract date and time from the datetime object 
+        # Extract date and time from the datetime object
         task_date = task_datetime.date()
         task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
 
         return task_status, task_date, task_time, task_result
-        
-    return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time.", "No result."
+
+    return (
+        "Success",
+        "Synchronously Completed. No Date.",
+        "Synchronously Completed. No Time.",
+        "No result.",
+    )
+
 
 def get_project_export_status(pk):
-    """Function to return status of the project export background task. 
+    """Function to return status of the project export background task.
 
     Args:
         pk (int): Primary key of the project
@@ -128,23 +138,28 @@ def get_project_export_status(pk):
         str: Date when the last time project was exported
     """
 
-    # Create the keyword argument for project ID 
+    # Create the keyword argument for project ID
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
 
-    # Check the celery project export status 
+    # Check the celery project export status
     task_queryset = TaskResult.objects.filter(
         task_name__in=[
-            'projects.tasks.export_project_in_place', 
-            'projects.tasks.export_project_new_record'
+            "projects.tasks.export_project_in_place",
+            "projects.tasks.export_project_new_record",
         ],
         task_kwargs__contains=project_id_keyword_arg,
-    ) 
+    )
 
     # If the celery TaskResults table returns
     if task_queryset:
 
         return extract_latest_status_date_time_from_task_queryset(task_queryset)
-    return "Success", "Synchronously Completed. No Date.", "Synchronously Completed. No Time."
+    return (
+        "Success",
+        "Synchronously Completed. No Date.",
+        "Synchronously Completed. No Time.",
+    )
+
 
 def get_project_creation_status(pk) -> str:
     # sourcery skip: use-named-expression
@@ -157,27 +172,27 @@ def get_project_creation_status(pk) -> str:
         str: Project Status
     """
 
-    # Get the project object 
+    # Get the project object
     project = Project.objects.get(pk=pk)
 
-    # Create the keyword argument for project ID 
+    # Create the keyword argument for project ID
     project_id_keyword_arg = "'project_id': " + str(pk) + "}"
 
-    # Check the celery task creation status 
+    # Check the celery task creation status
     task_queryset = TaskResult.objects.filter(
-        task_name='projects.tasks.create_parameters_for_task_creation',
+        task_name="projects.tasks.create_parameters_for_task_creation",
         task_kwargs__contains=project_id_keyword_arg,
     )
 
-    # If the celery TaskResults table returns 
-    if task_queryset: 
-        task_creation_status = task_queryset.first().as_dict()['status']
+    # If the celery TaskResults table returns
+    if task_queryset:
+        task_creation_status = task_queryset.first().as_dict()["status"]
 
-        # Check if the task has failed 
-        if task_creation_status == 'FAILURE': 
+        # Check if the task has failed
+        if task_creation_status == "FAILURE":
             return "Task Creation Process Failed!"
 
-        if task_creation_status != 'SUCCESS':
+        if task_creation_status != "SUCCESS":
             return "Creating Annotation Tasks."
 
     # If the background task function has already run, check the status of the project
@@ -188,11 +203,19 @@ def get_project_creation_status(pk) -> str:
     else:
         return "Draft"
 
+
 def get_unassigned_task_count(pk):
     project = Project.objects.get(pk=pk)
-    tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
-    task_count = tasks.filter(annotator_count__lt=project.required_annotators_per_task).count()
+    tasks = (
+        Task.objects.filter(project_id=pk)
+        .filter(task_status=UNLABELED)
+        .annotate(annotator_count=Count("annotation_users"))
+    )
+    task_count = tasks.filter(
+        annotator_count__lt=project.required_annotators_per_task
+    ).count()
     return task_count
+
 
 class ProjectViewSet(viewsets.ModelViewSet):
     """
@@ -208,23 +231,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Retrieves a project given its ID
         """
         project_response = super().retrieve(request, *args, **kwargs)
- 
+
         # Add a new field to the project response to indicate project status
         project_response.data["status"] = get_project_creation_status(pk)
-        
+
         # Add a new field to the project to indicate the async project export status and last export date
-        project_export_status, last_project_export_date, last_project_export_time = get_project_export_status(pk)
+        (
+            project_export_status,
+            last_project_export_date,
+            last_project_export_time,
+        ) = get_project_export_status(pk)
         project_response.data["last_project_export_status"] = project_export_status
         project_response.data["last_project_export_date"] = last_project_export_date
         project_response.data["last_project_export_time"] = last_project_export_time
 
-        # Add the details about the last data pull 
-        last_pull_status, last_pull_date, last_project_export_time, last_project_export_result = get_project_pull_status(pk)
+        # Add the details about the last data pull
+        (
+            last_pull_status,
+            last_pull_date,
+            last_project_export_time,
+            last_project_export_result,
+        ) = get_project_pull_status(pk)
         project_response.data["last_pull_status"] = last_pull_status
         project_response.data["last_pull_date"] = last_pull_date
         project_response.data["last_pull_time"] = last_project_export_time
         project_response.data["last_pull_result"] = last_project_export_result
-        
+
         # Add a field to specify the no. of available tasks to be assigned
         project_response.data["unassigned_task_count"] = get_unassigned_task_count(pk)
 
@@ -249,15 +281,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
             )
-    
+
     @swagger_auto_schema(
-        method='post',
+        method="post",
         request_body=UserEmailSerializer,
         responses={
-            201:"User removed",
-            404:"User does not exist",
-            500:"Server error occured"
-        }
+            201: "User removed",
+            404: "User does not exist",
+            500: "Server error occured",
+        },
     )
     @action(detail=True, methods=["post"], url_name="remove")
     def remove_user(self, request, pk=None):
@@ -295,22 +327,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.frozen_users.add(user)
 
         return Response({"message": "User removed"}, status=status.HTTP_200_OK)
-    
+
     @swagger_auto_schema(
         method="post",
         manual_parameters=[
             openapi.Parameter(
-                "task_status",openapi.IN_QUERY,
+                "task_status",
+                openapi.IN_QUERY,
                 description=("A string that denotes the status of task"),
                 type=openapi.TYPE_STRING,
                 enum=[task_status[0] for task_status in TASK_STATUS],
-                required=False
+                required=False,
             ),
             openapi.Parameter(
-                "current_task_id",openapi.IN_QUERY,
+                "current_task_id",
+                openapi.IN_QUERY,
                 description=("The unique id identifying the current task"),
                 type=openapi.TYPE_INTEGER,
-                required=False
+                required=False,
             ),
         ],
         request_body=openapi.Schema(
@@ -318,9 +352,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             properties={},
         ),
         responses={
-            201:TaskSerializer,
-            204:"No more tasks available! or No more unlabeled tasks!"
-            }
+            201: TaskSerializer,
+            204: "No more tasks available! or No more unlabeled tasks!",
+        },
     )
     @action(detail=True, methods=["post"], url_path="next")
     def next(self, request, pk):
@@ -533,8 +567,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
-
-    @action(detail=True, methods=["POST"], name="Assign new tasks to user", url_name="assign_new_tasks")
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Assign new tasks to user",
+        url_name="assign_new_tasks",
+    )
     def assign_new_tasks(self, request, pk, *args, **kwargs):
         """
         Pull a new batch of unassigned tasks for this project
@@ -543,7 +581,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         cur_user = request.user
         project = Project.objects.get(pk=pk)
         if not project.is_published:
-            return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "This project is not yet published"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = ProjectUsersSerializer(project, many=False)
         users = serializer.data["users"]
         user_ids = set()
@@ -551,18 +592,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
             user_ids.add(user["id"])
         # verify if user belongs in project users
         if not cur_user.id in user_ids:
-            return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "You are not assigned to this project"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # check if user has pending tasks
         # the below logic will work only for required_annotators_per_task=1
         # TO-DO Modify and use the commented logic to cover all cases
-        pending_tasks = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id).filter(task_status__exact=UNLABELED).count()
+        pending_tasks = (
+            Task.objects.filter(project_id=pk)
+            .filter(annotation_users=cur_user.id)
+            .filter(task_status__exact=UNLABELED)
+            .count()
+        )
         # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
         # assigned_tasks = assigned_tasks_queryset.count()
         # completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
         # pending_tasks = assigned_tasks - completed_tasks
         if pending_tasks >= project.max_pending_tasks_per_user:
-            return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "Your pending task count is too high"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
 
         if "num_tasks" in dict(request.data):
@@ -573,7 +625,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
         lock_set = False
-        while(lock_set == False):
+        while lock_set == False:
             if project.is_locked():
                 sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
                 continue
@@ -585,57 +637,81 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     continue
 
         # check if the project contains eligible tasks to pull
-        tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).annotate(annotator_count=Count("annotation_users"))
+        tasks = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status=UNLABELED)
+            .annotate(annotator_count=Count("annotation_users"))
+        )
         tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
         if not tasks:
             project.release_lock()
-            return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "No tasks left for assignment in this project"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         # filter out tasks which meet the annotator count threshold
         # and assign the ones with least count to user, so as to maintain uniformity
-        tasks = tasks.order_by('annotator_count')[:tasks_to_be_assigned]
+        tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
 
         project.release_lock()
-        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
+        )
 
-    
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "from_date":openapi.Schema(type=openapi.TYPE_STRING,description="The start date",format="date"),
-                "to_date":openapi.Schema(type=openapi.TYPE_STRING,description="The end date",format="date")
+                "from_date": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="The start date",
+                    format="date",
+                ),
+                "to_date": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="The end date", format="date"
+                ),
             },
-            required=["from_date","to_date"]
+            required=["from_date", "to_date"],
         ),
         responses={
-            200:openapi.Schema(
+            200: openapi.Schema(
                 type=openapi.TYPE_ARRAY,
                 items=openapi.Items(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        "username":openapi.Schema(type=openapi.TYPE_STRING),
-                        "mail":openapi.Schema(type=openapi.TYPE_STRING,format="email"),
-                        "total_annoted_tasks":openapi.Schema(type=openapi.TYPE_INTEGER),
-                        "avg_lead_time":openapi.Schema(type=openapi.TYPE_NUMBER,format="float"),
-                        "total_assigned_tasks":openapi.Schema(type=openapi.TYPE_INTEGER),
-                        "skipped_tasks":openapi.Schema(type=openapi.TYPE_INTEGER),
-                        "total_pending_tasks":openapi.Schema(type=openapi.TYPE_INTEGER)
-                    }
-                    )
+                        "username": openapi.Schema(type=openapi.TYPE_STRING),
+                        "mail": openapi.Schema(
+                            type=openapi.TYPE_STRING, format="email"
+                        ),
+                        "total_annoted_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                        "avg_lead_time": openapi.Schema(
+                            type=openapi.TYPE_NUMBER, format="float"
+                        ),
+                        "total_assigned_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                        "skipped_tasks": openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "total_pending_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                    },
+                ),
             ),
-            404:"Project does not exist!"
-        }
+            404: "Project does not exist!",
+        },
     )
     @action(
-    detail=True,
-    methods=["POST"],
-    name="Get Reports  of a Project",
-    url_name="get_analytics"
+        detail=True,
+        methods=["POST"],
+        name="Get Reports  of a Project",
+        url_name="get_analytics",
     )
     @project_is_archived
     def get_analytics(self, request, pk=None, *args, **kwargs):
@@ -643,25 +719,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Get Reports of a Project
         """
         ret_dict = {}
-        count=0
-        from_date = request.data.get('from_date')
-        to_date = request.data.get('to_date')
-        from_date = from_date + ' 00:00'
-        to_date = to_date + ' 23:59'
+        count = 0
+        from_date = request.data.get("from_date")
+        to_date = request.data.get("to_date")
+        from_date = from_date + " 00:00"
+        to_date = to_date + " 23:59"
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
-            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         cond, invalid_message = is_valid_date(to_date)
         if not cond:
-            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-        start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
-        end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
+        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
 
         if start_date > end_date:
-            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "'To' Date should be after 'From' Date"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             if (
@@ -670,26 +753,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 or request.user.is_superuser
             ):
                 project_details = Project.objects.filter(id=pk)
-                project_type =  project_details[0].project_type
-                project_type =  project_type.lower()
-                is_translation_project = True if  "translation" in  project_type else False
+                project_type = project_details[0].project_type
+                project_type = project_type.lower()
+                is_translation_project = (
+                    True if "translation" in project_type else False
+                )
 
-                project_users = project_details.values('users')
+                project_users = project_details.values("users")
                 final_result = []
                 for each_user in project_users:
-                    userid = each_user['users']
+                    userid = each_user["users"]
                     this_project_task_id = Task.objects.filter(project_id=pk).order_by(
-                        'id'
+                        "id"
                     )
                     all_ids_related_to_project = this_project_task_id.values("id")
-                    annoted_tasks = Annotation_model.objects.filter(Q(completed_by = userid)& Q(created_at__range = [start_date, end_date]) & Q(task__task_status="accepted")).order_by('id')
-                    annoted_tasks_ids = annoted_tasks.values('task_id')
+                    annoted_tasks = Annotation_model.objects.filter(
+                        Q(completed_by=userid)
+                        & Q(created_at__range=[start_date, end_date])
+                        & Q(task__task_status="accepted")
+                    ).order_by("id")
+                    annoted_tasks_ids = annoted_tasks.values("task_id")
                     project_related_ids = []
                     all_task_ids = []
                     for i in all_ids_related_to_project:
-                        project_related_ids.append(i['id'])
+                        project_related_ids.append(i["id"])
                     for j in annoted_tasks_ids:
-                        all_task_ids.append(j['task_id'])
+                        all_task_ids.append(j["task_id"])
 
                     set1 = set(project_related_ids)
                     set2 = set(all_task_ids)
@@ -697,8 +786,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     if count == 0:
                         avg_leadtime = 0
                         word_count1 = 0
-                    else :
-                        project_user_tasks_ids =  list(set1.intersection(set2))
+                    else:
+                        project_user_tasks_ids = list(set1.intersection(set2))
                         lead_time = 0
                         word_count1 = 0
                         for each_id in project_user_tasks_ids:
@@ -706,13 +795,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                                 task_id=each_id
                             )
                             lead_time += annot_object1.lead_time
-                            task_object = Task.objects.get(id = each_id)
-                            if is_translation_project :
+                            task_object = Task.objects.get(id=each_id)
+                            if is_translation_project:
                                 word_count1 = (
-                                    no_of_words(task_object.data['input_text'])
+                                    no_of_words(task_object.data["input_text"])
                                 ) + word_count1
-                        avg_leadtime = lead_time / count 
-                        avg_leadtime = round(avg_leadtime,2)
+                        avg_leadtime = lead_time / count
+                        avg_leadtime = round(avg_leadtime, 2)
                     user_details = User.objects.get(id=userid)
                     each_usermail = user_details.email
                     user_name = user_details.username
@@ -730,43 +819,78 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ).order_by("id")
                     total_skipped_tasks = len(all_skipped_tasks_in_project.values())
 
-                    all_pending_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "unlabeled") & Q(annotation_users = user_id) ).order_by('id')
+                    all_pending_tasks_in_project = Task.objects.filter(
+                        Q(project_id=pk)
+                        & Q(task_status="unlabeled")
+                        & Q(annotation_users=user_id)
+                    ).order_by("id")
                     total_unlabeled_tasks = len(all_pending_tasks_in_project.values())
 
-                    all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
+                    all_draft_tasks_in_project = Task.objects.filter(
+                        Q(project_id=pk)
+                        & Q(task_status="draft")
+                        & Q(annotation_users=user_id)
+                    ).order_by("id")
                     total_draft_tasks = len(all_draft_tasks_in_project.values())
-                    #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                    if is_translation_project :
-                        final_result.append({"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time (In Seconds)" : round(avg_leadtime, 2), "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Unlabeled Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks , "Word Count" : word_count1})
+                    # pending_tasks = total_tasks -( count + total_skipped_tasks )
+                    if is_translation_project:
+                        final_result.append(
+                            {
+                                "Username": user_name,
+                                "Email": each_usermail,
+                                "Annotated Tasks": count,
+                                "Average Annotation Time (In Seconds)": round(
+                                    avg_leadtime, 2
+                                ),
+                                "Assigned Tasks": total_tasks,
+                                "Skipped Tasks": total_skipped_tasks,
+                                "Unlabeled Tasks": total_unlabeled_tasks,
+                                "Draft Tasks": total_draft_tasks,
+                                "Word Count": word_count1,
+                            }
+                        )
                     else:
-                        final_result.append({"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time (In Seconds)" : round(avg_leadtime, 2), "Assigned Tasks" : total_tasks,"Skipped Tasks" : total_skipped_tasks , "Unlabeled Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks })
+                        final_result.append(
+                            {
+                                "Username": user_name,
+                                "Email": each_usermail,
+                                "Annotated Tasks": count,
+                                "Average Annotation Time (In Seconds)": round(
+                                    avg_leadtime, 2
+                                ),
+                                "Assigned Tasks": total_tasks,
+                                "Skipped Tasks": total_skipped_tasks,
+                                "Unlabeled Tasks": total_unlabeled_tasks,
+                                "Draft Tasks": total_draft_tasks,
+                            }
+                        )
 
                 ret_status = status.HTTP_200_OK
 
-
-
             elif request.user.role == User.ANNOTATOR:
                 project_details = Project.objects.filter(id=pk)
-                project_type =  project_details[0].project_type
-                project_type =  project_type.lower()
-                is_translation_project = True if  "translation" in  project_type else False
-
-                user_details = User.objects.get(email = request.user.email)
-                userid = user_details.id
-                this_project_task_id = Task.objects.filter(project_id = pk).order_by(
-                    'id'
+                project_type = project_details[0].project_type
+                project_type = project_type.lower()
+                is_translation_project = (
+                    True if "translation" in project_type else False
                 )
+
+                user_details = User.objects.get(email=request.user.email)
+                userid = user_details.id
+                this_project_task_id = Task.objects.filter(project_id=pk).order_by("id")
                 all_ids_related_to_project = this_project_task_id.values("id")
                 annoted_tasks = Annotation_model.objects.filter(
-                    Q(completed_by=userid) & Q(created_at__range=[start_date, end_date]) & Q(task__task_status="accepted")
+                    Q(completed_by=userid)
+                    & Q(created_at__range=[start_date, end_date])
+                    & Q(task__task_status="accepted")
                 ).order_by("id")
                 annoted_tasks_ids = annoted_tasks.values("task_id")
                 project_related_ids = []
                 all_task_ids = []
                 for i in all_ids_related_to_project:
-                    project_related_ids.append(i['id'])
+                    project_related_ids.append(i["id"])
                 for j in annoted_tasks_ids:
-                    all_task_ids.append(j['task_id'])
+                    all_task_ids.append(j["task_id"])
 
                 set1 = set(project_related_ids)
                 set2 = set(all_task_ids)
@@ -775,77 +899,107 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if count == 0:
                     avg_leadtime = 0
                     word_count1 = 0
-                else :
-                    project_user_tasks_ids =  list(set1.intersection(set2))
+                else:
+                    project_user_tasks_ids = list(set1.intersection(set2))
                     lead_time = 0
                     word_count1 = 0
                     for each_id in project_user_tasks_ids:
                         annot_object1 = Annotation_model.objects.get(task_id=each_id)
                         lead_time += annot_object1.lead_time
-                        task_object = Task.objects.get(id = each_id)
-                        if is_translation_project :
+                        task_object = Task.objects.get(id=each_id)
+                        if is_translation_project:
                             word_count1 = (
-                                no_of_words(task_object.data['input_text'])
+                                no_of_words(task_object.data["input_text"])
                             ) + word_count1
-                    avg_leadtime = lead_time / count 
-                    avg_leadtime = round(avg_leadtime,2)
+                    avg_leadtime = lead_time / count
+                    avg_leadtime = round(avg_leadtime, 2)
 
                 user_name = user_details.username
                 each_usermail = user_details.email
                 user_id = user_details.id
 
-                all_tasks_in_project =  Task.objects.filter(
-                    Q(project_id = pk)
-                    & Q(annotation_users = user_id)
-                    ).order_by('id')
+                all_tasks_in_project = Task.objects.filter(
+                    Q(project_id=pk) & Q(annotation_users=user_id)
+                ).order_by("id")
                 total_tasks = all_tasks_in_project.count()
 
-                all_skipped_tasks_in_project =  Task.objects.filter(
-                    Q(project_id = pk)
-                    & Q(task_status = "skipped")
-                    & Q(annotation_users = user_id)
-                    ).order_by('id')
+                all_skipped_tasks_in_project = Task.objects.filter(
+                    Q(project_id=pk)
+                    & Q(task_status="skipped")
+                    & Q(annotation_users=user_id)
+                ).order_by("id")
                 total_skipped_tasks = all_skipped_tasks_in_project.count()
 
-                all_pending_tasks_in_project =  Task.objects.filter(
-                    Q(project_id = pk)
-                    & Q(task_status = "unlabeled")
-                    & Q(annotation_users = user_id)
-                    ).order_by('id')
+                all_pending_tasks_in_project = Task.objects.filter(
+                    Q(project_id=pk)
+                    & Q(task_status="unlabeled")
+                    & Q(annotation_users=user_id)
+                ).order_by("id")
                 total_unlabeled_tasks = all_pending_tasks_in_project.count()
 
-                all_draft_tasks_in_project =  Task.objects.filter(Q(project_id = pk) & Q(task_status = "draft") & Q(annotation_users = user_id)).order_by('id')
+                all_draft_tasks_in_project = Task.objects.filter(
+                    Q(project_id=pk)
+                    & Q(task_status="draft")
+                    & Q(annotation_users=user_id)
+                ).order_by("id")
                 total_draft_tasks = len(all_draft_tasks_in_project.values())
 
-                #pending_tasks = total_tasks -( count + total_skipped_tasks )
-                if  is_translation_project :
-                    final_result = [{"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time (In Seconds)": round(avg_leadtime, 2) , "Assigned Tasks" : total_tasks , "Skipped Tasks":total_skipped_tasks , "Unlabeled Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks,"Word Count" : word_count1}]
+                # pending_tasks = total_tasks -( count + total_skipped_tasks )
+                if is_translation_project:
+                    final_result = [
+                        {
+                            "Username": user_name,
+                            "Email": each_usermail,
+                            "Annotated Tasks": count,
+                            "Average Annotation Time (In Seconds)": round(
+                                avg_leadtime, 2
+                            ),
+                            "Assigned Tasks": total_tasks,
+                            "Skipped Tasks": total_skipped_tasks,
+                            "Unlabeled Tasks": total_unlabeled_tasks,
+                            "Draft Tasks": total_draft_tasks,
+                            "Word Count": word_count1,
+                        }
+                    ]
                 else:
-                    final_result = [{"Username":user_name,"Email":each_usermail , "Annotated Tasks" : count ,"Average Annotation Time (In Seconds)": round(avg_leadtime, 2) , "Assigned Tasks" : total_tasks , "Skipped Tasks":total_skipped_tasks , "Unlabeled Tasks" : total_unlabeled_tasks, "Draft Tasks": total_draft_tasks}]
+                    final_result = [
+                        {
+                            "Username": user_name,
+                            "Email": each_usermail,
+                            "Annotated Tasks": count,
+                            "Average Annotation Time (In Seconds)": round(
+                                avg_leadtime, 2
+                            ),
+                            "Assigned Tasks": total_tasks,
+                            "Skipped Tasks": total_skipped_tasks,
+                            "Unlabeled Tasks": total_unlabeled_tasks,
+                            "Draft Tasks": total_draft_tasks,
+                        }
+                    ]
                 ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             final_result = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(final_result, status=ret_status)
-    
+
     @swagger_auto_schema(
-        method='post',
+        method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "emails":openapi.Schema(
+                "emails": openapi.Schema(
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(type=openapi.TYPE_STRING,format="email"),
-                    description="List of email addresses of users to be added to project"
+                    items=openapi.Items(type=openapi.TYPE_STRING, format="email"),
+                    description="List of email addresses of users to be added to project",
                 )
             },
-            required=["emails"]
+            required=["emails"],
         ),
         responses={
-            201:"Users added",
-            404:"Project does not exist or User does not exist",
-            200:"Project is published error"
-        }
+            201: "Users added",
+            404: "Project does not exist or User does not exist",
+            200: "Project is published error",
+        },
     )
     @action(
         detail=True,
@@ -901,15 +1055,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         method="get",
         manual_parameters=[
             openapi.Parameter(
-                "project_type",openapi.IN_QUERY,
+                "project_type",
+                openapi.IN_QUERY,
                 description=("A string to pass the project tpye"),
                 type=openapi.TYPE_STRING,
-                required=False
+                required=False,
             ),
         ],
-        responses={
-            200:"Return types of project and its details"
-        }
+        responses={200: "Return types of project and its details"},
     )
     @action(detail=False, methods=["GET"], name="Get Project Types", url_name="types")
     @is_organization_owner_or_workspace_manager
@@ -921,7 +1074,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             if "project_type" in dict(request.query_params):
                 return Response(
-                    ProjectRegistry.get_instance().project_types[request.query_params["project_type"]], status=status.HTTP_200_OK
+                    ProjectRegistry.get_instance().project_types[
+                        request.query_params["project_type"]
+                    ],
+                    status=status.HTTP_200_OK,
                 )
             else:
                 return Response(
@@ -949,8 +1105,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_dict = {"message": "Sampling Mode is not FULL!"}
                 ret_status = status.HTTP_403_FORBIDDEN
             else:
-                # Get serializer with the project user data 
-                try: 
+                # Get serializer with the project user data
+                try:
                     serializer = ProjectUsersSerializer(project, many=False)
                 except User.DoesNotExist:
                     ret_dict = {"message": "User does not exist!"}
@@ -959,8 +1115,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 # Get project instance and check how many items to pull
                 project_type = project.project_type
                 registry_helper = ProjectRegistry.get_instance()
-                input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
-                dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
+                input_dataset_info = registry_helper.get_input_dataset_and_fields(
+                    project_type
+                )
+                dataset_model = getattr(
+                    dataset_models, input_dataset_info["dataset_type"]
+                )
                 tasks = Task.objects.filter(project_id__exact=project)
                 all_items = dataset_model.objects.filter(
                     instance_id__in=list(project.dataset_id.all())
@@ -979,15 +1139,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 else:
                     items = list(items.values("id", *input_dataset_info["fields"]))
 
-                if items: 
-                
-                    # Pull new data items in to the project asynchronously 
+                if items:
+
+                    # Pull new data items in to the project asynchronously
                     pull_new_data_items_into_project.delay(project_id=pk, items=items)
 
                     ret_dict = {"message": "Adding new tasks to the project."}
                     ret_status = status.HTTP_200_OK
-                    
-                else: 
+
+                else:
                     ret_dict = {"message": "No items to pull into the dataset."}
                     ret_status = status.HTTP_404_NOT_FOUND
 
@@ -1061,27 +1221,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-    
-    @swagger_auto_schema(
-        method="get",
-        responses={
-            200:"No tasks to export!"
-        }
-    )
+
+    @swagger_auto_schema(method="get", responses={200: "No tasks to export!"})
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "export_dataset_instance_id":openapi.Schema(type=openapi.TYPE_INTEGER,
-                description="A unique integer identifying the dataset instance"),
+                "export_dataset_instance_id": openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description="A unique integer identifying the dataset instance",
+                ),
             },
-            description="Optional Post request body for projects which have save_type == new_record"
+            description="Optional Post request body for projects which have save_type == new_record",
         ),
         responses={
-            200:"No tasks to export! or SUCCESS!",
-            404:"Project does not exist! or User does not exist!"
-        }
+            200: "No tasks to export! or SUCCESS!",
+            404: "Project does not exist! or User does not exist!",
+        },
     )
     @action(detail=True, methods=["POST", "GET"], name="Export Project")
     @project_is_archived
@@ -1093,7 +1250,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
             project_type = dict(PROJECT_TYPE_CHOICES)[project.project_type]
-            
+
             # Read registry to get output dataset model, and output fields
             registry_helper = ProjectRegistry.get_instance()
             output_dataset_info = registry_helper.get_output_dataset_and_fields(
@@ -1105,7 +1262,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # If save_type is 'in_place'
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
-                
+
                 data_items = []
                 tasks = Task.objects.filter(
                     project_id__exact=project, task_status__exact=ACCEPTED
@@ -1115,12 +1272,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
 
-                # Perform task export function for inpalce functions 
+                # Perform task export function for inpalce functions
                 export_project_in_place.delay(
-                    annotation_fields=annotation_fields, 
-                    project_id=pk, 
-                    project_type=project_type, 
-                    get_request_data=dict(request.GET)
+                    annotation_fields=annotation_fields,
+                    project_id=pk,
+                    project_type=project_type,
+                    get_request_data=dict(request.GET),
                 )
 
             # If save_type is 'new_record'
@@ -1151,12 +1308,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     return Response(ret_dict, status=ret_status)
 
                 export_project_new_record.delay(
-                    annotation_fields=annotation_fields, 
-                    project_id=pk, 
-                    project_type=project_type, 
-                    export_dataset_instance_id=export_dataset_instance_id, 
-                    task_annotation_fields=task_annotation_fields, 
-                    get_request_data=dict(request.GET)
+                    annotation_fields=annotation_fields,
+                    project_id=pk,
+                    project_type=project_type,
+                    export_dataset_instance_id=export_dataset_instance_id,
+                    task_annotation_fields=task_annotation_fields,
+                    get_request_data=dict(request.GET),
                 )
 
                 # data_items.append(data_item)
@@ -1232,6 +1389,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
-    @action(detail=False, methods=['GET'], name='Get language choices')
+    @action(detail=False, methods=["GET"], name="Get language choices")
     def language_choices(self, request):
         return Response(LANG_CHOICES)
