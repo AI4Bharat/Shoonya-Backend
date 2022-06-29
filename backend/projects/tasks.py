@@ -425,7 +425,4 @@ def pull_new_data_items_into_project(self, project_id):
     users = serializer.data["users"]
     assign_users_to_tasks(new_tasks, users)
 
-    # Add information to the logger
-    # logger.info(
-    #     f"Pulled {len(new_tasks)} new data items into project {project_id}"
-    # )
+    return f"Pulled {len(new_tasks)} new data items into project {project.title}"
