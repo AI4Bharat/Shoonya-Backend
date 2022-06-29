@@ -397,7 +397,7 @@ def pull_new_data_items_into_project(self, project_id, items):
 
     # Get project instance
     project = Project.objects.get(pk=project_id)
-    
+
     new_tasks = create_tasks_from_dataitems(items, project)
 
     # Get Project users
