@@ -1,7 +1,7 @@
-import traceback
-from celery import shared_task, states
-from tablib import Dataset
 from base64 import b64decode
+
+from celery import shared_task
+from tablib import Dataset
 
 from .resources import RESOURCE_MAP
 
