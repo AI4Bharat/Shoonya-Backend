@@ -82,7 +82,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         sort_by_column_name = request.data.get('sort_by_column_name')
         descending_order = request.data.get('descending_order')
         if sort_by_column_name == None :
-            sort_by_column_name = "No. of Annotated Tasks in Given Date Range"
+            sort_by_column_name = "User Name"
 
         if descending_order == None :
             descending_order = False
