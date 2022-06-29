@@ -3,6 +3,7 @@ from collections import OrderedDict
 from datetime import datetime
 from time import sleep
 
+import pandas as pd
 from django.core.files import File
 from django.db.models import Count, Q
 from django.forms.models import model_to_dict
@@ -11,16 +12,8 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
-from users.serializers import UserEmailSerializer
-from django.core.files import File
-import pandas as pd
-from datetime import datetime
-from django.db.models import Q
-from .utils import no_of_words
-from users.serializers import UserEmailSerializer
-from django.db.models import Count
-from time import sleep
 from users.models import LANG_CHOICES
+from users.serializers import UserEmailSerializer
 
 from utils.search import process_search_query
 
@@ -48,12 +41,11 @@ from .models import *
 from .registry_helper import ProjectRegistry
 
 # Import celery tasks
-from .tasks import (
-    create_parameters_for_task_creation,
-    export_project_in_place, 
-    export_project_new_record,
-    pull_new_data_items_into_project)
-from .utils import is_valid_date
+from .tasks import (create_parameters_for_task_creation,
+                    export_project_in_place, 
+                    export_project_new_record,
+                    pull_new_data_items_into_project)
+from .utils import is_valid_date, no_of_words
 
 # Create your views here.
 
