@@ -315,10 +315,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Project Type" : project_type,
                     "Total No.Of Tasks" : total_tasks,
                     "Total No.Of Annotators Assigned" : no_of_annotators_assigned,
-                    "Total No.Of Labeled Tasks" : labeled_count,
-                    "Total No.Of Unlabeled Tasks" : un_labeled_count,
-                    "Total No.Of Skipped Tasks": skipped_count,
-                    "Total No.Of Draft Tasks" : dropped_tasks,
+                    "Annotated Tasks In Given Date Range" : labeled_count,
+                    "Unlabeled Tasks" : un_labeled_count,
+                    "Skipped Tasks": skipped_count,
+                    "Draft Tasks" : dropped_tasks,
                     "Project Progress" : round(project_progress,3)
                     }
                 final_result.append(result)
@@ -368,7 +368,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         if start_date > end_date:
             return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
-
+        user_obj = list(ws.users.all())
         user_mail =[user.get_username() for user in ws.users.all()]
         user_name =[user.username for user in ws.users.all()]
         users_id = [user.id for user in ws.users.all()]
@@ -382,6 +382,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             name = user_name[index]
             email = user_mail[index]
+            list_of_user_languages = user_obj[index].languages
+
+            if tgt_language != None and tgt_language not in list_of_user_languages:
+                continue
+
             if email == ws_owner or email == org_owner :
                 continue
 
@@ -427,7 +432,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Email":email,
                     "Language" : selected_language,
                     "No.of Projects":project_count,
-                    "Annotated Tasks" : annotated_tasks ,
+                    "Annotated Tasks In Given Date Range" : annotated_tasks ,
                     "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
                     "Skipped Tasks" : total_skipped_tasks,
@@ -441,7 +446,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Email":email,
                     "Language" : selected_language,
                     "No.of Projects":project_count,
-                    "Annotated Tasks" : annotated_tasks ,
+                    "Annotated Tasks In Given Date Range" : annotated_tasks,
                     "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
                     "Skipped Tasks" : total_skipped_tasks,
