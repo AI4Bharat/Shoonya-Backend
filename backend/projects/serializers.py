@@ -34,6 +34,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             "required_annotators_per_task",
             "tasks_pull_count_per_batch",
             "max_pending_tasks_per_user",
+            "src_language",
+            "tgt_language"
         ]
 
 

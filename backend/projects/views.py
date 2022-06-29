@@ -12,10 +12,17 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from users.serializers import UserEmailSerializer
+from django.core.files import File
+import pandas as pd
+from datetime import datetime
+from django.db.models import Q
+from .utils import no_of_words
+from users.serializers import UserEmailSerializer
+from django.db.models import Count
+from time import sleep
+from users.models import LANG_CHOICES
 
 from utils.search import process_search_query
-
-from .word_count import no_of_words
 
 try:
     from yaml import CLoader as Loader
@@ -42,7 +49,6 @@ from .registry_helper import ProjectRegistry
 
 # Import celery tasks
 from .tasks import (
-    assign_users_to_tasks, 
     create_parameters_for_task_creation,
     export_project_in_place, 
     export_project_new_record,
@@ -1189,3 +1195,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
+    @action(detail=False, methods=['GET'], name='Get language choices')
+    def language_choices(self, request):
+        return Response(LANG_CHOICES)
