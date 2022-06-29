@@ -379,6 +379,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         selected_language = "No Language Selected"
         final_result =[]
         for index,each_user in enumerate(users_id):
+
+            name = user_name[index]
+            email = user_mail[index]
+            if email == ws_owner or email == org_owner :
+                continue
+
             if tgt_language == None :
                 projects_objs = Project.objects.filter(workspace_id=pk, users = each_user,project_type = project_type)
             else :
@@ -387,50 +393,35 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             project_count = projects_objs.count()
             proj_ids = [eachid['id'] for eachid in projects_objs.values('id')]
             
-            name = user_name[index]
-            email = user_mail[index]
-            assigned_tasks = 0
-            annotated_tasks = 0
-            total_word_count = 0
-            avg_lead_time = 0
-            total_skipped_tasks =0
-            all_pending_tasks_in_project = 0 
-            all_draft_tasks_in_project = 0
- 	
-            for each_project in proj_ids :
- 	
-                all_tasks_in_project = Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user )).order_by("id")
-                assigned_tasks += all_tasks_in_project.count()
+    
+            all_tasks_in_project = Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )).order_by("id")
+            assigned_tasks = all_tasks_in_project.count()
                 
-                annotated_tasks_objs =Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user ) & Q(task_status='accepted')
+            annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user ) & Q(task_status='accepted')
                 & Q (correct_annotation__created_at__range = [start_date, end_date]))
-                annotated_tasks += annotated_tasks_objs.count()
-                                
-                annotated_task_ids  = [task.id for task in annotated_tasks_objs]
-                annotated_table_objs = Annotation.objects.filter(task_id__in =annotated_task_ids)
-                lead_time_list = [obj.lead_time for obj in annotated_table_objs]
-                if len(lead_time_list) > 0 :
-                    avg_lead_time +=sum(lead_time_list) / len(lead_time_list)
-                else :
-                    pass
-                if is_translation_project:
-                    total_count_list = [no_of_words(Task.objects.get(id = id1).data['input_text']) for  id1 in annotated_task_ids]
-                    total_word_count += sum(total_count_list)
+            annotated_tasks = annotated_tasks_objs.count()
                 
+            lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks_objs]
+            avg_lead_time = 0
+            if len(lead_time_annotated_tasks) > 0 :
+                avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
                 
-                all_skipped_tasks_in_project = Task.objects.filter(
-                        Q(project_id=each_project)
-                        & Q(task_status="skipped")
-                        & Q(annotation_users=each_user)
-                    ).order_by("id")
-                total_skipped_tasks += all_skipped_tasks_in_project.count()
- 
-                all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) ).order_by('id')
-                all_pending_tasks_in_project += all_pending_tasks_in_project_objs.count()
+            all_skipped_tasks_in_project = Task.objects.filter(
+                    Q(project_id__in=proj_ids)
+                    & Q(task_status="skipped")
+                    & Q(annotation_users=each_user)
+                ).order_by("id")
+            total_skipped_tasks = all_skipped_tasks_in_project.count()
 
-                all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & Q(task_status = "draft") & Q(annotation_users = each_user)).order_by('id')
-                all_draft_tasks_in_project += all_draft_tasks_in_project_objs.count()
+            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) ).order_by('id')
+            all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
+
+            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "draft") & Q(annotation_users = each_user)).order_by('id')
+            all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
+
             if is_translation_project :
+                total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
+                total_word_count = sum(total_word_count_list)
                 result = {
                     "Username":name,
                     "Email":email,
@@ -457,11 +448,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Unlabeled Tasks" : all_pending_tasks_in_project,
                     "Draft Tasks": all_draft_tasks_in_project,
                     }
-
-            if email == ws_owner or email == org_owner :
-                pass
-            else:
-                final_result.append(result)
+                    
+            final_result.append(result)
             
         return Response(final_result)
 
