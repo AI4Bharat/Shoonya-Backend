@@ -82,7 +82,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         sort_by_column_name = request.data.get('sort_by_column_name')
         descending_order = request.data.get('descending_order')
         if sort_by_column_name == None :
-            sort_by_column_name = "No. of Words"
+            sort_by_column_name = "No. of Annotated Tasks in Given Date Range"
 
         if descending_order == None :
             descending_order = False
@@ -110,69 +110,103 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         for user in users:
             name = user.username
             email = user.get_username()
-            if tgt_language == None :
-                total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user,project_id__project_type = project_type)
-            else :
-                total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,project_id__tgt_language=tgt_language)
-            total_no_of_tasks_count = total_no_of_tasks_assigned.count()
-            if tgt_language == None :
-                annotated_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,task_status='accepted',correct_annotation__created_at__range = [start_date, end_date])
-            else :
-                annotated_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,project_id__tgt_language=tgt_language,task_status='accepted',correct_annotation__created_at__range = [start_date, end_date])
-            annotated_tasks_count = annotated_tasks.count()
+            list_of_user_languages = user.languages
 
-            avg_lead_time = 0
-            lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks]
-            if len(lead_time_annotated_tasks) > 0 :
-                avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
+            if tgt_language != None and tgt_language not in list_of_user_languages:
+                continue
             if tgt_language == None :
-                total_skipped_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,task_status='skipped')
-            else :
-                total_skipped_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,project_id__tgt_language=tgt_language,task_status='skipped')
+                total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,project_id__organization_id = organization)
+                total_no_of_tasks_count = total_no_of_tasks_assigned.count()
 
-            total_skipped_tasks_count = total_skipped_tasks.count()
-            if tgt_language == None :
-                total_unlabeled_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,task_status='unlabeled')
-            else :
-                total_unlabeled_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,project_id__tgt_language=tgt_language,task_status='unlabeled')
+                annotated_tasks = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,task_status='accepted',\
+                    correct_annotation__created_at__range = [start_date, end_date],project_id__organization_id = organization)
+                annotated_tasks_count = annotated_tasks.count()
 
-            total_unlabeled_tasks_count = total_unlabeled_tasks.count()
-            if tgt_language == None :
-                total_draft_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,task_status='draft')
-            else :
-                total_draft_tasks = Task.objects.filter(annotation_users =user,project_id__project_type = project_type,project_id__tgt_language=tgt_language,task_status='draft')
+                avg_lead_time = 0
+                lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks]
+                if len(lead_time_annotated_tasks) > 0 :
+                    avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
+                
+                total_skipped_tasks = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,task_status='skipped',project_id__organization_id = organization)
+                total_skipped_tasks_count = total_skipped_tasks.count()
 
-            total_draft_tasks_count = total_draft_tasks.count()
-            if tgt_language == None :
-                projects_objs = Project.objects.filter(users = user,project_type = project_type)
+                total_unlabeled_tasks = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,task_status='unlabeled',project_id__organization_id = organization)
+                total_unlabeled_tasks_count = total_unlabeled_tasks.count()
+
+                total_draft_tasks = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,task_status='draft',project_id__organization_id = organization)
+                total_draft_tasks_count = total_draft_tasks.count()
+
+                projects_objs = Project.objects.filter(users = user,project_type = project_type,organization_id = organization)
+                no_of_projects = projects_objs.count()
+
+                no_of_workspaces_objs =len(set([ each_proj.workspace_id.id for each_proj in projects_objs]))
             else :
-                projects_objs = Project.objects.filter(users = user,project_type = project_type,tgt_language = tgt_language)
-            no_of_projects = projects_objs.count()
-            no_of_workspaces_objs =len(set([ each_proj.workspace_id.id for each_proj in projects_objs]))
+                total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,project_id__organization_id = organization)
+                total_no_of_tasks_count = total_no_of_tasks_assigned.count()
+
+                annotated_tasks = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,\
+                    task_status='accepted',correct_annotation__created_at__range = [start_date, end_date],project_id__organization_id = organization)
+                annotated_tasks_count = annotated_tasks.count()
+
+                avg_lead_time = 0
+                lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks]
+                if len(lead_time_annotated_tasks) > 0 :
+                    avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
+
+                total_skipped_tasks = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,\
+                    task_status='skipped',project_id__organization_id = organization)
+                total_skipped_tasks_count = total_skipped_tasks.count()
+            
+                total_unlabeled_tasks = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,\
+                    task_status='unlabeled',project_id__organization_id = organization)
+                total_unlabeled_tasks_count = total_unlabeled_tasks.count()
+            
+                total_draft_tasks = Task.objects.filter(annotation_users =user,\
+                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,\
+                    task_status='draft',project_id__organization_id = organization)
+                total_draft_tasks_count = total_draft_tasks.count()
+            
+                projects_objs = Project.objects.filter(users = user,project_type = project_type,\
+                    tgt_language = tgt_language,organization_id = organization)
+                no_of_projects = projects_objs.count()
+
+                no_of_workspaces_objs =len(set([ each_proj.workspace_id.id for each_proj in projects_objs]))
 
 
             if is_translation_project:
                 total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks]
                 total_word_count = sum(total_word_count_list)
+
                 result.append({ 'User Name' : name,
                                 'Email' : email,
                                 'Language' : selected_language,
+                                'Project Type' :project_type,
                                 'No.Of Tasks Assigned' : total_no_of_tasks_count,
-                                'No. of Annotated Tasks' : annotated_tasks_count,
+                                'No. of Annotated Tasks in Given Date Range' : annotated_tasks_count,
                                 'Average Annotation Time (In Seconds)' : round(avg_lead_time,2),
                                 'Skipped Tasks' : total_skipped_tasks_count,
                                 'Unlabeled Tasks' : total_unlabeled_tasks_count,
                                 'Draft Tasks': total_draft_tasks_count,
                                 'No. of Projects' :no_of_projects,
                                 'No. of Workspaces' : no_of_workspaces_objs,
-                                'No. of Words' : total_word_count
+                                'Word Count Of Annotated Tasks' : total_word_count
                         } )
             else :
                 result.append({ 'User Name' : name,
                                 'Email' : email,
                                 'Language' : selected_language,
+                                'Project Type' :project_type,
                                 'No.Of Tasks Assigned' : total_no_of_tasks_count,
-                                'No. of Annotated Tasks' : annotated_tasks_count,
+                                'No. of Annotated Tasks in Given Date Range' : annotated_tasks_count,
                                 'Average Annotation Time (In Seconds)' : round(avg_lead_time,2),
                                 'Skipped Tasks' : total_skipped_tasks_count,
                                 'Unlabeled Tasks' : total_unlabeled_tasks_count,
