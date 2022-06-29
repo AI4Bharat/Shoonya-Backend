@@ -88,7 +88,7 @@ def get_project_pull_status(pk):
     """
 
     # Create the keyword argument for project ID 
-    project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + "}"
+    project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
 
     # Check the celery project export status 
     task_queryset = TaskResult.objects.filter(
@@ -955,12 +955,42 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 except User.DoesNotExist:
                     ret_dict = {"message": "User does not exist!"}
                     ret_status = status.HTTP_404_NOT_FOUND
-                
-                # Pull new data items in to the project asynchronously 
-                pull_new_data_items_into_project.delay(project_id=pk)
 
-                ret_dict = {"message": "Adding new tasks to the project."}
-                ret_status = status.HTTP_200_OK
+                # Get project instance and check how many items to pull
+                project_type = project.project_type
+                registry_helper = ProjectRegistry.get_instance()
+                input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
+                dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
+                tasks = Task.objects.filter(project_id__exact=project)
+                all_items = dataset_model.objects.filter(
+                    instance_id__in=list(project.dataset_id.all())
+                )
+                items = all_items.exclude(id__in=tasks.values("input_data"))
+
+                # Get the input dataset fields from the filtered items
+                if input_dataset_info["prediction"] is not None:
+                    items = list(
+                        items.values(
+                            "id",
+                            *input_dataset_info["fields"],
+                            input_dataset_info["prediction"],
+                        )
+                    )
+                else:
+                    items = list(items.values("id", *input_dataset_info["fields"]))
+
+                if items: 
+                
+                    # Pull new data items in to the project asynchronously 
+                    pull_new_data_items_into_project.delay(project_id=pk, items=items)
+
+                    ret_dict = {"message": "Adding new tasks to the project."}
+                    ret_status = status.HTTP_200_OK
+                    
+                else: 
+                    ret_dict = {"message": "No items to pull into the dataset."}
+                    ret_status = status.HTTP_404_NOT_FOUND
+
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
