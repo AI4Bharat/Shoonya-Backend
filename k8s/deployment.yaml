@@ -17,7 +17,7 @@ spec:
       containers:
         - name: shoonya-web-container
           imagePullPolicy: Always
-          image: shoonyaregistry.azurecr.io/shoonya-backend:v1.0.0
+          image: shoonyaregistry.azurecr.io/shoonya-backend:latest
           ports:
           - containerPort: 8000
           env:
