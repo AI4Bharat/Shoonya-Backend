@@ -325,7 +325,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
 
     @action(detail=True, methods=["POST"], name="Workspace annotator Details", url_path="user_analytics", url_name="user_analytics")
-    @is_organization_owner_or_workspace_manager
+    @is_particular_workspace_manager
     def user_analytics(self, request, pk=None):
         """
         API for getting user_analytics of a workspace
