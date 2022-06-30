@@ -141,7 +141,16 @@ def copy_from_ocr_document_to_block_text(request):
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
 
+@api_view(["POST"])
+def schedule_google_translate_job(request):
+    """
+    Schedules a Google Translate job for a given project
+    """
 
+    input_dataset_instance_id = request.data['input_dataset_instance_id']
+    languages = request.data['languages']
 
-
+    ret_dict = {"message": "SUCCESS!"}         
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict)
 
