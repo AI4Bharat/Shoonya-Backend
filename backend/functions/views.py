@@ -1,10 +1,13 @@
+import json
+
+from dataset import models as dataset_models
+from googletrans import Translator
+from projects.models import *
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from dataset import models as dataset_models
-from projects.models import *
 from tasks.models import *
-import json
+
 
 @api_view(['POST'])
 def copy_from_block_text_to_sentence_text(request):
