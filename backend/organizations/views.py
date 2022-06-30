@@ -13,6 +13,7 @@ from .decorators import is_organization_owner, is_particular_organization_owner
 from users.serializers import UserFetchSerializer
 from users.models import User
 from projects.models import Project
+from django.db.models import Q
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -60,9 +61,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     @is_organization_owner
     @action(
-        detail=True, methods=["POST"], name="Get Organization level  users analytics ", url_name="analytics"
+        detail=True, methods=["POST"], name="Get Organization level  users analytics ", url_name="user_analytics"
     )
-    def analytics(self, request, pk=None):
+    def user_analytics(self, request, pk=None):
         try:
             organization = Organization.objects.get(pk=pk)
         except Organization.DoesNotExist:
@@ -219,3 +220,93 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         else :
             final_result = sorted(result, key=lambda x: x[sort_by_column_name],reverse=descending_order)
             return Response(final_result)
+
+
+    @is_organization_owner
+    @action(
+        detail=True, methods=["POST"], name="Get Organization level  Project analytics ", url_name="project_analytics"
+    )
+    def project_analytics(self, request, pk=None):
+        try:
+            organization = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        
+        from_date = request.data.get('from_date')
+        to_date = request.data.get('to_date')
+        from_date = from_date + ' 00:00'
+        to_date = to_date + ' 23:59'
+        tgt_language = request.data.get('tgt_language')
+        project_type = request.data.get("project_type")
+        
+
+        sort_by_column_name = request.data.get('sort_by_column_name')
+        descending_order = request.data.get('descending_order')
+        if sort_by_column_name == None :
+            sort_by_column_name = "User Name"
+
+        if descending_order == None :
+            descending_order = False
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+
+        start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
+        end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+
+        if start_date > end_date:
+            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if tgt_language == None :
+            selected_language = 'No Language Selected'
+            projects_obj  = Project.objects.filter(organization_id = organization,project_type = project_type)
+        else :
+            selected_language = tgt_language
+            projects_obj  = Project.objects.filter(organization_id = organization,tgt_language = tgt_language,project_type = project_type)
+        final_result = []
+        if projects_obj.count() !=0:
+            for proj in projects_obj:
+                proj_manager = [manager.get_username() for manager in proj.workspace_id.managers.all()]
+                try :
+                    org_owner = proj.organization_id.created_by.get_username()
+                    proj_manager.append(org_owner)
+                except:
+                    pass
+                project_id = proj.id
+                project_name = proj.title
+                project_type = proj.project_type
+                all_tasks = Task.objects.filter(project_id = proj.id)
+                total_tasks = all_tasks.count()
+                annotators_list = [ user_.get_username()  for user_ in   proj.users.all()]
+                no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in proj_manager ])
+                un_labeled_task = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled')
+                un_labeled_count = un_labeled_task.count()
+                labeled_count = Task.objects.filter(Q (project_id = proj.id) & Q(task_status = 'accepted') & Q (correct_annotation__created_at__range = [start_date, end_date])).count()
+                skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
+                dropped_tasks = Task.objects.filter(project_id = proj.id,task_status = 'draft').count()
+                if total_tasks == 0:
+                    project_progress = 0.0
+                else :
+                    project_progress = (labeled_count / total_tasks) * 100
+                result = {
+                    "Project Id" : project_id,
+                    "Project Name" : project_name,
+                    "Language" : selected_language,
+                    "Project Type" : project_type,
+                    "Total No.Of Tasks" : total_tasks,
+                    "Total No.Of Annotators Assigned" : no_of_annotators_assigned,
+                    "Annotated Tasks In Given Date Range" : labeled_count,
+                    "Unlabeled Tasks" : un_labeled_count,
+                    "Skipped Tasks": skipped_count,
+                    "Draft Tasks" : dropped_tasks,
+                    "Project Progress" : round(project_progress,3)
+                    }
+                final_result.append(result)
+        return Response(final_result)
