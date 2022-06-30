@@ -100,10 +100,10 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 class WorkspaceCustomViewSet(viewsets.ViewSet):
     @swagger_auto_schema(responses={200: UserProfileSerializer})
     @is_particular_workspace_manager
-    @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
-    def users(self, request, pk=None):
+    @action(detail=True, methods=["GET"], name="Get Workspace members", url_name="members")
+    def members(self, request, pk=None):
         """
-        Get all users of a workspace
+        Get all members of a workspace
         """
         try:
             workspace = Workspace.objects.get(pk=pk)
@@ -495,9 +495,9 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
     )
     @permission_classes((IsAuthenticated,))
-    @action(detail=True, methods=['POST'], url_path='addannotators', url_name='add_annotators')
+    @action(detail=True, methods=['POST'], url_path='addmembers', url_name='add_members')
     @is_particular_workspace_manager
-    def add_annotators(self, request,pk=None):
+    def add_members(self, request,pk=None):
         user_id = request.data.get('user_id',"")
         try:
             workspace = Workspace.objects.get(pk=pk)
@@ -555,9 +555,9 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
         }
     )
     @permission_classes((IsAuthenticated,))
-    @action(detail=True, methods=['POST'], url_path='removeannotators', url_name='remove_annotators')
+    @action(detail=True, methods=['POST'], url_path='removemembers', url_name='remove_members')
     @is_particular_workspace_manager
-    def remove_annotators(self, request,pk=None):
+    def remove_members(self, request,pk=None):
         user_id = request.data.get('user_id',"")
         try:
             workspace = Workspace.objects.get(pk=pk)

@@ -483,7 +483,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Get Project Users",
         url_name="get_project_users",
     )
-    @project_is_archived
     def get_project_users(self, request, pk=None, *args, **kwargs):
         """
         Get the list of annotators in the project
@@ -499,45 +498,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-
-    @action(
-        detail=True,
-        methods=["GET"],
-        name="Get Tasks of a Project",
-        url_name="get_project_tasks",
-    )
-    @project_is_archived
-    def get_project_tasks(self, request, pk=None, *args, **kwargs):
-        """
-        Get the list of tasks in the project
-        """
-        ret_dict = {}
-        ret_status = 0
-        try:
-            # role check
-            if (
-                request.user.role == User.ORGANIZAION_OWNER
-                or request.user.role == User.WORKSPACE_MANAGER
-                or request.user.is_superuser
-            ):
-                tasks = Task.objects.filter(project_id=pk).order_by("id")
-            elif request.user.role == User.ANNOTATOR:
-                tasks = Task.objects.filter(
-                    project_id=pk, annotation_users=request.user
-                ).order_by("id")
-            tasks = tasks.filter(
-                **process_search_query(
-                    request.GET, "data", list(tasks.first().data.keys())
-                )
-            )
-            serializer = TaskSerializer(tasks, many=True)
-            ret_dict = serializer.data
-            ret_status = status.HTTP_200_OK
-        except Project.DoesNotExist:
-            ret_dict = {"message": "Project does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        return Response(ret_dict, status=ret_status)
-
 
     @action(detail=True, methods=["POST"], name="Assign new tasks to user", url_name="assign_new_tasks")
     def assign_new_tasks(self, request, pk, *args, **kwargs):
@@ -1178,6 +1138,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Publish Project")
     @project_is_archived
+    @project_is_published
     @is_project_editor
     def project_publish(self, request, pk=None, *args, **kwargs):
         """

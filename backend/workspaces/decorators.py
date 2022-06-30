@@ -58,11 +58,11 @@ def workspace_is_archived(f):
     return wrapper
 
 # Check if user is a workspace member
-def is_workspace_member(f):
+def belongs_to_workspace(f):
     @wraps(f)
     def wrapper(self, request, pk=None, *args, **kwargs):
         workspace = Workspace.objects.get(pk=pk)
-        if request.user in workspace.users.all():
+        if request.user in workspace.users.all() or (request.user in workspace.managers.all() and request.user.role == User.WORKSPACE_MANAGER):
             return f(self, request, pk, *args, **kwargs)
         else:
             return Response(NOT_IN_WORKSPACE_ERROR, status=status.HTTP_403_FORBIDDEN)
