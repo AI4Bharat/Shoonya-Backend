@@ -101,6 +101,12 @@ class Task(models.Model):
         """
         for user in users:
             self.annotation_users.add(user)
+
+    def unassign(self, user):
+        """
+        Unassign user from a task
+        """
+        self.annotation_users.remove(user)
     
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
