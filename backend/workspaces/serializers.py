@@ -19,6 +19,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "is_archived",
             "created_by",
             "id",
+            "created_at",
         ]
 
 
