@@ -387,7 +387,7 @@ def export_project_new_record(
         "countdown": 2,
     },
 )
-def pull_new_data_items_into_project(self, project_id, items):
+def add_new_data_items_into_project(self, project_id, items):
     """Function to pull the dataitems into the project
 
     Args:

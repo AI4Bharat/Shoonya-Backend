@@ -43,7 +43,7 @@ from .tasks import (
     create_parameters_for_task_creation,
     export_project_in_place,
     export_project_new_record,
-    pull_new_data_items_into_project,
+    add_new_data_items_into_project,
 )
 from .utils import is_valid_date, no_of_words
 
@@ -112,6 +112,7 @@ def get_project_pull_status(pk):
 
     # If the celery TaskResults table returns
     if taskresult_queryset:
+        
         # Sort the tasks by newest items first by date
         taskresult_queryset = taskresult_queryset.order_by("-date_done")
 
@@ -1060,7 +1061,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if items:
 
                     # Pull new data items in to the project asynchronously
-                    pull_new_data_items_into_project.delay(project_id=pk, items=items)
+                    add_new_data_items_into_project.delay(project_id=pk, items=items)
 
                     ret_dict = {"message": "Adding new tasks to the project."}
                     ret_status = status.HTTP_200_OK
