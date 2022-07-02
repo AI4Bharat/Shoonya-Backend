@@ -49,20 +49,20 @@ jobs:
     - name: Update deployment secrets
       run: |
         cat << EOF >> backend/.env.prod
-        DJANGO_SUPERUSER_USERNAME=${{ secrerts.DJANGO_SUPERUSER_USERNAME }}
-        DJANGO_SUPERUSER_PASSWORD=${{ secrerts.DJANGO_SUPERUSER_PASSWORD }}
-        DJANGO_SUPERUSER_EMAIL=${{ secrerts.DJANGO_SUPERUSER_EMAIL }}
-        DJANGO_SECRET_KEY=${{ secrerts.DJANGO_SECRET_KEY }}
-        ENV_ALLOWED_HOST=${{ secrerts.ENV_ALLOWED_HOST }}
-        POSTGRES_DB=${{ secrerts.POSTGRES_DB }}
-        POSTGRES_PASSWORD=${{ secrerts.POSTGRES_PASSWORD }}
-        POSTGRES_USER=${{ secrerts.POSTGRES_USER }}
-        POSTGRES_HOST=${{ secrerts.POSTGRES_HOST }}
-        POSTGRES_PORT=${{ secrerts.POSTGRES_PORT }}
-        AZURE_STORAGE_KEY=${{ secrerts.AZURE_STORAGE_KEY }}
-        AZURE_ACCOUNT_NAME=${{ secrerts.AZURE_ACCOUNT_NAME }}
-        AZURE_MEDIA_CONTAINER=${{ secrerts.AZURE_MEDIA_CONTAINER }}
-        AZURE_STATIC_CONTAINER=${{ secrerts.AZURE_STATIC_CONTAINER }}
+        DJANGO_SUPERUSER_USERNAME=${{ secrets.DJANGO_SUPERUSER_USERNAME }}
+        DJANGO_SUPERUSER_PASSWORD=${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
+        DJANGO_SUPERUSER_EMAIL=${{ secrets.DJANGO_SUPERUSER_EMAIL }}
+        DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+        ENV_ALLOWED_HOST=${{ secrets.ENV_ALLOWED_HOST }}
+        POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+        POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+        POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
+        POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
+        AZURE_STORAGE_KEY=${{ secrets.AZURE_STORAGE_KEY }}
+        AZURE_ACCOUNT_NAME=${{ secrets.AZURE_ACCOUNT_NAME }}
+        AZURE_MEDIA_CONTAINER=${{ secrets.AZURE_MEDIA_CONTAINER }}
+        AZURE_STATIC_CONTAINER=${{ secrets.AZURE_STATIC_CONTAINER }}
         EOF
         kubectl delete secret shoonya-secrets
         kubectl create secret generic shoonya-secrets --from-env-file=backend/.env.prod
