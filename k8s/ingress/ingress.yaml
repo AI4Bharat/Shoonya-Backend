@@ -9,16 +9,18 @@ metadata:
 spec:
   tls:
   - hosts:
-    - alpha.shoonya.ai4bharat.org
+    # - alpha.shoonya.ai4bharat.org
+    - django-aks.westus.cloudapp.azure.com
     secretName: tls-secret
   rules:
-  - host: alpha.shoonya.ai4bharat.org
+  # - host: alpha.shoonya.ai4bharat.org
+  - host: django-aks.westus.cloudapp.azure.com
     http:
       paths:
         - path: /(.*)
           pathType: Prefix
           backend:
             service:
-              name: shoonya-web
+              name: shoonya-django-backend-service
               port: 
                 number: 80

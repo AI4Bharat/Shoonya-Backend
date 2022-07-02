@@ -57,12 +57,12 @@ spec:
                   fieldPath: status.hostIP
           envFrom:
             - secretRef:
-              name: shoonya-secrets
+                name: shoonya-secrets
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: shoonya-django-backend
+  name: shoonya-django-backend-service
 spec:
   selector:
     app: shoonya-django-backend
