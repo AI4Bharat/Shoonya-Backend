@@ -67,13 +67,23 @@ jobs:
         kubectl delete secret shoonya-secrets
         kubectl create secret generic shoonya-secrets --from-env-file=backend/.env.prod
 
-    # Deploy app to AKS
-    - name: Deploy to Cluster
-      env:
-        BUILD_NUMBER: ${{ github.sha }}
+    # Rename container name with Github SHA
+    - name: Rename Github SHA
       run: |
-        export BUILD_TAG=$BUILD_NUMBER
+        export BUILD_TAG=${{ github.sha }}
         sed -i "s/VERSION/${BUILD_TAG}/g" ./k8s/django-rest-api/rest-api.yaml
-        kubectl apply -f ./k8s/django-rest-api/rest-api.yaml
-        kubectl apply -f ./k8s/ingress/cert-manager.yaml
-        kubectl apply -f ./k8s/ingress/ingress.yaml
+        # kubectl apply -f ./k8s/django-rest-api/rest-api.yaml
+        # kubectl apply -f ./k8s/ingress/cert-manager.yaml
+        # kubectl apply -f ./k8s/ingress/ingress.yaml
+
+    # Deploy app to AKS
+    - uses: azure/k8s-deploy@v1
+      with:
+        manifests: |
+          ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
+        images: |
+          ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+        imagepullsecrets: |
+          ${{ env.SECRET }}
+        namespace: ${{ env.NAMESPACE }}
+    
