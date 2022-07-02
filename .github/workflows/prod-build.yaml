@@ -75,3 +75,5 @@ jobs:
         export BUILD_TAG=$BUILD_NUMBER
         sed -i "s/VERSION/${BUILD_TAG}/g" ./k8s/django-rest-api/rest-api.yaml
         kubectl apply -f ./k8s/django-rest-api/rest-api.yaml
+        kubectl apply -f ./k8s/ingress/cert-manager.yaml
+        kubectl apply -f ./k8s/ingress/ingress.yaml
