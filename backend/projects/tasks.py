@@ -400,9 +400,4 @@ def add_new_data_items_into_project(self, project_id, items):
 
     new_tasks = create_tasks_from_dataitems(items, project)
 
-    # Get Project users
-    # serializer = ProjectUsersSerializer(project, many=False)
-    # users = serializer.data["users"]
-    # assign_users_to_tasks(new_tasks, users)
-
     return f"Pulled {len(new_tasks)} new data items into project {project.title}"
