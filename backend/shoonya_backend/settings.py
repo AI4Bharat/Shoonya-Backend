@@ -32,9 +32,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = str(os.environ.get('DEBUG')) == "1"
+DEBUG = str(os.environ.get('DEBUG', 0)) == "1"
 ENV_ALLOWED_HOST = os.environ.get("ENV_ALLOWED_HOST")
-ALLOWED_HOSTS = ['*']
 if ENV_ALLOWED_HOST:
     ALLOWED_HOSTS = [ ENV_ALLOWED_HOST ]
 # Application definition
@@ -70,8 +69,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    "django.middleware.clickjacking.XFrameOptionsMiddleware"
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -122,10 +120,8 @@ DB_IS_AVAIL = all([
     DB_USERNAME,
     DB_PASSWORD,
     DB_DATABASE,
-    DB_HOST,
-    DB_PORT
 ])
-DB_IGNORE_SSL=os.environ.get("DB_IGNORE_SSL") == "true"
+DB_IGNORE_SSL=os.environ.get("DB_IGNORE_SSL", "true") == "true"
 
 if DB_IS_AVAIL:
     DATABASES = {
@@ -167,27 +163,36 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
-
 TIME_ZONE = "UTC"
-
 USE_I18N = True
-
 USE_TZ = True
 
+# ================ Azure configuration for static and media files ===========================
+AZURE_STORAGE_KEY = os.environ.get('AZURE_STORAGE_KEY')
+AZURE_ACCOUNT_NAME = os.environ.get('AZURE_ACCOUNT_NAME')
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.0/howto/static-files/
+AZURE_IS_AVAIL = all([
+    AZURE_STORAGE_KEY,
+    AZURE_ACCOUNT_NAME,
+])
 
-# STATIC_URL = "static/"
-# MEDIA_URL = "/media/"
-# # STATIC_ROOT = BASE_DIR / "static"
-# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+if AZURE_IS_AVAIL:
+    AZURE_CUSTOM_DOMAIN = f'{AZURE_ACCOUNT_NAME}.azureedge.net'  # CDN URL blob.core.windows.net'
+    AZURE_MEDIA_CONTAINER = os.environ.get('AZURE_MEDIA_CONTAINER', 'media')
+    AZURE_STATIC_CONTAINER = os.environ.get('AZURE_STATIC_CONTAINER', 'static')
+    STATIC_URL = f'https://{AZURE_CUSTOM_DOMAIN}/{AZURE_STATIC_CONTAINER}/'
+    MEDIA_URL = f'https://{AZURE_CUSTOM_DOMAIN}/{AZURE_MEDIA_CONTAINER}/'
 
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'assets'
+    DEFAULT_FILE_STORAGE = 'shoonya_backend.custom_azure.AzureMediaStorage'
+    STATICFILES_STORAGE = 'shoonya_backend.custom_azure.AzureStaticStorage'
+else:
+    STATIC_URL = '/static/'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles-cdn')
+## Use only if additional static files are there
+# STATICFILES_DIRS = [
+#     os.path.join(BASE_DIR, 'static'),
+# ]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -202,16 +207,7 @@ REST_FRAMEWORK = {
 }
 
 
-# Email Settings
-# <<<<<<< HEAD
-# EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend"
-# EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"
-# EMAIL_PORT = 465
-# EMAIL_HOST_USER = os.environ.get("SMTP_USERNAME")
-# EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD")
-# EMAIL_USE_TLS = True
-# DEFAULT_FROM_EMAIL = "admin@shoonya.ai4bharat.org"
-# =======
+# ======= EMAIL SETTINGS =======
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = os.getenv("EMAIL_PORT")

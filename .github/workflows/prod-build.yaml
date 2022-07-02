@@ -1,0 +1,76 @@
+name: Build Docker Container & Push to DO Registry
+
+on:
+  workflow_call:
+  workflow_dispatch:
+    branches: [k8s]
+
+# Environment variables available to all jobs and steps in this workflow
+env:
+  REGISTRY_NAME: shoonyaregistry
+  CLUSTER_NAME: shoonya-cluster
+  CLUSTER_RESOURCE_GROUP: shoonya
+  NAMESPACE: default
+  SECRET: shoonya-secrets
+  APP_NAME: shoonya-backend
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@main
+    
+    # Connect to Azure Container Registry (ACR)
+    - uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.REGISTRY_NAME }}.azurecr.io
+        username: ${{ secrets.REGISTRY_USERNAME }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+    
+    # Container build and push to a Azure Container Registry (ACR)
+    - run: |
+        docker build . -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+        docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+      working-directory: ./backend/
+    
+    # Set the target Azure Kubernetes Service (AKS) cluster. 
+    - uses: azure/aks-set-context@v1
+      with:
+        creds: '${{ secrets.AZURE_CREDENTIALS }}'
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        resource-group: ${{ env.CLUSTER_RESOURCE_GROUP }}
+    
+    # Create namespace if doesn't exist
+    - run: |
+        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o json | kubectl apply -f -
+  
+    # Update Secrets file in k8s cluster
+    - name: Update deployment secrets
+      run: |
+        cat << EOF >> backend/.env.prod
+        DJANGO_SUPERUSER_USERNAME=${{ secrerts.DJANGO_SUPERUSER_USERNAME }}
+        DJANGO_SUPERUSER_PASSWORD=${{ secrerts.DJANGO_SUPERUSER_PASSWORD }}
+        DJANGO_SUPERUSER_EMAIL=${{ secrerts.DJANGO_SUPERUSER_EMAIL }}
+        DJANGO_SECRET_KEY=${{ secrerts.DJANGO_SECRET_KEY }}
+        ENV_ALLOWED_HOST=${{ secrerts.ENV_ALLOWED_HOST }}
+        POSTGRES_DB=${{ secrerts.POSTGRES_DB }}
+        POSTGRES_PASSWORD=${{ secrerts.POSTGRES_PASSWORD }}
+        POSTGRES_USER=${{ secrerts.POSTGRES_USER }}
+        POSTGRES_HOST=${{ secrerts.POSTGRES_HOST }}
+        POSTGRES_PORT=${{ secrerts.POSTGRES_PORT }}
+        AZURE_STORAGE_KEY=${{ secrerts.AZURE_STORAGE_KEY }}
+        AZURE_ACCOUNT_NAME=${{ secrerts.AZURE_ACCOUNT_NAME }}
+        AZURE_MEDIA_CONTAINER=${{ secrerts.AZURE_MEDIA_CONTAINER }}
+        AZURE_STATIC_CONTAINER=${{ secrerts.AZURE_STATIC_CONTAINER }}
+        EOF
+        kubectl delete secret shoonya-secrets
+        kubectl create secret generic shoonya-secrets --from-env-file=backend/.env.prod
+
+    # Deploy app to AKS
+    - name: Deploy to Cluster
+      env:
+        BUILD_NUMBER: ${{ github.sha }}
+      run: |
+        export BUILD_TAG=$BUILD_NUMBER
+        sed -i "s/VERSION/${BUILD_TAG}/g" ./k8s/django-rest-api/rest-api.yaml
+        kubectl apply -f ./k8s/django-rest-api/rest-api.yaml

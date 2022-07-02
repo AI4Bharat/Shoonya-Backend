@@ -13,7 +13,7 @@ services:
       - backend/.env
     ports:
       - "8020:8020"
-    command: sh -c "chmod +x /app/migrate.sh && chmod +x /app/entrypoint.sh && sh /app/migrate.sh && /app/entrypoint.sh"
+    command: sh /app/entrypoint.sh
     volumes:
        - ./backend:/app/
   postgres_db:
@@ -21,6 +21,9 @@ services:
     command: -p 5434
     env_file:
       - backend/.env
+    environment:
+      - POSTGRES_HOST=postgres_db
+      - POSTGRES_PORT=5434
     expose:
       - 5434
     ports:

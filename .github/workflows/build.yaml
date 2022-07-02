@@ -1,11 +1,8 @@
 name: Build Docker Container & Push to DO Registry
 
 on:
-  push:
   workflow_call:
   workflow_dispatch:
-    branches: [k8s]
-  pull_request:
     branches: [k8s]
 
 # Environment variables available to all jobs and steps in this workflow
