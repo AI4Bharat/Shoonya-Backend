@@ -64,14 +64,24 @@ def batch(iterable, n=1):
         yield iterable[ndx : min(ndx + n, l)]
 
 
-def extract_latest_status_date_time_from_task_queryset(task_queryset):
+def extract_latest_status_date_time_from_taskresult_queryset(taskresult_queryset):
+    """Function to extract the latest status and date time from the celery task results.
+
+    Args:
+        taskresult_queryset (Django Queryset): Celery task results queryset
+
+    Returns:
+        str: Complettion state of the latest celery task
+        str: Complettion date of the latest celery task
+        str: Complettion time of the latest celery task
+    """
 
     # Sort the tasks by newest items first by date
-    task_queryset = task_queryset.order_by("-date_done")
+    taskresult_queryset = taskresult_queryset.order_by("-date_done")
 
     # Get the export task status and last update date
-    task_status = task_queryset.first().as_dict()["status"]
-    task_datetime = task_queryset.first().as_dict()["date_done"]
+    task_status = taskresult_queryset.first().as_dict()["status"]
+    task_datetime = taskresult_queryset.first().as_dict()["date_done"]
 
     # Extract date and time from the datetime object
     task_date = task_datetime.date()
@@ -95,20 +105,20 @@ def get_project_pull_status(pk):
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
 
     # Check the celery project export status
-    task_queryset = TaskResult.objects.filter(
+    taskresult_queryset = TaskResult.objects.filter(
         task_name="projects.tasks.pull_new_data_items_into_project",
         task_kwargs__contains=project_id_keyword_arg,
     )
 
     # If the celery TaskResults table returns
-    if task_queryset:
+    if taskresult_queryset:
         # Sort the tasks by newest items first by date
-        task_queryset = task_queryset.order_by("-date_done")
+        taskresult_queryset = taskresult_queryset.order_by("-date_done")
 
         # Get the export task status and last update date
-        task_status = task_queryset.first().as_dict()["status"]
-        task_datetime = task_queryset.first().as_dict()["date_done"]
-        task_result = task_queryset.first().as_dict()["result"]
+        task_status = taskresult_queryset.first().as_dict()["status"]
+        task_datetime = taskresult_queryset.first().as_dict()["date_done"]
+        task_result = taskresult_queryset.first().as_dict()["result"]
 
         if '"' in task_result:
             task_result = task_result.strip('"')
@@ -142,7 +152,7 @@ def get_project_export_status(pk):
     project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'" + ","
 
     # Check the celery project export status
-    task_queryset = TaskResult.objects.filter(
+    taskresult_queryset = TaskResult.objects.filter(
         task_name__in=[
             "projects.tasks.export_project_in_place",
             "projects.tasks.export_project_new_record",
@@ -151,9 +161,9 @@ def get_project_export_status(pk):
     )
 
     # If the celery TaskResults table returns
-    if task_queryset:
+    if taskresult_queryset:
 
-        return extract_latest_status_date_time_from_task_queryset(task_queryset)
+        return extract_latest_status_date_time_from_taskresult_queryset(taskresult_queryset)
     return (
         "Success",
         "Synchronously Completed. No Date.",
@@ -179,14 +189,14 @@ def get_project_creation_status(pk) -> str:
     project_id_keyword_arg = "'project_id': " + str(pk) + "}"
 
     # Check the celery task creation status
-    task_queryset = TaskResult.objects.filter(
+    taskresult_queryset = TaskResult.objects.filter(
         task_name="projects.tasks.create_parameters_for_task_creation",
         task_kwargs__contains=project_id_keyword_arg,
     )
 
     # If the celery TaskResults table returns
-    if task_queryset:
-        task_creation_status = task_queryset.first().as_dict()["status"]
+    if taskresult_queryset:
+        task_creation_status = taskresult_queryset.first().as_dict()["status"]
 
         # Check if the task has failed
         if task_creation_status == "FAILURE":
