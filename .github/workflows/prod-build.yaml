@@ -81,8 +81,8 @@ jobs:
       with:
         manifests: |
           ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
-          ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
           ${{ github.workspace }}/k8s/ingress/ingress.yaml
+          ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
         imagepullsecrets: |
           ${{ env.SECRET }}
         namespace: ${{ env.NAMESPACE }}
