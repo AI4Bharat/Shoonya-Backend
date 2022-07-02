@@ -80,7 +80,9 @@ jobs:
     - uses: azure/k8s-deploy@v1
       with:
         manifests: |
-          ${{ github.workspace }}/k8s
+          ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
+          ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
+          ${{ github.workspace }}/k8s/ingress/ingress.yaml
         imagepullsecrets: |
           ${{ env.SECRET }}
         namespace: ${{ env.NAMESPACE }}
