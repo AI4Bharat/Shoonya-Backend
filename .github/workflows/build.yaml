@@ -1,4 +1,4 @@
-name: Build Docker Container & Push to DO Registry
+name: Build Docker Container & Push to AC Registry
 
 on:
   workflow_call:
@@ -33,35 +33,62 @@ jobs:
         docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
       working-directory: ./backend/
     
+    - name: Update Deployment Secrets
+      run: |
+        cat << EOF >> backend/.env.prod
+        DEBUG=${{ secrets.DJANGO_DEBUG }}
+        DJANGO_SUPERUSER_USERNAME=${{ secrets.DJANGO_SUPERUSER_USERNAME }}
+        DJANGO_SUPERUSER_PASSWORD=${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
+        DJANGO_SUPERUSER_EMAIL=${{ secrets.DJANGO_SUPERUSER_EMAIL }}
+        DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+        ENV_ALLOWED_HOST=*
+        POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+        POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+        POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
+        POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
+        DB_IGNORE_SSL=${{ secrets.DB_IGNORE_SSL }}
+        REDIS_HOST=${{ secrets.REDIS_HOST }}
+        REDIS_PORT=${{ secrets.REDIS_PORT }}
+        SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
+        SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+        EMAIL_BACKEND=${{ secrets.EMAIL_BACKEND }}
+        EMAIL_HOST=${{ secrets.EMAIL_HOST }}
+        EMAIL_PORT=${{ secrets.EMAIL_PORT }}
+        DEFAULT_FROM_EMAIL=${{ secrets.DEFAULT_FROM_EMAIL }}
+        EOF
+        kubectl delete secret ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }}
+        kubectl create secret generic ${{ env.secret }} --from-env-file=backend/.env.prod --namespace ${{ env.NAMESPACE }}
+    
     # Set the target Azure Kubernetes Service (AKS) cluster. 
-    - uses: azure/aks-set-context@v1
-      with:
-        creds: '${{ secrets.AZURE_CREDENTIALS }}'
-        cluster-name: ${{ env.CLUSTER_NAME }}
-        resource-group: ${{ env.CLUSTER_RESOURCE_GROUP }}
+    # - uses: azure/aks-set-context@v1
+    #   with:
+    #     creds: '${{ secrets.AZURE_CREDENTIALS }}'
+    #     cluster-name: ${{ env.CLUSTER_NAME }}
+    #     resource-group: ${{ env.CLUSTER_RESOURCE_GROUP }}
     
-    # Create namespace if doesn't exist
-    - run: |
-        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o json | kubectl apply -f -
+    # # Create namespace if doesn't exist
+    # - run: |
+    #     kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o json | kubectl apply -f -
     
-    # Create image pull secret for ACR
-    - uses: azure/k8s-create-secret@v1
-      with:
-        container-registry-url: ${{ env.REGISTRY_NAME }}.azurecr.io
-        container-registry-username: ${{ secrets.REGISTRY_USERNAME }}
-        container-registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-        secret-name: ${{ env.SECRET }}
-        namespace: ${{ env.NAMESPACE }}
-        arguments: --force true
+    # # Create image pull secret for ACR
+    # - uses: azure/k8s-create-secret@v1
+    #   with:
+    #     container-registry-url: ${{ env.REGISTRY_NAME }}.azurecr.io
+    #     container-registry-username: ${{ secrets.REGISTRY_USERNAME }}
+    #     container-registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+    #     secret-name: ${{ env.SECRET }}
+    #     namespace: ${{ env.NAMESPACE }}
+    #     arguments: --force true
     
-    # Deploy app to AKS
-    - uses: azure/k8s-deploy@v1
-      with:
-        manifests: |
-          ${{ github.workspace }}/k8s/deployment.yaml
-          ${{ github.workspace }}/k8s/web-service.yaml
-        images: |
-          ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
-        imagepullsecrets: |
-          ${{ env.SECRET }}
-        namespace: ${{ env.NAMESPACE }}
+    # # Deploy app to AKS
+    # - uses: azure/k8s-deploy@v1
+    #   with:
+    #     manifests: |
+    #       ${{ github.workspace }}/k8s/deployment.yaml
+    #       ${{ github.workspace }}/k8s/web-service.yaml
+    #     images: |
+    #       ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+    #     imagepullsecrets: |
+    #       ${{ env.SECRET }}
+    #     namespace: ${{ env.NAMESPACE }}
