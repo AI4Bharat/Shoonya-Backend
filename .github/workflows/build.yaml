@@ -1,7 +1,6 @@
 name: Build Docker Container & Push to DO Registry
 
 on:
-  push:
   workflow_call:
   workflow_dispatch:
     branches: [k8s]

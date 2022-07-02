@@ -11,7 +11,7 @@ env:
   REGISTRY_NAME: shoonyaregistry
   CLUSTER_NAME: shoonya-cluster
   CLUSTER_RESOURCE_GROUP: shoonya
-  NAMESPACE: default
+  NAMESPACE: shoonya
   SECRET: shoonya-secrets
   APP_NAME: shoonya-backend
   
@@ -80,9 +80,7 @@ jobs:
     - uses: azure/k8s-deploy@v1
       with:
         manifests: |
-          ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
-        images: |
-          ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+          ${{ github.workspace }}/k8s
         imagepullsecrets: |
           ${{ env.SECRET }}
         namespace: ${{ env.NAMESPACE }}
