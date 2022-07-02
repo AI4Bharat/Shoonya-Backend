@@ -82,7 +82,7 @@ jobs:
         manifests: |
           ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
           ${{ github.workspace }}/k8s/ingress/ingress.yaml
-          ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
+          # ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
         images: |
           ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
         imagepullsecrets: |

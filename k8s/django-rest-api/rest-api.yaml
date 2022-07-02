@@ -61,7 +61,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: shoonya-django-backend-service
+  name: shoonya-django-backend
 spec:
   selector:
     app: shoonya-django-backend
