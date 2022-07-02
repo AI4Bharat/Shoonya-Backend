@@ -19,6 +19,7 @@ from . import resources
 from .models import *
 from .serializers import *
 from .tasks import upload_data_to_data_instance
+from users.serializers import UserFetchSerializer
 
 
 ## Utility functions used inside the view functions
@@ -330,6 +331,13 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             project["last_project_export_date"] = last_project_export_date
             project["last_project_export_time"] = last_project_export_time
 
+        return Response(serializer.data)
+
+    @action(methods=['GET'], detail=True, name="List all Users using Dataset")
+    def users(self, request, pk):
+        users = User.objects.filter(dataset_users__instance_id=pk)
+        serializer = UserFetchSerializer(many=True, data=users)
+        serializer.is_valid()
         return Response(serializer.data)
 
 

@@ -134,6 +134,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
 
+    unverified_email=models.EmailField(blank=True)
+    old_email_update_code=models.CharField(max_length=256,blank=True)
+    new_email_verification_code=models.CharField(max_length=256,blank=True)
+
     objects = UserManager()
 
     EMAIL_FIELD = "email"
