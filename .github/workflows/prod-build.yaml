@@ -1,6 +1,7 @@
 name: Build and Release pipeline
 
 on:
+  push:
   workflow_call:
   workflow_dispatch:
     branches: [k8s]
