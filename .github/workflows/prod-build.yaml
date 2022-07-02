@@ -1,4 +1,4 @@
-name: Build Docker Container & Push to DO Registry
+name: Build and Release pipeline
 
 on:
   workflow_call:
