@@ -48,9 +48,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "phone",
             "role",
             "organization",
-            "unverified_email"
+            "unverified_email",
+            "date_joined",
         ]
-        read_only_fields = ["id", "email", "role", "organization","unverified_email"]
+        read_only_fields = ["id", "email", "role", "organization","unverified_email","date_joined"]
 
 
 class UserFetchSerializer(serializers.ModelSerializer):
