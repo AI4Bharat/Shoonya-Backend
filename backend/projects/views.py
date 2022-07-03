@@ -106,7 +106,7 @@ def get_project_pull_status(pk):
 
     # Check the celery project export status
     taskresult_queryset = TaskResult.objects.filter(
-        task_name="projects.tasks.pull_new_data_items_into_project",
+        task_name="projects.tasks.add_new_data_items_into_project",
         task_kwargs__contains=project_id_keyword_arg,
     )
 
