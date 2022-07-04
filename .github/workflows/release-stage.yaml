@@ -16,7 +16,7 @@ env:
   
 jobs:
   release-stage:
-    # needs: [build]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
     # - uses: actions/checkout@v2
@@ -31,6 +31,7 @@ jobs:
     # Create namespace if doesn't exist
     - run: |
         kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o json | kubectl apply -f -
+      working-directory: ./backend/
   
     # Update Secrets file in k8s cluster
     - name: Update deployment secrets
