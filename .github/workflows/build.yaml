@@ -1,7 +1,6 @@
 name: Build Docker Container & Push to ACR
 
 on:
-  push:
   workflow_call:
   workflow_dispatch:
   pull_request:
