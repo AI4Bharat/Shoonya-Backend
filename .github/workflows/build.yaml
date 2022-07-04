@@ -10,8 +10,6 @@ on:
 env:
   REGISTRY_NAME: shoonyareg
   APP_NAME: shoonya-backend
-  REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-  REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
   
 jobs:
   build:
@@ -23,8 +21,8 @@ jobs:
     - uses: azure/docker-login@v1
       with:
         login-server: ${{ env.REGISTRY_NAME }}.azurecr.io
-        username: ${{ env.REGISTRY_USERNAME }}
-        password: ${{ env.REGISTRY_PASSWORD }}
+        username: ${{ secrets.REGISTRY_USERNAME }} 
+        password: ${{ secrets.REGISTRY_PASSWORD }}
     
     # Container build and push to a Azure Container Registry (ACR)
     - run: |

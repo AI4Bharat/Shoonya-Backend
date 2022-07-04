@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@main
+      secrets: inherit
     
     # Connect to Azure Container Registry (ACR)
     - uses: azure/docker-login@v1
