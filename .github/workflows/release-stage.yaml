@@ -4,7 +4,6 @@ on:
   push:
   workflow_call:
   workflow_dispatch:
-    branches: [k8s]
   pull_request:
     branches: [k8s]
 
