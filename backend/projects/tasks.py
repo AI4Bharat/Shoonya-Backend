@@ -1,22 +1,28 @@
 import random
+from collections import OrderedDict
 from urllib.parse import parse_qsl
+
 from celery import shared_task
+from celery.utils.log import get_task_logger
+from dataset import models as dataset_models
+from django.forms.models import model_to_dict
+from filters import filter
 from rest_framework import status
 from rest_framework.response import Response
-from django.forms.models import model_to_dict
-
 from users.models import User
-from tasks.models import Task
-from dataset import models as dataset_models
-from tasks.models import *
-from tasks.models import Annotation as Annotation_model
-from .registry_helper import ProjectRegistry
-from collections import OrderedDict
 
+from tasks.models import Annotation as Annotation_model
+from tasks.models import *
+from tasks.models import Task
+from utils.monolingual.sentence_splitter import split_sentences
 
 from .models import *
-from filters import filter
-from utils.monolingual.sentence_splitter import split_sentences
+from .registry_helper import ProjectRegistry
+from .serializers import ProjectUsersSerializer
+
+# Celery logger settings
+logger = get_task_logger(__name__)
+
 
 ## Utility functions for the tasks
 def create_tasks_from_dataitems(items, project):
@@ -81,6 +87,40 @@ def create_tasks_from_dataitems(items, project):
         Annotation_model.objects.bulk_create(predictions)
 
     return tasks
+
+
+# def assign_users_to_tasks(tasks, users):
+#     annotatorList = []
+#     for user in users:
+#         userRole = user["role"]
+#         user_obj = User.objects.get(pk=user["id"])
+#         if userRole == 1 and not user_obj.is_superuser:
+#             annotatorList.append(user)
+
+#     total_tasks = len(tasks)
+#     total_users = len(annotatorList)
+#     # print("Total Users: ",total_users)
+#     # print("Total Tasks: ",total_tasks)
+
+#     tasks_per_user = total_tasks // total_users
+#     chunk = tasks_per_user if total_tasks % total_users == 0 else tasks_per_user + 1
+#     # print(chunk)
+
+#     # updated_tasks = []
+#     for c in range(total_users):
+#         st_idx = c * chunk
+#         # if c == chunk - 1:
+#         #     en_idx = total_tasks
+#         # else:
+#         #     en_idx = (c+1) * chunk
+
+#         en_idx = min((c + 1) * chunk, total_tasks)
+
+#         user_obj = User.objects.get(pk=annotatorList[c]["id"])
+#         for task in tasks[st_idx:en_idx]:
+#             task.annotation_users.add(user_obj)
+#             # updated_tasks.append(task)
+#             task.save()
 
 
 #### CELERY SHARED TASKS
@@ -336,3 +376,28 @@ def export_project_new_record(
             data_item.save()
             task.output_data = data_item
             task.save()
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    exponential_backoff=2,
+    retry_kwargs={
+        "max_retries": 5,
+        "countdown": 2,
+    },
+)
+def add_new_data_items_into_project(self, project_id, items):
+    """Function to pull the dataitems into the project
+
+    Args:
+        project_id (int): ID of the project where the new data items have to be pulled
+        items (list) : List of items to be pulled into the project
+    """
+
+    # Get project instance
+    project = Project.objects.get(pk=project_id)
+
+    new_tasks = create_tasks_from_dataitems(items, project)
+
+    return f"Pulled {len(new_tasks)} new data items into project {project.title}"
