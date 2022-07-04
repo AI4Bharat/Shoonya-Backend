@@ -81,4 +81,4 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
         )
         raise Exception(f"Upload failed for lines: {failed_rows}")
     else:
-        return "All rows uploaded."
+        return f"All {len(imported_data.dict)} rows uploaded."
