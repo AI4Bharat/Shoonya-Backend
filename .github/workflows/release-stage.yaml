@@ -17,9 +17,9 @@ env:
 jobs:
   build-stage:
     uses: ./.github/workflows/build.yaml
-    secrets:
-      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+    secrets: inherit
+      # REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      # REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
   release-stage:
     needs: [build-stage]
     runs-on: ubuntu-latest

@@ -2,11 +2,11 @@ name: Build Docker Container & Push to ACR
 
 on:
   workflow_call:
-    secrets:
-      REGISTRY_USERNAME:
-        required: true
-      REGISTRY_PASSWORD:
-        required: true
+    # secrets:
+    #   REGISTRY_USERNAME:
+    #     required: true
+    #   REGISTRY_PASSWORD:
+    #     required: true
   workflow_dispatch:
   pull_request:
     branches: [k8s]
