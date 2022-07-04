@@ -1,6 +1,7 @@
 name: Deploy Latest container to Cluster from Azure Container Registry
 
 on:
+  push:
   workflow_call:
   workflow_dispatch:
     branches: [k8s]
@@ -9,33 +10,18 @@ on:
 
 # Environment variables available to all jobs and steps in this workflow
 env:
-  REGISTRY_NAME: shoonyaregistry
-  CLUSTER_NAME: shoonya-cluster
+  CLUSTER_NAME: shoonya-aks
   CLUSTER_RESOURCE_GROUP: shoonya
   NAMESPACE: shoonya
-  SECRET: shoonya-secrets
-  APP_NAME: shoonya-backend
+  SECRET: shoonya-prod-secrets
   
 jobs:
   release-stage:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-    # - uses: actions/checkout@main
-    
-    # Connect to Azure Container Registry (ACR)
-    - uses: azure/docker-login@v1
-      with:
-        login-server: ${{ env.REGISTRY_NAME }}.azurecr.io
-        username: ${{ secrets.REGISTRY_USERNAME }} 
-        password: ${{ secrets.REGISTRY_PASSWORD }}
-    
-    # Container build and push to a Azure Container Registry (ACR)
-    # - run: |
-    #     docker build . -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
-    #     docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
-    #   working-directory: ./backend/
-    
+    - uses: actions/checkout@v2
+
     # Set the target Azure Kubernetes Service (AKS) cluster. 
     - uses: azure/aks-set-context@v1
       with:
@@ -46,25 +32,51 @@ jobs:
     # Create namespace if doesn't exist
     - run: |
         kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o json | kubectl apply -f -
-    
-    # Create image pull secret for ACR
-    # - uses: azure/k8s-create-secret@v1
-    #   with:
-    #     container-registry-url: ${{ env.REGISTRY_NAME }}.azurecr.io
-    #     container-registry-username: ${{ secrets.REGISTRY_USERNAME }}
-    #     container-registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-    #     secret-name: ${{ env.SECRET }}
-    #     namespace: ${{ env.NAMESPACE }}
-    #     arguments: --force true
-    
+  
+    # Update Secrets file in k8s cluster
+    - name: Update deployment secrets
+      run: |
+        cat << EOF >> backend/.env.prod
+        DEBUG=${{ secrets.DEBUG }}
+        DJANGO_SUPERUSER_USERNAME=${{ secrets.DJANGO_SUPERUSER_USERNAME }}
+        DJANGO_SUPERUSER_PASSWORD=${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
+        DJANGO_SUPERUSER_EMAIL=${{ secrets.DJANGO_SUPERUSER_EMAIL }}
+        DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+        ENV_ALLOWED_HOST=${{ secrets.ENV_ALLOWED_HOST }}
+        POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+        POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+        POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
+        POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
+        AZURE_STORAGE_KEY=${{ secrets.AZURE_STORAGE_KEY }}
+        AZURE_ACCOUNT_NAME=${{ secrets.AZURE_ACCOUNT_NAME }}
+        AZURE_MEDIA_CONTAINER=${{ secrets.AZURE_MEDIA_CONTAINER }}
+        AZURE_STATIC_CONTAINER=${{ secrets.AZURE_STATIC_CONTAINER }}
+        REDIS_HOST=${{ secrets.REDIS_HOST }}
+        REDIS_PORT=${{ secrets.REDIS_PORT }}
+        SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
+        SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+        EMAIL_BACKEND=${{ secrets.EMAIL_BACKEND }}
+        EMAIL_HOST=${{ secrets.EMAIL_HOST }}
+        EMAIL_PORT=${{ secrets.EMAIL_PORT }}
+        DEFAULT_FROM_EMAIL=${{ secrets.DEFAULT_FROM_EMAIL }}
+        EOF
+        kubectl delete secret ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }}
+        kubectl create secret generic ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }} --from-env-file=backend/.env.prod
+
+    # Rename container name with Github SHA
+    - name: Rename Github SHA
+      run: |
+        export BUILD_TAG=${{ github.sha }}
+        sed -i "s/VERSION/${BUILD_TAG}/g" ./k8s/django-rest-api/rest-api.yaml
+
     # Deploy app to AKS
     - uses: azure/k8s-deploy@v1
       with:
         manifests: |
-          ${{ github.workspace }}/k8s/deployment.yaml
-          ${{ github.workspace }}/k8s/web-service.yaml
-        images: |
-          ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+          ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
+          ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
+          ${{ github.workspace }}/k8s/ingress/ingress.yaml
         imagepullsecrets: |
           ${{ env.SECRET }}
         namespace: ${{ env.NAMESPACE }}
