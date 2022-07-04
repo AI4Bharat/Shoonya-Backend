@@ -16,10 +16,10 @@ env:
   
 jobs:
   release-stage:
-    needs: [build]
+    # needs: [build]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    # - uses: actions/checkout@v2
 
     # Set the target Azure Kubernetes Service (AKS) cluster. 
     - uses: azure/aks-set-context@v1
