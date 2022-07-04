@@ -2,15 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: shoonya-django-backend
-  labels:
-    app: shoonya-django-backend
 spec:
-  replicas: 2
-  # strategy:
-  #   type: RollingUpdate
-  #   rollingUpdate:
-  #     maxSurge: 1
-  #     maxUnavailable: 0
+  replicas: 1
   selector:
     matchLabels:
       app: shoonya-django-backend
@@ -18,54 +11,28 @@ spec:
     metadata:
       labels:
         app: shoonya-django-backend
-      # annotations:
-      #   cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
     spec:
-      # terminationGracePeriodSeconds: 300
       imagePullSecrets:
-        - name: shoonya-secrets
+        - name: shoonya-prod-secrets
       containers:
         - name: shoonya-web-container
-          image: shoonyaregistry.azurecr.io/shoonya-backend:VERSION
+          image: shoonyareg.azurecr.io/shoonya-backend:v1.0.0
           imagePullPolicy: IfNotPresent
-          # resources:
-          #   requests:
-          #     cpu: "1000m"
-          #     memory: "1000M"
-          #   limits:
-          #     cpu: "2000m"
-          #     memory: "2000M"
           ports:
             - containerPort: 8000
-          # readinessProbe:
-          #   httpGet:
-          #     path: /admin/login/?next=/admin/
-          #     port: 8000
-          #   initialDelaySeconds: 30
-          #   periodSeconds: 20
-          # livenessProbe:
-          #   httpGet:
-          #     path: /admin/login/?next=/admin/
-          #     port: 8000
-          #   initialDelaySeconds: 15
-          #   periodSeconds: 120
-          env:
-            - name: HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
+              name: gunicorn
           envFrom:
             - secretRef:
-                name: shoonya-secrets
+                name: shoonya-prod-secrets
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: shoonya-django-backend
 spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
   selector:
     app: shoonya-django-backend
-  ports:
-    - port: 80
-      targetPort: 8000
-  type: LoadBalancer

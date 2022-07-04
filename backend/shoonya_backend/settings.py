@@ -29,11 +29,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "random-test-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = str(os.environ.get('DEBUG', 0)) == "1"
-ENV_ALLOWED_HOST = os.environ.get("ENV_ALLOWED_HOST")
+ENV_ALLOWED_HOST = os.environ.get("ENV_ALLOWED_HOST", "*")
 if ENV_ALLOWED_HOST:
     ALLOWED_HOSTS = [ ENV_ALLOWED_HOST ]
 # Application definition
@@ -121,7 +121,7 @@ DB_IS_AVAIL = all([
     DB_PASSWORD,
     DB_DATABASE,
 ])
-DB_IGNORE_SSL=os.environ.get("DB_IGNORE_SSL", "true") == "true"
+DB_IGNORE_SSL=os.environ.get("DB_IGNORE_SSL") == "true"
 
 if DB_IS_AVAIL:
     DATABASES = {

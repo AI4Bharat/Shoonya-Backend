@@ -8,11 +8,11 @@ on:
 
 # Environment variables available to all jobs and steps in this workflow
 env:
-  REGISTRY_NAME: shoonyaregistry
-  CLUSTER_NAME: shoonya-cluster
+  REGISTRY_NAME: shoonyareg
+  CLUSTER_NAME: shoonya-aks
   CLUSTER_RESOURCE_GROUP: shoonya
   NAMESPACE: shoonya
-  SECRET: shoonya-secrets
+  SECRET: shoonya-prod-secrets
   APP_NAME: shoonya-backend
   
 jobs:
@@ -49,6 +49,7 @@ jobs:
     - name: Update deployment secrets
       run: |
         cat << EOF >> backend/.env.prod
+        DEBUG=${{ secrets.DEBUG }}
         DJANGO_SUPERUSER_USERNAME=${{ secrets.DJANGO_SUPERUSER_USERNAME }}
         DJANGO_SUPERUSER_PASSWORD=${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
         DJANGO_SUPERUSER_EMAIL=${{ secrets.DJANGO_SUPERUSER_EMAIL }}
@@ -63,26 +64,31 @@ jobs:
         AZURE_ACCOUNT_NAME=${{ secrets.AZURE_ACCOUNT_NAME }}
         AZURE_MEDIA_CONTAINER=${{ secrets.AZURE_MEDIA_CONTAINER }}
         AZURE_STATIC_CONTAINER=${{ secrets.AZURE_STATIC_CONTAINER }}
+        REDIS_HOST=${{ secrets.REDIS_HOST }}
+        REDIS_PORT=${{ secrets.REDIS_PORT }}
+        SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
+        SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+        EMAIL_BACKEND=${{ secrets.EMAIL_BACKEND }}
+        EMAIL_HOST=${{ secrets.EMAIL_HOST }}
+        EMAIL_PORT=${{ secrets.EMAIL_PORT }}
+        DEFAULT_FROM_EMAIL=${{ secrets.DEFAULT_FROM_EMAIL }}
         EOF
-        kubectl delete secret shoonya-secrets
-        kubectl create secret generic shoonya-secrets --from-env-file=backend/.env.prod
+        kubectl delete secret ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }}
+        kubectl create secret generic ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }} --from-env-file=backend/.env.prod
 
     # Rename container name with Github SHA
     - name: Rename Github SHA
       run: |
         export BUILD_TAG=${{ github.sha }}
         sed -i "s/VERSION/${BUILD_TAG}/g" ./k8s/django-rest-api/rest-api.yaml
-        # kubectl apply -f ./k8s/django-rest-api/rest-api.yaml
-        # kubectl apply -f ./k8s/ingress/cert-manager.yaml
-        # kubectl apply -f ./k8s/ingress/ingress.yaml
 
     # Deploy app to AKS
     - uses: azure/k8s-deploy@v1
       with:
         manifests: |
           ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
-        images: |
-          ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+          ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
+          ${{ github.workspace }}/k8s/ingress/ingress.yaml
         imagepullsecrets: |
           ${{ env.SECRET }}
         namespace: ${{ env.NAMESPACE }}

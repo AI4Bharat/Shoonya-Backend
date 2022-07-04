@@ -8,6 +8,7 @@ WORKDIR /app
 RUN python3 -m venv /opt/venv
 
 RUN /opt/venv/bin/pip install -r requirements.txt --use-deprecated=legacy-resolver && \
-    chmod +x entrypoint.sh && chmod +x collectstatic.sh && sh collectstatic.sh
+    chmod +x entrypoint.sh
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+EXPOSE 8000
+CMD ["/app/entrypoint.sh"]

@@ -2,7 +2,8 @@ all_data
 staticfiles-cdn
 SentenceText-2022-05-01.csv
 wiki-full-data.csv
-
+.env.prod
+COMMANDS.sh
 # Python
 *.pyc
 *~
