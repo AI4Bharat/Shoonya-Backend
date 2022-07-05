@@ -908,16 +908,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             properties={
                 "emails": openapi.Schema(
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(type=openapi.TYPE_STRING, format="email"),
-                    description="List of email addresses of users to be added to project",
+                    items=openapi.Items(type=openapi.TYPE_INTEGER, format="ids"),
+                    description="List of ids of users to be added to project",
                 )
             },
-            required=["emails"],
+            required=["ids"],
         ),
         responses={
-            201: "Users added",
+            200: "Users added",
             404: "Project does not exist or User does not exist",
-            200: "Project is published error",
+            500: "Internal server error"
         },
     )
     @action(
@@ -932,43 +932,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Add annotators to the project
         """
-        ret_dict = {}
-        ret_status = 0
+
         try:
             project = Project.objects.get(pk=pk)
 
-            # if project.is_published:
-            #     return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
+            ids = request.data.get("ids")
+            users = User.objects.filter(id__in=ids)
 
-            emails = request.data.get("emails")
-            invalid_emails = []
-            for email in emails:
-                if re.fullmatch(EMAIL_REGEX, email):
-                    user = User.objects.get(email=email)
+            if users.count() != len(ids):
+                return Response({"message": "Enter all valid user ids"}, status=status.HTTP_400_BAD_REQUEST)
 
-                    ### TODO: Check if user is an annotator
-                    # if user.role != User.ANNOTATOR:
-                    #     ret_dict = {"message": f"User {user.email} is not an annotator!"}
-                    #     ret_status = status.HTTP_201_CREATED
-                    project.users.add(user)
-                    project.save()
-                else:
-                    invalid_emails.append(email)
-            if len(invalid_emails) != 0:
-                ret_dict = {"message": "Users added!"}
-                ret_status = status.HTTP_201_CREATED
-            else:
-                ret_dict = {
-                    "message": f"Users partially added! Invalid emails: {','.join(invalid_emails)}"
-                }
-                ret_status = status.HTTP_201_CREATED
+            for user in users:
+                project.users.add(user)
+
+            return Response({"message": "Added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
-            ret_dict = {"message": "Project does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        except User.DoesNotExist:
-            ret_dict = {"message": "User does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        return Response(ret_dict, status=ret_status)
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @swagger_auto_schema(
         method="get",
