@@ -240,7 +240,7 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400   # higher than the count of fields
 # Logging Configuration
 
 # # Get loglevel from env
-LOGLEVEL = os.getenv('LOG_LEVEL', 'INFO')
+LOGLEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
 
 # Make a new directory for logs
 Path(BASE_DIR / 'logs').mkdir(exist_ok=True)
@@ -317,7 +317,7 @@ LOGGING = {
 }
 
 # Celery settings
-CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_BROKER_URL = "redis://redis:6379/0"
 
 # Project lock TTL for task pulling(in seconds)
 PROJECT_LOCK_TTL = 5

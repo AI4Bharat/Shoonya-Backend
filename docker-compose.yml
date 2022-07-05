@@ -7,15 +7,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     image: shoonya-backend
-    environment:
-      - PORT=8020
     env_file:
-      - backend/.env
+      - backend/.env.prod
     ports:
-      - "8020:8020"
+      - "8000:8000"
     command: sh /app/entrypoint.sh
     volumes:
        - ./backend:/app/
+    depends_on:
+      - celery
   postgres_db:
     image: postgres
     command: -p 5434
@@ -27,45 +27,24 @@ services:
     expose:
       - 5434
     ports:
-<<<<<<< HEAD
       - "5434:5434"
     volumes:
       - postgres_data:/var/lib/postgresql/data/
-  redis_db:
-      image: redis
-      restart: always
-      expose:
-        - 6380
-      ports:
-        - "6380:6380"
-      volumes:
-          - redis_data:/data
-      entrypoint: redis-server --appendonly yes --port 6380
-=======
-      - 8000:8000
-    depends_on:
-      - db
-      - redis
   redis:
-    container_name: redis
-    image: "redis"
-    ports:
-      - 6379:6379
-
+      image: "redis:alpine"
+      expose:
+        - 6379
+      ports:
+        - "6379:6379"
   celery:
-    container_name: celery
-    restart: always
-    build: ./backend
-    command: celery -A shoonya_backend.celery worker --concurrency=2 --loglevel=info
+    build: 
+      context: .
+      dockerfile: k8s/celery/Dockerfile
     volumes:
-      - ./backend/:/usr/src/backend/
+      - .:/usr/src/app
     depends_on:
-      - db
+      - postgres_db
       - redis
-      - web 
->>>>>>> dev
-
 
 volumes:
   postgres_data:
-  redis_data: 

@@ -16,7 +16,7 @@ spec:
         - name: shoonya-prod-secrets
       containers:
         - name: shoonya-web-container
-          image: shoonyareg.azurecr.io/shoonya-backend:v1.0.0
+          image: shoonyareg.azurecr.io/shoonya-backend:VERSION
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000

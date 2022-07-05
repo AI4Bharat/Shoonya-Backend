@@ -1,6 +1,7 @@
 name: Build and Release pipeline
 
 on:
+  push:
   workflow_call:
   workflow_dispatch:
     branches: [k8s]
@@ -29,8 +30,11 @@ jobs:
     
     # Container build and push to a Azure Container Registry (ACR)
     - run: |
-        docker build . -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+        docker build -f ./backend/Dockerfile . -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
         docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+        
+        docker build -f ./k8s/celery/Dockerfile . -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+        docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}_celery:${{ github.sha }}
       working-directory: ./backend/
     
     # Set the target Azure Kubernetes Service (AKS) cluster. 
@@ -80,6 +84,7 @@ jobs:
       run: |
         export BUILD_TAG=${{ github.sha }}
         sed -i "s/VERSION/${BUILD_TAG}/g" ./k8s/django-rest-api/rest-api.yaml
+        sed -i "s/VERSION/${BUILD_TAG}/g" ./k8s/celery/celery.yaml
 
     # Deploy app to AKS
     - uses: azure/k8s-deploy@v1

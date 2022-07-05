@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: celery-deployment
+  template:
+    metadata:
+      labels:
+        app: celery-deployment
+    spec:
+      imagePullSecrets:
+        - name: shoonya-prod-secrets
+      containers:
+        - name: shoonya-celery-container
+          image: shoonyareg.azurecr.io/shoonya-backend_celery:VERSION
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: shoonya-prod-secrets
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: celery-autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: celery-deployment
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
