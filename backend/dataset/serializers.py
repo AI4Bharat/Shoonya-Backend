@@ -1,10 +1,19 @@
+'''
+Module to store Django REST Framework Serializers for dataset related models
+'''
 from rest_framework import serializers
 from .models import *
+
 
 class DatasetInstanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatasetInstance
         fields = '__all__'
+
+class DatasetInstanceUploadSerializer(serializers.Serializer):
+    dataset = serializers.FileField()
+    class Meta:
+        fields=['dataset']
 
 
 class DatasetItemsSerializer(serializers.ModelSerializer):
@@ -12,25 +21,45 @@ class DatasetItemsSerializer(serializers.ModelSerializer):
         model = DatasetBase
         fields = ["instance_id"]
 
+class SentenceTextSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for SentenceText data
+    '''
+    class Meta:
+        model = SentenceText
+        fields='__all__'
+
 class TranslationPairSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for TranslationPair data
+    '''
     class Meta:
         model = TranslationPair
         fields='__all__'
 
-class SentenceTextSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = SentenceText
-        fields = '__all__'
-
-class BlockTextSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = BlockText
-        fields = '__all__'
-
 class OCRDocumentSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for OCRDocument data
+    '''
     class Meta:
         model = OCRDocument
-        fields = '__all__'
+        fields='__all__'
+
+class BlockTextSerializer(serializers.ModelSerializer):
+    '''
+    Serializer for BlockText data
+    '''
+    class Meta:
+        model = BlockText
+        fields='__all__'
+
+# Define a mapping between dataset instance type and serializer
+SERIALIZER_MAP = {
+    'SentenceText': SentenceTextSerializer,
+    'TranslationPair': TranslationPairSerializer,
+    'OCRDocument': OCRDocumentSerializer,
+    'BlockText': BlockTextSerializer
+}
 
 # class CollectionDatasetSerializer(serializers.ModelSerializer):
 #     class Meta:

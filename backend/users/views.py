@@ -13,6 +13,15 @@ from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
 from users.models import LANG_CHOICES, User
 from rest_framework.decorators import action
+from  tasks.models import Task
+from workspaces.models import Workspace
+from projects.models import Project
+from tasks.models import Annotation
+from organizations.models import Organization
+from django.db.models import Q
+from projects.utils import no_of_words , is_valid_date
+from datetime import datetime
+
 
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
@@ -134,6 +143,126 @@ class UserViewSet(viewsets.ViewSet):
             return Response({"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN)
         serialized = UserProfileSerializer(user)
         return Response(serialized.data, status=status.HTTP_200_OK)
+
+
+class AnalyticsViewSet(viewsets.ViewSet):
+    permission_classes = (AllowAny,)
+
+    @action(detail=False , methods =["POST"] , url_path="user_analytics", url_name="get_user_analytics")
+    def get_user_analytics(self , request):
+        """
+        Get Reports of a User
+        """
+
+        from_date = request.data.get('from_date')
+        to_date = request.data.get('to_date')
+        from_date = from_date + ' 00:00'
+        to_date = to_date + ' 23:59'
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response({"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST)
+        
+        start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
+        end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
+
+        if start_date > end_date:
+            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        project_type = request.data.get("project_type")
+        project_type_lower =  project_type.lower()
+        is_translation_project = True if  "translation" in  project_type_lower  else False
+        workspace_id = request.data.get("workspace_id")
+
+        try:
+            user = User.objects.get(id= request.user.id)
+        except User.DoesNotExist:
+            return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        if user.organization_id is not request.user.organization_id:
+            return Response({"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN)
+
+        org_owner = request.user.organization.created_by.email
+        ws = Workspace.objects.filter(id__in=workspace_id)
+        owners = []
+        for each_ws in ws:
+            ws_managers = [manager.get_username() for manager in each_ws.managers.all()]
+            owners.extend(ws_managers)
+        owners.append(org_owner)
+
+        if request.user.email in owners:
+            return Response({"message": f"Workspace managers or organization owners can't access this page,\
+            please don't select the workspace in which your manager of that workspace "})
+
+
+        project_objs = Project.objects.filter(workspace_id__in=workspace_id, users = request.user.id,project_type=project_type)
+
+        final_result =[]
+        for  proj in project_objs:
+
+            project_name = proj.title
+            annotated_tasks_objs =Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status='accepted')
+            & Q (correct_annotation__created_at__range = [start_date, end_date]))
+            annotated_tasks_count = annotated_tasks_objs.count()
+
+            annotated_task_ids  = [task.id for task in annotated_tasks_objs]
+            annotated_table_objs = Annotation.objects.filter(task_id__in =annotated_task_ids)
+            lead_time_list = [obj.lead_time for obj in annotated_table_objs]
+            avg_lead_time = 0
+            if len(lead_time_list) > 0 :
+                avg_lead_time =sum(lead_time_list) / len(lead_time_list)
+                avg_lead_time = round(avg_lead_time,2)
+            total_word_count = 0
+            if is_translation_project:
+                total_count_list = [no_of_words(Task.objects.get(id = id1).data['input_text']) for  id1 in annotated_task_ids]
+                total_word_count = sum(total_count_list)
+
+            all_tasks_in_project = Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ))
+            assigned_tasks_count = all_tasks_in_project.count()
+
+            all_skipped_tasks_in_project = Task.objects.filter(
+                    Q(project_id=proj.id)
+                    & Q(task_status="skipped")
+                    & Q(annotation_users=request.user.id)
+                ).order_by("id")
+            total_skipped_tasks = all_skipped_tasks_in_project.count()
+ 
+            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "unlabeled") & Q(annotation_users = request.user.id) ).order_by('id')
+            all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
+
+            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "draft") & Q(annotation_users = request.user.id)).order_by('id')
+            all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
+            if is_translation_project :
+                result = {
+                    "User Name":request.user.username ,
+                    "Project Name" :project_name,
+                    "Annotated Tasks" : annotated_tasks_count,
+                    "Average Annotation Time (In Seconds)" : avg_lead_time,
+                    "Assigned Tasks" : assigned_tasks_count,
+                    "Skipped Tasks" : total_skipped_tasks,
+                    "Unlabeled Tasks" : all_pending_tasks_in_project,
+                    "Draft Tasks" : all_draft_tasks_in_project,
+                    "Word Count" : total_word_count
+                    }
+            else :
+                result = {
+                    "User Name":request.user.username ,
+                    "Project Name" :project_name ,
+                    "Annotated Tasks" : annotated_tasks_count,
+                    "Average Annotation Time (In Seconds)" : avg_lead_time,
+                    "Assigned Tasks" : assigned_tasks_count,
+                    "Skipped Tasks" : total_skipped_tasks,
+                    "Unlabeled Tasks" : all_pending_tasks_in_project,
+                    "Draft Tasks" : all_draft_tasks_in_project,
+                    }
+
+            final_result.append(result)
+    
+        return Response(final_result)
 
 
 class LanguageViewSet(viewsets.ViewSet):

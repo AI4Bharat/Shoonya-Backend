@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "functions",
     "corsheaders",
     "import_export",
+    "django_celery_results",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -267,20 +268,24 @@ handlers = {
         'level': LOGLEVEL,
         'class': 'logging.StreamHandler',
         'formatter': 'console',
-    },
-    'file': {
+    }
+}
+
+# If logging is enabled, add file handlers
+if os.getenv("LOGGING", 'False').lower() in ('true', '1', 't', 'yes', 'y'):
+    handlers['file'] = {
         'level': 'WARNING',
         'class': 'logging.FileHandler',
         'filename': os.path.join(BASE_DIR, 'logs/default.log'),
         'formatter': 'file'
-    },
-    'csvfile': {
+    }
+
+    handlers['csvfile'] = {
         'level': 'WARNING',
         'class': 'logging.FileHandler',
         'filename': os.path.join(BASE_DIR, 'logs/logs.csv'),
         'formatter': 'csvfile'
     }
-}
 
 # Setup the Cloud Logging Client
 if os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
@@ -310,3 +315,10 @@ LOGGING = {
         }
     }
 }
+
+# Celery settings
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+
+# Project lock TTL for task pulling(in seconds)
+PROJECT_LOCK_TTL = 5
+PROJECT_LOCK_RETRY_INTERVAL = 1

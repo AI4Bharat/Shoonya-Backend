@@ -38,6 +38,7 @@ SKIPPED = "skipped"
 ACCEPTED = "accepted"
 REJECTED = "rejected"
 FREEZED = "freezed"
+DRAFT = "draft"
 
 TASK_STATUS = (
     (UNLABELED, "unlabeled"),
@@ -46,6 +47,7 @@ TASK_STATUS = (
     (ACCEPTED, "accepted"),
     (FREEZED, "freezed"),
     (REJECTED, "rejected"),
+    (DRAFT, "draft"),
 )
 
 
@@ -201,6 +203,7 @@ class Annotation(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="annotation_updated_at")
     lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
+    notes = models.TextField(blank=True, null=True, verbose_name="annotation_notes")
 
     def __str__(self):
         return str(self.id)
