@@ -1,6 +1,7 @@
 name: Deploy Latest container to Cluster from Azure Container Registry
 
 on:
+  push:
   workflow_dispatch:
   workflow_call:
   pull_request:
@@ -70,12 +71,14 @@ jobs:
     - name: Rename Github SHA
       run: |
         export BUILD_TAG=${{ github.sha }}
-        sed -i "s/VERSION/${BUILD_TAG}/g" ./k8s/django-rest-api/rest-api.yaml
+        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/k8s/celery/celery.yaml
+        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
 
     # Deploy app to AKS
     - uses: azure/k8s-deploy@v1
       with:
         manifests: |
+          ${{ github.workspace }}/k8s/celery/celery.yaml
           ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
           ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
           ${{ github.workspace }}/k8s/ingress/ingress.yaml
