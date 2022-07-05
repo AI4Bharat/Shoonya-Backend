@@ -1,3 +1,4 @@
+from http.client import responses
 import secrets
 import string
 from wsgiref.util import request_uri
@@ -7,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.decorators import permission_classes
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from .serializers import UserProfileSerializer, UserSignUpSerializer, UserUpdateSerializer, LanguageSerializer
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
@@ -21,7 +23,8 @@ from organizations.models import Organization
 from django.db.models import Q
 from projects.utils import no_of_words , is_valid_date
 from datetime import datetime
-
+from django.conf import settings
+from django.core.mail import send_mail
 
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
@@ -143,7 +146,102 @@ class UserViewSet(viewsets.ViewSet):
             return Response({"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN)
         serialized = UserProfileSerializer(user)
         return Response(serialized.data, status=status.HTTP_200_OK)
+    
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "email":openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format="email",
+                    description="New email"
+                )
+            },
+            required=["email"]
 
+        ),
+        responses={
+            200:"Verification email sent to both of your email ids.Please verify to update your email",
+            403:"Please enter a valid email!"
+        }
+    )
+    @action(detail=False,methods=["post"],url_path="update_email",url_name="update_email")
+    def update_email(self,request):
+        """
+        Updates the User Email
+        """
+        try:
+            user=request.user
+            unverified_email=request.data.get("email")
+            
+            old_email_update_code=generate_random_string(10)
+            new_email_verification_code=generate_random_string(10)
+            
+            send_mail(
+                        "Email Verification",
+                        f"Your email verification code is:{old_email_update_code}",
+                        settings.DEFAULT_FROM_EMAIL,
+                        [user.email],
+                    )
+            
+            send_mail(
+                        "Email Verification",
+                        f"Your email verification code is:{new_email_verification_code}",
+                        settings.DEFAULT_FROM_EMAIL,
+                        [unverified_email],
+                    )
+            
+            user.unverified_email=unverified_email
+            user.old_email_update_code=old_email_update_code
+            user.new_email_verification_code=new_email_verification_code
+            user.save()
+
+            return Response({"message":"Verification email sent to both of your email ids.Please verify to update your email"},status=status.HTTP_200_OK)
+        except:
+            return Response({"message":"Please enter a valid email!"},status=status.HTTP_403_FORBIDDEN)
+    
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "old_email_update_code":openapi.Schema(type=openapi.TYPE_STRING),
+                "new_email_verification_code":openapi.Schema(type=openapi.TYPE_STRING)
+            },
+            required=["old_email_update_code","new_email_verification_code"]
+
+        ),
+        responses={
+            200:"Email verification Successful!",
+            403:"Invalid verification codes!"
+        }
+    )
+    @action(detail=False,methods=["post"],url_path="verify_email_updation",url_name="verify_email_updation")
+    def verify_email_updation(self,request):
+        """
+        Verify email updation
+        """
+        user=request.user
+        if((user.unverified_email)!=""):
+            old_email_update_code=request.data.get("old_email_update_code")
+            new_email_verification_code=request.data.get("new_email_verification_code")
+            if((user.old_email_update_code)==old_email_update_code and (user.new_email_verification_code)==new_email_verification_code):
+                user.email=user.unverified_email
+                user.unverified_email=""
+                user.old_email_update_code=""
+                user.new_email_verification_code=""
+                user.save()
+                ret_dict={"message":"Email verification Successful!"}
+                ret_status=status.HTTP_200_OK
+            else:
+                ret_dict={"message":"Invalid verification codes!"}
+                ret_status=status.HTTP_403_FORBIDDEN
+        else:
+            ret_dict={"message":"Invalid verification codes!"}
+            ret_status=status.HTTP_403_FORBIDDEN
+
+        return Response(ret_dict,status=ret_status)
 
 class AnalyticsViewSet(viewsets.ViewSet):
     permission_classes = (AllowAny,)
