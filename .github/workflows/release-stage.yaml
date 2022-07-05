@@ -78,6 +78,7 @@ jobs:
     - uses: azure/k8s-deploy@v1
       with:
         manifests: |
+          ${{ github.workspace }}/k8s/redis/redis.yaml
           ${{ github.workspace }}/k8s/celery/celery.yaml
           ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
           ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
