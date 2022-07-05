@@ -1,6 +1,6 @@
-# Shoonya Backend (Updated with easy installation and CI-CD enabled)
+# Shoonya Backend (Updated with CI-CD and k8s support!)
 
-## Installation
+## Quick Start
 
 The installation and setup instructions have been tested on the following platforms:
 
@@ -10,9 +10,9 @@ The installation and setup instructions have been tested on the following platfo
 
 If you are using a different operating system, you will have to look at external resources (eg. StackOverflow) to correct any errors.
 
-### Docker Installation
+### Using `docker-compose`
 
-`cd` back to the root folder .Once inside, build the docker containers:
+In the base(root) folder of the repo, run following:
 
 ```bash
 docker-compose build
@@ -21,7 +21,7 @@ docker-compose build
 To run the containers:
 
 ```bash
-docker-compose up -d
+docker-compose up
 ```
 
 Access Django's admin panel at `http://localhost:8000/admin`. Superuser credentials for logging in are:
