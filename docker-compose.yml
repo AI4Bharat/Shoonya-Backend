@@ -1,21 +1,5 @@
 version: "3.9"
 services:
-  web:
-    depends_on:
-      - postgres_db
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: shoonya-backend
-    env_file:
-      - backend/.env.prod
-    ports:
-      - "8000:8000"
-    command: sh /app/entrypoint.sh
-    volumes:
-       - ./backend:/app/
-    depends_on:
-      - celery
   postgres_db:
     image: postgres
     command: -p 5434
@@ -31,20 +15,35 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
   redis:
-      image: "redis:alpine"
-      expose:
-        - 6379
-      ports:
-        - "6379:6379"
+    image: "redis:alpine"
+    expose:
+      - 6379
+    ports:
+      - "6379:6379"
   celery:
     build: 
       context: .
-      dockerfile: k8s/celery/Dockerfile
+      dockerfile: ./docker/celery/Dockerfile
+    image: shoonya-backend_celery
     volumes:
       - .:/usr/src/app
     depends_on:
       - postgres_db
       - redis
+  web:
+    build:
+      context: .
+      dockerfile: ./docker/django-rest-api/Dockerfile
+    image: shoonya-backend
+    env_file:
+      - backend/.env
+    ports:
+      - "8000:8000"
+    volumes:
+       - .:/usr/src/app
+    depends_on:
+      - postgres_db
+      - celery
 
 volumes:
   postgres_data:

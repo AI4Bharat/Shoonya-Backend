@@ -34,12 +34,11 @@ jobs:
     # Create namespace if doesn't exist
     - run: |
         kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o json | kubectl apply -f -
-      working-directory: ./backend/
   
     # Update Secrets file in k8s cluster
     - name: Update deployment secrets
       run: |
-        cat << EOF >> backend/.env.prod
+        cat << EOF >> ${{ github.workspace }}/backend/.env.prod
         DEBUG=${{ secrets.DEBUG }}
         DJANGO_SUPERUSER_USERNAME=${{ secrets.DJANGO_SUPERUSER_USERNAME }}
         DJANGO_SUPERUSER_PASSWORD=${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
@@ -65,24 +64,24 @@ jobs:
         DEFAULT_FROM_EMAIL=${{ secrets.DEFAULT_FROM_EMAIL }}
         EOF
         kubectl delete secret ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }}
-        kubectl create secret generic ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }} --from-env-file=backend/.env.prod
+        kubectl create secret generic ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }} --from-env-file=${{ github.workspace }}/backend/.env.prod
 
     # Rename container name with Github SHA
     - name: Rename Github SHA
       run: |
         export BUILD_TAG=${{ github.sha }}
-        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/k8s/celery/celery.yaml
-        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
+        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/docker/celery/celery-k8s.yaml
+        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/docker/django-rest-api/rest-api-k8s.yaml
 
     # Deploy app to AKS
     - uses: azure/k8s-deploy@v1
       with:
         manifests: |
-          ${{ github.workspace }}/k8s/redis/redis.yaml
-          ${{ github.workspace }}/k8s/celery/celery.yaml
-          ${{ github.workspace }}/k8s/django-rest-api/rest-api.yaml
-          ${{ github.workspace }}/k8s/ingress/cert-manager.yaml
-          ${{ github.workspace }}/k8s/ingress/ingress.yaml
+          ${{ github.workspace }}/docker/redis/redis-k8s.yaml
+          ${{ github.workspace }}/docker/celery/celery-k8s.yaml
+          ${{ github.workspace }}/docker/django-rest-api/rest-api-k8s.yaml
+          ${{ github.workspace }}/docker/ingress/cert-manager-k8s.yaml
+          ${{ github.workspace }}/docker/ingress/ingress-k8s.yaml
         imagepullsecrets: |
           ${{ env.SECRET }}
         namespace: ${{ env.NAMESPACE }}
