@@ -1,6 +1,7 @@
 name: Deploy Latest container to Cluster from Azure Container Registry
 
 on:
+  push:
   workflow_dispatch:
   workflow_call:
   pull_request:

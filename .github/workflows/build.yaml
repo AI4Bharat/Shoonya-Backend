@@ -1,7 +1,6 @@
 name: Build Docker Container & Push to ACR
 
 on:
-  push:
   workflow_dispatch:
   workflow_call:
   pull_request:
@@ -30,6 +29,6 @@ jobs:
         docker build -f ${{ github.workspace }}/backend/Dockerfile ${{ github.workspace }}/backend -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
         docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
         
-        docker build -f ${{ github.workspace }}/k8s/celery/Dockerfile ${{ github.workspace }} -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+        docker build -f ${{ github.workspace }}/k8s/celery/Dockerfile ${{ github.workspace }} -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}_celery:${{ github.sha }}
         docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}_celery:${{ github.sha }}
 
