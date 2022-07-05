@@ -1,16 +1,13 @@
 # Shoonya Backend (Updated with CI-CD and k8s support!)
 
-## Quick Start
+## Quick Start using `docker-compose` -
 
-The installation and setup instructions have been tested on the following platforms:
+### Pre-requisites:
 
-- Docker
-- Docker-Compose
-- Ubuntu 20.04
+- Docker (Setup Guide for docker on Ubuntu 20.04 can be found [here](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04)!)
+- Docker-Compose (Setup Guide for docker-compose can be found [here](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04)!)
 
-If you are using a different operating system, you will have to look at external resources (eg. StackOverflow) to correct any errors.
-
-### Using `docker-compose`
+### Build containers:
 
 In the base(root) folder of the repo, run following:
 
@@ -18,7 +15,7 @@ In the base(root) folder of the repo, run following:
 docker-compose build
 ```
 
-To run the containers:
+Run containers:
 
 ```bash
 docker-compose up
