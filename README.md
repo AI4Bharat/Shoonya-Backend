@@ -24,7 +24,7 @@ To run the containers:
 docker-compose up -d
 ```
 
-Access Django's admin panel at `http://localhost:8000/admin`. Superuser credentials to login are:
+Access Django's admin panel at `http://localhost:8000/admin`. Superuser credentials for logging in are:
 ```
 username: test@test.com
 password: test123
