@@ -11,6 +11,7 @@ ENV LANG C.UTF-8
 RUN apt-get update
 RUN apt-get install -y gcc
 RUN apt-get install -y g++
+RUN apt-get install -y libpq-dev
 
 WORKDIR /usr/src/app
 COPY ./ ./

@@ -7,7 +7,7 @@ drf-yasg==1.20.0
 djoser==2.1.0
 django-cors-headers==3.6.0
 django-import-export==2.8.0
-psycopg2-binary==2.9.1
+psycopg2==2.9.3
 lxml==4.9.1
 mosestokenizer==1.2.1
 indic-nlp-library==0.81
