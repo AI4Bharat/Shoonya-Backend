@@ -156,6 +156,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     queryset = DatasetInstance.objects.all()
     permission_classes = (IsAuthenticatedOrReadOnly,)
 
+    # Define list of accepted file formats for file upload
+    ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
+
     def get_serializer_class(self):
         if self.action == "upload":
             return DatasetInstanceUploadSerializer
@@ -236,8 +239,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         URL: /data/instances/<instance-id>/upload/
         Accepted methods: POST
         """
-        # Define list of accepted file formats
-        ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
 
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
@@ -250,9 +251,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         content_type = dataset.name.split('.')[-1]
 
         # Ensure that the content type is accepted, return error otherwise
-        if content_type not in ACCEPTED_FILETYPES:
+        if content_type not in DatasetInstanceViewSet.ACCEPTED_FILETYPES:
             return Response({
-                "message": f"Invalid Dataset File. Only accepts the following file formats: {ACCEPTED_FILETYPES}",
+                "message": f"Invalid Dataset File. Only accepts the following file formats: {DatasetInstanceViewSet.ACCEPTED_FILETYPES}",
             }, status=status.HTTP_400_BAD_REQUEST)
 
         # Read the dataset as a string from the dataset pointer
@@ -321,6 +322,15 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         serializer = UserFetchSerializer(many=True, data=users)
         serializer.is_valid()
         return Response(serializer.data)
+
+    @action(methods=['GET'], detail=False, name="List all Dataset Instance Types")
+    def dataset_types(self, request):
+        dataset_types = [dataset[0] for dataset in DATASET_TYPE_CHOICES]
+        return Response(dataset_types)
+
+    @action(methods=['GET'], detail=False, name="List all Accepted Upload Filetypes")
+    def accepted_filetypes(self, request):
+        return Response(DatasetInstanceViewSet.ACCEPTED_FILETYPES)
 
 
 class DatasetItemsViewSet(viewsets.ModelViewSet):
