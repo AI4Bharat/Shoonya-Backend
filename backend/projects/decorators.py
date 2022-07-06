@@ -33,10 +33,13 @@ def is_organization_owner_or_workspace_manager(f):
 def project_is_archived(f):
     @wraps(f)
     def wrapper(self, request, pk, *args, **kwargs):
-        project = Project.objects.get(pk=pk)
-        if project.is_archived:
-            return Response(PROJECT_IS_ARCHIVED_ERROR, status=status.HTTP_403_FORBIDDEN)
-        return f(self, request, pk, *args, **kwargs)
+        try: 
+            project = Project.objects.get(pk=pk)
+            if project.is_archived:
+                return Response(PROJECT_IS_ARCHIVED_ERROR, status=status.HTTP_403_FORBIDDEN)
+            return f(self, request, pk, *args, **kwargs)
+        except Project.DoesNotExist: 
+            return f(self, request, pk, *args, **kwargs)
     return wrapper
 
 # Allow delete only if project is in draft mode and is not in published mode.
