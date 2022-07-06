@@ -37,13 +37,27 @@ services:
     image: shoonya-backend
     env_file:
       - backend/.env
+    expose:
+      - 8000
     ports:
       - "8000:8000"
     volumes:
-       - .:/usr/src/app
+      - .:/usr/src/app
+      - static_volume:/usr/src/app/backend/staticfiles-cdn
     depends_on:
       - postgres_db
       - celery
+  nginx:
+    build: ./docker/nginx
+    volumes:
+      - static_volume:/usr/src/app/backend/staticfiles-cdn
+    ports:
+      - 1337:80
+    # expose:
+    #   - 80
+    depends_on:
+      - web
 
 volumes:
   postgres_data:
+  static_volume:

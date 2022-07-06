@@ -1,4 +1,6 @@
+.env.stage
 all_data
+staticfiles
 staticfiles-cdn
 SentenceText-2022-05-01.csv
 wiki-full-data.csv
