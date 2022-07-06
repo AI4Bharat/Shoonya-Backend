@@ -323,6 +323,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         serializer.is_valid()
         return Response(serializer.data)
 
+    @action(methods=['GET'], detail=False, name="List all Dataset Instance Types")
+    def dataset_types(self, request):
+        dataset_types = [dataset[0] for dataset in DATASET_TYPE_CHOICES]
+        return Response(dataset_types)
+
     @action(methods=['GET'], detail=False, name="List all Accepted Upload Filetypes")
     def accepted_filetypes(self, request):
         return Response(DatasetInstanceViewSet.ACCEPTED_FILETYPES)
