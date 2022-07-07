@@ -648,7 +648,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     continue
 
         # check if the project contains eligible tasks to pull
-        tasks = Task.objects.filter(project_id=pk).filter(task_status=UNLABELED).exclude(annotation_users=cur_user.id).annotate(annotator_count=Count("annotation_users"))
+        tasks = Task.objects.filter(project_id=pk)
+        tasks = tasks.order_by("id")
+        tasks = tasks.filter(task_status=UNLABELED).exclude(annotation_users=cur_user.id).annotate(annotator_count=Count("annotation_users"))
         tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
         if not tasks:
             project.release_lock(ANNOTATION_LOCK)
@@ -657,7 +659,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # filter out tasks which meet the annotator count threshold
         # and assign the ones with least count to user, so as to maintain uniformity
         tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
-        tasks = tasks.order_by("id")
+        # tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
