@@ -9,10 +9,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - alpha.shoonya.ai4bharat.org
+    - backend.stage.shoonya.ai4bharat.org
     secretName: tls-secret
   rules:
-  - host: alpha.shoonya.ai4bharat.org
+  - host: backend.stage.shoonya.ai4bharat.org
     http:
         paths:
         - pathType: Prefix
