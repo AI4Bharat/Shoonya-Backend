@@ -213,7 +213,8 @@ class Annotation(models.Model):
     parent_annotation = models.ForeignKey(
         'self', verbose_name='parent_annotation', null = True, blank = True, default=None, on_delete=models.PROTECT
     )
-    notes = models.TextField(blank=True, null=True, verbose_name="annotation_notes")
+    annotation_notes = models.TextField(blank=True, null=True, verbose_name="annotation_notes")
+    review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
 
     def __str__(self):
         return str(self.id)

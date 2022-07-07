@@ -264,6 +264,13 @@ class AnnotationViewSet(
 
     def create_review_annotation(self, request):
         task_id = request.data["task"]
+        if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REJECTED]:
+            review_status = request.data["review_status"]
+        else:
+            ret_dict = {"message": "Missing param : review_status"}
+            ret_status = status.HTTP_400_BAD_REQUEST
+            return Response(ret_dict, status=ret_status)
+
         try:
             task = Task.objects.get(pk=task_id)
         except Task.DoesNotExist:
@@ -301,12 +308,15 @@ class AnnotationViewSet(
         annotation_response = super().create(request)
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        task.correct_annotation = annotation
-        if annotation.result == parent_annotation.result:
-            task.task_status = ACCEPTED
-        else:
-            task.task_status = ACCEPTED_WITH_CHANGES
+        if review_status == ACCEPTED:
+            task.correct_annotation = annotation
+            if annotation.result != parent_annotation.result:
+                review_status = ACCEPTED_WITH_CHANGES
+        task.task_status = review_status
         task.save()
+        parent_annotation.review_notes = annotation.review_notes
+        parent_annotation.save()
+
         return annotation_response
 
     def partial_update(self, request, pk=None):
