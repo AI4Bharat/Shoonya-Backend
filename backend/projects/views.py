@@ -31,7 +31,6 @@ from tasks.serializers import TaskSerializer
 
 from .decorators import (
     is_organization_owner_or_workspace_manager,
-    is_particular_workspace_manager,
     project_is_archived,
     project_is_published,
 )
@@ -117,7 +116,7 @@ def get_project_pull_status(pk):
 
     # If the celery TaskResults table returns
     if taskresult_queryset:
-        
+
         # Sort the tasks by newest items first by date
         taskresult_queryset = taskresult_queryset.order_by("-date_done")
 
@@ -700,7 +699,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"message": "Only annotators can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
-    
+
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
@@ -800,7 +799,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 if usermail in managers:
                     continue
-    
+
                 all_tasks_in_project = Task.objects.filter(Q(project_id=pk) & Q(annotation_users= each_user))
                 assigned_tasks = all_tasks_in_project.count()
 
@@ -905,7 +904,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     })
             ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
-    
+
 
     @swagger_auto_schema(
         method="post",
