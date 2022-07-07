@@ -657,6 +657,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # filter out tasks which meet the annotator count threshold
         # and assign the ones with least count to user, so as to maintain uniformity
         tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
+        tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
@@ -730,6 +731,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if "num_tasks" in dict(request.data):
             task_pull_count = request.data["num_tasks"]
 
+        tasks = tasks.order_by("id")
         tasks = tasks[:task_pull_count]
         for task in tasks:
             task.review_user = cur_user
