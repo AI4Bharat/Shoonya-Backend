@@ -1,13 +1,47 @@
 import json
+import requests
 
 from dataset import models as dataset_models
-from projects.models import *
 from dataset.serializers import SentenceTextSerializer
+from projects.models import *
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from tasks.models import *
-from .utils import GoogleTranslator
+
+# from .utils import GoogleTranslator
+
+## Utility functions
+def get_translations_using_cdac_model(input_sentence, source_language, target_language):
+    print("ENTER API")
+
+    headers = {
+        # Already added when you pass json= but not when you pass data=
+        # 'Content-Type': 'application/json',
+    }
+
+    json_data = {
+        "input": [
+            {
+                "source": input_sentence,
+            },
+        ],
+        "config": {
+            "modelId": 103,
+            "language": {
+                "sourceLanguage": source_language,
+                "targetLanguage": target_language,
+            },
+        },
+    }
+
+    response = requests.post(
+        "https://cdac.ulcacontrib.org/aai4b-nmt-inference/v0/translate",
+        headers=headers,
+        json=json_data,
+    )
+
+    return response
 
 
 @api_view(["POST"])
@@ -179,7 +213,7 @@ def schedule_google_translate_job(request):
     )
 
     # Create a google translator object
-    translator = GoogleTranslator()
+    # translator = GoogleTranslator()
 
     # Get the google translations for the given dataset instance and languages
     # for lang in languages:
@@ -188,3 +222,62 @@ def schedule_google_translate_job(request):
     ret_dict = {"message": "SUCCESS!", "result": input_sentences}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict)
+
+
+@api_view(["POST"])
+def schedule_ai4b_translate_job(request):
+    """
+    Schedules a Google Translate job for a given dataset instance
+
+    Request Body
+    {
+        "input_dataset_instance_id": <int>,
+        "languages": <list>
+        "output_dataset_instance_id": <int> [Optional]
+    }
+
+    Response Body
+    {
+        "message": <str>
+        "result": <str>
+        "status": DjangoStatusCode
+    }
+    """
+
+    input_dataset_instance_id = request.data["input_dataset_instance_id"]
+    languages = request.data["languages"]
+
+    # Collect the sentences from Sentence Text based on dataset id
+    input_sentences = list(
+        dataset_models.SentenceText.objects.filter(
+            instance_id=input_dataset_instance_id
+        ).values_list("context", "language")
+    )
+
+    # Create a dataset instance for the output dataset
+    output_dataset_instance_id = request.data.get("output_dataset_instance_id", 0)
+    
+    if output_dataset_instance_id: 
+        # Check if the output type is TranslationPair
+        pass 
+
+
+    # return Response(get_translations_using_cdac_model("Hi, hello. What are you doing?", source_language='en', target_language='hi'))
+    
+    # Iterate over the input sentences and get the translations for the same
+    output = []
+    for sentences in input_sentences[:1]:
+
+        result = get_translations_using_cdac_model(sentences[0], source_language=sentences[1], target_language=languages[0])
+
+        target_sentence = result.json()["output"][0]['target']
+
+        # Append the result to the output list
+        output.append({"source": sentences[0], "target": target_sentence})
+        
+
+
+
+    ret_dict = {"message": "SUCCESS!", "result": output}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
