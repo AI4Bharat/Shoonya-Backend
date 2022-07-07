@@ -18,6 +18,6 @@ COPY ./ ./
 
 RUN pip install -r requirements.txt --use-deprecated=legacy-resolver
 
-RUN ["chmod", "+x", "./docker/django-rest-api/entry.sh"]
+RUN ["chmod", "+x", "./deploy/django-rest-api/entry.sh"]
 
-ENTRYPOINT ["./docker/django-rest-api/entry.sh"]
+ENTRYPOINT ["./deploy/django-rest-api/entry.sh"]

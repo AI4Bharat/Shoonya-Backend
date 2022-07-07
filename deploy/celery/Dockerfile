@@ -21,11 +21,11 @@ COPY ./ ./
 
 RUN pip install -r requirements.txt --use-deprecated=legacy-resolver
 
-COPY ./docker/celery/celeryd /etc/init.d/
-COPY ./docker/celery/config/celeryd /etc/default/
+COPY ./deploy/celery/celeryd /etc/init.d/
+COPY ./deploy/celery/config/celeryd /etc/default/
 
 RUN ["chmod", "755", "/etc/init.d/celeryd"]
 RUN ["chmod", "640", "/etc/default/celeryd"]
-RUN ["chmod", "+x", "./docker/celery/entry.sh"]
+RUN ["chmod", "+x", "./deploy/celery/entry.sh"]
 
-ENTRYPOINT ["./docker/celery/entry.sh"]
+ENTRYPOINT ["./deploy/celery/entry.sh"]

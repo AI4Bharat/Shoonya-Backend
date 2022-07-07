@@ -4,7 +4,7 @@ services:
     image: postgres:14.4-alpine
     command: -p 5434
     env_file:
-      - backend/.env
+      - ./.env-sample
     environment:
       - POSTGRES_HOST=postgres_db
       - POSTGRES_PORT=5434
@@ -23,7 +23,7 @@ services:
   celery:
     build: 
       context: .
-      dockerfile: ./docker/celery/Dockerfile
+      dockerfile: ./deploy/celery/Dockerfile
     image: shoonya-backend_celery
     volumes:
       - .:/usr/src/app
@@ -33,10 +33,10 @@ services:
   web:
     build:
       context: .
-      dockerfile: ./docker/django-rest-api/Dockerfile
+      dockerfile: ./deploy/django-rest-api/Dockerfile
     image: shoonya-backend
     env_file:
-      - backend/.env
+      - ./.env-sample
     expose:
       - 8000
     volumes:
@@ -46,7 +46,7 @@ services:
       - postgres_db
       - celery
   nginx:
-    build: ./docker/nginx
+    build: ./deploy/nginx
     volumes:
       - static_volume:/usr/src/app/backend/staticfiles-cdn
     ports:

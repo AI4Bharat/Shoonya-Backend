@@ -14,9 +14,9 @@ import logging
 from datetime import timedelta
 from pathlib import Path
 import os
-# from dotenv import load_dotenv
 
-# load_dotenv() # TODO: Is it required?
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
 
 if os.getenv('GOOGLE_APPLICATION_CREDENTIALS') and os.getenv('GOOGLE_APPLICATION_CREDENTIALS') != "":
     from google.cloud import logging as gc_logging
@@ -70,7 +70,9 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware"
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'django.middleware.cache.UpdateCacheMiddleware',
+    'django.middleware.cache.FetchFromCacheMiddleware',
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -105,13 +107,6 @@ WSGI_APPLICATION = "shoonya_backend.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
 DB_USERNAME = os.environ.get("POSTGRES_USER")
 DB_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
 DB_DATABASE = os.environ.get("POSTGRES_DB")
@@ -135,11 +130,28 @@ if DB_IS_AVAIL:
             "PORT": DB_PORT,
         }
     }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'cache_table',
+        }
+    }
     if not DB_IGNORE_SSL:
-         DATABASES["default"]["OPTIONS"] = {
+        DATABASES["default"]["OPTIONS"] = {
             "sslmode": "require"
-         }
-
+        }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators

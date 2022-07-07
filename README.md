@@ -7,19 +7,13 @@
 - Docker (Setup Guide for docker on Ubuntu 20.04 can be found [here](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04)!)
 - Docker-Compose (Setup Guide for docker-compose can be found [here](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04)!)
 
-### Build containers:
-
-In the base(root) folder of the repo, run following:
+### Start Docker Containers:
 
 ```bash
 docker-compose build
-```
-
-Run containers:
-
-```bash
 docker-compose up
 ```
+> Note: By default, environment variables will be picked from `.env-sample` file. Modify the file, if required.
 
 Access Django's admin panel at `http://localhost:8000/admin`. Superuser credentials for logging in are:
 ```

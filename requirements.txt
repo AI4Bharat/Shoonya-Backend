@@ -2,7 +2,7 @@ django-storages[azure]==1.9.1
 label-studio==1.5
 django==3.2.13
 djangorestframework==3.13.1
-django-dotenv==1.4.2
+python-dotenv==0.20.0
 drf-yasg==1.20.0
 djoser==2.1.0
 django-cors-headers==3.6.0

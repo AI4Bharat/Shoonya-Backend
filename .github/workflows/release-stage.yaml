@@ -70,18 +70,18 @@ jobs:
     - name: Rename Github SHA
       run: |
         export BUILD_TAG=${{ github.sha }}
-        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/docker/celery/celery-k8s.yaml
-        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/docker/django-rest-api/rest-api-k8s.yaml
+        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/deploy/celery/celery-k8s.yaml
+        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/deploy/django-rest-api/rest-api-k8s.yaml
 
     # Deploy app to AKS
     - uses: azure/k8s-deploy@v1
       with:
         manifests: |
-          ${{ github.workspace }}/docker/redis/redis-k8s.yaml
-          ${{ github.workspace }}/docker/celery/celery-k8s.yaml
-          ${{ github.workspace }}/docker/django-rest-api/rest-api-k8s.yaml
-          ${{ github.workspace }}/docker/ingress/cert-manager-k8s.yaml
-          ${{ github.workspace }}/docker/ingress/ingress-k8s.yaml
+          ${{ github.workspace }}/deploy/redis/redis-k8s.yaml
+          ${{ github.workspace }}/deploy/celery/celery-k8s.yaml
+          ${{ github.workspace }}/deploy/django-rest-api/rest-api-k8s.yaml
+          ${{ github.workspace }}/deploy/ingress/cert-manager-k8s.yaml
+          ${{ github.workspace }}/deploy/ingress/ingress-k8s.yaml
         imagepullsecrets: |
           ${{ env.SECRET }}
         namespace: ${{ env.NAMESPACE }}

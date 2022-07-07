@@ -1,4 +1,5 @@
 .env.stage
+.env
 all_data
 staticfiles
 staticfiles-cdn
