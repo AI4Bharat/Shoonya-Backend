@@ -21,4 +21,4 @@ echo "Creating Cache Table ..."
 python manage.py createcachetable
 
 exec gunicorn --worker-tmp-dir /dev/shm shoonya_backend.wsgi:application \
-        --bind "0.0.0.0:8000" --timeout 600 --threads 4 --access-logfile '-' --error-logfile '-'
+        --bind "0.0.0.0:8000" --timeout 600 --workers 4 --access-logfile '-' --error-logfile '-'
