@@ -13,8 +13,8 @@ from .resources import RESOURCE_MAP
 )
 def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content_type):
     # sourcery skip: raise-specific-error
-    """Celery background task to upload the data to the dataset instance through file upload. 
-    First perform a batch upload and if that fails then move on to an iterative format to find rows with errors. 
+    """Celery background task to upload the data to the dataset instance through file upload.
+    First perform a batch upload and if that fails then move on to an iterative format to find rows with errors.
 
 
     Args:
@@ -47,14 +47,14 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
     # Declare the appropriate resource map based on dataset type
     resource = RESOURCE_MAP[dataset_type]()
 
-    # Perform a full batch upload of the data and return success if all checks are passed 
-    try: 
+    # Perform a full batch upload of the data and return success if all checks are passed
+    try:
         resource.import_data(imported_data, raise_errors=True)
         return f"All {len(imported_data.dict)} rows uploaded together."
-    
-    # If checks are failed, check which lines have an issue 
-    except: 
-            
+
+    # If checks are failed, check which lines have an issue
+    except:
+
         # Add row numbers to the dataset
         imported_data.append_col(range(1, len(imported_data) + 1), header="row_number")
 
@@ -75,13 +75,15 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
             # Add the row to the dataset
             row_dataset.append(tuple(row.values()))
 
-            upload_result = resource.import_data(row_dataset, raise_errors=False, dry_run=True)
+            upload_result = resource.import_data(
+                row_dataset, raise_errors=False, dry_run=True
+            )
 
             # check if the upload result has errors
             if upload_result.has_errors() or upload_result.has_validation_errors():
                 failed_rows.append(row_number)
 
-        # Upload which rows have an error 
+        # Upload which rows have an error
         self.update_state(
             state="FAILURE",
             meta={
