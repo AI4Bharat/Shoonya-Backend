@@ -1,5 +1,6 @@
 import json
 import requests
+import uuid
 
 from dataset import models as dataset_models
 from dataset.serializers import SentenceTextSerializer
@@ -12,8 +13,17 @@ from tasks.models import *
 # from .utils import GoogleTranslator
 
 ## Utility functions
-def get_translations_using_cdac_model(input_sentence, source_language, target_language):
-    print("ENTER API")
+def get_translation_using_cdac_model(input_sentence, source_language, target_language):
+    """Function to get the translation for the input sentences using the CDAC model.
+
+    Args:
+        input_sentence (str): Sentence to be translated.
+        source_language (str): Original language of the sentence.
+        target_language (str): Final language of the sentence.
+
+    Returns:
+        str: Translated sentence.
+    """
 
     headers = {
         # Already added when you pass json= but not when you pass data=
@@ -41,7 +51,39 @@ def get_translations_using_cdac_model(input_sentence, source_language, target_la
         json=json_data,
     )
 
-    return response
+    return response.json()["output"][0]['target']
+
+def save_translation_pairs(languages, input_sentences, output_dataset_instance_id): 
+    """Function to save the translation pairs in the database.
+
+    Args:
+        languages (list): List of output languages for the translations. 
+        input_sentences (list(list)): List of input sentences in list format containing the - [input_sentence, input_language, context] 
+        output_dataset_instance_id (int): ID of the output dataset instance.
+    """
+
+    # Iterate through the languages 
+    for output_language in languages: 
+    
+        # Save all the translation outputs in the TranslationPair object 
+        for input_sentence, language, context in input_sentences:
+
+            # Get the translations 
+            translated_sentence = get_translation_using_cdac_model(input_sentence=input_sentence, source_language=language, target_language=languages[0])
+
+            # Get the output dataset instance
+            output_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id=output_dataset_instance_id)
+
+            # Create and save a TranslationPair object
+            translation_pair_obj = dataset_models.TranslationPair(
+                instance_id=output_dataset_instance,
+                input_language=language,
+                output_language=output_language,
+                input_text=input_sentence,
+                machine_translation=translated_sentence,
+                context=context, 
+            ) 
+            translation_pair_obj.save()  
 
 
 @api_view(["POST"])
@@ -247,19 +289,56 @@ def schedule_ai4b_translate_job(request):
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
     languages = request.data["languages"]
 
+    # Check if the input dataset instance is a SentenceText dataset
+    try: 
+        input_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id=input_dataset_instance_id)
+
+        if input_dataset_instance.dataset_type != "SentenceText": 
+            return Response({"message": "Input dataset instance is not a SentenceText dataset"}, status=status.HTTP_400_BAD_REQUEST)
+    except dataset_models.DatasetInstance.DoesNotExist:
+        ret_dict = {"message": "Dataset instance does not exist!"}
+        ret_status = status.HTTP_404_NOT_FOUND
+        return Response(ret_dict, status=ret_status)
+
     # Collect the sentences from Sentence Text based on dataset id
     input_sentences = list(
         dataset_models.SentenceText.objects.filter(
             instance_id=input_dataset_instance_id
-        ).values_list("context", "language")
+        ).values_list("text", "language", "context")
     )
 
     # Create a dataset instance for the output dataset
     output_dataset_instance_id = request.data.get("output_dataset_instance_id", 0)
     
     if output_dataset_instance_id: 
+        
         # Check if the output type is TranslationPair
-        pass 
+        output_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id=output_dataset_instance_id)
+        if output_dataset_instance.dataset_type == "TranslationPair": 
+            pass
+
+            # Call the function to save the TranslationPair dataset
+            
+        
+        else: 
+            ret_dict = {"message": "Output dataset instance is not of type TranslationPair"}
+            ret_status = status.HTTP_400_BAD_REQUEST
+            return Response(ret_dict, status=ret_status)
+    
+    # Create a new dataset instance of type translation pair if the id doesn't exists 
+    else: 
+        output_dataset_instance = dataset_models.DatasetInstance(
+            instance_name=f"Automated Translation Pair Dataset - {uuid.uuid4()}",
+            instance_description="This DatasetInstance was generated automatically using the AI4B Translate API. It has been allocated a unique uuid.",
+            dataset_type="TranslationPair",
+        )
+        output_dataset_instance.save() 
+        output_dataset_instance_id = output_dataset_instance.instance_id
+
+        # Call the function to save the TranslationPair dataset
+
+
+            
 
 
     # return Response(get_translations_using_cdac_model("Hi, hello. What are you doing?", source_language='en', target_language='hi'))
@@ -268,7 +347,7 @@ def schedule_ai4b_translate_job(request):
     output = []
     for sentences in input_sentences[:1]:
 
-        result = get_translations_using_cdac_model(sentences[0], source_language=sentences[1], target_language=languages[0])
+        result = get_translation_using_cdac_model(sentences[0], source_language=sentences[1], target_language=languages[0])
 
         target_sentence = result.json()["output"][0]['target']
 
