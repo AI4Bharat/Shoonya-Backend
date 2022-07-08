@@ -348,7 +348,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     queryset = DatasetBase.objects.all()
     serializer_class = DatasetItemsSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,DatasetInstancePermission,)
 
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
