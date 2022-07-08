@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 PERMISSION_ERROR = {"message": "You do not have enough permissions to access this view!"}
+WORKSPACE_ERROR = {"message": "Workspace does not exist"}
 WORKSPACE_IS_ARCHIVED_ERROR = {"message": "This Workspace is archived!"}
 NOT_IN_WORKSPACE_ERROR = {"message": "You do not belong to this workspace!"}
 
@@ -50,7 +51,10 @@ def is_particular_workspace_manager(f):
 def workspace_is_archived(f):
     @wraps(f)
     def wrapper(self, request, pk, *args, **kwargs):
-        workspace = Workspace.objects.get(pk=pk)
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response(WORKSPACE_ERROR,status=status.HTTP_404_NOT_FOUND)
         if workspace.is_archived:
             return Response(WORKSPACE_IS_ARCHIVED_ERROR, status=status.HTTP_200_OK)
         return f(self, request, pk, *args, **kwargs)
@@ -61,7 +65,10 @@ def workspace_is_archived(f):
 def belongs_to_workspace(f):
     @wraps(f)
     def wrapper(self, request, pk=None, *args, **kwargs):
-        workspace = Workspace.objects.get(pk=pk)
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response(WORKSPACE_ERROR,status=status.HTTP_404_NOT_FOUND)
         if request.user in workspace.users.all() or (request.user in workspace.managers.all() and request.user.role == User.WORKSPACE_MANAGER):
             return f(self, request, pk, *args, **kwargs)
         else:
@@ -72,7 +79,10 @@ def belongs_to_workspace(f):
 def is_particular_organization_owner(f):
     @wraps(f)
     def wrapper(self, request, pk=None, *args, **kwargs):
-        workspace = Workspace.objects.get(pk=pk)
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response(WORKSPACE_ERROR,status=status.HTTP_404_NOT_FOUND)
         if request.user.organization == workspace.organization and request.user.role == User.ORGANIZAION_OWNER:
             return f(self, request, pk, *args, **kwargs)
         else:
