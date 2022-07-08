@@ -13,7 +13,9 @@ from .resources import RESOURCE_MAP
 )
 def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content_type):
     # sourcery skip: raise-specific-error
-    """Celery background task to upload the data to the dataset instance through file upload
+    """Celery background task to upload the data to the dataset instance through file upload. 
+    First perform a batch upload and if that fails then move on to an iterative format to find rows with errors. 
+
 
     Args:
         dataset_string (str): The data to be uploaded in string format
@@ -42,37 +44,44 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
         )
         raise e
 
-    # Add row numbers to the dataset
-    imported_data.append_col(range(1, len(imported_data) + 1), header="row_number")
-
     # Declare the appropriate resource map based on dataset type
     resource = RESOURCE_MAP[dataset_type]()
 
-    # List with row numbers that couldn't be uploaded
-    failed_rows = []
+    # Perform a full batch upload of the data and return success if all checks are passed 
+    try: 
+        resource.import_data(imported_data, raise_errors=True)
+        return f"All {len(imported_data.dict)} rows uploaded together."
+    
+    # If checks are failed, check which lines have an issue 
+    except: 
+            
+        # Add row numbers to the dataset
+        imported_data.append_col(range(1, len(imported_data) + 1), header="row_number")
 
-    # Iterate through the dataset and upload each row to the database
-    for row in imported_data.dict:
+        # List with row numbers that couldn't be uploaded
+        failed_rows = []
 
-        # Remove row number column from the row being uploaded
-        row_number = row["row_number"]
-        del row["row_number"]
+        # Iterate through the dataset and upload each row to the database
+        for row in imported_data.dict:
 
-        # Convert row to a tablib dataset
-        row_dataset = Dataset()
-        row_dataset.headers = data_headers
+            # Remove row number column from the row being uploaded
+            row_number = row["row_number"]
+            del row["row_number"]
 
-        # Add the row to the dataset
-        row_dataset.append(tuple(row.values()))
+            # Convert row to a tablib dataset
+            row_dataset = Dataset()
+            row_dataset.headers = data_headers
 
-        upload_result = resource.import_data(row_dataset, raise_errors=False)
+            # Add the row to the dataset
+            row_dataset.append(tuple(row.values()))
 
-        # check if the upload result has errors
-        if upload_result.has_errors() or upload_result.has_validation_errors():
-            failed_rows.append(row_number)
+            upload_result = resource.import_data(row_dataset, raise_errors=False, dry_run=True)
 
-    # If there are upload errors return the failed rows and make the task a failure
-    if failed_rows:
+            # check if the upload result has errors
+            if upload_result.has_errors() or upload_result.has_validation_errors():
+                failed_rows.append(row_number)
+
+        # Upload which rows have an error 
         self.update_state(
             state="FAILURE",
             meta={
@@ -80,5 +89,3 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
             },
         )
         raise Exception(f"Upload failed for lines: {failed_rows}")
-    else:
-        return f"All {len(imported_data.dict)} rows uploaded."
