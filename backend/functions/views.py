@@ -53,37 +53,45 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
 
     return response.json()["output"][0]['target']
 
-def save_translation_pairs(languages, input_sentences, output_dataset_instance_id): 
+def save_translation_pairs(languages, input_sentences, output_dataset_instance_id, input_dataset_instance_id): 
     """Function to save the translation pairs in the database.
 
     Args:
         languages (list): List of output languages for the translations. 
-        input_sentences (list(list)): List of input sentences in list format containing the - [input_sentence, input_language, context] 
+        input_sentences (list(list)): List of input sentences in list format containing the - [input_sentence, input_language, context, quality_status] 
         output_dataset_instance_id (int): ID of the output dataset instance.
+        input_dataset_instance_id (int): ID of the input dataset instance. 
     """
 
     # Iterate through the languages 
     for output_language in languages: 
     
         # Save all the translation outputs in the TranslationPair object 
-        for input_sentence, language, context in input_sentences:
+        for input_sentence, language, context, quality_status in input_sentences:
+            
+            # Only perform the saving if quality status is clean
+            if quality_status == "Clean": 
+                
+                # Get the translations 
+                translated_sentence = get_translation_using_cdac_model(input_sentence=input_sentence, source_language=language, target_language=output_language)
 
-            # Get the translations 
-            translated_sentence = get_translation_using_cdac_model(input_sentence=input_sentence, source_language=language, target_language=languages[0])
+                # Get the output dataset instance
+                output_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id=output_dataset_instance_id)
 
-            # Get the output dataset instance
-            output_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id=output_dataset_instance_id)
+                # Get the input datasset instance 
+                input_dataset_instance = dataset_models.DataSet
 
-            # Create and save a TranslationPair object
-            translation_pair_obj = dataset_models.TranslationPair(
-                instance_id=output_dataset_instance,
-                input_language=language,
-                output_language=output_language,
-                input_text=input_sentence,
-                machine_translation=translated_sentence,
-                context=context, 
-            ) 
-            translation_pair_obj.save()  
+                # Create and save a TranslationPair object
+                translation_pair_obj = dataset_models.TranslationPair(
+                    parent_data=input_dataset_instance,
+                    instance_id=output_dataset_instance,
+                    input_language=language,
+                    output_language=output_language,
+                    input_text=input_sentence,
+                    machine_translation=translated_sentence,
+                    context=context, 
+                ) 
+                translation_pair_obj.save()  
 
 
 @api_view(["POST"])
@@ -275,7 +283,7 @@ def schedule_ai4b_translate_job(request):
     {
         "input_dataset_instance_id": <int>,
         "languages": <list>
-        "output_dataset_instance_id": <int> [Optional]
+        "output_dataset_instance_id": <int>
     }
 
     Response Body
@@ -284,6 +292,13 @@ def schedule_ai4b_translate_job(request):
         "result": <str>
         "status": DjangoStatusCode
     }
+
+    Steps being performed so far, can be removed once the workflow is finalized
+    1. Check if the input dataset instance is a SentenceText dataset
+    2. Check if it has "CorrectedText", if not then ask to export 
+    3. Check whether output ID and that it should be transaltion pair, then ask to create a new instance 
+    4. Iterate over all languages and use the api to get the target language translations 
+    5. Save the translation pair to the TranslationPair Datainstance 
     """
 
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
@@ -293,8 +308,14 @@ def schedule_ai4b_translate_job(request):
     try: 
         input_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id=input_dataset_instance_id)
 
+        # Check if it's a sentence Text
         if input_dataset_instance.dataset_type != "SentenceText": 
             return Response({"message": "Input dataset instance is not a SentenceText dataset"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if corrected_text and quality_status are not null 
+        if (input_dataset_instance.corrected_text is None) or (input_dataset_instance.quality_status is None): 
+            return Response({"message": "The data has not been exported yet."}, status=status.HTTP_400_BAD_REQUEST)
+        
     except dataset_models.DatasetInstance.DoesNotExist:
         ret_dict = {"message": "Dataset instance does not exist!"}
         ret_status = status.HTTP_404_NOT_FOUND
@@ -304,41 +325,25 @@ def schedule_ai4b_translate_job(request):
     input_sentences = list(
         dataset_models.SentenceText.objects.filter(
             instance_id=input_dataset_instance_id
-        ).values_list("text", "language", "context")
+        ).values_list("corrected_text", "language", "context", "quality_status")
     )
 
     # Create a dataset instance for the output dataset
-    output_dataset_instance_id = request.data.get("output_dataset_instance_id", 0)
-    
-    if output_dataset_instance_id: 
-        
-        # Check if the output type is TranslationPair
+    output_dataset_instance_id = request.data['output_dataset_instance_id']
+
+    # Check if the output dataset instance exists and is a TranslationPair type 
+    try:
         output_dataset_instance = dataset_models.DatasetInstance.objects.get(instance_id=output_dataset_instance_id)
-        if output_dataset_instance.dataset_type == "TranslationPair": 
-            pass
+        if output_dataset_instance.dataset_type != "TranslationPair": 
+            return Response({"message": "Output dataset instance is not of type TranslationPair"}, status=status.HTTP_400_BAD_REQUEST)
+
+        else: 
 
             # Call the function to save the TranslationPair dataset
-            
-        
-        else: 
-            ret_dict = {"message": "Output dataset instance is not of type TranslationPair"}
-            ret_status = status.HTTP_400_BAD_REQUEST
-            return Response(ret_dict, status=ret_status)
+            save_translation_pairs(languages, input_sentences, output_dataset_instance_id, input_dataset_instance_id)
     
-    # Create a new dataset instance of type translation pair if the id doesn't exists 
-    else: 
-        output_dataset_instance = dataset_models.DatasetInstance(
-            instance_name=f"Automated Translation Pair Dataset - {uuid.uuid4()}",
-            instance_description="This DatasetInstance was generated automatically using the AI4B Translate API. It has been allocated a unique uuid.",
-            dataset_type="TranslationPair",
-        )
-        output_dataset_instance.save() 
-        output_dataset_instance_id = output_dataset_instance.instance_id
-
-        # Call the function to save the TranslationPair dataset
-
-
-            
+    except dataset_models.DatasetInstance.DoesNotExist:
+        return Response({"message": "Output dataset instance does not exist! Create a TranslationPair DatasetInstance"}, status=status.HTTP_404_NOT_FOUND)          
 
 
     # return Response(get_translations_using_cdac_model("Hi, hello. What are you doing?", source_language='en', target_language='hi'))
