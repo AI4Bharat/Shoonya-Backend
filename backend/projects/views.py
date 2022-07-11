@@ -339,6 +339,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         return Response({"message": "User removed"}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["post"], url_name="remove_reviewer")
+    def remove_reviewer(self, request, pk=None):
+        user = User.objects.filter(email=request.data["email"]).first()
+        if not user:
+            return Response({"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        project = Project.objects.filter(pk=pk).first()
+        if not project:
+            return Reponse({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        if project.frozen_users.filter(id=user.id).exists():
+            return Response({"message": "User is already frozen in this project"}, status=status.HTTP_400_BAD_REQUEST)
+
+        tasks = Task.objects.filter(project_id=project.id).filter(review_user=user).exclude(task_status__in=[ACCEPTED, REJECTED])
+        for task in tasks:
+            task.review_user = None
+            task.save()
+
+        project.frozen_users.add(user)
+        project.save()
+        return Response({"message": "User removed"}, status=status.HTTP_200_OK)
+
     @swagger_auto_schema(
         method="post",
         manual_parameters=[
@@ -1031,29 +1053,63 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project = Project.objects.get(pk=pk)
             if not project.enable_task_reviews:
                 return Response({"message": "Task reviews are disabled for this project"}, status=status.HTTP_403_FORBIDDEN)
-            emails = request.data.get("emails")
-            invalid_emails = []
-            for email in emails:
-                if re.fullmatch(EMAIL_REGEX, email):
-                    user = User.objects.get(email=email)
-                    project.annotation_reviewers.add(user)
-                    project.save()
-                else:
-                    invalid_emails.append(email)
+            ids = request.data.get("ids")
+            users = User.objects.filter(id__in=ids)
+            if users.count() != len(ids):
+                return Response({"message": "Enter all valid user ids"}, status=status.HTTP_400_BAD_REQUEST)
+            for user in users:
+                project.annotation_reviewers.add(user)
 
-                if invalid_emails:
-                    ret_dict = {"message": f"Users partially added! Invalid emails: {','.join(invalid_emails)}"}
-                    ret_status = status.HTTP_201_CREATED
-                else:
-                    ret_dict = {"message": "Users added!"}
-                    ret_status = status.HTTP_201_CREATED
+            return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
-            ret_dict = {"message": "Project does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        except User.DoesNotExist:
-            ret_dict = {"message": "User does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        return Response(ret_dict, status=ret_status)
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=["POST"], name="Enable Task Reviews", url_name="allow_task_reviews")
+    @is_particular_workspace_manager
+    def allow_task_reviews(self, request, pk):
+        try:
+            project = Project.objects.get(pk=pk)
+            if project.enable_task_reviews:
+                return Response({"message": "Task reviews are already enabled"}, status=status.HTTP_403_FORBIDDEN)
+
+            tasks = Task.objects.filter(project_id=project.id).filter(task_status=ACCEPTED)
+            tasks.update(task_status=LABELED)
+            project.enable_task_reviews = True
+            project.save()
+            return Response({"message": "Task reviews enabled"}, status=status.HTTP_200_OK)
+        except Project.DoesNotExist:
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(detail=True, methods=["POST"], name="Disable Task Reviews", url_name="disable_task_reviews")
+    @is_particular_workspace_manager
+    def disable_task_reviews(self, request, pk):
+        try:
+            project = Project.objects.get(pk=pk)
+            if not project.enable_task_reviews:
+                return Response({"message": "Task reviews are already disabled"}, status=status.HTTP_403_FORBIDDEN)
+
+            tasks = Task.objects.filter(project_id=project.id)
+            # delete review annotations for review tasks
+            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, REJECTED])
+            Annotation_model.objects.filter(task__in=reviewed_tasks).exclude(parent_annotation__isnull=True).delete()
+            # mark all unreviewed tasks accepted
+            unreviewed_tasks = tasks.filter(task_status=LABELED)
+            unreviewed_tasks.update(task_status=ACCEPTED)
+            # unassign reviewers
+            tasks.update(review_user=None)
+            project.enable_task_reviews = False
+            project.save()
+            return Response({"message": "Task reviews disabled"}, status=status.HTTP_200_OK)
+        except Project.DoesNotExist:
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
     @swagger_auto_schema(
         method="get",

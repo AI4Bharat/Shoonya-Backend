@@ -96,8 +96,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             user = request.user
             userRole = user.role
             user_obj = User.objects.get(pk=user.id)
+            is_review_mode = "mode" in dict(request.query_params) and request.query_params["mode"] == "review"
 
-            if "mode" in dict(request.query_params) and request.query_params["mode"] == "review":
+            if is_review_mode:
                 queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
             else:
                 if userRole == 1 and not user_obj.is_superuser:
@@ -133,7 +134,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 return Response(data)
 
         task_status = UNLABELED
-        if "mode" in dict(request.query_params) and request.query_params["mode"] == "review":
+        if is_review_mode:
             task_status = LABELED
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
@@ -332,20 +333,55 @@ class AnnotationViewSet(
         annotation = Annotation.objects.get(pk=annotation_id)
         task = annotation.task
 
-        if request.user not in task.annotation_users.all():
-            ret_dict = {"message": "You are trying to impersonate another user :("}
-            ret_status = status.HTTP_403_FORBIDDEN
-            return Response(ret_dict, status=ret_status)
-
-        if task.project_id.required_annotators_per_task == task.annotations.count():
-            # if True:
-            task.task_status = ACCEPTED
-            # TODO: Support accepting annotations manually
-            if task.annotations.count() == 1:
-                task.correct_annotation = annotation
-                task.task_status = request.data["task_status"]
+        if not annotation.parent_annotation:
+            is_review = False
         else:
-            task.task_status = UNLABELED
+            is_review = True
+
+        # Base annotation update
+        if not is_review:
+            if request.user not in task.annotation_users.all():
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+
+            if task.project_id.required_annotators_per_task == task.annotations.count():
+                # if True:
+                task.task_status = request.data["task_status"]
+                # TODO: Support accepting annotations manually
+                #if task.annotations.count() == 1:
+                if not task.project_id.enable_task_reviews:
+                    task.correct_annotation = annotation
+                    if task.task_status == LABELED:
+                        task.task_status = ACCEPTED
+            else:
+                task.task_status = UNLABELED
+        # Review annotation update
+        else:
+            if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REJECTED]:
+                review_status = request.data["review_status"]
+            else:
+                ret_dict = {"message": "Missing param : review_status"}
+                ret_status = status.HTTP_400_BAD_REQUEST
+                return Response(ret_dict, status=ret_status)
+
+            if request.user != task.review_user:
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+
+            if review_status == ACCEPTED:
+                task.correct_annotation = annotation
+                if annotation.result != parent_annotation.result:
+                    review_status = ACCEPTED_WITH_CHANGES
+            else:
+                task.correct_annotation = None
+
+            task.task_status = review_status
+
+            parent = annotation.parent_annotation
+            parent.review_notes = annotation.review_notes
+            parent.save()
 
         task.save()
         return annotation_response
