@@ -1,7 +1,7 @@
-import traceback
-from celery import shared_task, states
-from tablib import Dataset
 from base64 import b64decode
+
+from celery import shared_task
+from tablib import Dataset
 
 from .resources import RESOURCE_MAP
 
@@ -10,15 +10,12 @@ from .resources import RESOURCE_MAP
 
 @shared_task(
     bind=True,
-    autoretry_for=(Exception,),
-    exponential_backoff=2,
-    retry_kwargs={
-        "max_retries": 5,
-        "countdown": 2,
-    },
 )
 def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content_type):
-    """Celery background task to upload the data to the dataset instance through file upload
+    # sourcery skip: raise-specific-error
+    """Celery background task to upload the data to the dataset instance through file upload.
+    First perform a batch upload and if that fails then move on to an iterative format to find rows with errors.
+
 
     Args:
         dataset_string (str): The data to be uploaded in string format
@@ -28,7 +25,7 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
     """
 
     # Create a new tablib Dataset and load the data into this dataset
-    if content_type in ['xls', 'xlsx']:
+    if content_type in ["xls", "xlsx"]:
         imported_data = Dataset().load(b64decode(dataset_string), format=content_type)
     else:
         imported_data = Dataset().load(dataset_string, format=content_type)
@@ -36,20 +33,61 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
     # Add the instance_id column to all rows in the dataset
     imported_data.append_col([pk] * len(imported_data), header="instance_id")
 
-    # Declare the appropriate resource map based on dataset type
-    resource = RESOURCE_MAP[dataset_type]()
-
-    # Import the data into the database and return Success if all checks are passed
     try:
-        resource.import_data(imported_data, raise_errors=True)
-
-    # If validation checks fail, raise the Exception
+        data_headers = imported_data.dict[0].keys()
     except Exception as e:
         self.update_state(
             state="FAILURE",
             meta={
-                "exc_type": type(e).__name__,
-                "exc_message": traceback.format_exc().split("\n"),
+                "Empty Dataset Uploaded.",
             },
         )
         raise e
+
+    # Declare the appropriate resource map based on dataset type
+    resource = RESOURCE_MAP[dataset_type]()
+
+    # Perform a full batch upload of the data and return success if all checks are passed
+    try:
+        resource.import_data(imported_data, raise_errors=True)
+        return f"All {len(imported_data.dict)} rows uploaded together."
+
+    # If checks are failed, check which lines have an issue
+    except:
+
+        # Add row numbers to the dataset
+        imported_data.append_col(range(1, len(imported_data) + 1), header="row_number")
+
+        # List with row numbers that couldn't be uploaded
+        failed_rows = []
+
+        # Iterate through the dataset and upload each row to the database
+        for row in imported_data.dict:
+
+            # Remove row number column from the row being uploaded
+            row_number = row["row_number"]
+            del row["row_number"]
+
+            # Convert row to a tablib dataset
+            row_dataset = Dataset()
+            row_dataset.headers = data_headers
+
+            # Add the row to the dataset
+            row_dataset.append(tuple(row.values()))
+
+            upload_result = resource.import_data(
+                row_dataset, raise_errors=False, dry_run=True
+            )
+
+            # check if the upload result has errors
+            if upload_result.has_errors() or upload_result.has_validation_errors():
+                failed_rows.append(row_number)
+
+        # Upload which rows have an error
+        self.update_state(
+            state="FAILURE",
+            meta={
+                "failed_line_numbers": failed_rows,
+            },
+        )
+        raise Exception(f"Upload failed for lines: {failed_rows}")
