@@ -667,6 +667,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
+            task_check = Annotation_model.objects.filter(task_id = task.id , completed_by=cur_user.id)
+            if task_check.count() < 1 :
+                task_obj = Task.objects.get(id=task.id)
+                user_obj = User.objects.get(id=cur_user.id)
+                Annotation_model.objects.create(result = [],completed_by=user_obj,task=task_obj)
 
         project.release_lock()
         return Response(
@@ -690,6 +695,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if tasks.count() > 0:
                     for task in tasks:
                         task.unassign(user_obj)
+                        Annotation_model.objects.filter(task_id=task.id,completed_by=user_obj.id).delete()
+
                     return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
                 return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)

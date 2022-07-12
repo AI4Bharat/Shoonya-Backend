@@ -1,5 +1,7 @@
 from urllib.parse import unquote
 
+from uritemplate import partial
+
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
@@ -129,12 +131,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 data = serializer.data
                 return Response(data)
 
-        task_status = UNLABELED
+        task_status = INCOMPLETE
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
             task_status = request.query_params["task_status"]
         else:
-            queryset = queryset.filter(task_status=UNLABELED)
+            queryset = queryset.filter(task_status=INCOMPLETE)
 
         queryset = queryset.order_by("id")
 
@@ -244,40 +246,62 @@ class AnnotationViewSet(
                 task.task_status = request.data["task_status"]
 
         else:
-            task.task_status = UNLABELED
+            task.task_status = INCOMPLETE
         task.save()
         return annotation_response
 
+    
     def partial_update(self, request, pk=None):
-        # task_id = request.data["task"]
-        # task = Task.objects.get(pk=task_id)
-        # if request.user not in task.annotation_users.all():
-        #     ret_dict = {"message": "You are trying to impersonate another user :("}
-        #     ret_status = status.HTTP_403_FORBIDDEN
-        #     return Response(ret_dict, status=ret_status)
-
-        annotation_response = super().partial_update(request)
+       
+        try :
+            annotation = Annotation.objects.get(id=pk)
+            task = annotation.task
+            annot_user= annotation.completed_by
+        except:
+            ret_dict = {"message": " task object not pulled yet"}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
+        if request.user != annot_user:
+            ret_dict = {"message": "You are trying to impersonate another user :(("}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
+        
+        annotation_response = super().update(request,partial=True)
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        task = annotation.task
+        
+        annotation.save()
+        return annotation_response
 
-        if request.user not in task.annotation_users.all():
+    def update(self, request, pk=None,):
+        try :
+            annotation_obj = Annotation.objects.get(id = pk)
+            annot_user= annotation_obj.completed_by
+        except:
+            ret_dict = {"message": " task object  not pulled yet"}
+            ret_status = status.HTTP_403_FORBIDDEN
+            return Response(ret_dict, status=ret_status)
+        if request.user != annot_user:
             ret_dict = {"message": "You are trying to impersonate another user :("}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
+        annotation_response = super().update(request)
+        annotation_id = annotation_response.data["id"]
+        annotation_obj1 = Annotation.objects.get(id = annotation_id)
+        annotation_obj1.annotation_status = LABELED
+        annotation_obj1.save()
+        task = annotation_obj.task
 
-        if task.project_id.required_annotators_per_task == task.annotations.count():
+        if task.project_id.required_annotators_per_task == task.annotations.filter(annotation_status='labeled').count():
             # if True:
-            task.task_status = ACCEPTED
-            # TODO: Support accepting annotations manually
-            if task.annotations.count() == 1:
-                task.correct_annotation = annotation
-                task.task_status = request.data["task_status"]
+            task.task_status = COMPLETE
         else:
-            task.task_status = UNLABELED
-
+            task.task_status = INCOMPLETE
         task.save()
+
         return annotation_response
+
+
 
     def destroy(self, request, pk=None):
 
@@ -285,7 +309,7 @@ class AnnotationViewSet(
         annotation_id = instance.id
         annotation = Annotation.objects.get(pk=annotation_id)
         task = annotation.task
-        task.task_status = UNLABELED
+        task.task_status = INCOMPLETE
         task.save()
 
         annotation_response = super().destroy(request)
@@ -306,7 +330,7 @@ class AnnotationViewSet(
     #             task.correct_annotation = annotation
     #             task.task_status = ACCEPTED
     #     else:
-    #         task.task_status = UNLABELED
+    #         task.task_status = INCOMPLETE
 
     #     task.save()
     #     return annotation_response

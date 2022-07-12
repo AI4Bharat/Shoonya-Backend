@@ -39,15 +39,32 @@ ACCEPTED = "accepted"
 REJECTED = "rejected"
 FREEZED = "freezed"
 DRAFT = "draft"
+INCOMPLETE = "incomplete"
+COMPLETE= "complete"
 
+# TASK_STATUS = (
+#     (UNLABELED, "unlabeled"),
+#     (LABELED, "labeled"),
+#     (SKIPPED, "skipped"),
+#     (ACCEPTED, "accepted"),
+#     (FREEZED, "freezed"),
+#     (REJECTED, "rejected"),
+#     (DRAFT, "draft"),
+# )
 TASK_STATUS = (
+    (INCOMPLETE, "incomplete"),
+    (COMPLETE, "complete"),
+    (ACCEPTED, "accepted"),
+    (REJECTED, "rejected"),
+    (SKIPPED, "skipped"),
+    (DRAFT, "draft")
+)
+
+ANNOTATION_STATUS = (
     (UNLABELED, "unlabeled"),
     (LABELED, "labeled"),
     (SKIPPED, "skipped"),
-    (ACCEPTED, "accepted"),
-    (FREEZED, "freezed"),
-    (REJECTED, "rejected"),
-    (DRAFT, "draft"),
+    (DRAFT, "draft")
 )
 
 
@@ -88,7 +105,7 @@ class Task(models.Model):
     task_status = models.CharField(
         choices=TASK_STATUS,
         max_length=100,
-        default=UNLABELED,
+        default=INCOMPLETE,
         verbose_name="task_status",
     )
     metadata_json = models.JSONField(
@@ -210,6 +227,12 @@ class Annotation(models.Model):
     lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
     # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
     notes = models.TextField(blank=True, null=True, verbose_name="annotation_notes")
+    annotation_status = models.CharField(
+        choices=ANNOTATION_STATUS,
+        max_length=100,
+        default=UNLABELED,
+        verbose_name="annoation_status",
+    )
 
     def __str__(self):
         return str(self.id)
