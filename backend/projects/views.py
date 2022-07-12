@@ -341,7 +341,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], url_name="remove_reviewer")
     def remove_reviewer(self, request, pk=None):
-        user = User.objects.filter(email=request.data["email"]).first()
+        user_id = request.data.get("id")
+        user = User.objects.filter(id=user_id).first()
         if not user:
             return Response({"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
