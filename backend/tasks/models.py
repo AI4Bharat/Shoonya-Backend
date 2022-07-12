@@ -36,6 +36,7 @@ UNLABELED = "unlabeled"
 LABELED = "labeled"
 SKIPPED = "skipped"
 ACCEPTED = "accepted"
+ACCEPTED_WITH_CHANGES = "accepted_with_changes"
 REJECTED = "rejected"
 FREEZED = "freezed"
 DRAFT = "draft"
@@ -45,6 +46,7 @@ TASK_STATUS = (
     (LABELED, "labeled"),
     (SKIPPED, "skipped"),
     (ACCEPTED, "accepted"),
+    (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
     (FREEZED, "freezed"),
     (REJECTED, "rejected"),
     (DRAFT, "draft"),
@@ -82,8 +84,8 @@ class Task(models.Model):
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", blank=True
     )
-    review_user = models.ManyToManyField(
-        User, related_name="review_users", verbose_name="review_users",  blank=True
+    review_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="review_tasks", verbose_name="review_user",  blank=True
     )
     task_status = models.CharField(
         choices=TASK_STATUS,
@@ -208,8 +210,11 @@ class Annotation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="annotation_created_at")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="annotation_updated_at")
     lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
-    # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
-    notes = models.TextField(blank=True, null=True, verbose_name="annotation_notes")
+    parent_annotation = models.ForeignKey(
+        'self', verbose_name='parent_annotation', null = True, blank = True, default=None, on_delete=models.PROTECT
+    )
+    annotation_notes = models.TextField(blank=True, null=True, verbose_name="annotation_notes")
+    review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
 
     def __str__(self):
         return str(self.id)
