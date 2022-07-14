@@ -219,7 +219,7 @@ def get_unassigned_task_count(pk):
     project = Project.objects.get(pk=pk)
     tasks = (
         Task.objects.filter(project_id=pk)
-        .filter(task_status=UNLABELED)
+        .filter(task_status=INCOMPLETE)
         .annotate(annotator_count=Count("annotation_users"))
     )
     task_count = tasks.filter(
@@ -438,12 +438,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 unlabelled_tasks = Task.objects.filter(
                     project_id__exact=project.id,
                     annotation_users=request.user.id,
-                    task_status__exact=UNLABELED,
+                    task_status__exact=INCOMPLETE,
                 )
             else:
                 # TODO : Refactor code to reduce DB calls
                 unlabelled_tasks = Task.objects.filter(
-                    project_id__exact=project.id, task_status__exact=UNLABELED
+                    project_id__exact=project.id, task_status__exact=INCOMPLETE
                 )
 
             unlabelled_tasks = unlabelled_tasks.order_by("id")
@@ -637,7 +637,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         pending_tasks = (
             Task.objects.filter(project_id=pk)
             .filter(annotation_users=cur_user.id)
-            .filter(task_status__exact=UNLABELED)
+            .filter(task_status__exact=INCOMPLETE)
             .count()
         )
         # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
@@ -673,7 +673,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # check if the project contains eligible tasks to pull
         tasks = Task.objects.filter(project_id=pk)
         tasks = tasks.order_by("id")
-        tasks = tasks.filter(task_status=UNLABELED).exclude(annotation_users=cur_user.id).annotate(annotator_count=Count("annotation_users"))
+        tasks = tasks.filter(task_status=INCOMPLETE).exclude(annotation_users=cur_user.id).annotate(annotator_count=Count("annotation_users"))
         tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
         if not tasks:
             project.release_lock(ANNOTATION_LOCK)
@@ -686,6 +686,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
+            task_check = Annotation_model.objects.filter(task_id = task.id , completed_by=cur_user.id)
+            if task_check.count() < 1 :
+                task_obj = Task.objects.get(id=task.id)
+                user_obj = User.objects.get(id=cur_user.id)
+                Annotation_model.objects.create(result = [],completed_by=user_obj,task=task_obj)
 
         project.release_lock(ANNOTATION_LOCK)
         return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
@@ -704,10 +709,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if userRole == 1 and not user_obj.is_superuser:
             if project_id:
                 tasks = Task.objects.filter(project_id__exact=project_id
-                    ).filter(annotation_users=user.id).filter(task_status=UNLABELED)
+                    ).filter(annotation_users=user.id).filter(task_status=INCOMPLETE)
                 if tasks.count() > 0:
                     for task in tasks:
                         task.unassign(user_obj)
+                        Annotation_model.objects.filter(task_id=task.id,completed_by=user_obj.id).delete()
                     return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
                 return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -747,7 +753,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     continue
 
         # check if the project contains eligible tasks to pull
-        tasks = Task.objects.filter(project_id=pk).filter(task_status=LABELED).filter(review_user__isnull=True).exclude(annotation_users=cur_user.id)
+        tasks = Task.objects.filter(project_id=pk).filter(task_status=COMPLETE).filter(review_user__isnull=True).exclude(annotation_users=cur_user.id)
         if not tasks:
             project.release_lock(REVIEW_LOCK)
             return Response({"message": "No tasks available for review in this project"}, status=status.HTTP_404_NOT_FOUND)

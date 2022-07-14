@@ -40,18 +40,34 @@ ACCEPTED_WITH_CHANGES = "accepted_with_changes"
 REJECTED = "rejected"
 FREEZED = "freezed"
 DRAFT = "draft"
+INCOMPLETE = "incomplete"
+COMPLETE= "complete"
 
+# TASK_STATUS = (
+#     (UNLABELED, "unlabeled"),
+#     (LABELED, "labeled"),
+#     (SKIPPED, "skipped"),
+#     (ACCEPTED, "accepted"),
+#     (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
+#     (FREEZED, "freezed"),
+#     (REJECTED, "rejected"),
+#     (DRAFT, "draft"),
+# )
 TASK_STATUS = (
-    (UNLABELED, "unlabeled"),
-    (LABELED, "labeled"),
-    (SKIPPED, "skipped"),
+    (INCOMPLETE, "incomplete"),
+    (COMPLETE, "complete"),
     (ACCEPTED, "accepted"),
     (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
     (FREEZED, "freezed"),
     (REJECTED, "rejected"),
-    (DRAFT, "draft"),
 )
 
+ANNOTATION_STATUS = (
+    (UNLABELED, "unlabeled"),
+    (LABELED, "labeled"),
+    (SKIPPED, "skipped"),
+    (DRAFT, "draft")
+)
 
 class Task(models.Model):
     """
@@ -90,7 +106,7 @@ class Task(models.Model):
     task_status = models.CharField(
         choices=TASK_STATUS,
         max_length=100,
-        default=UNLABELED,
+        default=INCOMPLETE,
         verbose_name="task_status",
     )
     metadata_json = models.JSONField(
@@ -214,6 +230,12 @@ class Annotation(models.Model):
         'self', verbose_name='parent_annotation', null = True, blank = True, default=None, on_delete=models.PROTECT
     )
     annotation_notes = models.TextField(blank=True, null=True, verbose_name="annotation_notes")
+    annotation_status = models.CharField(
+        choices=ANNOTATION_STATUS,
+        max_length=100,
+        default=UNLABELED,
+        verbose_name="annotation_status",
+    )
     review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
 
     def __str__(self):
