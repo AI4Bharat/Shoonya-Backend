@@ -44,6 +44,7 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     add_new_data_items_into_project,
+    filter_data_items,
 )
 from .utils import is_valid_date, no_of_words
 
@@ -771,6 +772,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.release_lock(REVIEW_LOCK)
         return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["get"], name="Unassign review tasks", url_name="unassign_review_tasks")
+    def unassign_review_tasks(self, request, pk, *args, **kwargs):
+        """
+        Unassigns all labeled tasks from a reviewer.
+        """
+        user = request.user
+        user_obj = User.objects.get(pk=user.id)
+        project_id = pk
+
+        if project_id:
+            project_obj = Project.objects.get(pk=project_id)
+            if project_obj and user.id in project_obj.annotation_reviewers:
+                tasks = Task.objects.filter(project_id__exact=project_id
+                    ).filter(task_status=LABELED).filter(review_user__exact=user.id)
+                if tasks.count() > 0:
+                    for task in tasks:
+                        task.review_user = None
+                    return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
+                return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Only reviewers can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
 
     @swagger_auto_schema(
         method="post",
@@ -1181,30 +1204,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 # Get project instance and check how many items to pull
                 project_type = project.project_type
-                registry_helper = ProjectRegistry.get_instance()
-                input_dataset_info = registry_helper.get_input_dataset_and_fields(
-                    project_type
-                )
-                dataset_model = getattr(
-                    dataset_models, input_dataset_info["dataset_type"]
-                )
-                tasks = Task.objects.filter(project_id__exact=project)
-                all_items = dataset_model.objects.filter(
-                    instance_id__in=list(project.dataset_id.all())
-                )
-                items = all_items.exclude(id__in=tasks.values("input_data"))
-
-                # Get the input dataset fields from the filtered items
-                if input_dataset_info["prediction"] is not None:
-                    items = list(
-                        items.values(
-                            "id",
-                            *input_dataset_info["fields"],
-                            input_dataset_info["prediction"],
-                        )
-                    )
-                else:
-                    items = list(items.values("id", *input_dataset_info["fields"]))
+                ids_to_exclude = Task.objects.filter(project_id__exact=project)
+                items = filter_data_items(project_type, list(project.dataset_id.all()), project.filter_string, ids_to_exclude)
 
                 if items:
 
