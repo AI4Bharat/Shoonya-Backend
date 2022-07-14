@@ -766,6 +766,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.release_lock(REVIEW_LOCK)
         return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["get"], name="Unassign review tasks", url_name="unassign_review_tasks")
+    def unassign_review_tasks(self, request, pk, *args, **kwargs):
+        """
+        Unassigns all labeled tasks from a reviewer.
+        """
+        user = request.user
+        user_obj = User.objects.get(pk=user.id)
+        project_id = pk
+
+        if project_id:
+            project_obj = Project.objects.get(pk=project_id)
+            if project_obj and user.id in project_obj.annotation_reviewers:
+                tasks = Task.objects.filter(project_id__exact=project_id
+                    ).filter(task_status=LABELED).filter(review_user__exact=user.id)
+                if tasks.count() > 0:
+                    for task in tasks:
+                        task.review_user = None
+                    return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
+                return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Only reviewers can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
 
     @swagger_auto_schema(
         method="post",
