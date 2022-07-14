@@ -44,6 +44,7 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     add_new_data_items_into_project,
+    filter_data_items,
 )
 from .utils import is_valid_date, no_of_words
 
@@ -337,6 +338,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         project.frozen_users.add(user)
 
+        return Response({"message": "User removed"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_name="remove_reviewer")
+    def remove_reviewer(self, request, pk=None):
+        user_id = request.data.get("id")
+        user = User.objects.filter(id=user_id).first()
+        if not user:
+            return Response({"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        project = Project.objects.filter(pk=pk).first()
+        if not project:
+            return Reponse({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        if project.frozen_users.filter(id=user.id).exists():
+            return Response({"message": "User is already frozen in this project"}, status=status.HTTP_400_BAD_REQUEST)
+
+        tasks = Task.objects.filter(project_id=project.id).filter(review_user=user).exclude(task_status__in=[ACCEPTED, REJECTED])
+        for task in tasks:
+            task.review_user = None
+            task.save()
+
+        project.frozen_users.add(user)
+        project.save()
         return Response({"message": "User removed"}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
@@ -636,42 +660,37 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
         lock_set = False
-        while lock_set == False:
-            if project.is_locked():
+        while(lock_set == False):
+            if project.is_locked(ANNOTATION_LOCK):
                 sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
                 continue
             else:
                 try:
-                    project.set_lock(cur_user)
+                    project.set_lock(cur_user, ANNOTATION_LOCK)
                     lock_set = True
                 except Exception as e:
                     continue
 
         # check if the project contains eligible tasks to pull
-        tasks = (
-            Task.objects.filter(project_id=pk)
-            .filter(task_status=UNLABELED)
-            .annotate(annotator_count=Count("annotation_users"))
-        )
+        tasks = Task.objects.filter(project_id=pk)
+        tasks = tasks.order_by("id")
+        tasks = tasks.filter(task_status=UNLABELED).exclude(annotation_users=cur_user.id).annotate(annotator_count=Count("annotation_users"))
         tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
         if not tasks:
-            project.release_lock()
-            return Response(
-                {"message": "No tasks left for assignment in this project"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            project.release_lock(ANNOTATION_LOCK)
+            return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
 
         # filter out tasks which meet the annotator count threshold
         # and assign the ones with least count to user, so as to maintain uniformity
         tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
+        # tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
 
-        project.release_lock()
-        return Response(
-            {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
-        )
+        project.release_lock(ANNOTATION_LOCK)
+        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+
 
     @action(detail=True, methods=["get"], name="Unassign tasks", url_name="unassign_tasks")
     def unassign_tasks(self, request, pk, *args, **kwargs):
@@ -695,6 +714,80 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"message": "Only annotators can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
     
+
+    @action(detail=True, methods=["POST"], name="Assign new tasks for review to user", url_name="assign_new_review_tasks")
+    def assign_new_review_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of labeled tasks and assign to the reviewer
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+        if not project.is_published:
+            return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
+        if not project.enable_task_reviews:
+            return Response({"message": "Task reviews are disabled for this project"}, status=status.HTTP_403_FORBIDDEN)
+        serializer = ProjectUsersSerializer(project, many=False)
+        users = serializer.data["annotation_reviewers"]
+        user_ids = set()
+        for user in users:
+            user_ids.add(user["id"])
+        # verify if user belongs in annotation_reviewers for this project
+        if not cur_user.id in user_ids:
+            return Response({"message": "You are not assigned to review this project"}, status=status.HTTP_403_FORBIDDEN)
+
+        lock_set = False
+        while(lock_set == False):
+            if project.is_locked(REVIEW_LOCK):
+                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
+                continue
+            else:
+                try:
+                    project.set_lock(cur_user, REVIEW_LOCK)
+                    lock_set = True
+                except Exception as e:
+                    continue
+
+        # check if the project contains eligible tasks to pull
+        tasks = Task.objects.filter(project_id=pk).filter(task_status=LABELED).filter(review_user__isnull=True).exclude(annotation_users=cur_user.id)
+        if not tasks:
+            project.release_lock(REVIEW_LOCK)
+            return Response({"message": "No tasks available for review in this project"}, status=status.HTTP_404_NOT_FOUND)
+
+        task_pull_count = project.tasks_pull_count_per_batch
+        if "num_tasks" in dict(request.data):
+            task_pull_count = request.data["num_tasks"]
+
+        tasks = tasks.order_by("id")
+        tasks = tasks[:task_pull_count]
+        for task in tasks:
+            task.review_user = cur_user
+            task.save()
+
+        project.release_lock(REVIEW_LOCK)
+        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], name="Unassign review tasks", url_name="unassign_review_tasks")
+    def unassign_review_tasks(self, request, pk, *args, **kwargs):
+        """
+        Unassigns all labeled tasks from a reviewer.
+        """
+        user = request.user
+        project_id = pk
+
+        if project_id:
+            project_obj = Project.objects.get(pk=project_id)
+            if project_obj and user in project_obj.annotation_reviewers.all():
+                tasks = Task.objects.filter(project_id__exact=project_id
+                    ).filter(task_status=LABELED).filter(review_user__exact=user.id)
+                if tasks.count() > 0:
+                    for task in tasks:
+                        task.review_user = None
+                    return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
+                return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Only reviewers can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
@@ -951,6 +1044,77 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except:
             return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=True, methods=["POST"], name="Add Project Reviewers", url_name="add_project_reviewers")
+    @project_is_archived
+    @is_particular_workspace_manager
+    def add_project_reviewers(self, request, pk, *args, **kwargs):
+        """
+        Adds annotation reviewers to the project
+        """
+        ret_dict = {}
+        ret_status = 0
+        try:
+            project = Project.objects.get(pk=pk)
+            if not project.enable_task_reviews:
+                return Response({"message": "Task reviews are disabled for this project"}, status=status.HTTP_403_FORBIDDEN)
+            ids = request.data.get("ids")
+            users = User.objects.filter(id__in=ids)
+            if users.count() != len(ids):
+                return Response({"message": "Enter all valid user ids"}, status=status.HTTP_400_BAD_REQUEST)
+            for user in users:
+                project.annotation_reviewers.add(user)
+
+            return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
+        except Project.DoesNotExist:
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=["POST"], name="Enable Task Reviews", url_name="allow_task_reviews")
+    @is_particular_workspace_manager
+    def allow_task_reviews(self, request, pk):
+        try:
+            project = Project.objects.get(pk=pk)
+            if project.enable_task_reviews:
+                return Response({"message": "Task reviews are already enabled"}, status=status.HTTP_403_FORBIDDEN)
+
+            tasks = Task.objects.filter(project_id=project.id).filter(task_status=ACCEPTED)
+            tasks.update(task_status=LABELED)
+            project.enable_task_reviews = True
+            project.save()
+            return Response({"message": "Task reviews enabled"}, status=status.HTTP_200_OK)
+        except Project.DoesNotExist:
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+    @action(detail=True, methods=["POST"], name="Disable Task Reviews", url_name="disable_task_reviews")
+    @is_particular_workspace_manager
+    def disable_task_reviews(self, request, pk):
+        try:
+            project = Project.objects.get(pk=pk)
+            if not project.enable_task_reviews:
+                return Response({"message": "Task reviews are already disabled"}, status=status.HTTP_403_FORBIDDEN)
+
+            tasks = Task.objects.filter(project_id=project.id)
+            # delete review annotations for review tasks
+            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, REJECTED])
+            Annotation_model.objects.filter(task__in=reviewed_tasks).exclude(parent_annotation__isnull=True).delete()
+            # mark all unreviewed tasks accepted
+            unreviewed_tasks = tasks.filter(task_status=LABELED)
+            unreviewed_tasks.update(task_status=ACCEPTED)
+            # unassign reviewers
+            tasks.update(review_user=None)
+            project.enable_task_reviews = False
+            project.save()
+            return Response({"message": "Task reviews disabled"}, status=status.HTTP_200_OK)
+        except Project.DoesNotExist:
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
     @swagger_auto_schema(
         method="get",
         manual_parameters=[
@@ -1014,30 +1178,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 # Get project instance and check how many items to pull
                 project_type = project.project_type
-                registry_helper = ProjectRegistry.get_instance()
-                input_dataset_info = registry_helper.get_input_dataset_and_fields(
-                    project_type
-                )
-                dataset_model = getattr(
-                    dataset_models, input_dataset_info["dataset_type"]
-                )
-                tasks = Task.objects.filter(project_id__exact=project)
-                all_items = dataset_model.objects.filter(
-                    instance_id__in=list(project.dataset_id.all())
-                )
-                items = all_items.exclude(id__in=tasks.values("input_data"))
-
-                # Get the input dataset fields from the filtered items
-                if input_dataset_info["prediction"] is not None:
-                    items = list(
-                        items.values(
-                            "id",
-                            *input_dataset_info["fields"],
-                            input_dataset_info["prediction"],
-                        )
-                    )
-                else:
-                    items = list(items.values("id", *input_dataset_info["fields"]))
+                ids_to_exclude = Task.objects.filter(project_id__exact=project)
+                items = filter_data_items(project_type, list(project.dataset_id.all()), project.filter_string, ids_to_exclude)
 
                 if items:
 
