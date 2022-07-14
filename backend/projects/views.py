@@ -399,6 +399,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         # Check if the endpoint is being accessed in review mode
         is_review_mode = "mode" in dict(request.query_params) and request.query_params["mode"] == "review"
+        if is_review_mode:
+            if not project.enable_task_reviews:
+                resp_dict = {"message": "Task reviews are not enabled for this project"}
+                return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
         # Check if task_status is passed
         if "task_status" in dict(request.query_params):
