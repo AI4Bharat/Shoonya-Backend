@@ -771,12 +771,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Unassigns all labeled tasks from a reviewer.
         """
         user = request.user
-        user_obj = User.objects.get(pk=user.id)
         project_id = pk
 
         if project_id:
             project_obj = Project.objects.get(pk=project_id)
-            if project_obj and user.id in project_obj.annotation_reviewers:
+            if project_obj and user in project_obj.annotation_reviewers.all():
                 tasks = Task.objects.filter(project_id__exact=project_id
                     ).filter(task_status=LABELED).filter(review_user__exact=user.id)
                 if tasks.count() > 0:
