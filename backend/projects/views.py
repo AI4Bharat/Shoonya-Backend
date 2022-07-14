@@ -1,10 +1,8 @@
-from multiprocessing import context
 import re
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
 
-import pandas as pd
 from django.core.files import File
 from django.db.models import Count, Q
 from django.forms.models import model_to_dict
@@ -394,6 +392,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["post"], url_path="next")
     def next(self, request, pk):
+        """
+        Fetch the next task for the user(annotation or review)
+        """
         project = Project.objects.get(pk=pk)
         user_role = request.user.role
 
