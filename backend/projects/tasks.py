@@ -89,6 +89,50 @@ def create_tasks_from_dataitems(items, project):
     return tasks
 
 
+def apply_filtering_for_task(project_type, dataset_instance_ids, filter_string, tasks=None):
+    """Function to apply filtering for tasks.
+
+    Args:
+        project_type (str): Describes the type of project passed by the user
+        dataset_instance_ids (int): ID of the dataset that has been provided for the annotation task
+        filter_string (str): _description_
+        tasks(list): List of tasks to be filtered
+    """
+
+    # Load the dataset model from the instance id using the project registry
+    registry_helper = ProjectRegistry.get_instance()
+    input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
+
+    dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
+
+    # Get items corresponding to the instance id
+    data_items = dataset_model.objects.filter(
+        instance_id__in=dataset_instance_ids
+    ).order_by("id")
+
+    # Apply filtering
+    query_params = dict(parse_qsl(filter_string))
+    query_params = filter.fix_booleans_in_dict(query_params)
+    filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
+
+    # Create tasks from the filtered items
+    if tasks is not None:
+        filtered_items = filtered_items.exclude(id__in=tasks.values("input_data"))
+
+
+    # Get the input dataset fields from the filtered items
+    if input_dataset_info["prediction"] is not None:
+        filtered_items = list(
+            filtered_items.values(
+                "id", *input_dataset_info["fields"], input_dataset_info["prediction"]
+            )
+        )
+    else:
+        filtered_items = list(
+            filtered_items.values("id", *input_dataset_info["fields"])
+        )
+
+
 # def assign_users_to_tasks(tasks, users):
 #     annotatorList = []
 #     for user in users:
@@ -149,34 +193,7 @@ def create_parameters_for_task_creation(
 
     """
 
-    # Load the dataset model from the instance id using the project registry
-    registry_helper = ProjectRegistry.get_instance()
-    input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
-    output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
-
-    dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
-
-    # Get items corresponding to the instance id
-    data_items = dataset_model.objects.filter(
-        instance_id__in=dataset_instance_ids
-    ).order_by("id")
-
-    # Apply filtering
-    query_params = dict(parse_qsl(filter_string))
-    query_params = filter.fix_booleans_in_dict(query_params)
-    filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
-
-    # Get the input dataset fields from the filtered items
-    if input_dataset_info["prediction"] is not None:
-        filtered_items = list(
-            filtered_items.values(
-                "id", *input_dataset_info["fields"], input_dataset_info["prediction"]
-            )
-        )
-    else:
-        filtered_items = list(
-            filtered_items.values("id", *input_dataset_info["fields"])
-        )
+    filtered_items = apply_filtering_for_task(project_type, dataset_instance_ids, filter_string)
 
     # Apply sampling
     if sampling_mode == RANDOM:

@@ -44,6 +44,7 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     add_new_data_items_into_project,
+    apply_filtering_for_task,
 )
 from .utils import is_valid_date, no_of_words
 
@@ -1175,30 +1176,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 # Get project instance and check how many items to pull
                 project_type = project.project_type
-                registry_helper = ProjectRegistry.get_instance()
-                input_dataset_info = registry_helper.get_input_dataset_and_fields(
-                    project_type
-                )
-                dataset_model = getattr(
-                    dataset_models, input_dataset_info["dataset_type"]
-                )
                 tasks = Task.objects.filter(project_id__exact=project)
-                all_items = dataset_model.objects.filter(
-                    instance_id__in=list(project.dataset_id.all())
-                )
-                items = all_items.exclude(id__in=tasks.values("input_data"))
-
-                # Get the input dataset fields from the filtered items
-                if input_dataset_info["prediction"] is not None:
-                    items = list(
-                        items.values(
-                            "id",
-                            *input_dataset_info["fields"],
-                            input_dataset_info["prediction"],
-                        )
-                    )
-                else:
-                    items = list(items.values("id", *input_dataset_info["fields"]))
+                items = apply_filtering_for_task(project_type, list(project.dataset_id.all()), project.filter_string, tasks)
 
                 if items:
 
