@@ -89,14 +89,14 @@ def create_tasks_from_dataitems(items, project):
     return tasks
 
 
-def apply_filtering_for_task(project_type, dataset_instance_ids, filter_string, tasks=None):
+def filter_data_items(project_type, dataset_instance_ids, filter_string, ids_to_exclude=None):
     """Function to apply filtering for tasks.
 
     Args:
         project_type (str): Describes the type of project passed by the user
         dataset_instance_ids (int): ID of the dataset that has been provided for the annotation task
         filter_string (str): _description_
-        tasks(list): List of tasks to be filtered
+        ids_to_exclude(list): List of ids that need to be filtered(excluded) from the result
     """
 
     # Load the dataset model from the instance id using the project registry
@@ -116,8 +116,8 @@ def apply_filtering_for_task(project_type, dataset_instance_ids, filter_string, 
     filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
 
     # Create tasks from the filtered items
-    if tasks is not None:
-        filtered_items = filtered_items.exclude(id__in=tasks.values("input_data"))
+    if ids_to_exclude is not None:
+        filtered_items = filtered_items.exclude(id__in=ids_to_exclude.values("input_data"))
 
 
     # Get the input dataset fields from the filtered items
@@ -131,6 +131,8 @@ def apply_filtering_for_task(project_type, dataset_instance_ids, filter_string, 
         filtered_items = list(
             filtered_items.values("id", *input_dataset_info["fields"])
         )
+    
+    return filtered_items
 
 
 # def assign_users_to_tasks(tasks, users):
@@ -193,7 +195,7 @@ def create_parameters_for_task_creation(
 
     """
 
-    filtered_items = apply_filtering_for_task(project_type, dataset_instance_ids, filter_string)
+    filtered_items = filter_data_items(project_type, dataset_instance_ids, filter_string)
 
     # Apply sampling
     if sampling_mode == RANDOM:
