@@ -44,7 +44,7 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     add_new_data_items_into_project,
-    apply_filtering_for_task,
+    filter_data_items,
 )
 from .utils import is_valid_date, no_of_words
 
@@ -1176,8 +1176,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 # Get project instance and check how many items to pull
                 project_type = project.project_type
-                tasks = Task.objects.filter(project_id__exact=project)
-                items = apply_filtering_for_task(project_type, list(project.dataset_id.all()), project.filter_string, tasks)
+                ids_to_exclude = Task.objects.filter(project_id__exact=project)
+                items = filter_data_items(project_type, list(project.dataset_id.all()), project.filter_string, ids_to_exclude)
 
                 if items:
 
