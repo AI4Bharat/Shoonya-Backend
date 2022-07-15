@@ -63,11 +63,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     ANNOTATOR = 1
     WORKSPACE_MANAGER = 2
     ORGANIZAION_OWNER = 3
+    REVIEWER = 4
+    ADMIN = 5
 
     ROLE_CHOICES = (
         (ANNOTATOR, "Annotator"),
         (WORKSPACE_MANAGER, "Workspace Manager"),
         (ORGANIZAION_OWNER, "Organization Owner"),
+        (REVIEWER, "Reviewer"),
+        (ADMIN, "Admin"),
     )
 
     username = models.CharField(verbose_name="username", max_length=265)
