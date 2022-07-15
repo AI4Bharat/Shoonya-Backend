@@ -3,7 +3,6 @@ from collections import OrderedDict
 from datetime import datetime
 from time import sleep
 
-import pandas as pd
 from django.core.files import File
 from django.db.models import Count, Q
 from django.forms.models import model_to_dict
@@ -393,14 +392,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["post"], url_path="next")
     def next(self, request, pk):
+        """
+        Fetch the next task for the user(annotation or review)
+        """
         project = Project.objects.get(pk=pk)
         user_role = request.user.role
+
+        # Check if the endpoint is being accessed in review mode
+        is_review_mode = "mode" in dict(request.query_params) and request.query_params["mode"] == "review"
+        if is_review_mode:
+            if not project.enable_task_reviews:
+                resp_dict = {"message": "Task reviews are not enabled for this project"}
+                return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
         # Check if task_status is passed
         if "task_status" in dict(request.query_params):
 
             if user_role == 1 and not request.user.is_superuser:
+                # Filter Tasks based on whether the request is in review mode or not
                 queryset = Task.objects.filter(
+                    project_id__exact=project.id,
+                    review_user=request.user.id,
+                    task_status=request.query_params["task_status"],
+                ) if is_review_mode else Task.objects.filter(
                     project_id__exact=project.id,
                     annotation_users=request.user.id,
                     task_status=request.query_params["task_status"],
@@ -434,26 +448,36 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(ret_dict, status=ret_status)
 
         else:
-            # Check if there are unlabelled tasks
+            # Check if there are unattended tasks
             if user_role == 1 and not request.user.is_superuser:
-                unlabelled_tasks = Task.objects.filter(
+                # Filter Tasks based on whether the request is in review mode or not
+                unattended_tasks = Task.objects.filter(
+                    project_id__exact=project.id,
+                    review_user=request.user.id,
+                    task_status__exact=LABELED,
+                ) if is_review_mode else Task.objects.filter(
                     project_id__exact=project.id,
                     annotation_users=request.user.id,
                     task_status__exact=UNLABELED,
-                )
+                ) 
             else:
                 # TODO : Refactor code to reduce DB calls
-                unlabelled_tasks = Task.objects.filter(
-                    project_id__exact=project.id, task_status__exact=UNLABELED
+                # Filter Tasks based on whether the request is in review mode or not
+                unattended_tasks = Task.objects.filter(
+                    project_id__exact=project.id,
+                    task_status__exact=LABELED,
+                ) if is_review_mode else Task.objects.filter(
+                    project_id__exact=project.id, 
+                    task_status__exact=UNLABELED,
                 )
 
-            unlabelled_tasks = unlabelled_tasks.order_by("id")
+            unattended_tasks = unattended_tasks.order_by("id")
 
             if "current_task_id" in dict(request.query_params):
                 current_task_id = request.query_params["current_task_id"]
-                unlabelled_tasks = unlabelled_tasks.filter(id__gt=current_task_id)
+                unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
 
-            for task in unlabelled_tasks:
+            for task in unattended_tasks:
                 if not task.is_locked(request.user):
                     task.set_lock(request.user)
                     task_dict = TaskSerializer(task, many=False).data
