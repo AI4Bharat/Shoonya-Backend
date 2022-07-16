@@ -259,7 +259,8 @@ class AnnotationViewSet(
                     task.task_status = ACCEPTED
 
         else:
-            task.task_status = UNLABELED
+            # To-Do : Fix the Labeled for required_annotators_per_task 
+            task.task_status = request.data["task_status"]
         task.save()
         return annotation_response
 
