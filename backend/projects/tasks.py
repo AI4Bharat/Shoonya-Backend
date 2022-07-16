@@ -222,6 +222,7 @@ def create_parameters_for_task_creation(
     project = Project.objects.get(pk=project_id)
 
     # Set the labelstudio label config
+    registry_helper = ProjectRegistry.get_instance()
     label_config = registry_helper.get_label_studio_jsx_payload(project_type)
 
     project.label_config = label_config
