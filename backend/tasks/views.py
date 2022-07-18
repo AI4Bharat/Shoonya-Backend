@@ -107,13 +107,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             is_review_mode = "mode" in dict(request.query_params) and request.query_params["mode"] == "review"
 
             if is_review_mode:
-                if request.user.role == User.WORKSPACE_MANAGER or request.user.role == User.ORGANIZAION_OWNER :
-                    if user in Project.objects.get(id=request.query_params["project_id"]).annotation_reviewers.all():
-                        queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
-                    else:
-                        queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
+                if request.user in Project.objects.get(id=request.query_params["project_id"]).annotation_reviewers.all():
+                    queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
+                elif request.user.role == User.WORKSPACE_MANAGER or request.user.role == User.ORGANIZAION_OWNER :
+                    queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
                 else:
-                        queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
+                    return Response({"message": "You do not have access!"}, status=status.HTTP_400_BAD_REQUEST)
             else:
                 if request.user.role == User.ANNOTATOR and not user_obj.is_superuser:
                     queryset = Task.objects.filter(
