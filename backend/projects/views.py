@@ -32,6 +32,7 @@ from tasks.serializers import TaskSerializer
 from .decorators import (
     is_organization_owner_or_workspace_manager,
     is_particular_workspace_manager,
+    is_project_annotator_or_reviewer,
     project_is_archived,
     project_is_published,
 )
@@ -1126,7 +1127,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         responses={200: "Return types of project and its details"},
     )
     @action(detail=False, methods=["GET"], name="Get Project Types", url_name="types")
-    @is_organization_owner_or_workspace_manager
+    # @is_organization_owner_or_workspace_manager
+    # @is_project_annotator_or_reviewer
     def types(self, request, *args, **kwargs):
         """
         Fetches project types
