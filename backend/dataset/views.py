@@ -1,6 +1,9 @@
+import ast
+from base64 import b64encode
 from urllib.parse import parse_qsl
 
 from django.apps import apps
+from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
@@ -8,22 +11,19 @@ from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from filters import filter
+from projects.serializers import ProjectSerializer
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django_celery_results.models import TaskResult
-from base64 import b64encode
-
-from .tasks import upload_data_to_data_instance
 
 from . import resources
-from filters import filter
-from projects.serializers import ProjectSerializer
-from users.models import User
 from .models import *
 from .serializers import *
 from .permissions import DatasetInstancePermission
+from .tasks import upload_data_to_data_instance
 from users.serializers import UserFetchSerializer
 
 
@@ -121,6 +121,28 @@ def get_dataset_upload_status(dataset_instance_pk):
             task_time,
         ) = extract_status_date_time_from_task_queryset(task_queryset)
 
+        # Sort the tasks by newest items first by date
+        task_queryset = task_queryset.order_by("-date_done")
+
+        # Get the export task status and last update date
+        task_status = task_queryset.first().as_dict()["status"]
+        task_datetime = task_queryset.first().as_dict()["date_done"]
+        task_result = task_queryset.first().as_dict()["result"]
+
+        # Convert task result 
+        if "exc_message" in task_result:
+            task_result = ast.literal_eval(task_result)["exc_message"]
+
+        # Remove quotes from the status if it is present in the string
+        if '"' in task_status:
+            task_status = task_status.strip('"')
+
+        if '"' in task_result:
+            task_result = task_result.strip('"')
+
+        # Extract date and time from the datetime object
+        task_date = task_datetime.date()
+        task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
 
         # Get the error messages if the task is a failure
         if task_status == "FAILURE":
@@ -139,8 +161,9 @@ def get_dataset_upload_status(dataset_instance_pk):
         task_date = "Synchronously Completed. No Date."
         task_time = "Synchronously Completed. No Time."
         task_status = "None"
+        task_result = "None"
 
-    return task_status, task_date, task_time
+    return task_status, task_date, task_time, task_result
 
 
 # Create your views here.
@@ -170,12 +193,14 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             dataset_instance_status,
             dataset_instance_date,
             dataset_instance_time,
+            dataset_instance_result
         ) = get_dataset_upload_status(pk)
 
         # Add the task status and time to the dataset instance response
         dataset_instance_response.data["last_upload_status"] = dataset_instance_status
         dataset_instance_response.data["last_upload_date"] = dataset_instance_date
         dataset_instance_response.data["last_upload_time"] = dataset_instance_time
+        dataset_instance_response.data["last_upload_result"] = dataset_instance_result
 
         return dataset_instance_response
 
@@ -202,12 +227,14 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_instance_status,
                 dataset_instance_date,
                 dataset_instance_time,
+                dataset_instance_result
             ) = get_dataset_upload_status(dataset_instance["instance_id"])
 
             # Add the task status and time to the dataset instance response
             dataset_instance["last_upload_status"] = dataset_instance_status
             dataset_instance["last_upload_date"] = dataset_instance_date
             dataset_instance["last_upload_time"] = dataset_instance_time
+            dataset_instance["last_upload_result"] = dataset_instance_result
 
         return Response(serializer.data)
 
@@ -349,6 +376,10 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
     queryset = DatasetBase.objects.all()
     serializer_class = DatasetItemsSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,DatasetInstancePermission,)
+
+    def list(self, request):
+        dataset_instances = DatasetInstance.objects.filter(instance_id__in=self.queryset.distinct("instance_id").values_list("instance_id")).values("instance_id", "dataset_type")
+        return Response(data=dataset_instances, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
