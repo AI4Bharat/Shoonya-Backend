@@ -76,8 +76,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         if request.user in Project.objects.get(id=task.project_id).users.all():
             annotations = Annotation.objects.filter(task=task).filter(completed_by=request.user)
         
-        # To-do : Make changes so users not added as annotators in a project are not able to see any annotations of this task 
-        # (To be done after access control)
+        elif request.user not in Project.objects.get(id=task.project_id).users.all() or request.user not in Project.objects.get(id=task.project_id).annotation.reviewers.all():
+            return Response({"message": "You are not a part of this project"}, status=status.HTTP_400_BAD_REQUEST)
+
         else:
             annotations = Annotation.objects.filter(task=task)
        
