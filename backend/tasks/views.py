@@ -72,15 +72,17 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         Returns all the annotations associated with a particular task.
         """
         task = self.get_object()
+        annotations = Annotation.objects.filter(task=task)
+        project = Project.objects.get(id=task.project_id)
+        user = request.user
         
-        if request.user in Project.objects.get(id=task.project_id).users.all():
-            annotations = Annotation.objects.filter(task=task).filter(completed_by=request.user)
-        
-        elif request.user not in Project.objects.get(id=task.project_id).users.all() or request.user not in Project.objects.get(id=task.project_id).annotation.reviewers.all():
-            return Response({"message": "You are not a part of this project"}, status=status.HTTP_400_BAD_REQUEST)
-
+        if user.role == User.ANNOTATOR and user not in project.annotation_reviewers.all():
+            if user in project.users.all():
+                annotations = annotations.filter(completed_by=user)
+            else:
+                return Response({"message": "You are not a part of this project"}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            annotations = Annotation.objects.filter(task=task)
+            continue
        
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
