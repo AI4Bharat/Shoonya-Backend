@@ -164,7 +164,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project_type =  project_type.lower()
         is_translation_project = True if  "translation" in  project_type else False
 
-        if (is_translation_project and (page is not None) and (task_status == ACCEPTED or task_status == DRAFT)):
+        if (is_translation_project and (page is not None) and (task_status == ACCEPTED or task_status == DRAFT or task_status == LABELED or task_status == REJECTED or task_status == ACCEPTED_WITH_CHANGES)):
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
             for index, each_data in enumerate(data):
