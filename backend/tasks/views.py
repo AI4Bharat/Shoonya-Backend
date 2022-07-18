@@ -73,6 +73,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         """
         task = self.get_object()
         annotations = Annotation.objects.filter(task=task)
+        if "user_id" in dict(request.query_params):
+            user=User.objects.get(pk=request.query_params["user_id"])
+            annotations=annotations.filter(completed_by=user)
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
@@ -99,7 +102,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             is_review_mode = "mode" in dict(request.query_params) and request.query_params["mode"] == "review"
 
             if is_review_mode:
-                queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
+                if userRole==2 or userRole==3:
+                    if user in Project.objects.get(id=request.query_params["project_id"]).annotation_reviewers.all():
+                        queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
+                    else:
+                        queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
+                else:
+                        queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
             else:
                 if userRole == 1 and not user_obj.is_superuser:
                     queryset = Task.objects.filter(
