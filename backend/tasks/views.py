@@ -81,8 +81,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 annotations = annotations.filter(completed_by=user)
             else:
                 return Response({"message": "You are not a part of this project"}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            continue
        
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
