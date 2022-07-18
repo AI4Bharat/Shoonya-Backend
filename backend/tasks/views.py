@@ -72,10 +72,15 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         Returns all the annotations associated with a particular task.
         """
         task = self.get_object()
-        annotations = Annotation.objects.filter(task=task)
-        if "user_id" in dict(request.query_params):
-            user=User.objects.get(pk=request.query_params["user_id"])
-            annotations=annotations.filter(completed_by=user)
+        
+        if request.user in Project.objects.get(id=task.project_id).users.all():
+            annotations = Annotation.objects.filter(task=task).filter(completed_by=request.user)
+        
+        # To-do : Make changes so users not added as annotators in a project are not able to see any annotations of this task 
+        # (To be done after access control)
+        else:
+            annotations = Annotation.objects.filter(task=task)
+       
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
