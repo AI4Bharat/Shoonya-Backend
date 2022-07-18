@@ -73,7 +73,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         """
         task = self.get_object()
         annotations = Annotation.objects.filter(task=task)
-        project = Project.objects.get(id=task.project_id)
+        project = Project.objects.get(id=task.project_id.id)
         user = request.user
         
         if user.role == User.ANNOTATOR and user not in project.annotation_reviewers.all():
