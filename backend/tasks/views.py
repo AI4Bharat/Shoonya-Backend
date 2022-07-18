@@ -102,12 +102,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             # Step 4: else - else don't filter
 
             user = request.user
-            userRole = user.role
             user_obj = User.objects.get(pk=user.id)
             is_review_mode = "mode" in dict(request.query_params) and request.query_params["mode"] == "review"
 
             if is_review_mode:
-                if userRole==2 or userRole==3:
+                if request.user.role == User.WORKSPACE_MANAGER or request.user.role == User.ORGANIZAION_OWNER :
                     if user in Project.objects.get(id=request.query_params["project_id"]).annotation_reviewers.all():
                         queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
                     else:
@@ -115,7 +114,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 else:
                         queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
             else:
-                if userRole == 1 and not user_obj.is_superuser:
+                if request.user.role == User.ANNOTATOR and not user_obj.is_superuser:
                     queryset = Task.objects.filter(
                         project_id__exact=request.query_params["project_id"]
                     ).filter(annotation_users=user.id)
