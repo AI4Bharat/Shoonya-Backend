@@ -3,7 +3,6 @@ from collections import OrderedDict
 from datetime import datetime
 from time import sleep
 
-import pandas as pd
 from django.core.files import File
 from django.db.models import Count, Q
 from django.forms.models import model_to_dict
@@ -45,6 +44,7 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     add_new_data_items_into_project,
+    filter_data_items,
 )
 from .utils import is_valid_date, no_of_words
 
@@ -393,14 +393,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["post"], url_path="next")
     def next(self, request, pk):
+        """
+        Fetch the next task for the user(annotation or review)
+        """
         project = Project.objects.get(pk=pk)
         user_role = request.user.role
+
+        # Check if the endpoint is being accessed in review mode
+        is_review_mode = "mode" in dict(request.query_params) and request.query_params["mode"] == "review"
+        if is_review_mode:
+            if not project.enable_task_reviews:
+                resp_dict = {"message": "Task reviews are not enabled for this project"}
+                return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
         # Check if task_status is passed
         if "task_status" in dict(request.query_params):
 
             if user_role == 1 and not request.user.is_superuser:
+                # Filter Tasks based on whether the request is in review mode or not
                 queryset = Task.objects.filter(
+                    project_id__exact=project.id,
+                    review_user=request.user.id,
+                    task_status=request.query_params["task_status"],
+                ) if is_review_mode else Task.objects.filter(
                     project_id__exact=project.id,
                     annotation_users=request.user.id,
                     task_status=request.query_params["task_status"],
@@ -434,26 +449,36 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(ret_dict, status=ret_status)
 
         else:
-            # Check if there are unlabelled tasks
+            # Check if there are unattended tasks
             if user_role == 1 and not request.user.is_superuser:
-                unlabelled_tasks = Task.objects.filter(
+                # Filter Tasks based on whether the request is in review mode or not
+                unattended_tasks = Task.objects.filter(
+                    project_id__exact=project.id,
+                    review_user=request.user.id,
+                    task_status__exact=LABELED,
+                ) if is_review_mode else Task.objects.filter(
                     project_id__exact=project.id,
                     annotation_users=request.user.id,
                     task_status__exact=UNLABELED,
-                )
+                ) 
             else:
                 # TODO : Refactor code to reduce DB calls
-                unlabelled_tasks = Task.objects.filter(
-                    project_id__exact=project.id, task_status__exact=UNLABELED
+                # Filter Tasks based on whether the request is in review mode or not
+                unattended_tasks = Task.objects.filter(
+                    project_id__exact=project.id,
+                    task_status__exact=LABELED,
+                ) if is_review_mode else Task.objects.filter(
+                    project_id__exact=project.id, 
+                    task_status__exact=UNLABELED,
                 )
 
-            unlabelled_tasks = unlabelled_tasks.order_by("id")
+            unattended_tasks = unattended_tasks.order_by("id")
 
             if "current_task_id" in dict(request.query_params):
                 current_task_id = request.query_params["current_task_id"]
-                unlabelled_tasks = unlabelled_tasks.filter(id__gt=current_task_id)
+                unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
 
-            for task in unlabelled_tasks:
+            for task in unattended_tasks:
                 if not task.is_locked(request.user):
                     task.set_lock(request.user)
                     task_dict = TaskSerializer(task, many=False).data
@@ -766,6 +791,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project.release_lock(REVIEW_LOCK)
         return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["get"], name="Unassign review tasks", url_name="unassign_review_tasks")
+    def unassign_review_tasks(self, request, pk, *args, **kwargs):
+        """
+        Unassigns all labeled tasks from a reviewer.
+        """
+        user = request.user
+        project_id = pk
+
+        if project_id:
+            project_obj = Project.objects.get(pk=project_id)
+            if project_obj and user in project_obj.annotation_reviewers.all():
+                tasks = Task.objects.filter(project_id__exact=project_id
+                    ).filter(task_status=LABELED).filter(review_user__exact=user.id)
+                if tasks.count() > 0:
+                    for task in tasks:
+                        task.review_user = None
+                    return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
+                return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Only reviewers can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
 
     @swagger_auto_schema(
         method="post",
@@ -980,16 +1026,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             properties={
                 "emails": openapi.Schema(
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(type=openapi.TYPE_STRING, format="email"),
-                    description="List of email addresses of users to be added to project",
+                    items=openapi.Items(type=openapi.TYPE_INTEGER, format="ids"),
+                    description="List of ids of users to be added to project",
                 )
             },
-            required=["emails"],
+            required=["ids"],
         ),
         responses={
-            201: "Users added",
+            200: "Users added",
             404: "Project does not exist or User does not exist",
-            200: "Project is published error",
+            500: "Internal server error"
         },
     )
     @action(
@@ -1004,43 +1050,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Add annotators to the project
         """
-        ret_dict = {}
-        ret_status = 0
+
         try:
             project = Project.objects.get(pk=pk)
 
-            # if project.is_published:
-            #     return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
+            ids = request.data.get("ids")
+            users = User.objects.filter(id__in=ids)
 
-            emails = request.data.get("emails")
-            invalid_emails = []
-            for email in emails:
-                if re.fullmatch(EMAIL_REGEX, email):
-                    user = User.objects.get(email=email)
+            if users.count() != len(ids):
+                return Response({"message": "Enter all valid user ids"}, status=status.HTTP_400_BAD_REQUEST)
 
-                    ### TODO: Check if user is an annotator
-                    # if user.role != User.ANNOTATOR:
-                    #     ret_dict = {"message": f"User {user.email} is not an annotator!"}
-                    #     ret_status = status.HTTP_201_CREATED
-                    project.users.add(user)
-                    project.save()
-                else:
-                    invalid_emails.append(email)
-            if len(invalid_emails) == 0:
-                ret_dict = {"message": "Users added!"}
-                ret_status = status.HTTP_201_CREATED
-            else:
-                ret_dict = {
-                    "message": f"Users partially added! Invalid emails: {','.join(invalid_emails)}"
-                }
-                ret_status = status.HTTP_201_CREATED
+            for user in users:
+                project.users.add(user)
+
+            return Response({"message": "Added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
-            ret_dict = {"message": "Project does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        except User.DoesNotExist:
-            ret_dict = {"message": "User does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        return Response(ret_dict, status=ret_status)
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+        except:
+            return Response({"message": "Internal server error"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["POST"], name="Add Project Reviewers", url_name="add_project_reviewers")
     @project_is_archived
@@ -1177,30 +1204,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 # Get project instance and check how many items to pull
                 project_type = project.project_type
-                registry_helper = ProjectRegistry.get_instance()
-                input_dataset_info = registry_helper.get_input_dataset_and_fields(
-                    project_type
-                )
-                dataset_model = getattr(
-                    dataset_models, input_dataset_info["dataset_type"]
-                )
-                tasks = Task.objects.filter(project_id__exact=project)
-                all_items = dataset_model.objects.filter(
-                    instance_id__in=list(project.dataset_id.all())
-                )
-                items = all_items.exclude(id__in=tasks.values("input_data"))
-
-                # Get the input dataset fields from the filtered items
-                if input_dataset_info["prediction"] is not None:
-                    items = list(
-                        items.values(
-                            "id",
-                            *input_dataset_info["fields"],
-                            input_dataset_info["prediction"],
-                        )
-                    )
-                else:
-                    items = list(items.values("id", *input_dataset_info["fields"]))
+                ids_to_exclude = Task.objects.filter(project_id__exact=project)
+                items = filter_data_items(project_type, list(project.dataset_id.all()), project.filter_string, ids_to_exclude)
 
                 if items:
 
