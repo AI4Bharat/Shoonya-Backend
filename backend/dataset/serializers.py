@@ -19,7 +19,7 @@ class DatasetInstanceUploadSerializer(serializers.Serializer):
 class DatasetItemsSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatasetBase
-        fields = ["instance_id", "metadata_json"]
+        fields = ["instance_id"]
 
 class SentenceTextSerializer(serializers.ModelSerializer):
     '''

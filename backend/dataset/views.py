@@ -360,6 +360,10 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
     serializer_class = DatasetItemsSerializer
     permission_classes = (IsAuthenticatedOrReadOnly,)
 
+    def list(self, request):
+        dataset_instances = DatasetInstance.objects.filter(instance_id__in=self.queryset.distinct("instance_id").values_list("instance_id")).values("instance_id", "dataset_type")
+        return Response(data=dataset_instances, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
         try:
