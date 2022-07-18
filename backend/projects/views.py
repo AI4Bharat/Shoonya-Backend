@@ -27,21 +27,12 @@ from tasks.models import Annotation as Annotation_model
 from tasks.models import *
 from tasks.models import Task
 from tasks.serializers import TaskSerializer
-
-from .decorators import (
-    is_organization_owner_or_workspace_manager,
-    project_is_archived,
-    project_is_published,
-)
 from .models import *
 from .registry_helper import ProjectRegistry
 
 # Import celery tasks
 from .tasks import create_parameters_for_task_creation, add_new_data_items_into_project, export_project_in_place, export_project_new_record, filter_data_items
 
-from projects.serializers import ProjectSerializer, ProjectUsersSerializer
-from tasks.serializers import TaskSerializer
-from .models import *
 from .decorators import (
     is_organization_owner_or_workspace_manager,
     is_project_editor,
@@ -49,6 +40,8 @@ from .decorators import (
     project_is_published,
 )
 from .utils import is_valid_date, no_of_words
+
+from workspaces.decorators import is_particular_workspace_manager
 
 # Create your views here.
 
@@ -353,7 +346,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         project = Project.objects.filter(pk=pk).first()
         if not project:
-            return Reponse({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         if project.frozen_users.filter(id=user.id).exists():
             return Response({"message": "User is already frozen in this project"}, status=status.HTTP_400_BAD_REQUEST)
