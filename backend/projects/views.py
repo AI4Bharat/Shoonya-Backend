@@ -805,8 +805,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(project_id__exact=project_id
                     ).filter(task_status=LABELED).filter(review_user=user.id)
                 if tasks.count() > 0:
-                    for task in tasks:
-                        task.review_user = None
+                    tasks.update(review_user=None)
                     return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
                 return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"message": "Only reviewers can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
