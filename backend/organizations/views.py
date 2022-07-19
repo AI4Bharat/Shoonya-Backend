@@ -187,33 +187,33 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks]
                 total_word_count = sum(total_word_count_list)
 
-                result.append({ 'User Name' : name,
+                result.append({ "Annotator": name,
                                 'Email' : email,
                                 'Language' : selected_language,
+                                'No. of Workspaces' : no_of_workspaces_objs,
+                                'No. of Projects' :no_of_projects,
                                 'Project Type' :project_type,
                                 'No.Of Tasks Assigned' : total_no_of_tasks_count,
-                                'No. of Annotated Tasks in Given Date Range' : annotated_tasks_count,
-                                'Average Annotation Time (In Seconds)' : round(avg_lead_time,2),
-                                'Skipped Tasks' : total_skipped_tasks_count,
+                                'No. of Annotated Tasks' : annotated_tasks_count,
                                 'Unlabeled Tasks' : total_unlabeled_tasks_count,
+                                'Skipped Tasks' : total_skipped_tasks_count,
                                 'Draft Tasks': total_draft_tasks_count,
-                                'No. of Projects' :no_of_projects,
-                                'No. of Workspaces' : no_of_workspaces_objs,
-                                'Word Count Of Annotated Tasks' : total_word_count
+                                'Word Count Of Annotated Tasks' : total_word_count,
+                                'Average Annotation Time (In Seconds)' : round(avg_lead_time,2)
                         } )
             else :
-                result.append({ 'User Name' : name,
+                result.append({ "Annotator": name,
                                 'Email' : email,
                                 'Language' : selected_language,
+                                'No. of Workspaces' : no_of_workspaces_objs,
+                                'No. of Projects' :no_of_projects,
                                 'Project Type' :project_type,
                                 'No.Of Tasks Assigned' : total_no_of_tasks_count,
-                                'No. of Annotated Tasks in Given Date Range' : annotated_tasks_count,
-                                'Average Annotation Time (In Seconds)' : round(avg_lead_time,2),
-                                'Skipped Tasks' : total_skipped_tasks_count,
+                                'No. of Annotated Tasks' : annotated_tasks_count,
                                 'Unlabeled Tasks' : total_unlabeled_tasks_count,
+                                'Skipped Tasks' : total_skipped_tasks_count,
                                 'Draft Tasks': total_draft_tasks_count,
-                                'No. of Projects' :no_of_projects,
-                                'No. of Workspaces' : no_of_workspaces_objs
+                                'Average Annotation Time (In Seconds)' : round(avg_lead_time,2)
                         } )
         if not is_translation_project and sort_by_column_name == 'Word Count Of Annotated Tasks' :
             return Response({'message' : 'presently sort by word count for non translation projects not activated '})
@@ -298,11 +298,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 result = {
                     "Project Id" : project_id,
                     "Project Name" : project_name,
-                    "Language" : selected_language,
                     "Project Type" : project_type,
-                    "Total No.Of Tasks" : total_tasks,
-                    "Total No.Of Annotators Assigned" : no_of_annotators_assigned,
-                    "Annotated Tasks In Given Date Range" : labeled_count,
+                    "Language" : selected_language,
+                    "No.Of Annotators Assigned" : no_of_annotators_assigned,
+                    "No.Of Tasks" : total_tasks,
+                    "Annotated Tasks" : labeled_count,
                     "Unlabeled Tasks" : un_labeled_count,
                     "Skipped Tasks": skipped_count,
                     "Draft Tasks" : dropped_tasks,

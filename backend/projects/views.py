@@ -938,26 +938,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
                     total_word_count = sum(total_word_count_list)
                     final_result.append({
-                        "Username":user_name,
+                        "Annotator":user_name,
                         "Email":usermail,
-                        "Annotated Tasks" : annotated_tasks,
-                        "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                         "Assigned Tasks" : assigned_tasks,
-                        "Skipped Tasks" : total_skipped_tasks_count,
+                        "Annotated Tasks" : annotated_tasks,
                         "Unlabeled Tasks" : total_unlabeled_tasks_count,
+                        "Skipped Tasks" : total_skipped_tasks_count,
                         "Draft Tasks": total_draft_tasks_count,
-                        "Word Count" : total_word_count
+                        "Word Count" : total_word_count,
+                        "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2)
+                        
                         })
                 else:
                     final_result.append({
-                        "Username":user_name,
+                        "Annotator":user_name,
                         "Email":usermail,
-                        "Annotated Tasks" : annotated_tasks,
-                        "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                         "Assigned Tasks" : assigned_tasks,
-                        "Skipped Tasks" : total_skipped_tasks_count,
+                        "Annotated Tasks" : annotated_tasks,
                         "Unlabeled Tasks" : total_unlabeled_tasks_count,
-                        "Draft Tasks": total_draft_tasks_count
+                        "Skipped Tasks" : total_skipped_tasks_count,
+                        "Draft Tasks": total_draft_tasks_count,
+                        "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2)
                         })
             ret_status = status.HTTP_200_OK
 
@@ -993,26 +994,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
                 total_word_count = sum(total_word_count_list)
                 final_result.append({
-                    "Username":user_name,
+                    "Annotator":user_name,
                     "Email":usermail,
-                    "Annotated Tasks" : annotated_tasks,
-                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
-                    "Skipped Tasks" : total_skipped_tasks_count,
+                    "Annotated Tasks" : annotated_tasks,
                     "Unlabeled Tasks" : total_unlabeled_tasks_count,
+                    "Skipped Tasks" : total_skipped_tasks_count,
                     "Draft Tasks": total_draft_tasks_count,
-                    "Word Count" : total_word_count
+                    "Word Count" : total_word_count,
+                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2)
                     })
             else:
                 final_result.append({
-                    "Username":user_name,
+                    "Annotator":user_name,
                     "Email":usermail,
-                    "Annotated Tasks" : annotated_tasks,
-                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
-                    "Skipped Tasks" : total_skipped_tasks_count,
+                    "Annotated Tasks" : annotated_tasks,
                     "Unlabeled Tasks" : total_unlabeled_tasks_count,
-                    "Draft Tasks": total_draft_tasks_count
+                    "Skipped Tasks" : total_skipped_tasks_count,
+                    "Draft Tasks": total_draft_tasks_count,
+                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2)
                     })
             ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
