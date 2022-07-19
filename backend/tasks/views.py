@@ -396,7 +396,7 @@ class AnnotationViewSet(
 
             if review_status == ACCEPTED:
                 task.correct_annotation = annotation
-                if annotation.result != parent_annotation.result:
+                if annotation.result != annotation.parent_annotation.result:
                     review_status = ACCEPTED_WITH_CHANGES
             else:
                 task.correct_annotation = None
