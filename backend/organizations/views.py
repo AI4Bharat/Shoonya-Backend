@@ -113,11 +113,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             email = user.get_username()
             list_of_user_languages = user.languages
 
+            projs = Project.objects.filter(users = user)
+            proj_ids = list(projs.values_list('id', flat=True))
+
             if tgt_language != None and tgt_language not in list_of_user_languages:
                 continue
             if tgt_language == None :
                 
-                total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user,\
+                total_no_of_tasks_assigned = Task.objects.filter(project_id__in = proj_ids,annotation_users =user,\
                     project_id__project_type = project_type,project_id__organization_id = organization)
                 total_no_of_tasks_count = total_no_of_tasks_assigned.count()
                
@@ -125,7 +128,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 no_of_projects = projects_objs.count()
 
             else :
-                total_no_of_tasks_assigned = Task.objects.filter(annotation_users =user,\
+                total_no_of_tasks_assigned = Task.objects.filter(project_id__in = proj_ids,annotation_users =user,\
                     project_id__project_type = project_type,project_id__tgt_language=tgt_language,project_id__organization_id = organization)
                 total_no_of_tasks_count = total_no_of_tasks_assigned.count()
 
