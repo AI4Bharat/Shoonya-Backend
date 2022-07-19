@@ -278,7 +278,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         if start_date > end_date:
             return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
-        selected_language = "No Language Selected"
+        selected_language = "-"
         if tgt_language == None :
             projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type)
         else :
@@ -376,7 +376,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         project_type = request.data.get("project_type")
         project_type_lower =  project_type.lower()
         is_translation_project = True if  "translation" in  project_type_lower  else False
-        selected_language = "No Language Selected"
+        selected_language = "-"
         final_result =[]
         for index,each_user in enumerate(users_id):
 
