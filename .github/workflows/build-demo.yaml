@@ -1,0 +1,34 @@
+name: Build Docker Container & Push to ACR
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    branches: [demo]
+
+# Environment variables available to all jobs and steps in this workflow
+env:
+  REGISTRY_NAME: shoonyademoreg
+  APP_NAME: shoonya-backend
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    
+    # Connect to Azure Container Registry (ACR)
+    - uses: azure/docker-login@v1
+      with:
+        login-server: ${{ env.REGISTRY_NAME }}.azurecr.io
+        username: ${{ secrets.REGISTRY_DEMO_USERNAME }} 
+        password: ${{ secrets.REGISTRY_DEMO_PASSWORD }}
+    
+    # Container build and push to a Azure Container Registry (ACR)
+    - run: |
+        docker build -f ${{ github.workspace }}/deploy/django-rest-api/Dockerfile ${{ github.workspace }} -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+        docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}:${{ github.sha }}
+        
+        docker build -f ${{ github.workspace }}/deploy/celery/Dockerfile ${{ github.workspace }} -t ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}_celery:${{ github.sha }}
+        docker push ${{ env.REGISTRY_NAME }}.azurecr.io/${{ env.APP_NAME }}_celery:${{ github.sha }}
+

@@ -1,0 +1,92 @@
+name: Deploy Latest container to Cluster from Azure Container Registry
+
+on:
+  push:
+    branches: [demo]
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    branches: [demo]
+
+# Environment variables available to all jobs and steps in this workflow
+env:
+  CLUSTER_RESOURCE_GROUP: shoonya_demo
+  CLUSTER_NAME: shoonya-demo-aks
+  REGISTRY_NAME: shoonyademoreg
+  NAMESPACE: shoonya-demo
+  SECRET: shoonya-prod-secrets
+  
+jobs:
+  build-demo:
+    uses: ./.github/workflows/build-demo.yaml
+    secrets: inherit
+  release-demo:
+    needs: [build-demo]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    # Set the target Azure Kubernetes Service (AKS) cluster. 
+    - uses: azure/aks-set-context@v1
+      with:
+        creds: '${{ secrets.AZURE_CREDENTIALS }}'
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        resource-group: ${{ env.CLUSTER_RESOURCE_GROUP }}
+    
+    # Create namespace if doesn't exist
+    - run: |
+        kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o json | kubectl apply -f -
+  
+    # Update Secrets file in k8s cluster
+    - name: Update deployment secrets
+      run: |
+        cat << EOF >> ${{ github.workspace }}/backend/.env.prod
+        DEBUG=${{ secrets.DEBUG }}
+        DJANGO_SUPERUSER_USERNAME=${{ secrets.DJANGO_SUPERUSER_USERNAME }}
+        DJANGO_SUPERUSER_PASSWORD=${{ secrets.DJANGO_SUPERUSER_PASSWORD }}
+        DJANGO_SUPERUSER_EMAIL=${{ secrets.DJANGO_SUPERUSER_EMAIL }}
+        DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+        ENV_ALLOWED_HOST=${{ secrets.ENV_ALLOWED_HOST }}
+        POSTGRES_DB=${{ secrets.POSTGRES_DB_DEMO }}
+        POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD_DEMO }}
+        POSTGRES_USER=${{ secrets.POSTGRES_USER_DEMO }}
+        POSTGRES_HOST=${{ secrets.POSTGRES_HOST_DEMO }}
+        POSTGRES_PORT=${{ secrets.POSTGRES_PORT_DEMO }}
+        AZURE_STORAGE_KEY=${{ secrets.AZURE_STORAGE_KEY_DEMO }}
+        AZURE_ACCOUNT_NAME=${{ secrets.AZURE_ACCOUNT_NAME_DEMO }}
+        AZURE_MEDIA_CONTAINER=${{ secrets.AZURE_MEDIA_CONTAINER }}
+        AZURE_STATIC_CONTAINER=${{ secrets.AZURE_STATIC_CONTAINER }}
+        REDIS_HOST=${{ secrets.REDIS_HOST }}
+        REDIS_PORT=${{ secrets.REDIS_PORT }}
+        SMTP_USERNAME=${{ secrets.SMTP_USERNAME }}
+        SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}
+        EMAIL_BACKEND=${{ secrets.EMAIL_BACKEND }}
+        EMAIL_HOST=${{ secrets.EMAIL_HOST }}
+        EMAIL_PORT=${{ secrets.EMAIL_PORT }}
+        DEFAULT_FROM_EMAIL=${{ secrets.DEFAULT_FROM_EMAIL }}
+        EOF
+        kubectl delete secret ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }}
+        kubectl create secret generic ${{ env.SECRET }} --namespace ${{ env.NAMESPACE }} --from-env-file=${{ github.workspace }}/backend/.env.prod
+
+    # Rename container name with Github SHA
+    - name: Rename Github SHA
+      run: |
+        export BUILD_TAG=${{ github.sha }}
+        export REGISTRY_NAME=${{ env.REGISTRY_NAME }}
+        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/deploy/celery/celery-k8s.yaml
+        sed -i "s/REGISTRY/${REGISTRY_NAME}/g" ${{ github.workspace }}/deploy/celery/celery-k8s.yaml
+        sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/deploy/django-rest-api/rest-api-k8s.yaml
+        sed -i "s/REGISTRY/${REGISTRY_NAME}/g" ${{ github.workspace }}/deploy/django-rest-api/rest-api-k8s.yaml
+
+    # Deploy app to AKS
+    - uses: azure/k8s-deploy@v1
+      with:
+        manifests: |
+          ${{ github.workspace }}/deploy/redis/redis-k8s.yaml
+          ${{ github.workspace }}/deploy/celery/celery-k8s.yaml
+          ${{ github.workspace }}/deploy/django-rest-api/rest-api-k8s.yaml
+          ${{ github.workspace }}/deploy/ingress/cert-manager-k8s.yaml
+          ${{ github.workspace }}/deploy/ingress/ingress-k8s.yaml
+        imagepullsecrets: |
+          ${{ env.SECRET }}
+        namespace: ${{ env.NAMESPACE }}
