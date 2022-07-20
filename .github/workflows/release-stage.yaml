@@ -10,14 +10,15 @@ on:
 
 # Environment variables available to all jobs and steps in this workflow
 env:
-  CLUSTER_NAME: shoonya-aks
   CLUSTER_RESOURCE_GROUP: shoonya
+  CLUSTER_NAME: shoonya-aks
+  REGISTRY_NAME: shoonyareg
   NAMESPACE: shoonya
   SECRET: shoonya-prod-secrets
   
 jobs:
   build-stage:
-    uses: ./.github/workflows/build.yaml
+    uses: ./.github/workflows/build-stage.yaml
     secrets: inherit
   release-stage:
     needs: [build-stage]
@@ -71,8 +72,11 @@ jobs:
     - name: Rename Github SHA
       run: |
         export BUILD_TAG=${{ github.sha }}
+        export REGISTRY_NAME=${{ env.REGISTRY_NAME }}
         sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/deploy/celery/celery-k8s.yaml
+        sed -i "s/REGISTRY/${REGISTRY_NAME}/g" ${{ github.workspace }}/deploy/celery/celery-k8s.yaml
         sed -i "s/VERSION/${BUILD_TAG}/g" ${{ github.workspace }}/deploy/django-rest-api/rest-api-k8s.yaml
+        sed -i "s/REGISTRY/${REGISTRY_NAME}/g" ${{ github.workspace }}/deploy/django-rest-api/rest-api-k8s.yaml
 
     # Deploy app to AKS
     - uses: azure/k8s-deploy@v1
