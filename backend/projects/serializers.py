@@ -5,6 +5,7 @@ from users.serializers import UserProfileSerializer
 
 class ProjectSerializer(serializers.ModelSerializer):
     users = UserProfileSerializer(read_only=True, many=True)
+    annotation_reviewers = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
     frozen_users = UserProfileSerializer(read_only=True, many=True)
     class Meta:
@@ -20,6 +21,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "is_archived",
             "is_published",
             "users",
+            "annotation_reviewers",
             "frozen_users",
             "workspace_id",
             "organization_id",
@@ -37,12 +39,14 @@ class ProjectSerializer(serializers.ModelSerializer):
             "src_language",
             "tgt_language",
             "created_at",
+            "enable_task_reviews",
         ]
 
 
 class ProjectUsersSerializer(serializers.ModelSerializer):
     users = UserProfileSerializer(required=True, many=True)
+    annotation_reviewers = UserProfileSerializer(required=True, many=True)
 
     class Meta:
         model = Project
-        fields = ["title", "description", "is_archived", "is_published", "users"]
+        fields = ["title", "description", "is_archived", "is_published", "users", "annotation_reviewers"]
