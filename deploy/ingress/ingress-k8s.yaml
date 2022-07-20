@@ -9,10 +9,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - backend.stage.shoonya.ai4bharat.org
+    - ENDPOINT
     secretName: tls-secret
   rules:
-  - host: backend.stage.shoonya.ai4bharat.org
+  - host: ENDPOINT
     http:
         paths:
         - pathType: Prefix
