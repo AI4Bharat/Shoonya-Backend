@@ -75,6 +75,15 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         """
         task = self.get_object()
         annotations = Annotation.objects.filter(task=task)
+        project = Project.objects.get(id=task.project_id.id)
+        user = request.user
+        
+        if user.role == User.ANNOTATOR and user not in project.annotation_reviewers.all():
+            if user in project.users.all():
+                annotations = annotations.filter(completed_by=user)
+            else:
+                return Response({"message": "You are not a part of this project"}, status=status.HTTP_400_BAD_REQUEST)
+       
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
@@ -96,14 +105,24 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             # Step 4: else - else don't filter
 
             user = request.user
-            userRole = user.role
             user_obj = User.objects.get(pk=user.id)
             is_review_mode = "mode" in dict(request.query_params) and request.query_params["mode"] == "review"
 
             if is_review_mode:
-                queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
+                if request.user in Project.objects.get(id=request.query_params["project_id"]).annotation_reviewers.all():
+                    queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
+                    
+                elif request.user.role == User.WORKSPACE_MANAGER or request.user.role == User.ORGANIZAION_OWNER :
+                    if "user_filter" in dict(request.query_params):
+                        queryset = Task.objects.filter(
+                            project_id__exact=request.query_params["project_id"]
+                        ).filter(review_user=request.query_params["user_filter"])
+                    else:
+                        queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"])
+                else:
+                    return Response({"message": "You do not have access!"}, status=status.HTTP_400_BAD_REQUEST)
             else:
-                if userRole == 1 and not user_obj.is_superuser:
+                if request.user.role == User.ANNOTATOR and not user_obj.is_superuser:
                     queryset = Task.objects.filter(
                         project_id__exact=request.query_params["project_id"]
                     ).filter(annotation_users=user.id)
@@ -165,8 +184,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project_type =  project_details[0].project_type
         project_type =  project_type.lower()
         is_translation_project = True if  "translation" in  project_type else False
-
-        if (is_translation_project and (page is not None) and (task_status == ACCEPTED or task_status == DRAFT)):
+        
+        # if (is_translation_project) and (page is not None) and ({DRAFT, LABELED,  REJECTED}):
+            # To be done for annotation_mode
+        
+        if (is_translation_project) and (page is not None) and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES}):
+            # Shows annotations for review_mode
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
             for index, each_data in enumerate(data):
@@ -261,7 +284,8 @@ class AnnotationViewSet(
                     task.task_status = ACCEPTED
 
         else:
-            task.task_status = INCOMPLETE
+            # To-Do : Fix the Labeled for required_annotators_per_task 
+            task.task_status = request.data["task_status"]
         task.save()
         return annotation_response
 

@@ -111,7 +111,7 @@ def filter_data_items(project_type, dataset_instance_ids, filter_string, ids_to_
     ).order_by("id")
 
     # Apply filtering
-    query_params = dict(parse_qsl(filter_string))
+    query_params = dict(parse_qsl(filter_string, keep_blank_values=True))
     query_params = filter.fix_booleans_in_dict(query_params)
     filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
 
@@ -222,6 +222,7 @@ def create_parameters_for_task_creation(
     project = Project.objects.get(pk=project_id)
 
     # Set the labelstudio label config
+    registry_helper = ProjectRegistry.get_instance()
     label_config = registry_helper.get_label_studio_jsx_payload(project_type)
 
     project.label_config = label_config

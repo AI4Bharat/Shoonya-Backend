@@ -5,7 +5,7 @@ from users.serializers import UserProfileSerializer
 
 class ProjectSerializer(serializers.ModelSerializer):
     users = UserProfileSerializer(read_only=True, many=True)
-    annotation_reviewers = UserProfileSerializer(required=True, many=True)
+    annotation_reviewers = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
     frozen_users = UserProfileSerializer(read_only=True, many=True)
     class Meta:
