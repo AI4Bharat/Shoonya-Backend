@@ -13,7 +13,7 @@ env:
   CLUSTER_RESOURCE_GROUP: shoonya
   CLUSTER_NAME: shoonya-aks
   REGISTRY_NAME: shoonyareg
-  NAMESPACE: shoonya
+  NAMESPACE: shoonya-stage
   SECRET: shoonya-prod-secrets
   ENDPOINT_URL: backend.stage.shoonya.ai4bharat.org
   
