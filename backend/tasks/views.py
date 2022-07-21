@@ -26,12 +26,11 @@ def annotation_result_compare(base_annotation_result, review_annotation_result):
     Compares the annotation output of annotator and reviewer, ignores the 'id' field.
     Returns True if output differs
     """
-    base_result = sorted(base_annotation_result, key=lambda d:d['from_name'])
-    for d in base_result:
-        d.pop('id', None)
-    review_result = sorted(review_annotation_result, key=lambda d:d['from_name'])
-    for d in base_result:
-        d.pop('id', None)
+    base_result = [{i:d[i] for i in d if i!='id'} for d in base_annotation_result]
+    base_result = sorted(base_result, key=lambda d:d['from_name'])
+    review_result = [{i:d[i] for i in d if i!='id'} for d in review_annotation_result]
+    review_result = sorted(review_result, key=lambda d:d['from_name'])
+
     is_modified = any(x != y for x, y in zip(base_result, review_result))
     return is_modified
 
