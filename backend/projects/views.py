@@ -1015,13 +1015,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             invalid_emails = []
             for email in emails:
                 if re.fullmatch(EMAIL_REGEX, email):
-                    user = User.objects.get(email=email)
+                    annotator = User.objects.get(email=email)
 
                     ### TODO: Check if user is an annotator
                     # if user.role != User.ANNOTATOR:
                     #     ret_dict = {"message": f"User {user.email} is not an annotator!"}
                     #     ret_status = status.HTTP_201_CREATED
-                    project.users.add(user)
+                    project.users.add(annotator)
                     project.save()
                 else:
                     invalid_emails.append(email)
@@ -1055,11 +1055,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if not project.enable_task_reviews:
                 return Response({"message": "Task reviews are disabled for this project"}, status=status.HTTP_403_FORBIDDEN)
             ids = request.data.get("ids")
-            users = User.objects.filter(id__in=ids)
-            if users.count() != len(ids):
-                return Response({"message": "Enter all valid user ids"}, status=status.HTTP_400_BAD_REQUEST)
-            for user in users:
-                project.annotation_reviewers.add(user)
+            reviewers = User.objects.filter(id__in=ids)
+            if reviewers.count() != len(ids):
+                return Response({"message": "Enter all valid reviewer ids"}, status=status.HTTP_400_BAD_REQUEST)
+            for reviewer in reviewers:
+                project.annotation_reviewers.add(reviewer)
 
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
