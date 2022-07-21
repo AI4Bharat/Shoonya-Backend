@@ -348,7 +348,7 @@ class AnnotationViewSet(
         annotation = Annotation.objects.get(pk=annotation_id)
         if review_status == ACCEPTED:
             task.correct_annotation = annotation
-            is_modified = annotation_result_compare(parent_annotation.result, annotation.result)
+            is_modified = annotation_result_compare(annotation.parent_annotation.result, annotation.result)
             if is_modified:
                 review_status = ACCEPTED_WITH_CHANGES
         task.task_status = review_status
@@ -410,7 +410,7 @@ class AnnotationViewSet(
 
             if review_status == ACCEPTED:
                 task.correct_annotation = annotation
-                is_modified = annotation_result_compare(parent_annotation.result, annotation.result)
+                is_modified = annotation_result_compare(annotation.parent_annotation.result, annotation.result)
                 if is_modified:
                     review_status = ACCEPTED_WITH_CHANGES
             else:
