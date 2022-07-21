@@ -1073,13 +1073,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project = Project.objects.get(pk=pk)
 
             ids = request.data.get("ids")
-            users = User.objects.filter(id__in=ids)
+            annotators = User.objects.filter(id__in=ids)
 
-            if users.count() != len(ids):
-                return Response({"message": "Enter all valid user ids"}, status=status.HTTP_400_BAD_REQUEST)
+            if reviewers.count() != len(ids):
+                return Response({"message": "Enter all valid annotator ids"}, status=status.HTTP_400_BAD_REQUEST)
 
-            for user in users:
-                project.users.add(user)
+            for annotator in annotators:
+                project.users.add(annotator)
 
             return Response({"message": "Added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
