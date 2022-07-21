@@ -313,9 +313,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Project Name" : project_name,
                     "Language" : selected_language,
                     "Project Type" : project_type,
-                    "Total No.Of Tasks" : total_tasks,
-                    "Total No.Of Annotators Assigned" : no_of_annotators_assigned,
-                    "Annotated Tasks In Given Date Range" : labeled_count,
+                    "No .of Annotators Assigned" : no_of_annotators_assigned,
+                    "Assigned Tasks" : total_tasks,
+                    "Annotated Tasks" : labeled_count,
                     "Unlabeled Tasks" : un_labeled_count,
                     "Skipped Tasks": skipped_count,
                     "Draft Tasks" : dropped_tasks,
@@ -428,30 +428,30 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
                 total_word_count = sum(total_word_count_list)
                 result = {
-                    "Username":name,
+                    "Annotator":name,
                     "Email":email,
                     "Language" : selected_language,
                     "No.of Projects":project_count,
-                    "Annotated Tasks In Given Date Range" : annotated_tasks ,
-                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
-                    "Skipped Tasks" : total_skipped_tasks,
+                    "Annotated Tasks" : annotated_tasks ,
                     "Unlabeled Tasks" : all_pending_tasks_in_project,
+                    "Skipped Tasks" : total_skipped_tasks,
                     "Draft Tasks": all_draft_tasks_in_project,
-                    "Word Count" : total_word_count
+                    "Word Count" : total_word_count,
+                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2)
                     }
             else:
                 result = {
-                    "Username":name,
+                    "Annotator":name,
                     "Email":email,
                     "Language" : selected_language,
                     "No.of Projects":project_count,
-                    "Annotated Tasks In Given Date Range" : annotated_tasks,
-                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
-                    "Skipped Tasks" : total_skipped_tasks,
+                    "Annotated Tasks" : annotated_tasks ,
                     "Unlabeled Tasks" : all_pending_tasks_in_project,
+                    "Skipped Tasks" : total_skipped_tasks,
                     "Draft Tasks": all_draft_tasks_in_project,
+                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2)
                     }
                     
             final_result.append(result)

@@ -336,26 +336,26 @@ class AnalyticsViewSet(viewsets.ViewSet):
             all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
             if is_translation_project :
                 result = {
-                    "User Name":request.user.username ,
+                    "Annotator":request.user.username ,
                     "Project Name" :project_name,
-                    "Annotated Tasks" : annotated_tasks_count,
-                    "Average Annotation Time (In Seconds)" : avg_lead_time,
                     "Assigned Tasks" : assigned_tasks_count,
-                    "Skipped Tasks" : total_skipped_tasks,
+                    "Annotated Tasks" : annotated_tasks_count,
                     "Unlabeled Tasks" : all_pending_tasks_in_project,
+                    "Skipped Tasks" : total_skipped_tasks,
                     "Draft Tasks" : all_draft_tasks_in_project,
-                    "Word Count" : total_word_count
+                    "Word Count" : total_word_count,
+                    "Average Annotation Time (In Seconds)" : avg_lead_time
                     }
             else :
                 result = {
-                    "User Name":request.user.username ,
-                    "Project Name" :project_name ,
-                    "Annotated Tasks" : annotated_tasks_count,
-                    "Average Annotation Time (In Seconds)" : avg_lead_time,
+                    "Annotator":request.user.username ,
+                    "Project Name" :project_name,
                     "Assigned Tasks" : assigned_tasks_count,
-                    "Skipped Tasks" : total_skipped_tasks,
+                    "Annotated Tasks" : annotated_tasks_count,
                     "Unlabeled Tasks" : all_pending_tasks_in_project,
+                    "Skipped Tasks" : total_skipped_tasks,
                     "Draft Tasks" : all_draft_tasks_in_project,
+                    "Average Annotation Time (In Seconds)" : avg_lead_time
                     }
 
             final_result.append(result)
