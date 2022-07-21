@@ -873,6 +873,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except Project.DoesNotExist:
             final_result = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
+            return Response(final_result, status=ret_status)
         from_date = request.data.get('from_date')
         to_date = request.data.get('to_date')
         from_date = from_date + ' 00:00'
@@ -911,109 +912,127 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 if usermail in managers:
                     continue
-    
+                
+                items = []
+
+                items.append(("Annotator",user_name))
+                items.append(("Email",usermail))
+                
                 all_tasks_in_project = Task.objects.filter(Q(project_id=pk) & Q(annotation_users= each_user))
                 assigned_tasks = all_tasks_in_project.count()
 
+                items.append(("Assigned Tasks" , assigned_tasks))
+
+                proj = Project.objects.get(id = pk)
+                if proj.enable_task_reviews : 
+                    labeled_tasks  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='labeled',\
+                        correct_annotation__created_at__range = [start_date, end_date])
+                    labeled_tasks_count = labeled_tasks.count()
+
+                    items.append(("Labeled Tasks" , labeled_tasks_count))
+
+                
                 annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted',\
                     correct_annotation__created_at__range = [start_date, end_date])
                 annotated_tasks = annotated_tasks_objs.count()
+
+                items.append(("Accepted Tasks" , annotated_tasks))
+                
+
+                total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='unlabeled')
+                total_unlabeled_tasks_count = total_unlabeled_tasks.count()
+
+                items.append(("Unlabeled Tasks" , total_unlabeled_tasks_count))
+
+                total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='skipped')
+                total_skipped_tasks_count = total_skipped_tasks.count()
+
+
+                items.append(("Skipped Tasks" , total_skipped_tasks_count))
+
+                total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='draft')
+                total_draft_tasks_count = total_draft_tasks.count()
+
+                items.append(("Draft Tasks", total_draft_tasks_count))
+
+                if is_translation_project :
+                    total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
+                    total_word_count = sum(total_word_count_list)
+
+                    items.append(("Word Count" , total_word_count))
+
 
                 lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks_objs]
                 avg_lead_time = 0
                 if len(lead_time_annotated_tasks) > 0 :
                     avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
 
+                items.append(("Average Annotation Time (In Seconds)" , round(avg_lead_time, 2)))
 
-                total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='skipped')
-                total_skipped_tasks_count = total_skipped_tasks.count()
-
-                total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='unlabeled')
-                total_unlabeled_tasks_count = total_unlabeled_tasks.count()
-
-                total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='draft')
-                total_draft_tasks_count = total_draft_tasks.count()
-
-                if is_translation_project :
-                    total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
-                    total_word_count = sum(total_word_count_list)
-                    final_result.append({
-                        "Username":user_name,
-                        "Email":usermail,
-                        "Annotated Tasks" : annotated_tasks,
-                        "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
-                        "Assigned Tasks" : assigned_tasks,
-                        "Skipped Tasks" : total_skipped_tasks_count,
-                        "Unlabeled Tasks" : total_unlabeled_tasks_count,
-                        "Draft Tasks": total_draft_tasks_count,
-                        "Word Count" : total_word_count
-                        })
-                else:
-                    final_result.append({
-                        "Username":user_name,
-                        "Email":usermail,
-                        "Annotated Tasks" : annotated_tasks,
-                        "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
-                        "Assigned Tasks" : assigned_tasks,
-                        "Skipped Tasks" : total_skipped_tasks_count,
-                        "Unlabeled Tasks" : total_unlabeled_tasks_count,
-                        "Draft Tasks": total_draft_tasks_count
-                        })
+                
+                final_result.append(dict(items))
             ret_status = status.HTTP_200_OK
 
         elif request.user.role == User.ANNOTATOR:
+            items = []
 
             each_user = request.user.id
             user_name = request.user.username
             usermail = request.user.email
 
+            items.append(("Annotator",user_name))
+            items.append(("Email",usermail))
+
             all_tasks_in_project = Task.objects.filter(Q(project_id=pk) & Q(annotation_users= each_user))
             assigned_tasks = all_tasks_in_project.count()
+
+            items.append(("Assigned Tasks" , assigned_tasks))
+
+            proj = Project.objects.get(id = pk)
+            if proj.enable_task_reviews : 
+                labeled_tasks  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='labeled',\
+                    correct_annotation__created_at__range = [start_date, end_date])
+                labeled_tasks_count = labeled_tasks.count()
+
+                items.append(("Labeled Tasks" , labeled_tasks_count))
+
 
             annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted',\
                 correct_annotation__created_at__range = [start_date, end_date])
             annotated_tasks = annotated_tasks_objs.count()
+
+            items.append(("Accepted Tasks" , annotated_tasks))
+
+            total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='unlabeled')
+            total_unlabeled_tasks_count = total_unlabeled_tasks.count()
+
+            items.append(("Unlabeled Tasks" , total_unlabeled_tasks_count))
+
+            total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='skipped')
+            total_skipped_tasks_count = total_skipped_tasks.count()
+
+            items.append(("Skipped Tasks" , total_skipped_tasks_count))
+
+            total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='draft')
+            total_draft_tasks_count = total_draft_tasks.count()
+
+            items.append(("Draft Tasks", total_draft_tasks_count))
+
+            if is_translation_project :
+                total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
+                total_word_count = sum(total_word_count_list)
+
+                items.append(("Word Count" , total_word_count))
 
             lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks_objs]
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0 :
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
 
+            items.append(("Average Annotation Time (In Seconds)" , round(avg_lead_time, 2)))
 
-            total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='skipped')
-            total_skipped_tasks_count = total_skipped_tasks.count()
+            final_result = [dict(items)]
 
-            total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='unlabeled')
-            total_unlabeled_tasks_count = total_unlabeled_tasks.count()
-
-            total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='draft')
-            total_draft_tasks_count = total_draft_tasks.count()
-
-            if is_translation_project :
-                total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
-                total_word_count = sum(total_word_count_list)
-                final_result.append({
-                    "Username":user_name,
-                    "Email":usermail,
-                    "Annotated Tasks" : annotated_tasks,
-                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
-                    "Assigned Tasks" : assigned_tasks,
-                    "Skipped Tasks" : total_skipped_tasks_count,
-                    "Unlabeled Tasks" : total_unlabeled_tasks_count,
-                    "Draft Tasks": total_draft_tasks_count,
-                    "Word Count" : total_word_count
-                    })
-            else:
-                final_result.append({
-                    "Username":user_name,
-                    "Email":usermail,
-                    "Annotated Tasks" : annotated_tasks,
-                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
-                    "Assigned Tasks" : assigned_tasks,
-                    "Skipped Tasks" : total_skipped_tasks_count,
-                    "Unlabeled Tasks" : total_unlabeled_tasks_count,
-                    "Draft Tasks": total_draft_tasks_count
-                    })
             ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
     
