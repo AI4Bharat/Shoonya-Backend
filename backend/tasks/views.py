@@ -394,6 +394,12 @@ class AnnotationViewSet(
                         task.task_status = ACCEPTED
             else:
                 task.task_status = request.data["task_status"]
+            
+            # TODO - This will require changes when required_annotators_per_task > 1
+            for annotation_ in task.annotations:
+                if annotation_.parent_annotation and annotation_.parent_annotation==annotation_id:
+                    annotation_.annotation_notes = annotation.annotation_notes
+            
         # Review annotation update
         else:
             if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REJECTED]:
