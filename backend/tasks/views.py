@@ -393,7 +393,7 @@ class AnnotationViewSet(
                     if task.task_status == LABELED:
                         task.task_status = ACCEPTED
             else:
-                task.task_status = UNLABELED
+                task.task_status = request.data["task_status"]
         # Review annotation update
         else:
             if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REJECTED]:
