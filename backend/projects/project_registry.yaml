@@ -58,7 +58,8 @@ Translation:
         class: TranslationPair
         save_type: in_place
         fields:
-          - rating
+          annotations: 
+            - rating
     ContextualTranslationEditing:
       project_mode: "Annotation"
       label_studio_jsx_file: "translation/contextual_translation_editing.jsx"
