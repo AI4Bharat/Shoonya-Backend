@@ -64,6 +64,18 @@ class BlockTextResource(ModelResource, ResourceMixin):
         skip_diff=True
         force_init_instance = True
 
+class ConversationTranslationResource(ModelResource,ResourceMixin):
+    '''
+    Import/Export Resource for ConversationTranslation
+    '''
+    class Meta:
+        import_id_fields=('id',)
+        exclude=('datasetbase_ptr',)
+        model=ConversationTranslation
+        clean_model_instances=True
+        skip_diff=True
+        force_init_instance=True
+
 # Define a mapping between dataset instance type and resource
 RESOURCE_MAP = {
     'TranslationPair' :TranslationPairResource,

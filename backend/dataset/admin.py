@@ -1,3 +1,4 @@
+import resource
 from django.contrib import admin
 from import_export.admin import ImportExportActionModelAdmin
 from .resources import *
@@ -24,7 +25,11 @@ class OCRDocumentAdmin(ImportExportActionModelAdmin):
 class BlockTextAdmin(ImportExportActionModelAdmin):
     resource_class = BlockTextResource
 
+class ConversationTranslationAdmin(ImportExportActionModelAdmin):
+    resource_class=ConversationTranslationResource
+
 admin.site.register(SentenceText, SentenceTextAdmin)
 admin.site.register(TranslationPair, TranslationPairAdmin)
 admin.site.register(OCRDocument, OCRDocumentAdmin)
 admin.site.register(BlockText, BlockTextAdmin)
+admin.site.register(ConversationTranslation,ConversationTranslationAdmin)
