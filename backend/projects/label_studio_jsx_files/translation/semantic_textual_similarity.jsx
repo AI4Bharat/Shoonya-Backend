@@ -7,6 +7,14 @@
     <Text name="output_text" value="$output_text"/>
   </View>
   <View>
-    <Rating name="rating" toName="output_text" defaultValue="0" maxRating="5" size="large" required="true" />
+    <Header size="3" value="Rating"/>
+    <Choices name="rating" toName="output_text" choice="single">
+    	<Choice value="0, The two sentences are completely dissimilar." />
+    	<Choice value="1, The two sentences are not equivalent, but are on the same topic." />
+    	<Choice value="2, The two sentences are not equivalent, but share some details" />
+    	<Choice value="3, The two sentences are roughly equivalent, but some important information differs/missing." />
+    	<Choice value="4, The two sentences are mostly equivalent, but some unimportant details differ." />
+    	<Choice value="5, The two sentences are completely equivalent, as they mean the same thing." />
+  	</Choices>
   </View>
 </View>
