@@ -1,6 +1,13 @@
-from typing import Tuple
-from dateutil.parser import parse as date_parse
 import re
+from typing import Tuple
+
+from dateutil.parser import parse as date_parse
+from django.db.models import Func
+
+
+class Round(Func):
+    function = "ROUND"
+    template = "%(function)s(%(expressions)s::numeric, 2)"
 
 
 def no_of_words(string):
