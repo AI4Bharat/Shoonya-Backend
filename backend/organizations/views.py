@@ -1,19 +1,19 @@
-from rest_framework import viewsets
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-from rest_framework.decorators import action
-from rest_framework import status
-from projects.utils import no_of_words
-from tasks.models import Task
 from datetime import datetime
-from projects.utils import is_valid_date
+
+from django.db.models import Count, Q
+from projects.models import Project
+from projects.utils import is_valid_date, no_of_words
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
+from tasks.models import Task
+from users.models import User
+from users.serializers import UserFetchSerializer
+
+from .decorators import is_organization_owner, is_particular_organization_owner
 from .models import Organization
 from .serializers import OrganizationSerializer
-from .decorators import is_organization_owner, is_particular_organization_owner
-from users.serializers import UserFetchSerializer
-from users.models import User
-from projects.models import Project
-from django.db.models import Q
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -23,7 +23,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    # permission_classes = (IsAuthenticatedOrReadOnly,)
 
     @is_organization_owner
     def create(self, request, pk=None, *args, **kwargs):
@@ -43,7 +43,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    @is_particular_organization_owner
+    # @is_particular_organization_owner
     @action(
         detail=True, methods=["GET"], name="Get Organization users", url_name="users"
     )
@@ -59,7 +59,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    @is_organization_owner
+    # @is_organization_owner
     @action(
         detail=True, methods=["POST"], name="Get Organization level  users analytics ", url_name="user_analytics"
     )
@@ -106,6 +106,56 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             selected_language = '-'
         else :
             selected_language = tgt_language
+
+        qs = (
+            User.objects.filter(organization=organization)
+            .annotate(no_of_projects=Count("project_users", distinct=True))
+            .annotate(
+                no_of_workspaces=Count("project_users__workspace_id", distinct=True)
+            )
+            .annotate(
+                total_tasks=Count(
+                    "project_users__tasks",
+                    filter=Q(project_users__project_type=project_type),
+                )
+            )
+            .annotate(
+                accepted_tasks=Count(
+                    "project_users__tasks",
+                    filter=Q(project_users__tasks__task_status="accepted"),
+                )
+            )
+            .annotate(
+                skipped_tasks=Count(
+                    "project_users__tasks",
+                    filter=Q(project_users__tasks__task_status="skipped"),
+                )
+            )
+            .annotate(
+                draft_tasks=Count(
+                    "project_users__tasks",
+                    filter=Q(project_users__tasks__task_status="draft"),
+                )
+            )
+            .annotate(
+                unlabeled_tasks=Count(
+                    "project_users__tasks",
+                    filter=Q(project_users__tasks__task_status="unlabeled"),
+                )
+            )
+            .values(
+                "username",
+                "email",
+                "no_of_projects",
+                "no_of_workspaces",
+                "total_tasks",
+                "accepted_tasks",
+                "skipped_tasks",
+                "draft_tasks",
+                "unlabeled_tasks",
+            )
+        )
+        return Response(data=qs, status=status.HTTP_200_OK)
 
         result =[]
         for user in users:
