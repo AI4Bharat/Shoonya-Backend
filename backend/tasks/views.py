@@ -196,7 +196,22 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project_type =  project_type.lower()
         is_translation_project = True if  "translation" in  project_type else False
         
-        # if (is_translation_project) and (page is not None) and ({DRAFT, LABELED,  REJECTED}):
+        if (is_translation_project) and (page is not None) and (task_status in {DRAFT, LABELED,  REJECTED}) and (not is_review_mode):
+            serializer = TaskAnnotationSerializer(page, many=True)
+            data = serializer.data
+            task_ids=[]
+            for index,each_data in enumerate(data):
+                task_ids.append(each_data["id"])
+            
+            annotation_queryset=Annotation.objects.filter(completed_by=request.user).filter(task__id__in=task_ids)
+            for index,each_data in enumerate(data):
+                annotation_queryset_instance=annotation_queryset.filter(task__id=each_data["id"])
+                if len(annotation_queryset_instance)!=0:
+                    annotation_queryset_instance=annotation_queryset_instance[0]
+                    data[index]["data"]["output_text"]=annotation_queryset_instance.result[0]["value"]["text"][0]
+                    each_data["machine_translation"] = each_data["data"]["machine_translation"]
+                    del each_data["data"]["machine_translation"]
+            return self.get_paginated_response(data)
             # To be done for annotation_mode
         
         if (is_translation_project) and (page is not None) and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES}):
