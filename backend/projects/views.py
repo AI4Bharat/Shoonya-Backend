@@ -286,7 +286,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     organization_id=request.user.organization
                 )
             else:
-                projects = self.queryset.filter(users=request.user)
+                projects = self.queryset.filter(users=request.user)|self.queryset.filter(annotation_reviewers=request.user)
             projects_json = self.serializer_class(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
