@@ -421,7 +421,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 
             annotated_tasks = annotated_labeled_tasks.count()
                 
-            lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_labeled_tasks]
+            lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_labeled_tasks]
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0 :
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
