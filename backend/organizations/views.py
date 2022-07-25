@@ -25,7 +25,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-    # permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     @is_organization_owner
     def create(self, request, pk=None, *args, **kwargs):
@@ -45,7 +45,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    # @is_particular_organization_owner
+    @is_particular_organization_owner
     @action(
         detail=True, methods=["GET"], name="Get Organization users", url_name="users"
     )
@@ -61,7 +61,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-    # @is_organization_owner
+    @is_organization_owner
     @action(
         detail=True, methods=["POST"], name="Get Organization level  users analytics ", url_name="user_analytics"
     )
@@ -123,7 +123,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             .annotate(
                 accepted_tasks=Count(
                     "project_users__tasks",
-                    filter=Q(project_users__tasks__task_status="accepted"),
+                    filter=Q(project_users__tasks__task_status="accepted") & Q(project_users__tasks__correct_annotation__created_at__range=[start_date, end_date]),
                 )
             )
             .annotate(
