@@ -286,7 +286,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     organization_id=request.user.organization
                 )
             else:
-                projects = self.queryset.filter(users=request.user)
+                projects = self.queryset.filter(users=request.user)|self.queryset.filter(annotation_reviewers=request.user)
             projects_json = self.serializer_class(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
@@ -349,7 +349,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         project = Project.objects.filter(pk=pk).first()
         if not project:
-            return Reponse({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         if project.frozen_users.filter(id=user.id).exists():
             return Response({"message": "User is already frozen in this project"}, status=status.HTTP_400_BAD_REQUEST)
@@ -956,16 +956,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 items.append(("Draft Tasks", total_draft_tasks_count))
 
                 if is_translation_project :
-                    total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
-                    total_word_count = sum(total_word_count_list)
+                    if proj.enable_task_reviews:
+                        total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in labeled_tasks]
+                        total_word_count = sum(total_word_count_list)
+                    else:
+                        total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
+                        total_word_count = sum(total_word_count_list)
 
                     items.append(("Word Count" , total_word_count))
 
 
-                lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks_objs]
-                avg_lead_time = 0
-                if len(lead_time_annotated_tasks) > 0 :
-                    avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
+                if proj.enable_task_reviews:
+                    annotations = Annotation.objects.filter(completed_by=each_user,task__in=labeled_tasks)
+                    lead_time_annotated_tasks = [annot.lead_time for annot in annotations]
+                    avg_lead_time = 0
+                    if len(lead_time_annotated_tasks) > 0 :
+                        avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
+                else:
+                    lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks_objs]
+                    avg_lead_time = 0
+                    if len(lead_time_annotated_tasks) > 0 :
+                        avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
 
                 items.append(("Average Annotation Time (In Seconds)" , round(avg_lead_time, 2)))
 
