@@ -966,7 +966,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 
                 if proj.enable_task_reviews:
-                    annotations = Annotation.objects.filter(completed_by=each_user,task__in=labeled_tasks)
+                    annotations = Annotation_model.objects.filter(completed_by=each_user,task__in=labeled_tasks)
                     lead_time_annotated_tasks = [annot.lead_time for annot in annotations]
                     avg_lead_time = 0
                     if len(lead_time_annotated_tasks) > 0 :
