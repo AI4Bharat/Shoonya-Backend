@@ -6,23 +6,27 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tasks', '0023_auto_20220518_0845'),
+        ("tasks", "0023_auto_20220518_0845"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='annotation',
-            name='lead_time',
-            field=models.FloatField(default=0.0, verbose_name='annotation_lead_time'),
+            model_name="annotation",
+            name="lead_time",
+            field=models.FloatField(default=0.0, verbose_name="annotation_lead_time"),
         ),
         migrations.AddField(
-            model_name='annotation',
-            name='updated_at',
-            field=models.DateTimeField(auto_now=True, verbose_name='annotation_updated_at'),
+            model_name="annotation",
+            name="updated_at",
+            field=models.DateTimeField(
+                auto_now=True, verbose_name="annotation_updated_at"
+            ),
         ),
         migrations.AlterField(
-            model_name='annotation',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, verbose_name='annotation_created_at'),
+            model_name="annotation",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True, verbose_name="annotation_created_at"
+            ),
         ),
     ]
