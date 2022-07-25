@@ -301,13 +301,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     pass
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
                 un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
-                labeled_count = Task.objects.filter(Q (project_id = proj.id) & Q(task_status = 'accepted') & Q (correct_annotation__created_at__range = [start_date, end_date])).count()
+                accepted_count = Task.objects.filter(Q (project_id = proj.id) & Q(task_status = 'accepted') & Q (correct_annotation__created_at__range = [start_date, end_date])).count()
                 skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
                 dropped_tasks = Task.objects.filter(project_id = proj.id,task_status = 'draft').count()
+                labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'labeled').count()
+                
                 if total_tasks == 0:
                     project_progress = 0.0
                 else :
-                    project_progress = (labeled_count / total_tasks) * 100
+                    project_progress = (accepted_count / total_tasks) * 100
                 result = {
                     "Project Id" : project_id,
                     "Project Name" : project_name,
@@ -315,12 +317,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Project Type" : project_type,
                     "No .of Annotators Assigned" : no_of_annotators_assigned,
                     "Assigned Tasks" : total_tasks,
-                    "Annotated Tasks" : labeled_count,
+                    "Annotated Tasks" : accepted_count,
+                    "Labeled Tasks": labeled_count,
                     "Unlabeled Tasks" : un_labeled_count,
                     "Skipped Tasks": skipped_count,
                     "Draft Tasks" : dropped_tasks,
                     "Project Progress" : round(project_progress,3)
-                    }
+                }
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
         return Response(final_result , status = ret_status )
