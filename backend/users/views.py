@@ -347,13 +347,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 "Unlabeled Tasks" : all_pending_tasks_in_project,
                 "Skipped Tasks" : total_skipped_tasks,
                 "Draft Tasks" : all_draft_tasks_in_project,
-                "Average Annotation Time (In Seconds)" : avg_lead_time
+                "Average Annotation Time (In Seconds)" : avg_lead_time,
+                "Annotated Tasks": task_count
             }
-
-            if proj.enable_task_reviews:
-                result["Labeled Tasks"] = task_count
-            else:
-                result["Annotated Tasks"] = task_count
 
             if is_translation_project:
                 result["Word Count"] = total_word_count
