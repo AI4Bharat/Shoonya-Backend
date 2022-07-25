@@ -166,7 +166,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 Unlabeled_Tasks=F('unlabeled_tasks'),
                 Skipped_Tasks=F('skipped_tasks'),
                 Draft_Tasks=F('draft_tasks'),
-                Word_Count_Of_Annotated_Tasks=Value('-'),
+                # Word_Count_Of_Annotated_Tasks=Value('-'),
                 Average_Annotation_Time_In_Seconds=F('avg_annotation_time_rounded')
             )
         )
