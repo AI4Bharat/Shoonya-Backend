@@ -263,7 +263,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = to_date + ' 23:59'
         tgt_language = request.data.get('tgt_language')
         project_type = request.data.get("project_type")
-        enable_task_reviews = request.data.get("enable_task_reviews")
+        #enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -302,10 +302,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     pass
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
                 un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
-                if enable_task_reviews:
-                    labeled_tasks = Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
-                else:
-                    labeled_tasks = Task.objects.filter(Q (project_id = proj.id) & Q(task_status = 'accepted'))
+                labeled_tasks = Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
 
                 labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
                 annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
@@ -363,7 +360,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
         tgt_language = request.data.get('tgt_language')
-        enable_task_reviews = request.data.get("enable_task_reviews")
+        #enable_task_reviews = request.data.get("enable_task_reviews")
 
 
         cond, invalid_message = is_valid_date(from_date)
@@ -415,12 +412,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             assigned_tasks = all_tasks_in_project.count()
             
 
-            if enable_task_reviews :
-                annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
-                     & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
-            else:
-                annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
-                & Q(task_status = 'accepted'))
+            annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
+                    & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
 
             annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
             annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
