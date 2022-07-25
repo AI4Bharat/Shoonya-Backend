@@ -926,7 +926,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted')
                 annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
 
-                accepted_annotated_objs =Annotation.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
+                accepted_annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
                     updated_at__range = [start_date, end_date])
                 annotated_tasks = accepted_annotated_objs.count()
 
@@ -939,7 +939,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     accepted_wt_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted_with_changes')
                     accepted_wt_tasks_objs_ids = list(accepted_wt_tasks_objs.values_list('id',flat = True))
 
-                    accepted_wt_change_objs =Annotation.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
+                    accepted_wt_change_objs =Annotation_model.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
                     updated_at__range = [start_date, end_date])
 
                     accepted_wt_tasks = accepted_wt_change_objs.count()
@@ -950,7 +950,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     labeled_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='labeled')
                     labeled_tasks_objs_ids = list(labeled_tasks_objs.values_list('id',flat = True))
 
-                    annotation_labeled_objs =Annotation.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
+                    annotation_labeled_objs =Annotation_model.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
                     updated_at__range = [start_date, end_date])
 
                     labeled_tasks = annotation_labeled_objs.count()
@@ -961,7 +961,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     rejected_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='rejected')
                     rejected_tasks_objs_ids = list(rejected_tasks_objs.values_list('id',flat = True))
 
-                    annotate_rejected_objs =Annotation.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
+                    annotate_rejected_objs =Annotation_model.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
                     updated_at__range = [start_date, end_date])
 
                     rejected_tasks = annotate_rejected_objs.count()
@@ -1033,7 +1033,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted')
             annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
 
-            accepted_annotated_objs =Annotation.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
+            accepted_annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
                 updated_at__range = [start_date, end_date])
             annotated_tasks = accepted_annotated_objs.count()
 
@@ -1046,7 +1046,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 accepted_wt_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted_with_changes')
                 accepted_wt_tasks_objs_ids = list(accepted_wt_tasks_objs.values_list('id',flat = True))
 
-                accepted_wt_change_objs =Annotation.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
+                accepted_wt_change_objs =Annotation_model.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
                 updated_at__range = [start_date, end_date])
 
                 accepted_wt_tasks = accepted_wt_change_objs.count()
@@ -1057,7 +1057,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 labeled_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='labeled')
                 labeled_tasks_objs_ids = list(labeled_tasks_objs.values_list('id',flat = True))
 
-                annotation_labeled_objs =Annotation.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
+                annotation_labeled_objs =Annotation_model.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
                 updated_at__range = [start_date, end_date])
 
                 labeled_tasks = annotation_labeled_objs.count()
@@ -1068,7 +1068,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 rejected_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='rejected')
                 rejected_tasks_objs_ids = list(rejected_tasks_objs.values_list('id',flat = True))
 
-                annotate_rejected_objs =Annotation.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
+                annotate_rejected_objs =Annotation_model.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
                 updated_at__range = [start_date, end_date])
 
                 rejected_tasks = annotate_rejected_objs.count()
