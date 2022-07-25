@@ -925,8 +925,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 proj = Project.objects.get(id = pk)
                 if proj.enable_task_reviews : 
-                    labeled_tasks  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='labeled',\
-                        correct_annotation__created_at__range = [start_date, end_date])
+                    labeled_tasks  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='labeled', annotations__created_at__range=[start_date, end_date])
                     labeled_tasks_count = labeled_tasks.count()
 
                     items.append(("Labeled Tasks" , labeled_tasks_count))
