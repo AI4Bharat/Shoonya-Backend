@@ -263,6 +263,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = to_date + ' 23:59'
         tgt_language = request.data.get('tgt_language')
         project_type = request.data.get("project_type")
+        enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -301,7 +302,17 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     pass
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
                 un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
-                labeled_count = Task.objects.filter(Q (project_id = proj.id) & Q(task_status = 'accepted') & Q (correct_annotation__created_at__range = [start_date, end_date])).count()
+                if enable_task_reviews:
+                    labeled_tasks = Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
+                else:
+                    labeled_tasks = Task.objects.filter(Q (project_id = proj.id) & Q(task_status = 'accepted'))
+
+                labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
+                annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
+                updated_at__range = [start_date, end_date])
+                labeled_count = annotated_labeled_tasks.count()
+
+
                 skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
                 dropped_tasks = Task.objects.filter(project_id = proj.id,task_status = 'draft').count()
                 if total_tasks == 0:
@@ -352,6 +363,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
         tgt_language = request.data.get('tgt_language')
+        enable_task_reviews = request.data.get("enable_task_reviews")
 
 
         cond, invalid_message = is_valid_date(from_date)
@@ -401,12 +413,22 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     
             all_tasks_in_project = Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user ))
             assigned_tasks = all_tasks_in_project.count()
+            
+
+            if enable_task_reviews :
+                annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
+                     & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
+            else:
+                annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
+                & Q(task_status = 'accepted'))
+
+            annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
+            annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
+                updated_at__range = [start_date, end_date])
                 
-            annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user ) & Q(task_status='accepted')
-                & Q (correct_annotation__created_at__range = [start_date, end_date]))
-            annotated_tasks = annotated_tasks_objs.count()
+            annotated_tasks = annotated_labeled_tasks.count()
                 
-            lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_tasks_objs]
+            lead_time_annotated_tasks = [ eachtask.correct_annotation.lead_time for eachtask in annotated_labeled_tasks]
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0 :
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
@@ -425,7 +447,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
 
             if is_translation_project :
-                total_word_count_list = [no_of_words(each_task.data['input_text']) for  each_task in annotated_tasks_objs]
+                total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in annotated_labeled_tasks]
                 total_word_count = sum(total_word_count_list)
                 result = {
                     "Annotator":name,
