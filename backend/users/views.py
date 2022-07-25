@@ -303,11 +303,16 @@ class AnalyticsViewSet(viewsets.ViewSet):
         for  proj in project_objs:
 
             project_name = proj.title
-            annotated_tasks_objs =Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status='accepted')
+            
+            if proj.enable_task_reviews:
+                task_objs = Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status='labeled'))
+            else:
+                task_objs =Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status='accepted')
             & Q (correct_annotation__created_at__range = [start_date, end_date]))
-            annotated_tasks_count = annotated_tasks_objs.count()
 
-            annotated_task_ids  = [task.id for task in annotated_tasks_objs]
+            task_count = task_objs.count()
+            
+            annotated_task_ids  = [task.id for task in task_objs]
             annotated_table_objs = Annotation.objects.filter(task_id__in =annotated_task_ids)
             lead_time_list = [obj.lead_time for obj in annotated_table_objs]
             avg_lead_time = 0
@@ -334,29 +339,25 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
             all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "draft") & Q(annotation_users = request.user.id)).order_by('id')
             all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
-            if is_translation_project :
-                result = {
-                    "Annotator":request.user.username ,
-                    "Project Name" :project_name,
-                    "Assigned Tasks" : assigned_tasks_count,
-                    "Annotated Tasks" : annotated_tasks_count,
-                    "Unlabeled Tasks" : all_pending_tasks_in_project,
-                    "Skipped Tasks" : total_skipped_tasks,
-                    "Draft Tasks" : all_draft_tasks_in_project,
-                    "Word Count" : total_word_count,
-                    "Average Annotation Time (In Seconds)" : avg_lead_time
-                    }
-            else :
-                result = {
-                    "Annotator":request.user.username ,
-                    "Project Name" :project_name,
-                    "Assigned Tasks" : assigned_tasks_count,
-                    "Annotated Tasks" : annotated_tasks_count,
-                    "Unlabeled Tasks" : all_pending_tasks_in_project,
-                    "Skipped Tasks" : total_skipped_tasks,
-                    "Draft Tasks" : all_draft_tasks_in_project,
-                    "Average Annotation Time (In Seconds)" : avg_lead_time
-                    }
+
+            result = {
+                "Annotator":request.user.username ,
+                "Project Name" :project_name,
+                "Assigned Tasks" : assigned_tasks_count,
+                "Unlabeled Tasks" : all_pending_tasks_in_project,
+                "Skipped Tasks" : total_skipped_tasks,
+                "Draft Tasks" : all_draft_tasks_in_project,
+                
+                "Average Annotation Time (In Seconds)" : avg_lead_time
+            }
+
+            if proj.enable_task_reviews:
+                result["Labeled Tasks"] = task_count
+            else:
+                result["Annotated Tasks"] = task_count
+
+            if is_translation_project:
+                result["Word Count"] = total_word_count
 
             final_result.append(result)
     
