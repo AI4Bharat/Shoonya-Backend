@@ -52,7 +52,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 return Response({"status": status.HTTP_200_OK, "message": "No more record.", "results": data})
             serializer = WorkspaceSerializer(data, many=True)
             return self.get_paginated_response(serializer.data)
-        elif int(request.user.role) == User.ORGANIZAION_OWNER:
+        elif int(request.user.role) == User.ORGANIZATION_OWNER:
             data = self.queryset.filter(organization=request.user.organization)
             try:
                 data = self.paginate_queryset(data)
@@ -497,7 +497,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
         try:
             workspace = Workspace.objects.get(pk=pk)
 
-            if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization)==(workspace.organization)) or ((request.user.role==User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
+            if(((request.user.role) == (User.ORGANIZATION_OWNER) and (request.user.organization)==(workspace.organization)) or ((request.user.role==User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
                 return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
 
             user_ids = user_id.split(',')
@@ -557,7 +557,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
         try:
             workspace = Workspace.objects.get(pk=pk)
 
-            if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization) == (workspace.organization)) or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
+            if(((request.user.role) == (User.ORGANIZATION_OWNER) and (request.user.organization) == (workspace.organization)) or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
                 return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
 
             try:

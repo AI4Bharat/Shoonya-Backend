@@ -23,7 +23,7 @@ PROJECT_IS_PUBLISHED_ERROR = {
 def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
-        if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
+        if request.user.role == User.ORGANIZATION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
     return wrapper
@@ -34,7 +34,7 @@ def is_particular_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, pk=None, *args, **kwargs):
         project = Project.objects.get(pk=pk)
-        if (request.user.role == User.WORKSPACE_MANAGER and Workspace.objects.get(pk=project.workspace_id.id).created_by == request.user) or (request.user.role == User.ORGANIZAION_OWNER and Organization.objects.get(pk=Workspace.objects.get(pk=project.workspace_id.id).organization.pk).created_by.pk == request.user.pk) or request.user.is_superuser:
+        if (request.user.role == User.WORKSPACE_MANAGER and Workspace.objects.get(pk=project.workspace_id.id).created_by == request.user) or (request.user.role == User.ORGANIZATION_OWNER and Organization.objects.get(pk=Workspace.objects.get(pk=project.workspace_id.id).organization.pk).created_by.pk == request.user.pk) or request.user.is_superuser:
             return f(self, request, pk, *args, **kwargs)
         return Response(NOT_WORKSPACE_MANAGER_ERROR, status=status.HTTP_403_FORBIDDEN)
     return wrapper
@@ -66,7 +66,7 @@ def project_is_published(f):
 def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
-        if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
+        if request.user.role == User.ORGANIZATION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
     return wrapper

@@ -281,7 +281,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             # projects = self.queryset.filter(users=request.user)
 
-            if request.user.role == User.ORGANIZAION_OWNER:
+            if request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
                     organization_id=request.user.organization
                 )
@@ -605,7 +605,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             # role check
             if (
-                request.user.role == User.ORGANIZAION_OWNER
+                request.user.role == User.ORGANIZATION_OWNER
                 or request.user.role == User.WORKSPACE_MANAGER
                 or request.user.is_superuser
             ):
@@ -901,7 +901,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         is_translation_project = True if  "translation" in  project_type else False
 
         final_result = []
-        if ( request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser ):
+        if ( request.user.role == User.ORGANIZATION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser ):
             managers = [user1.get_username() for user1 in proj_obj.workspace_id.managers.all()]
             users_ids = [obj.id for obj in proj_obj.users.all()]
             user_mails =[user.get_username() for user in proj_obj.users.all()]
