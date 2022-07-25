@@ -347,7 +347,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 "Unlabeled Tasks" : all_pending_tasks_in_project,
                 "Skipped Tasks" : total_skipped_tasks,
                 "Draft Tasks" : all_draft_tasks_in_project,
-                
                 "Average Annotation Time (In Seconds)" : avg_lead_time
             }
 
