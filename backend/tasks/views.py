@@ -5,7 +5,7 @@ from rest_framework import mixins
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 
 
 from tasks.models import *
@@ -41,7 +41,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
         method="post",
@@ -238,7 +238,7 @@ class AnnotationViewSet(
 
     queryset = Annotation.objects.all()
     serializer_class = AnnotationSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
     def create(self, request):
         # TODO: Correction annotation to be filled by validator
@@ -467,7 +467,7 @@ class PredictionViewSet(
 
     queryset = Prediction.objects.all()
     serializer_class = PredictionSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
     def create(self, request):
         prediction_response = super().create(request)
