@@ -303,21 +303,28 @@ class AnalyticsViewSet(viewsets.ViewSet):
         for  proj in project_objs:
 
             project_name = proj.title
-            annotated_tasks_objs =Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status='accepted')
-            & Q (correct_annotation__created_at__range = [start_date, end_date]))
-            annotated_tasks_count = annotated_tasks_objs.count()
+            labeld_tasks_objs =Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
 
-            annotated_task_ids  = [task.id for task in annotated_tasks_objs]
-            annotated_table_objs = Annotation.objects.filter(task_id__in =annotated_task_ids)
-            lead_time_list = [obj.lead_time for obj in annotated_table_objs]
+
+
+            annotated_task_ids = list(labeld_tasks_objs.values_list('id',flat = True))
+            annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
+                updated_at__range = [start_date, end_date])
+
+            annotated_tasks_count = annotated_labeled_tasks.count()
+
+
             avg_lead_time = 0
-            if len(lead_time_list) > 0 :
-                avg_lead_time =sum(lead_time_list) / len(lead_time_list)
+            lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_labeled_tasks]
+            if len(lead_time_annotated_tasks) > 0 :
+                avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
                 avg_lead_time = round(avg_lead_time,2)
+
+
             total_word_count = 0
             if is_translation_project:
-                total_count_list = [no_of_words(Task.objects.get(id = id1).data['input_text']) for  id1 in annotated_task_ids]
-                total_word_count = sum(total_count_list)
+                total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in annotated_labeled_tasks]
+                total_word_count = sum(total_word_count_list)
 
             all_tasks_in_project = Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ))
             assigned_tasks_count = all_tasks_in_project.count()
@@ -329,10 +336,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 ).order_by("id")
             total_skipped_tasks = all_skipped_tasks_in_project.count()
  
-            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "unlabeled") & Q(annotation_users = request.user.id) ).order_by('id')
+            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "unlabeled") & Q(annotation_users = request.user.id) )
             all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
 
-            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "draft") & Q(annotation_users = request.user.id)).order_by('id')
+            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "draft") & Q(annotation_users = request.user.id))
             all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
             if is_translation_project :
                 result = {
