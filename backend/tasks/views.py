@@ -21,6 +21,19 @@ from drf_yasg.utils import swagger_auto_schema
 # Create your views here.
 
 
+def annotation_result_compare(base_annotation_result, review_annotation_result):
+    """
+    Compares the annotation output of annotator and reviewer, ignores the 'id' field.
+    Returns True if output differs
+    """
+    base_result = [{i:d[i] for i in d if i!='id'} for d in base_annotation_result]
+    base_result = sorted(base_result, key=lambda d:d['from_name'])
+    review_result = [{i:d[i] for i in d if i!='id'} for d in review_annotation_result]
+    review_result = sorted(review_result, key=lambda d:d['from_name'])
+
+    is_modified = any(x != y for x, y in zip(base_result, review_result))
+    return is_modified
+
 class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     """
     Model Viewset for Tasks. All Basic CRUD operations are covered here.
@@ -335,7 +348,8 @@ class AnnotationViewSet(
         annotation = Annotation.objects.get(pk=annotation_id)
         if review_status == ACCEPTED:
             task.correct_annotation = annotation
-            if annotation.result != parent_annotation.result:
+            is_modified = annotation_result_compare(annotation.parent_annotation.result, annotation.result)
+            if is_modified:
                 review_status = ACCEPTED_WITH_CHANGES
         task.task_status = review_status
         task.save()
@@ -379,7 +393,7 @@ class AnnotationViewSet(
                     if task.task_status == LABELED:
                         task.task_status = ACCEPTED
             else:
-                task.task_status = UNLABELED
+                task.task_status = request.data["task_status"]
         # Review annotation update
         else:
             if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REJECTED]:
@@ -396,7 +410,8 @@ class AnnotationViewSet(
 
             if review_status == ACCEPTED:
                 task.correct_annotation = annotation
-                if annotation.result != annotation.parent_annotation.result:
+                is_modified = annotation_result_compare(annotation.parent_annotation.result, annotation.result)
+                if is_modified:
                     review_status = ACCEPTED_WITH_CHANGES
             else:
                 task.correct_annotation = None
