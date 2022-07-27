@@ -48,8 +48,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "phone",
             "role",
             "organization",
+            "unverified_email",
+            "date_joined",
         ]
-        read_only_fields = ["id", "email", "role", "organization"]
+        read_only_fields = ["id", "email", "role", "organization","unverified_email","date_joined"]
 
 
 class UserFetchSerializer(serializers.ModelSerializer):
@@ -64,3 +66,11 @@ class UserFetchSerializer(serializers.ModelSerializer):
         ]
 
 
+class LanguageSerializer(serializers.Serializer):
+    language = serializers.ListField(child=serializers.CharField())
+
+
+class UserEmailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields =["email"]

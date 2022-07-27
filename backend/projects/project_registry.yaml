@@ -9,6 +9,8 @@ Translation:
         fields:
           - language
           - text
+        display_fields:
+          - text
       output_dataset: 
         class: TranslationPair
         save_type: new_record
@@ -30,6 +32,9 @@ Translation:
           - input_text
           - output_language
           - machine_translation
+        display_fields:
+          - input_text
+          - machine_translation
       output_dataset: 
         class: TranslationPair
         save_type: in_place
@@ -47,6 +52,9 @@ Translation:
           - output_language
           - machine_translation
           - context
+        display_fields:
+          - input_text
+          - machine_translation
       output_dataset: 
         class: TranslationPair
         save_type: in_place
@@ -62,6 +70,8 @@ OCR:
       input_dataset:
         class: OCRDocument
         fields:
+          - image_url
+        display_fields:
           - image_url
         prediction: prediction_json
       output_dataset: 
@@ -94,6 +104,8 @@ Monolingual:
         fields:
           - text
           - language
+        display_fields:
+          - text
         prediction: splitted_text_prediction
       output_dataset:
         class: BlockText
@@ -101,4 +113,23 @@ Monolingual:
         fields:
           annotations:
             - splitted_text
+    ContextualSentenceVerification:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "monolingual/contextual_sentence_verification.jsx"
+      input_dataset:
+        class: SentenceText
+        fields:
+          - text
+          - context
+          - language
+        display_fields:
+          - text
+      output_dataset:
+        class: SentenceText
+        save_type: in_place
+        fields:
+          annotations:
+            - corrected_text
+            - quality_status
+
         

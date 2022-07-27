@@ -43,10 +43,13 @@ def is_particular_workspace_manager(f):
 def project_is_archived(f):
     @wraps(f)
     def wrapper(self, request, pk, *args, **kwargs):
-        project = Project.objects.get(pk=pk)
-        if project.is_archived:
-            return Response(PROJECT_IS_ARCHIVED_ERROR, status=status.HTTP_403_FORBIDDEN)
-        return f(self, request, pk, *args, **kwargs)
+        try: 
+            project = Project.objects.get(pk=pk)
+            if project.is_archived:
+                return Response(PROJECT_IS_ARCHIVED_ERROR, status=status.HTTP_403_FORBIDDEN)
+            return f(self, request, pk, *args, **kwargs)
+        except Project.DoesNotExist: 
+            return f(self, request, pk, *args, **kwargs)
     return wrapper
 
 # Allow delete only if project is in draft mode and is not in published mode.
@@ -63,7 +66,16 @@ def project_is_published(f):
 def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
-        if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser or (request.user.role == User.ANNOTATOR and request.user.organization_id == Organization.objects.get(pk=pk).id):
+        if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
+            return f(self, request, *args, **kwargs)
+        return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
+    return wrapper
+
+# Check if user is project annotator or reviewer
+def is_project_annotator_or_reviewer(f):
+    @wraps(f)
+    def wrapper(self, request, *args, **kwargs):
+        if request.user.role == User.ANNOTATOR and request.user.organization_id == User.objects.get(pk=request.user.id).organization.id:
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
     return wrapper

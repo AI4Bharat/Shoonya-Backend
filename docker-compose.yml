@@ -20,7 +20,23 @@ services:
       - db
       - redis
   redis:
+    container_name: redis
     image: "redis"
+    ports:
+      - 6379:6379
+
+  celery:
+    container_name: celery
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker --concurrency=2 --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend/
+    depends_on:
+      - db
+      - redis
+      - web 
+
 
 volumes:
   postgres_data:

@@ -36,16 +36,20 @@ UNLABELED = "unlabeled"
 LABELED = "labeled"
 SKIPPED = "skipped"
 ACCEPTED = "accepted"
+ACCEPTED_WITH_CHANGES = "accepted_with_changes"
 REJECTED = "rejected"
 FREEZED = "freezed"
+DRAFT = "draft"
 
 TASK_STATUS = (
     (UNLABELED, "unlabeled"),
     (LABELED, "labeled"),
     (SKIPPED, "skipped"),
     (ACCEPTED, "accepted"),
+    (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
     (FREEZED, "freezed"),
     (REJECTED, "rejected"),
+    (DRAFT, "draft"),
 )
 
 
@@ -80,8 +84,8 @@ class Task(models.Model):
     annotation_users = models.ManyToManyField(
         User, related_name="annotation_users", verbose_name="annotation_users", blank=True
     )
-    review_user = models.ManyToManyField(
-        User, related_name="review_users", verbose_name="review_users",  blank=True
+    review_user = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="review_tasks", verbose_name="review_user",  blank=True
     )
     task_status = models.CharField(
         choices=TASK_STATUS,
@@ -99,6 +103,12 @@ class Task(models.Model):
         """
         for user in users:
             self.annotation_users.add(user)
+
+    def unassign(self, user):
+        """
+        Unassign user from a task
+        """
+        self.annotation_users.remove(user)
     
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
@@ -197,8 +207,14 @@ class Annotation(models.Model):
         Task, on_delete=models.CASCADE, verbose_name="annotation_task_id", related_name="annotations"
     )
     completed_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="annotation_completed_by")
-    lead_time = models.DateTimeField(auto_now_add=True, verbose_name="annotation_lead_time")
-    # parent_annotation = models.TextField(verbose_name='annotation_parent_annotation', null = True, blank = True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="annotation_created_at")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="annotation_updated_at")
+    lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
+    parent_annotation = models.ForeignKey(
+        'self', verbose_name='parent_annotation', null = True, blank = True, default=None, on_delete=models.PROTECT
+    )
+    annotation_notes = models.TextField(blank=True, null=True, verbose_name="annotation_notes")
+    review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
 
     def __str__(self):
         return str(self.id)
@@ -350,6 +366,43 @@ class DataExport(object):
                 format_info["disabled"] = True
             formats.append(format_info)
         return sorted(formats, key=lambda f: f.get("disabled", False))
+
+    
+    @staticmethod
+    def generate_export_file(project, tasks, output_format, download_resources, get_args):
+        # prepare for saving
+        now = datetime.now()
+        data = json.dumps(tasks, ensure_ascii=False)
+        md5 = hashlib.md5(json.dumps(data).encode('utf-8')).hexdigest()
+        name = 'project-' + str(project.id) + '-at-' + now.strftime('%Y-%m-%d-%H-%M') + f'-{md5[0:8]}'
+
+        input_json = DataExport.save_export_files(project, now, get_args, data, md5, name)
+
+        converter = Converter(
+            config=parse_config(project.label_config),
+            project_dir=None,
+            upload_dir=os.path.join(MEDIA_ROOT, UPLOAD_DIR),
+            download_resources=download_resources,
+        )
+        with get_temp_dir() as tmp_dir:
+            converter.convert(input_json, tmp_dir, output_format, is_dir=False)
+            files = get_all_files_from_dir(tmp_dir)
+            # if only one file is exported - no need to create archive
+            if len(os.listdir(tmp_dir)) == 1:
+                output_file = files[0]
+                ext = os.path.splitext(output_file)[-1]
+                content_type = f'application/{ext}'
+                out = read_bytes_stream(output_file)
+                filename = name + os.path.splitext(output_file)[-1]
+                return out, content_type, filename
+
+            # otherwise pack output directory into archive
+            shutil.make_archive(tmp_dir, 'zip', tmp_dir)
+            out = read_bytes_stream(os.path.abspath(tmp_dir + '.zip'))
+            content_type = 'application/zip'
+            filename = name + '.zip'
+            return out, content_type, filename
+
 
     @staticmethod
     def export_csv_file(project, tasks, download_resources, get_args):

@@ -4,7 +4,10 @@ from users.models import User
 from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
-
+from .registry_helper import ProjectRegistry
+from django.utils.timezone import now
+from datetime import datetime, timedelta
+from users.models import LANG_CHOICES
 # from dataset import LANG_CHOICES
 
 RANDOM = "r"
@@ -23,19 +26,21 @@ SAMPLING_MODE_CHOICES = (
 # OCRAnnotation = 3
 # MonolingualCollection = 4
 
-PROJECT_TYPE_CHOICES = (
-    ("MonolingualTranslation", "MonolingualTranslation"),
-    ("TranslationEditing", "TranslationEditing"),
-    ("ContextualTranslationEditing", "ContextualTranslationEditing"),
-    ("OCRAnnotation", "OCRAnnotation"),
-    ("MonolingualCollection", "MonolingualCollection"),
-    ("SentenceSplitting", "SentenceSplitting"),
-)
+PROJECT_TYPE_LIST = list(ProjectRegistry.get_instance().project_types.keys())
+PROJECT_TYPE_CHOICES = tuple(zip(PROJECT_TYPE_LIST, PROJECT_TYPE_LIST))
 
 Collection = "Collection"
 Annotation = "Annotation"
 
 PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
+
+ANNOTATION_LOCK = "annotation_task_pull_lock"
+REVIEW_LOCK = "review_task_pull_lock"
+
+LOCK_CONTEXT = (
+    (ANNOTATION_LOCK, "annotation_lock"),
+    (REVIEW_LOCK, "review_lock"),
+)
 
 
 # Create your models here.
@@ -56,9 +61,12 @@ class Project(models.Model):
     )
 
     users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="project_users", help_text=("Project Users"))
+    annotation_reviewers = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="review_projects", blank=True, help_text=("Project Annotation Reviewers"))
+    frozen_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="frozen_project_users", blank=True, help_text=("Frozen Project Users"))
     organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, help_text=("Organization to which the Project belongs"))
     workspace_id = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, help_text=("Workspace to which the Project belongs"))
     dataset_id = models.ManyToManyField(DatasetInstance, related_name="project_dataset_instances", blank=True, help_text=("Dataset Instances that are available for project creation"))
+    created_at = models.DateTimeField(auto_now_add=True, help_text=("Project Created At"))
 
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
@@ -83,7 +91,7 @@ class Project(models.Model):
 
     filter_string = models.CharField(max_length=1000, null=True, blank=True, 
         help_text=("Filter string for filtering data for project"))
-    label_config = models.CharField(verbose_name="XML Template Config", max_length=1000, null=True, blank=True, 
+    label_config = models.TextField(verbose_name="XML Template Config", null=True, blank=True, 
         help_text=("Label Studio Config XML to be used to show annotation task UI"))
 
     color = models.CharField(max_length=6, null=True, blank=True, help_text=("Colour"))
@@ -115,6 +123,61 @@ class Project(models.Model):
     # language = models.CharField(
     #     verbose_name="language", choices=LANG_CHOICES, max_length=3
     # )
+    tasks_pull_count_per_batch = models.IntegerField(verbose_name="tasks_pull_count_per_batch", default=10,
+        help_text=("Maximum no. of new tasks that can be assigned to a user at once"))
+
+    max_pending_tasks_per_user = models.IntegerField(verbose_name="max_pending_tasks_per_user", default=60,
+        help_text=("Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks"))
+
+    enable_task_reviews = models.BooleanField(verbose_name="enable_task_reviews", default=False,
+        help_text=("Indicates whether the annotations need to be reviewed"))
+
+    def clear_expired_lock(self):
+        self.lock.filter(expires_at__lt=now()).delete()
+
+    def release_lock(self, context):
+        self.lock.filter(lock_context=context).delete()
+
+    def is_locked(self, context):
+        self.clear_expired_lock()
+        return self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
+
+    def set_lock(self, user, context):
+        """
+        Locks the project for a user
+        """
+        if not self.is_locked(context):
+            ProjectTaskRequestLock.objects.create(project=self, user=user, lock_context=context, expires_at=now()+timedelta(seconds=settings.PROJECT_LOCK_TTL))
+        else:
+            raise Exception("Project already locked")
+
+    src_language = models.CharField(
+        choices=LANG_CHOICES,
+        null=True,
+        blank=True,
+        max_length=50,
+        help_text=("Source language of the project"),
+        verbose_name="Source Language"
+    )
+    tgt_language = models.CharField(
+        choices=LANG_CHOICES,
+        null=True,
+        blank=True,
+        max_length=50,
+        help_text=("Target language of the project"),
+        verbose_name="Target Language"
+    )
 
     def __str__(self):
         return str(self.title)
+
+
+class ProjectTaskRequestLock(models.Model):
+    """
+    Basic database lock implementation to handle
+    concurrency in tasks pull requests for same project
+    """
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='lock', help_text='Project locked for task pulling')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_lock', help_text='User locking this project to pull tasks')
+    lock_context = models.CharField(choices=LOCK_CONTEXT, max_length=50, default=ANNOTATION_LOCK, verbose_name="lock_context")
+    expires_at = models.DateTimeField('expires_at')
