@@ -287,6 +287,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             else:
                 projects = self.queryset.filter(users=request.user)|self.queryset.filter(annotation_reviewers=request.user)
+                projects = projects.distinct()
             projects_json = self.serializer_class(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
@@ -409,7 +410,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Check if task_status is passed
         if "task_status" in dict(request.query_params):
 
-            if user_role == 1 and not request.user.is_superuser:
+            if request.user in project.annotation_reviewers.all() or request.user in project.users.all():
                 # Filter Tasks based on whether the request is in review mode or not
                 queryset = Task.objects.filter(
                     project_id__exact=project.id,
