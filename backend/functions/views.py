@@ -1,4 +1,5 @@
 import json
+import ast 
 import requests
 import uuid
 
@@ -9,8 +10,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from tasks.models import *
-
-# from .utils import GoogleTranslator
+from users.utils import LANG_NAME_TO_CODE
 
 ## Utility functions
 def get_translation_using_cdac_model(input_sentence, source_language, target_language):
@@ -24,6 +24,10 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
     Returns:
         str: Translated sentence.
     """
+
+    # Convert language names to the language code 
+    source_language = LANG_NAME_TO_CODE[source_language]
+    target_language = LANG_NAME_TO_CODE[target_language]
 
     headers = {
         # Already added when you pass json= but not when you pass data=
@@ -70,10 +74,10 @@ def save_translation_pairs(
     for output_language in languages:
 
         # Save all the translation outputs in the TranslationPair object
-        for input_sentence, language, context, quality_status in input_sentences:
+        for sentence_text_id, input_sentence, language, context, quality_status in input_sentences:
 
             # Only perform the saving if quality status is clean and corrected text is not empty
-            if quality_status == "Clean" and input_sentence != "":
+            if (quality_status == "Clean") and (input_sentence is not None):
 
                 # Get the translations
                 translated_sentence = get_translation_using_cdac_model(
@@ -88,11 +92,13 @@ def save_translation_pairs(
                 )
 
                 # Get the input datasset instance
-                input_dataset_instance = dataset_models.DataSet
+                input_dataset_instance = dataset_models.DatasetInstance.objects.get(
+                    instance_id=input_dataset_instance_id
+                )
 
                 # Create and save a TranslationPair object
                 translation_pair_obj = dataset_models.TranslationPair(
-                    parent_data=input_dataset_instance,
+                    parent_data=sentence_text_id,
                     instance_id=output_dataset_instance,
                     input_language=language,
                     output_language=output_language,
@@ -313,6 +319,9 @@ def schedule_ai4b_translate_job(request):
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
     languages = request.data["languages"]
 
+    # Convert string list to a list 
+    languages = ast.literal_eval(languages)
+
     # Check if the input dataset instance is a SentenceText dataset
     try:
         input_dataset_instance = dataset_models.DatasetInstance.objects.get(
@@ -331,17 +340,6 @@ def schedule_ai4b_translate_job(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # # Check if corrected_text and quality_status are not null
-        # try: 
-        #     corrected_text = input_dataset_instance.corrected_text 
-        #     quality_status = input_dataset_instance.quality_status
-        
-        # except: 
-        #     return Response(
-        #         {"message": "The data has not been exported yet."},
-        #         status=status.HTTP_400_BAD_REQUEST,
-        #     )
-
     except dataset_models.DatasetInstance.DoesNotExist:
         ret_dict = {"message": "Dataset instance does not exist!"}
         ret_status = status.HTTP_404_NOT_FOUND
@@ -351,7 +349,7 @@ def schedule_ai4b_translate_job(request):
     input_sentences = list(
         dataset_models.SentenceText.objects.filter(
             instance_id=input_dataset_instance_id
-        ).values_list("corrected_text", "language", "context", "quality_status")
+        ).values_list("id", "corrected_text", "language", "context", "quality_status")
     )
 
     # Create a dataset instance for the output dataset
@@ -386,21 +384,6 @@ def schedule_ai4b_translate_job(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # return Response(get_translations_using_cdac_model("Hi, hello. What are you doing?", source_language='en', target_language='hi'))
-
-    # Iterate over the input sentences and get the translations for the same
-    output = []
-    for sentences in input_sentences[:1]:
-
-        result = get_translation_using_cdac_model(
-            sentences[0], source_language=sentences[1], target_language=languages[0]
-        )
-
-        target_sentence = result.json()["output"][0]["target"]
-
-        # Append the result to the output list
-        output.append({"source": sentences[0], "target": target_sentence})
-
-    ret_dict = {"message": "SUCCESS!", "result": output}
+    ret_dict = {"message": "SUCCESS!"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
