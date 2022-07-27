@@ -72,8 +72,8 @@ def save_translation_pairs(
         # Save all the translation outputs in the TranslationPair object
         for input_sentence, language, context, quality_status in input_sentences:
 
-            # Only perform the saving if quality status is clean
-            if quality_status == "Clean":
+            # Only perform the saving if quality status is clean and corrected text is not empty
+            if quality_status == "Clean" and input_sentence != "":
 
                 # Get the translations
                 translated_sentence = get_translation_using_cdac_model(
@@ -319,6 +319,11 @@ def schedule_ai4b_translate_job(request):
             instance_id=input_dataset_instance_id
         )
 
+        # return Response(
+        #         {"message": "Test", "result": input_dataset_instance.},
+        #         status=status.HTTP_400_BAD_REQUEST,
+        #     )
+
         # Check if it's a sentence Text
         if input_dataset_instance.dataset_type != "SentenceText":
             return Response(
@@ -326,14 +331,16 @@ def schedule_ai4b_translate_job(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check if corrected_text and quality_status are not null
-        if (input_dataset_instance.corrected_text is None) or (
-            input_dataset_instance.quality_status is None
-        ):
-            return Response(
-                {"message": "The data has not been exported yet."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # # Check if corrected_text and quality_status are not null
+        # try: 
+        #     corrected_text = input_dataset_instance.corrected_text 
+        #     quality_status = input_dataset_instance.quality_status
+        
+        # except: 
+        #     return Response(
+        #         {"message": "The data has not been exported yet."},
+        #         status=status.HTTP_400_BAD_REQUEST,
+        #     )
 
     except dataset_models.DatasetInstance.DoesNotExist:
         ret_dict = {"message": "Dataset instance does not exist!"}
