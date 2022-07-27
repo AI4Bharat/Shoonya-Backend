@@ -410,7 +410,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Check if task_status is passed
         if "task_status" in dict(request.query_params):
 
-            if user_role == 1 and not request.user.is_superuser:
+            if request.user in project.annotation_reviewers.all():
                 # Filter Tasks based on whether the request is in review mode or not
                 queryset = Task.objects.filter(
                     project_id__exact=project.id,
