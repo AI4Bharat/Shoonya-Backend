@@ -7,13 +7,48 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0016_user_languages'),
+        ("users", "0016_user_languages"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='user',
-            name='languages',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.CharField(choices=[('English', 'English'), ('Assamese', 'Assamese'), ('Bengali', 'Bengali'), ('Bodo', 'Bodo'), ('Dogri', 'Dogri'), ('Gujarati', 'Gujarati'), ('Hindi', 'Hindi'), ('Kannada', 'Kannada'), ('Kashmiri', 'Kashmiri'), ('Konkani', 'Konkani'), ('Maithili', 'Maithili'), ('Malayalam', 'Malayalam'), ('Manipuri', 'Manipuri'), ('Marathi', 'Marathi'), ('Nepali', 'Nepali'), ('Odia', 'Odia'), ('Punjabi', 'Punjabi'), ('Sanskrit', 'Sanskrit'), ('Santali', 'Santali'), ('Sindhi', 'Sindhi'), ('Sinhala', 'Sinhala'), ('Tamil', 'Tamil'), ('Telugu', 'Telugu'), ('Urdu', 'Urdu')], max_length=15, verbose_name='language'), blank=True, default=list, null=True, size=None),
+            model_name="user",
+            name="languages",
+            field=django.contrib.postgres.fields.ArrayField(
+                base_field=models.CharField(
+                    choices=[
+                        ("English", "English"),
+                        ("Assamese", "Assamese"),
+                        ("Bengali", "Bengali"),
+                        ("Bodo", "Bodo"),
+                        ("Dogri", "Dogri"),
+                        ("Gujarati", "Gujarati"),
+                        ("Hindi", "Hindi"),
+                        ("Kannada", "Kannada"),
+                        ("Kashmiri", "Kashmiri"),
+                        ("Konkani", "Konkani"),
+                        ("Maithili", "Maithili"),
+                        ("Malayalam", "Malayalam"),
+                        ("Manipuri", "Manipuri"),
+                        ("Marathi", "Marathi"),
+                        ("Nepali", "Nepali"),
+                        ("Odia", "Odia"),
+                        ("Punjabi", "Punjabi"),
+                        ("Sanskrit", "Sanskrit"),
+                        ("Santali", "Santali"),
+                        ("Sindhi", "Sindhi"),
+                        ("Sinhala", "Sinhala"),
+                        ("Tamil", "Tamil"),
+                        ("Telugu", "Telugu"),
+                        ("Urdu", "Urdu"),
+                    ],
+                    max_length=15,
+                    verbose_name="language",
+                ),
+                blank=True,
+                default=list,
+                null=True,
+                size=None,
+            ),
         ),
     ]
