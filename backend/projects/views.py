@@ -281,7 +281,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             # projects = self.queryset.filter(users=request.user)
 
-            if request.user.role == User.ORGANIZAION_OWNER:
+            if request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
                     organization_id=request.user.organization
                 )
@@ -305,11 +305,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         },
     )
     @action(detail=True, methods=["post"], url_name="remove")
-    def remove_user(self, request, pk=None):
-        user = User.objects.filter(email=request.data["email"]).first()
-        if not user:
+    def remove_annotator(self, request, pk=None):
+        annotator_user = User.objects.filter(email=request.data["email"]).first()
+        if not annotator_user:
             return Response(
-                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+                {"message": "Annotator User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
         project = Project.objects.filter(pk=pk).first()
@@ -318,51 +318,51 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if project.frozen_users.filter(id=user.id).exists():
+        if project.frozen_users.filter(id=annotator_user.id).exists():
             return Response(
                 {"message": "User is already frozen in this project"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         tasks = Task.objects.filter(
-            Q(project_id=project.id) & Q(annotation_users__in=[user])
+            Q(project_id=project.id) & Q(annotation_users__in=[annotator_user])
         ).filter(Q(task_status="unlabeled") | Q(task_status="draft"))
 
         Annotation_model.objects.filter(
-            Q(completed_by=user) & Q(task__task_status="draft")
-        ).delete()  # delete all draft annotations by the user
+            Q(completed_by=annotator_user) & Q(task__task_status="draft")
+        ).delete()  # delete all draft annotations by the annotator_user
 
         for task in tasks:
-            task.annotation_users.remove(user)
+            task.annotation_users.remove(annotator_user)
 
-        tasks.update(task_status="unlabeled")  # unassign user from tasks
+        tasks.update(task_status="unlabeled")  # unassign annotator_user from tasks
 
-        project.frozen_users.add(user)
+        project.frozen_users.add(annotator_user)
 
-        return Response({"message": "User removed"}, status=status.HTTP_200_OK)
+        return Response({"message": "Annotator User removed"}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_name="remove_reviewer")
     def remove_reviewer(self, request, pk=None):
         user_id = request.data.get("id")
-        user = User.objects.filter(id=user_id).first()
-        if not user:
+        reviewer_user = User.objects.filter(id=user_id).first()
+        if not reviewer_user:
             return Response({"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
         project = Project.objects.filter(pk=pk).first()
         if not project:
             return Response({"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-        if project.frozen_users.filter(id=user.id).exists():
+        if project.frozen_users.filter(id=reviewer_user.id).exists():
             return Response({"message": "User is already frozen in this project"}, status=status.HTTP_400_BAD_REQUEST)
 
-        tasks = Task.objects.filter(project_id=project.id).filter(review_user=user).exclude(task_status__in=[ACCEPTED, REJECTED])
+        tasks = Task.objects.filter(project_id=project.id).filter(review_user=reviewer_user).exclude(task_status__in=[ACCEPTED, REJECTED])
         for task in tasks:
             task.review_user = None
             task.save()
 
-        project.frozen_users.add(user)
+        project.frozen_users.add(reviewer_user)
         project.save()
-        return Response({"message": "User removed"}, status=status.HTTP_200_OK)
+        return Response({"message": "Reviewer User removed"}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         method="post",
@@ -574,7 +574,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         url_name="get_project_users",
     )
     @project_is_archived
-    def get_project_users(self, request, pk=None, *args, **kwargs):
+    def get_project_annotators(self, request, pk=None, *args, **kwargs):
         """
         Get the list of annotators in the project
         """
@@ -606,7 +606,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             # role check
             if (
-                request.user.role == User.ORGANIZAION_OWNER
+                request.user.role == User.ORGANIZATION_OWNER
                 or request.user.role == User.WORKSPACE_MANAGER
                 or request.user.is_superuser
             ):
@@ -631,15 +631,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["POST"],
-        name="Assign new tasks to user",
+        name="Assign new tasks to annotator",
         url_name="assign_new_tasks",
     )
     def assign_new_tasks(self, request, pk, *args, **kwargs):
         """
         Pull a new batch of unassigned tasks for this project
-        and assign to the user
+        and assign to the annotator
         """
-        cur_user = request.user
+        cur_annotator = request.user
         project = Project.objects.get(pk=pk)
         if not project.is_published:
             return Response(
@@ -647,23 +647,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         serializer = ProjectUsersSerializer(project, many=False)
-        users = serializer.data["users"]
-        user_ids = set()
-        for user in users:
-            user_ids.add(user["id"])
-        # verify if user belongs in project users
-        if not cur_user.id in user_ids:
+        annotators = serializer.data["users"]
+        annotator_ids = set()
+        for annotator in annotators:
+            annotator_ids.add(annotator["id"])
+        # verify if annotator belongs in project annotator
+        if not cur_annotator.id in annotator_ids:
             return Response(
                 {"message": "You are not assigned to this project"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # check if user has pending tasks
+        # check if annotator has pending tasks
         # the below logic will work only for required_annotators_per_task=1
         # TO-DO Modify and use the commented logic to cover all cases
         pending_tasks = (
             Task.objects.filter(project_id=pk)
-            .filter(annotation_users=cur_user.id)
+            .filter(annotation_users=cur_annotator.id)
             .filter(task_status__exact=UNLABELED)
             .count()
         )
@@ -692,7 +692,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 continue
             else:
                 try:
-                    project.set_lock(cur_user, ANNOTATION_LOCK)
+                    project.set_lock(cur_annotator, ANNOTATION_LOCK)
                     lock_set = True
                 except Exception as e:
                     continue
@@ -700,7 +700,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # check if the project contains eligible tasks to pull
         tasks = Task.objects.filter(project_id=pk)
         tasks = tasks.order_by("id")
-        tasks = tasks.filter(task_status=UNLABELED).exclude(annotation_users=cur_user.id).annotate(annotator_count=Count("annotation_users"))
+        tasks = tasks.filter(task_status=UNLABELED).exclude(annotation_users=cur_annotator.id).annotate(annotator_count=Count("annotation_users"))
         tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
         if not tasks:
             project.release_lock(ANNOTATION_LOCK)
@@ -711,7 +711,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
         # tasks = tasks.order_by("id")
         for task in tasks:
-            task.annotation_users.add(cur_user)
+            task.annotation_users.add(cur_annotator)
             task.save()
 
         project.release_lock(ANNOTATION_LOCK)
@@ -723,18 +723,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all unlabeled tasks from an annotator.
         """
-        user = request.user
-        userRole = user.role
-        user_obj = User.objects.get(pk=user.id)
+        annotator = request.user
+        userRole = annotator.role
+        annotator_obj = User.objects.get(pk=annotator.id)
         project_id = pk
 
-        if userRole == 1 and not user_obj.is_superuser:
+        if userRole == 1 and not annotator_obj.is_superuser:
             if project_id:
                 tasks = Task.objects.filter(project_id__exact=project_id
-                    ).filter(annotation_users=user.id).filter(task_status=UNLABELED)
+                    ).filter(annotation_users=annotator.id).filter(task_status=UNLABELED)
                 if tasks.count() > 0:
                     for task in tasks:
-                        task.unassign(user_obj)
+                        task.unassign(annotator_obj)
                     return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
                 return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -902,7 +902,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         is_translation_project = True if  "translation" in  project_type else False
 
         final_result = []
-        if ( request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser ):
+        if ( request.user.role == User.ORGANIZATION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser ):
             managers = [user1.get_username() for user1 in proj_obj.workspace_id.managers.all()]
             users_ids = [obj.id for obj in proj_obj.users.all()]
             user_mails =[user.get_username() for user in proj_obj.users.all()]
@@ -1152,7 +1152,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @project_is_archived
     @is_particular_workspace_manager
-    def add_project_users(self, request, pk=None, *args, **kwargs):
+    def add_project_annotators(self, request, pk=None, *args, **kwargs):
         """
         Add annotators to the project
         """
@@ -1161,13 +1161,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project = Project.objects.get(pk=pk)
 
             ids = request.data.get("ids")
-            users = User.objects.filter(id__in=ids)
+            annotators = User.objects.filter(id__in=ids)
 
-            if users.count() != len(ids):
-                return Response({"message": "Enter all valid user ids"}, status=status.HTTP_400_BAD_REQUEST)
+            if reviewers.count() != len(ids):
+                return Response({"message": "Enter all valid annotator ids"}, status=status.HTTP_400_BAD_REQUEST)
 
-            for user in users:
-                project.users.add(user)
+            for annotator in annotators:
+                project.users.add(annotator)
 
             return Response({"message": "Added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
@@ -1189,11 +1189,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if not project.enable_task_reviews:
                 return Response({"message": "Task reviews are disabled for this project"}, status=status.HTTP_403_FORBIDDEN)
             ids = request.data.get("ids")
-            users = User.objects.filter(id__in=ids)
-            if users.count() != len(ids):
-                return Response({"message": "Enter all valid user ids"}, status=status.HTTP_400_BAD_REQUEST)
-            for user in users:
-                project.annotation_reviewers.add(user)
+            reviewers = User.objects.filter(id__in=ids)
+            if reviewers.count() != len(ids):
+                return Response({"message": "Enter all valid reviewer ids"}, status=status.HTTP_400_BAD_REQUEST)
+            for reviewer in reviewers:
+                project.annotation_reviewers.add(reviewer)
 
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
@@ -1525,9 +1525,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             serializer = ProjectUsersSerializer(project, many=False)
             # ret_dict = serializer.data
-            users = serializer.data["users"]
+            annotators = serializer.data["users"]
 
-            if len(users) < project.required_annotators_per_task:
+            if len(annotators) < project.required_annotators_per_task:
                 ret_dict = {
                     "message": "Number of annotators is less than required annotators per task"
                 }

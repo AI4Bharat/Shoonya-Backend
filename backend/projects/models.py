@@ -60,9 +60,9 @@ class Project(models.Model):
         help_text=("Project Created By")
     )
 
-    users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="project_users", help_text=("Project Users"))
+    annotators = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="project_annotators", help_text=("Project Annotators"))
     annotation_reviewers = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="review_projects", blank=True, help_text=("Project Annotation Reviewers"))
-    frozen_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="frozen_project_users", blank=True, help_text=("Frozen Project Users"))
+    frozen_annotators = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="frozen_project_annotators", blank=True, help_text=("Frozen Project Annotators"))
     organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, help_text=("Organization to which the Project belongs"))
     workspace_id = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, help_text=("Workspace to which the Project belongs"))
     dataset_id = models.ManyToManyField(DatasetInstance, related_name="project_dataset_instances", blank=True, help_text=("Dataset Instances that are available for project creation"))
@@ -71,7 +71,7 @@ class Project(models.Model):
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
         default=False,
-        help_text=("Indicates whether a project is archieved or not."),
+        help_text=("Indicates whether a project is archived or not."),
     )
     is_published = models.BooleanField(
         verbose_name="project_is_published",
@@ -124,10 +124,10 @@ class Project(models.Model):
     #     verbose_name="language", choices=LANG_CHOICES, max_length=3
     # )
     tasks_pull_count_per_batch = models.IntegerField(verbose_name="tasks_pull_count_per_batch", default=10,
-        help_text=("Maximum no. of new tasks that can be assigned to a user at once"))
+        help_text=("Maximum no. of new tasks that can be assigned to an annotator at once"))
 
-    max_pending_tasks_per_user = models.IntegerField(verbose_name="max_pending_tasks_per_user", default=60,
-        help_text=("Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks"))
+    max_pending_tasks_per_annotator = models.IntegerField(verbose_name="max_pending_tasks_per_annotator", default=60,
+        help_text=("Maximum no. of tasks assigned to an annotator which are at unlabeled stage, as a threshold for pulling new tasks"))
 
     enable_task_reviews = models.BooleanField(verbose_name="enable_task_reviews", default=False,
         help_text=("Indicates whether the annotations need to be reviewed"))
@@ -142,12 +142,12 @@ class Project(models.Model):
         self.clear_expired_lock()
         return self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
 
-    def set_lock(self, user, context):
+    def set_lock(self, annotator, context):
         """
-        Locks the project for a user
+        Locks the project for a annotator
         """
         if not self.is_locked(context):
-            ProjectTaskRequestLock.objects.create(project=self, user=user, lock_context=context, expires_at=now()+timedelta(seconds=settings.PROJECT_LOCK_TTL))
+            ProjectTaskRequestLock.objects.create(project=self, user=annotator, lock_context=context, expires_at=now()+timedelta(seconds=settings.PROJECT_LOCK_TTL))
         else:
             raise Exception("Project already locked")
 
@@ -178,6 +178,6 @@ class ProjectTaskRequestLock(models.Model):
     concurrency in tasks pull requests for same project
     """
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='lock', help_text='Project locked for task pulling')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_lock', help_text='User locking this project to pull tasks')
+    annotator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_lock', help_text='User locking this project to pull tasks')
     lock_context = models.CharField(choices=LOCK_CONTEXT, max_length=50, default=ANNOTATION_LOCK, verbose_name="lock_context")
     expires_at = models.DateTimeField('expires_at')

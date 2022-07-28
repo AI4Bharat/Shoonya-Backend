@@ -62,12 +62,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     ANNOTATOR = 1
     WORKSPACE_MANAGER = 2
-    ORGANIZAION_OWNER = 3
+    ORGANIZATION_OWNER = 3
 
     ROLE_CHOICES = (
         (ANNOTATOR, "Annotator"),
         (WORKSPACE_MANAGER, "Workspace Manager"),
-        (ORGANIZAION_OWNER, "Organization Owner"),
+        (ORGANIZATION_OWNER, "Organization Owner"),
     )
 
     username = models.CharField(verbose_name="username", max_length=265)
@@ -183,4 +183,4 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.role == User.WORKSPACE_MANAGER
 
     def is_organization_owner(self):
-        return self.role == User.ORGANIZAION_OWNER
+        return self.role == User.ORGANIZATION_OWNER
