@@ -99,7 +99,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             user.role == User.ANNOTATOR
             and user not in project.annotation_reviewers.all()
         ):
-            if user in project.users.all():
+            if user in project.annotators.all():
                 annotations = annotations.filter(completed_by=user)
             else:
                 return Response(

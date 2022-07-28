@@ -410,7 +410,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Check if task_status is passed
         if "task_status" in dict(request.query_params):
 
-            if request.user in project.annotation_reviewers.all() or request.user in project.users.all():
+            if request.user in project.annotation_reviewers.all() or request.user in project.annotators.all():
                 # Filter Tasks based on whether the request is in review mode or not
                 queryset = Task.objects.filter(
                     project_id__exact=project.id,
@@ -1167,7 +1167,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response({"message": "Enter all valid annotator ids"}, status=status.HTTP_400_BAD_REQUEST)
 
             for annotator in annotators:
-                project.users.add(annotator)
+                project.annotators.add(annotator)
 
             return Response({"message": "Added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
