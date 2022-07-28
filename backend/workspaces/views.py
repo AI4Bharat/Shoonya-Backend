@@ -331,6 +331,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = to_date + " 23:59"
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
+        #enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -378,6 +379,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     owners.append(proj_owner)
                 except:
                     pass
+
                 no_of_annotators_assigned = len(
                     [
                         annotator
@@ -443,6 +445,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         except:
             workspace_owner = ""
         try:
+
             organization_id = workspace.organization.id
             organization_object = Organization.objects.get(id=organization_id)
             organization_owner = organization_object.created_by.get_username()
@@ -562,6 +565,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     no_of_words(each_task.data["input_text"])
                     for each_task in annotated_tasks_objs
                 ]
+
                 total_word_count = sum(total_word_count_list)
                 result = {
                     "Annotator": name,
