@@ -317,13 +317,6 @@ def schedule_ai4b_translate_job(request):
         "result": <str>
         "status": DjangoStatusCode
     }
-
-    Steps being performed so far, can be removed once the workflow is finalized
-    1. Check if the input dataset instance is a SentenceText dataset
-    2. Check if it has "CorrectedText", if not then ask to export
-    3. Check whether output ID and that it should be transaltion pair, then ask to create a new instance
-    4. Iterate over all languages and use the api to get the target language translations
-    5. Save the translation pair to the TranslationPair Datainstance
     """
 
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
