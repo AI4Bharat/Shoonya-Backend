@@ -75,8 +75,8 @@ class Organization(models.Model):
     #         self.users.add(user)
     #         return
 
-    def has_user(self, user):
-        return self.users.filter(pk=user.pk)
+    # def has_user(self, user):
+    #     return self.users.filter(pk=user.pk)
 
     @property
     def get_owner(self):
