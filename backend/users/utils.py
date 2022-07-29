@@ -126,7 +126,7 @@ LANG_NAME_TO_CODE_ULCA = {
     "Urdu": "ur",
 }
 
-LANG_MODEL_CODES = {
+LANG_TRANS_MODEL_CODES = {
     "Hindi-English": 100,
     "Bengali-English": 101,
     "Tamil-English": 102,
