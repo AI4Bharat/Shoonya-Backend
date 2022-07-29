@@ -1,5 +1,5 @@
 import json
-import ast 
+import ast
 import requests
 import uuid
 
@@ -27,7 +27,7 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
     # Get the translation model ID
     model_id = LANG_TRANS_MODEL_CODES.get(f"{source_language}-{target_language}", 144)
 
-    # Convert language names to the language code 
+    # Convert language names to the language code
     source_language = LANG_NAME_TO_CODE_ULCA[source_language]
     target_language = LANG_NAME_TO_CODE_ULCA[target_language]
 
@@ -76,7 +76,14 @@ def save_translation_pairs(
     for output_language in languages:
 
         # Save all the translation outputs in the TranslationPair object
-        for sentence_text_id, input_sentence, language, context, quality_status, metadata in input_sentences:
+        for (
+            sentence_text_id,
+            input_sentence,
+            language,
+            context,
+            quality_status,
+            metadata,
+        ) in input_sentences:
 
             # Only perform the saving if quality status is clean and corrected text is not empty
             if (quality_status == "Clean") and (input_sentence is not None):
@@ -94,7 +101,9 @@ def save_translation_pairs(
                 )
 
                 # Get the sentencetext model object by ID
-                sentence_text_object = dataset_models.SentenceText.objects.get(id=sentence_text_id)
+                sentence_text_object = dataset_models.SentenceText.objects.get(
+                    id=sentence_text_id
+                )
 
                 # Create and save a TranslationPair object
                 translation_pair_obj = dataset_models.TranslationPair(
@@ -320,7 +329,7 @@ def schedule_ai4b_translate_job(request):
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
     languages = request.data["languages"]
 
-    # Convert string list to a list 
+    # Convert string list to a list
     languages = ast.literal_eval(languages)
 
     # Check if the input dataset instance is a SentenceText dataset
@@ -345,7 +354,14 @@ def schedule_ai4b_translate_job(request):
     input_sentences = list(
         dataset_models.SentenceText.objects.filter(
             instance_id=input_dataset_instance_id
-        ).values_list("id", "corrected_text", "language", "context", "quality_status", "metadata_json")
+        ).values_list(
+            "id",
+            "corrected_text",
+            "language",
+            "context",
+            "quality_status",
+            "metadata_json",
+        )
     )
 
     # Create a dataset instance for the output dataset
@@ -363,7 +379,7 @@ def schedule_ai4b_translate_job(request):
             )
 
         else:
-            
+
             # Call the function to save the TranslationPair dataset
             save_translation_pairs(
                 languages,
