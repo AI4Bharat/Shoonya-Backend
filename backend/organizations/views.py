@@ -141,7 +141,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
             annotated_task_ids = list(annotated_tasks.values_list('id',flat = True))
             annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
 
             annotated_tasks_count = annotated_labeled_tasks.count()
 
@@ -272,7 +272,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
                 labeled_count_tasks_ids = list(labeled_count_tasks.values_list('id',flat = True))
                 annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_count_tasks_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
 
                 labeled_count = annotated_labeled_tasks.count()
 
