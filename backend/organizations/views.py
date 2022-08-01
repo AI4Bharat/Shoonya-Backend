@@ -124,7 +124,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             
             users_objs_labeled_task_count = User.objects.filter(organization=organization).order_by('username')\
                 .annotate(accepted_tasks=Count("annotation",filter=Q(annotation__task__task_status__in=['accepted','rejected','accepted_with_changes','labeled'] )\
-                   & Q(annotation__task__project_id__project_type = project_type) & Q(annotation__parent_annotation_id = None) & Q(annotation__updated_at__range = [start_date, end_date]))) 
+                   & Q(annotation__task__project_id__project_type = project_type) & Q(annotation__parent_annotation_id = None) & Q(annotation__created_at__range = [start_date, end_date]))) 
 
 
             users_objs_skipped_task_count  =  User.objects.filter(organization=organization).order_by('username').annotate(skipped_tasks=Count("annotation_users",\
@@ -138,7 +138,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             time = User.objects.filter(organization=organization).order_by('username').annotate(lead_time=Coalesce(Avg("annotation__lead_time",\
                     filter= Q(annotation__task__task_status__in=['accepted','rejected','accepted_with_changes','labeled']) \
                         & Q(annotation__task__project_id__project_type = project_type) & Q(annotation__parent_annotation_id = None) \
-                        & Q(annotation__updated_at__range = [start_date, end_date])),0.0))
+                        & Q(annotation__created_at__range = [start_date, end_date])),0.0))
             user_word_count =[]
             if is_translation_project:
                 for user in users:
@@ -149,7 +149,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
                     annotated_task_ids = list(annotated_tasks.values_list('id',flat = True))
                     annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                        updated_at__range = [start_date, end_date])
+                        created_at__range = [start_date, end_date],completed_by = user)
 
                     total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in annotated_labeled_tasks]
                     total_word_count = sum(total_word_count_list)
@@ -183,7 +183,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response(data=final_result, status=status.HTTP_200_OK)
 
         else:
-
             result =[]
             for user in users:
                 name = user.username
@@ -202,7 +201,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
                 annotated_task_ids = list(annotated_tasks.values_list('id',flat = True))
                 annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                    updated_at__range = [start_date, end_date])
+                    created_at__range = [start_date, end_date], completed_by = user )
 
                 annotated_tasks_count = annotated_labeled_tasks.count()
 
@@ -211,23 +210,23 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if len(lead_time_annotated_tasks) > 0 :
                     avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
 
-                total_skipped_tasks = Task.objects.filter(annotation_users =user,\
-                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,\
+                total_skipped_tasks = Task.objects.filter(annotation_users =user,project_id__tgt_language=tgt_language,\
+                    project_id__project_type = project_type,\
                     task_status='skipped',project_id__organization_id = organization)
                 total_skipped_tasks_count = total_skipped_tasks.count()
             
-                total_unlabeled_tasks = Task.objects.filter(annotation_users =user,\
-                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,\
+                total_unlabeled_tasks = Task.objects.filter(annotation_users =user,project_id__tgt_language=tgt_language,\
+                    project_id__project_type = project_type,\
                     task_status='unlabeled',project_id__organization_id = organization)
                 total_unlabeled_tasks_count = total_unlabeled_tasks.count()
             
-                total_draft_tasks = Task.objects.filter(annotation_users =user,\
-                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,\
+                total_draft_tasks = Task.objects.filter(annotation_users =user,project_id__tgt_language=tgt_language,\
+                    project_id__project_type = project_type,\
                     task_status='draft',project_id__organization_id = organization)
                 total_draft_tasks_count = total_draft_tasks.count()
             
                 projects_objs = Project.objects.filter(users = user,project_type = project_type,\
-                    tgt_language = tgt_language,organization_id = organization)
+                tgt_language = tgt_language,organization_id = organization)
                 no_of_projects = projects_objs.count()
 
                 no_of_workspaces_objs =len(set([ each_proj.workspace_id.id for each_proj in projects_objs]))
@@ -337,7 +336,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
                 labeled_count_tasks_ids = list(labeled_count_tasks.values_list('id',flat = True))
                 annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_count_tasks_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
 
                 labeled_count = annotated_labeled_tasks.count()
 
