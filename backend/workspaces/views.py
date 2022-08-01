@@ -302,7 +302,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                 labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
                 annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
                 labeled_count = annotated_labeled_tasks.count()
 
 
@@ -413,7 +413,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
             annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
                 
             annotated_tasks = annotated_labeled_tasks.count()
                 
