@@ -2,7 +2,7 @@ import uuid
 
 ## Define constants
 
-# Language names to code (Google Translate)
+# Language names to language codes
 LANG_NAME_TO_CODE_GOOGLE = {
     "English": "en",
     "Assamese": "as",
@@ -31,69 +31,6 @@ LANG_NAME_TO_CODE_GOOGLE = {
     "Tamil": "ta",
     "Telugu": "te",
     "Urdu": "ur",
-}
-
-# Language code to language name GOOGLE TRANSLATE
-LANG_CODE_TO_NAME_GOOGLE = {
-    "en": "English",
-    "as": "Assamese",
-    "bho": "Bhojpuri",
-    "bn": "Bengali",
-    "brx": "Bodo",
-    "doi": "Dogri",
-    "dv": "Dhivehi",
-    "gom": "Konkani",
-    "gu": "Gujarati",
-    "hi": "Hindi",
-    "kn": "Kannada",
-    "ks": "Kashmiri",
-    "lus": "Mizo",
-    "mai": "Maithili",
-    "ml": "Malayalam",
-    "mni": "Manipuri",
-    "mni-Mtei": "Manipuri",
-    "mr": "Marathi",
-    "ne": "Nepali",
-    "or": "Odia",
-    "pa": "Punjabi",
-    "sa": "Sanskrit",
-    "sat": "Santali",
-    "sd": "Sindhi",
-    "si": "Sinhala",
-    "ta": "Tamil",
-    "te": "Telugu",
-    "ur": "Urdu",
-}
-
-LANG_CODE_TO_NAME_ULCA = {
-    "en": "English",
-    "as": "Assamese",
-    "bho": "Bhojpuri",
-    "bn": "Bengali",
-    "brx": "Bodo",
-    "doi": "Dogri",
-    "dv": "Dhivehi",
-    "kok": "Konkani",
-    "gu": "Gujarati",
-    "hi": "Hindi",
-    "kn": "Kannada",
-    "ks": "Kashmiri",
-    "lus": "Mizo",
-    "mai": "Maithili",
-    "ml": "Malayalam",
-    "mni": "Manipuri",
-    "mni-Mtei": "Manipuri",
-    "mr": "Marathi",
-    "ne": "Nepali",
-    "or": "Odia",
-    "pa": "Punjabi",
-    "sa": "Sanskrit",
-    "sat": "Santali",
-    "sd": "Sindhi",
-    "si": "Sinhala",
-    "ta": "Tamil",
-    "te": "Telugu",
-    "ur": "Urdu",
 }
 
 LANG_NAME_TO_CODE_ULCA = {
@@ -126,6 +63,15 @@ LANG_NAME_TO_CODE_ULCA = {
     "Urdu": "ur",
 }
 
+# Language codes to language names
+LANG_CODE_TO_NAME_GOOGLE = {
+    lang_code: lang_name for lang_name, lang_code in LANG_NAME_TO_CODE_GOOGLE.items()
+}
+
+LANG_CODE_TO_NAME_ULCA = {
+    lang_code: lang_name for lang_name, lang_code in LANG_NAME_TO_CODE_ULCA.items()
+}
+
 LANG_TRANS_MODEL_CODES = {
     "Hindi-English": 100,
     "Bengali-English": 101,
@@ -149,7 +95,7 @@ LANG_TRANS_MODEL_CODES = {
     "Odia-English": 138,
     "Punjabi-English": 140,
     "Telugu-English": 142,
-} # 144 for all the other  indic-indic translations
+}  # 144 for all the other  indic-indic translations
 
 
 def hash_upload(instance, filename):
