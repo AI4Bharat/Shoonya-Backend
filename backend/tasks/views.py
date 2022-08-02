@@ -207,18 +207,15 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 
             if user.role == User.ANNOTATOR and user in Project.objects.get(id=request.query_params["project_id"]).users.all():
                 annotation_queryset=Annotation.objects.filter(completed_by=request.user).filter(task__id__in=task_ids)
-            elif user.role != User.ANNOTATOR:
-                annotation_queryset=Annotation.objects.filter(parent_annotation__isnull=True).filter(task__id__in=task_ids)
                 
-            for index,each_data in enumerate(data):
-                annotation_queryset_instance=annotation_queryset.filter(task__id=each_data["id"])
-                if len(annotation_queryset_instance)!=0:
-                    annotation_queryset_instance=annotation_queryset_instance[0]
-                    data[index]["data"]["output_text"]=annotation_queryset_instance.result[0]["value"]["text"][0]
-                    each_data["machine_translation"] = each_data["data"]["machine_translation"]
-                    del each_data["data"]["machine_translation"]
-            return self.get_paginated_response(data)
-            # To be done for annotation_mode
+                for index,each_data in enumerate(data):
+                    annotation_queryset_instance=annotation_queryset.filter(task__id=each_data["id"])
+                    if len(annotation_queryset_instance)!=0:
+                        annotation_queryset_instance=annotation_queryset_instance[0]
+                        data[index]["data"]["output_text"]=annotation_queryset_instance.result[0]["value"]["text"][0]
+                        each_data["machine_translation"] = each_data["data"]["machine_translation"]
+                        del each_data["data"]["machine_translation"]
+                return self.get_paginated_response(data)
         
         if (is_translation_project) and (page is not None) and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES}):
             # Shows annotations for review_mode
