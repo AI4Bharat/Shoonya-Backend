@@ -205,7 +205,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             for index,each_data in enumerate(data):
                 task_ids.append(each_data["id"])
                 
-            if user.role == User.ANNOTATOR and user in project_details.users.all():
+            if user.role == User.ANNOTATOR and user in Project.objects.get(id=request.query_params["project_id"]).users.all():
                 annotation_queryset=Annotation.objects.filter(completed_by=request.user).filter(task__id__in=task_ids)
             elif user.role != User.ANNOTATOR:
                 annotation_queryset=Annotation.objects.filter(parent_annotation__isnull=True).filter(task__id__in=task_ids)
