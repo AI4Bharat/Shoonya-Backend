@@ -1439,7 +1439,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 data_items = []
                 tasks = Task.objects.filter(
-                    project_id__exact=project, task_status__exact=ACCEPTED
+                    project_id__exact=project, task_status__in={ACCEPTED, ACCEPTED_WITH_CHANGES}
                 )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
@@ -1474,7 +1474,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 data_items = []
                 tasks = Task.objects.filter(
-                    project_id__exact=project, task_status__exact=ACCEPTED
+                    project_id__exact=project, task_status__in={ACCEPTED, ACCEPTED_WITH_CHANGES}
                 )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
