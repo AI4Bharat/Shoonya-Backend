@@ -196,14 +196,20 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project_type =  project_type.lower()
         is_translation_project = True if  "translation" in  project_type else False
         
+        user = request.user
+        
         if (is_translation_project) and (page is not None) and (task_status in {DRAFT, LABELED,  REJECTED}) and (not is_review_mode):
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
             task_ids=[]
             for index,each_data in enumerate(data):
                 task_ids.append(each_data["id"])
-            
-            annotation_queryset=Annotation.objects.filter(completed_by=request.user).filter(task__id__in=task_ids)
+                
+            if user.role == User.ANNOTATOR and user in project.users.all():
+                annotation_queryset=Annotation.objects.filter(completed_by=request.user).filter(task__id__in=task_ids)
+            elif user.role != User.ANNOTATOR:
+                annotation_queryset=Annotation.objects.filter(parent_annotation__isnull=True).filter(task__id__in=task_ids)
+                
             for index,each_data in enumerate(data):
                 annotation_queryset_instance=annotation_queryset.filter(task__id=each_data["id"])
                 if len(annotation_queryset_instance)!=0:
