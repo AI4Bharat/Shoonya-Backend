@@ -1,12 +1,7 @@
-from ast import Is
-import re
-from urllib import response
-from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from yaml import serialize
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -16,10 +11,11 @@ from users.serializers import UserProfileSerializer
 from tasks.models import Task
 from organizations.models import Organization
 from django.db.models import Q
-from projects.word_count import  no_of_words
+from projects.utils import  no_of_words
 from tasks.models import Annotation
 from projects.utils import is_valid_date
 from datetime import datetime
+from users.serializers import UserFetchSerializer
 
 from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
@@ -261,6 +257,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = request.data.get('to_date')
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
+        tgt_language = request.data.get('tgt_language')
+        project_type = request.data.get("project_type")
+        #enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -273,8 +272,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
 
-        project_type = request.data.get("project_type")
-        projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type)
+        if start_date > end_date:
+            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
+
+        selected_language = "-"
+        if tgt_language == None :
+            projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type)
+        else :
+            selected_language = tgt_language
+            projects_objs = Project.objects.filter(workspace_id=pk, project_type = project_type,tgt_language = tgt_language)
         final_result=[]
         if projects_objs.count() !=0:
             for proj in projects_objs:
@@ -292,7 +298,14 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     pass
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
                 un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
-                labeled_count = Task.objects.filter(Q (project_id = proj.id) & Q(task_status = 'accepted') & Q (correct_annotation__created_at__range = [start_date, end_date])).count()
+                labeled_tasks = Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
+
+                labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
+                annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
+                created_at__range = [start_date, end_date])
+                labeled_count = annotated_labeled_tasks.count()
+
+
                 skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
                 dropped_tasks = Task.objects.filter(project_id = proj.id,task_status = 'draft').count()
                 if total_tasks == 0:
@@ -302,14 +315,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 result = {
                     "Project Id" : project_id,
                     "Project Name" : project_name,
+                    "Language" : selected_language,
                     "Project Type" : project_type,
-                    "Total No.Of Tasks" : total_tasks,
-                    "Total No.Of Annotators Assigned" : no_of_annotators_assigned,
-                    "Total No.Of Labeled Tasks" : labeled_count,
-                    "Total No.Of Unlabeled Tasks" : un_labeled_count,
-                    "Total No.Of Skipped Tasks": skipped_count,
-                    "Total No.Of Draft Tasks" : dropped_tasks,
-                    "Project Progress" : project_progress
+                    "No .of Annotators Assigned" : no_of_annotators_assigned,
+                    "Assigned Tasks" : total_tasks,
+                    "Annotated Tasks" : labeled_count,
+                    "Unlabeled Tasks" : un_labeled_count,
+                    "Skipped Tasks": skipped_count,
+                    "Draft Tasks" : dropped_tasks,
+                    "Project Progress" : round(project_progress,3)
                     }
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
@@ -341,6 +355,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = request.data.get('to_date')
         from_date = from_date + ' 00:00'
         to_date = to_date + ' 23:59'
+        tgt_language = request.data.get('tgt_language')
+        #enable_task_reviews = request.data.get("enable_task_reviews")
+
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -353,7 +370,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         start_date = datetime.strptime(from_date, '%Y-%m-%d %H:%M')
         end_date = datetime.strptime(to_date, '%Y-%m-%d %H:%M')
 
+        if start_date > end_date:
+            return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
+        user_obj = list(ws.users.all())
         user_mail =[user.get_username() for user in ws.users.all()]
         user_name =[user.username for user in ws.users.all()]
         users_id = [user.id for user in ws.users.all()]
@@ -361,86 +381,91 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         project_type = request.data.get("project_type")
         project_type_lower =  project_type.lower()
         is_translation_project = True if  "translation" in  project_type_lower  else False
-
+        selected_language = "-"
         final_result =[]
         for index,each_user in enumerate(users_id):
-            projects_objs = Project.objects.filter(workspace_id=pk, users = each_user,project_type = project_type)
+
+            name = user_name[index]
+            email = user_mail[index]
+            list_of_user_languages = user_obj[index].languages
+
+            if tgt_language != None and tgt_language not in list_of_user_languages:
+                continue
+
+            if email == ws_owner or email == org_owner :
+                continue
+
+            if tgt_language == None :
+                projects_objs = Project.objects.filter(workspace_id=pk, users = each_user,project_type = project_type)
+            else :
+                selected_language = tgt_language
+                projects_objs = Project.objects.filter(workspace_id=pk, users = each_user,project_type = project_type,tgt_language = tgt_language)
             project_count = projects_objs.count()
             proj_ids = [eachid['id'] for eachid in projects_objs.values('id')]
             
-            name = user_name[index]
-            email = user_mail[index]
-            assigned_tasks = 0
-            annotated_tasks = 0
-            total_word_count = 0
+    
+            all_tasks_in_project = Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user ))
+            assigned_tasks = all_tasks_in_project.count()
+            
+
+            annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
+                    & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
+
+            annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
+            annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
+                created_at__range = [start_date, end_date])
+                
+            annotated_tasks = annotated_labeled_tasks.count()
+                
+            lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_labeled_tasks]
             avg_lead_time = 0
-            total_skipped_tasks =0
-            all_pending_tasks_in_project = 0 
-            all_draft_tasks_in_project = 0
- 	
-            for each_project in proj_ids :
- 	
-                all_tasks_in_project = Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user )).order_by("id")
-                assigned_tasks += all_tasks_in_project.count()
+            if len(lead_time_annotated_tasks) > 0 :
+                avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
                 
-                annotated_tasks_objs =Task.objects.filter(Q(project_id=each_project) & Q(annotation_users= each_user ) & Q(task_status='accepted')
-                & Q (correct_annotation__created_at__range = [start_date, end_date]))
-                annotated_tasks += annotated_tasks_objs.count()
-                                
-                annotated_task_ids  = [task.id for task in annotated_tasks_objs]
-                annotated_table_objs = Annotation.objects.filter(task_id__in =annotated_task_ids)
-                lead_time_list = [obj.lead_time for obj in annotated_table_objs]
-                if len(lead_time_list) > 0 :
-                    avg_lead_time +=sum(lead_time_list) / len(lead_time_list)
-                else :
-                    pass
-                if is_translation_project:
-                    total_count_list = [no_of_words(Task.objects.get(id = id1).data['input_text']) for  id1 in annotated_task_ids]
-                    total_word_count += sum(total_count_list)
-                
-                
-                all_skipped_tasks_in_project = Task.objects.filter(
-                        Q(project_id=each_project)
-                        & Q(task_status="skipped")
-                        & Q(annotation_users=each_user)
-                    ).order_by("id")
-                total_skipped_tasks += all_skipped_tasks_in_project.count()
- 
-                all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) ).order_by('id')
-                all_pending_tasks_in_project += all_pending_tasks_in_project_objs.count()
+            all_skipped_tasks_in_project = Task.objects.filter(
+                    Q(project_id__in=proj_ids)
+                    & Q(task_status="skipped")
+                    & Q(annotation_users=each_user)
+                )
+            total_skipped_tasks = all_skipped_tasks_in_project.count()
 
-                all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = each_project) & Q(task_status = "draft") & Q(annotation_users = each_user)).order_by('id')
-                all_draft_tasks_in_project += all_draft_tasks_in_project_objs.count()
+            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) )
+            all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
+
+            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "draft") & Q(annotation_users = each_user))
+            all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
+
             if is_translation_project :
+                total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in annotated_labeled_tasks]
+                total_word_count = sum(total_word_count_list)
                 result = {
-                    "Username":name,
+                    "Annotator":name,
                     "Email":email,
+                    "Language" : selected_language,
                     "No.of Projects":project_count,
-                    "Annotated Tasks" : annotated_tasks ,
-                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
-                    "Skipped Tasks" : total_skipped_tasks,
+                    "Annotated Tasks" : annotated_tasks ,
                     "Unlabeled Tasks" : all_pending_tasks_in_project,
+                    "Skipped Tasks" : total_skipped_tasks,
                     "Draft Tasks": all_draft_tasks_in_project,
-                    "Word Count" : total_word_count
+                    "Word Count" : total_word_count,
+                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2)
                     }
             else:
                 result = {
-                    "Username":name,
+                    "Annotator":name,
                     "Email":email,
+                    "Language" : selected_language,
                     "No.of Projects":project_count,
-                    "Annotated Tasks" : annotated_tasks ,
-                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2),
                     "Assigned Tasks" : assigned_tasks,
-                    "Skipped Tasks" : total_skipped_tasks,
+                    "Annotated Tasks" : annotated_tasks ,
                     "Unlabeled Tasks" : all_pending_tasks_in_project,
+                    "Skipped Tasks" : total_skipped_tasks,
                     "Draft Tasks": all_draft_tasks_in_project,
+                    "Average Annotation Time (In Seconds)" : round(avg_lead_time, 2)
                     }
-
-            if email == ws_owner or email == org_owner :
-                pass
-            else:
-                final_result.append(result)
+                    
+            final_result.append(result)
             
         return Response(final_result)
 
@@ -559,4 +584,34 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "id", openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ],
+        responses={
+            200: UserFetchSerializer(many=True),
+            403: "Not authorized",
+            404: "Workspace not found/User not in the workspace/User not found",
+            500: "Server error occured"
+        }
+    )
+    @action(detail=True, methods=['GET'], url_path='list-managers', url_name='list_managers')
+    def list_managers(self, request, pk):
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+            managers = workspace.managers.all()
+            user_serializer = UserFetchSerializer(managers, many=True)
+            return Response(user_serializer.data)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print("the exception was ",e)
             return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
