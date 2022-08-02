@@ -410,7 +410,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Check if task_status is passed
         if "task_status" in dict(request.query_params):
 
-            if user_role == 1 and not request.user.is_superuser:
+            if request.user in project.annotation_reviewers.all() or request.user in project.users.all():
                 # Filter Tasks based on whether the request is in review mode or not
                 queryset = Task.objects.filter(
                     project_id__exact=project.id,
@@ -928,7 +928,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
 
                 accepted_annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
-                    updated_at__range = [start_date, end_date])
+                    created_at__range = [start_date, end_date])
                 annotated_tasks = accepted_annotated_objs.count()
 
                 items.append(("Accepted Tasks" , annotated_tasks))
@@ -941,7 +941,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     accepted_wt_tasks_objs_ids = list(accepted_wt_tasks_objs.values_list('id',flat = True))
 
                     accepted_wt_change_objs =Annotation_model.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
-                    updated_at__range = [start_date, end_date])
+                    created_at__range = [start_date, end_date])
 
                     accepted_wt_tasks = accepted_wt_change_objs.count()
                     items.append(("Accepted With Canges  Tasks" , accepted_wt_tasks))
@@ -952,7 +952,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     labeled_tasks_objs_ids = list(labeled_tasks_objs.values_list('id',flat = True))
 
                     annotation_labeled_objs =Annotation_model.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
-                    updated_at__range = [start_date, end_date])
+                    created_at__range = [start_date, end_date])
 
                     labeled_tasks = annotation_labeled_objs.count()
                     items.append(("Labeled Tasks" , labeled_tasks))
@@ -963,7 +963,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     rejected_tasks_objs_ids = list(rejected_tasks_objs.values_list('id',flat = True))
 
                     annotate_rejected_objs =Annotation_model.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
-                    updated_at__range = [start_date, end_date])
+                    created_at__range = [start_date, end_date])
 
                     rejected_tasks = annotate_rejected_objs.count()
                     items.append(("Rejected Tasks" , rejected_tasks))
@@ -1035,7 +1035,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
 
             accepted_annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
             annotated_tasks = accepted_annotated_objs.count()
 
             items.append(("Accepted Tasks" , annotated_tasks))
@@ -1048,7 +1048,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 accepted_wt_tasks_objs_ids = list(accepted_wt_tasks_objs.values_list('id',flat = True))
 
                 accepted_wt_change_objs =Annotation_model.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
 
                 accepted_wt_tasks = accepted_wt_change_objs.count()
                 items.append(("Accepted With Canges  Tasks" , accepted_wt_tasks))
@@ -1059,7 +1059,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 labeled_tasks_objs_ids = list(labeled_tasks_objs.values_list('id',flat = True))
 
                 annotation_labeled_objs =Annotation_model.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
 
                 labeled_tasks = annotation_labeled_objs.count()
                 items.append(("Labeled Tasks" , labeled_tasks))
@@ -1070,7 +1070,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 rejected_tasks_objs_ids = list(rejected_tasks_objs.values_list('id',flat = True))
 
                 annotate_rejected_objs =Annotation_model.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
 
                 rejected_tasks = annotate_rejected_objs.count()
                 items.append(("Rejected Tasks" , rejected_tasks))
