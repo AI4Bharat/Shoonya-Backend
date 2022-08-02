@@ -1,10 +1,21 @@
 import requests
-import os
-from tqdm import tqdm
 from users.utils import LANG_NAME_TO_CODE_ULCA, LANG_TRANS_MODEL_CODES
 
-### Utility Functions 
-def get_batch_translations_using_indictrans_nmt_api(sentence_list, source_language, target_language): 
+### Utility Functions
+def get_batch_translations_using_indictrans_nmt_api(
+    sentence_list, source_language, target_language
+):
+
+    """Function to get the translation for the input sentences using the IndicTrans NMT API.
+
+    Args:
+        input_sentence (str): Sentence to be translated.
+        source_language (str): Original language of the sentence.
+        target_language (str): Final language of the sentence.
+
+    Returns:
+        list: List of dictionaries containing the translated sentences. 
+    """
 
     # Get the translation model ID
     model_id = LANG_TRANS_MODEL_CODES.get(f"{source_language}-{target_language}", 144)
@@ -15,7 +26,7 @@ def get_batch_translations_using_indictrans_nmt_api(sentence_list, source_langua
 
     # Create the input sentences list
     input_sentences = [{"source": sentence} for sentence in sentence_list]
-    
+
     headers = {
         # Already added when you pass json= but not when you pass data=
         # 'Content-Type': 'application/json',
@@ -32,7 +43,7 @@ def get_batch_translations_using_indictrans_nmt_api(sentence_list, source_langua
         },
     }
 
-    try: 
+    try:
         response = requests.post(
             "https://nmt-models.ulcacontrib.org/aai4b-nmt-inference/v0/translate",
             headers=headers,
@@ -40,10 +51,11 @@ def get_batch_translations_using_indictrans_nmt_api(sentence_list, source_langua
         )
 
         output = ast.literal_eval(response.content.decode("utf-8"))
-        return output['output']
+        return output["output"]
 
     except Exception as e:
-        return str(e) 
+        return str(e)
+
 
 def get_translation_using_cdac_model(input_sentence, source_language, target_language):
     """Function to get the translation for the input sentences using the CDAC model.
