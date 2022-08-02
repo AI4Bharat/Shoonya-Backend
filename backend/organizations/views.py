@@ -1,3 +1,4 @@
+from cProfile import label
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
@@ -16,6 +17,26 @@ from django.db.models.functions import Cast, Coalesce
 from regex import R
 from tasks.models import Annotation
 from projects.utils import is_valid_date, no_of_words
+
+
+
+
+def get_task_count(user,tgt_language , project_type , status_list , organization, return_count = True):
+    labeled_task = Task.objects.filter(annotation_users =user,project_id__tgt_language=tgt_language,\
+                    project_id__project_type = project_type,\
+                    task_status__in=status_list,project_id__organization_id = organization)
+    if return_count == True:
+        labled_task_count =labeled_task.count()
+        return labled_task_count
+    else:
+        return labeled_task
+
+def get_annotated_tasks(user ,tgt_language , project_type ,status_list , organization ,start_date ,  end_date ):
+    annotated_tasks = get_task_count(user,tgt_language , project_type , status_list , organization, return_count = False)
+    annotated_task_ids = list(annotated_tasks.values_list('id',flat = True))
+    annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
+        created_at__range = [start_date, end_date], completed_by = user )
+    return annotated_labeled_tasks
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -195,14 +216,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     project_id__project_type = project_type,project_id__tgt_language=tgt_language,project_id__organization_id = organization)
                 total_no_of_tasks_count = total_no_of_tasks_assigned.count()
 
-                annotated_tasks = Task.objects.filter(annotation_users =user,\
-                    project_id__project_type = project_type,project_id__tgt_language=tgt_language,\
-                    task_status__in = ['accepted','rejected','accepted_with_changes','labeled'])
-
-                annotated_task_ids = list(annotated_tasks.values_list('id',flat = True))
-                annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date], completed_by = user )
-
+                annotated_labeled_tasks = get_annotated_tasks(user ,tgt_language , project_type ,\
+                    ['accepted','rejected','accepted_with_changes','labeled'] , organization ,start_date ,  end_date )
                 annotated_tasks_count = annotated_labeled_tasks.count()
 
                 avg_lead_time = 0
@@ -210,21 +225,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if len(lead_time_annotated_tasks) > 0 :
                     avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
 
-                total_skipped_tasks = Task.objects.filter(annotation_users =user,project_id__tgt_language=tgt_language,\
-                    project_id__project_type = project_type,\
-                    task_status='skipped',project_id__organization_id = organization)
-                total_skipped_tasks_count = total_skipped_tasks.count()
-            
-                total_unlabeled_tasks = Task.objects.filter(annotation_users =user,project_id__tgt_language=tgt_language,\
-                    project_id__project_type = project_type,\
-                    task_status='unlabeled',project_id__organization_id = organization)
-                total_unlabeled_tasks_count = total_unlabeled_tasks.count()
-            
-                total_draft_tasks = Task.objects.filter(annotation_users =user,project_id__tgt_language=tgt_language,\
-                    project_id__project_type = project_type,\
-                    task_status='draft',project_id__organization_id = organization)
-                total_draft_tasks_count = total_draft_tasks.count()
-            
+                total_skipped_tasks_count = get_task_count(user,tgt_language , project_type , ['skipped'] , organization)
+               
+                total_unlabeled_tasks_count =  get_task_count(user,tgt_language , project_type , ['unlabeled'] , organization)
+
+                total_draft_tasks_count =  get_task_count(user,tgt_language , project_type , ['draft'] , organization)
+                
                 projects_objs = Project.objects.filter(users = user,project_type = project_type,\
                 tgt_language = tgt_language,organization_id = organization)
                 no_of_projects = projects_objs.count()
