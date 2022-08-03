@@ -216,11 +216,11 @@ def get_project_creation_status(pk) -> str:
         return "Draft"
 
 
-def get_unassigned_task_count(pk):
+def get_task_count(pk, status):
     project = Project.objects.get(pk=pk)
     tasks = (
         Task.objects.filter(project_id=pk)
-        .filter(task_status=UNLABELED)
+        .filter(task_status=status)
         .annotate(annotator_count=Count("annotation_users"))
     )
     task_count = tasks.filter(
@@ -270,7 +270,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_pull_result"] = last_project_export_result
 
         # Add a field to specify the no. of available tasks to be assigned
-        project_response.data["unassigned_task_count"] = get_unassigned_task_count(pk)
+        project_response.data["unassigned_task_count"] = get_task_count(pk, UNLABELED)
+
+        # Add a field to specify the no. of labeled tasks
+        project_response.data["labeled_task_count"] = get_task_count(pk, LABELED)
 
         return project_response
 
