@@ -309,7 +309,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
             annotated_task_ids = list(labeld_tasks_objs.values_list('id',flat = True))
             annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                updated_at__range = [start_date, end_date])
+                created_at__range = [start_date, end_date])
 
             annotated_tasks_count = annotated_labeled_tasks.count()
 
