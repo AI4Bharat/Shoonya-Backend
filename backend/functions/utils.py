@@ -1,7 +1,16 @@
 import requests
-from users.utils import LANG_NAME_TO_CODE_ULCA, LANG_TRANS_MODEL_CODES
+from google.cloud import translate_v2 as translate
+from users.utils import (
+        LANG_NAME_TO_CODE_GOOGLE, 
+        LANG_NAME_TO_CODE_ULCA,
+        LANG_TRANS_MODEL_CODES
+    )
+
 
 ### Utility Functions
+def check_translation_function_inputs(): 
+    pass 
+
 def get_batch_translations_using_indictrans_nmt_api(
     sentence_list, source_language, target_language
 ):
@@ -103,49 +112,16 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
 
     return response.json()["output"][0]["target"]
 
+def get_batch_translations_using_google_translate(sentence_list, target_language): 
 
-# class GoogleTranslator:
-#     """Class to handle Google Translations for different dataset instance types"""
+    # Change the target language to the language code
+    target_lang_code = LANG_NAME_TO_CODE_GOOGLE[target_language]
 
-#     def __init__(self):
+    translate_client = translate.Client()
 
-#         if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ:
-#             print("Set $GOOGLE_APPLICATION_CREDENTIALS to use Google Translate API")
+    try: 
+        return translate_client.translate(sentence_list, target_language=target_lang_code)
 
-#         # from google.cloud import translate as gtranslate
-#         from google.cloud import translate_v2 as translate
+    except Exception as e:
+        return str(e)
 
-#         self.client = translate.Client()
-
-#     def batch_translate(
-#         self, sentences: list, input_lang: str, output_lang: str, batch_size: int = 100
-#     ):
-#         """_summary_: Function to translate a batch of input sentences into the target language
-
-#         Args:
-#             sentences (list): List of sentences to be translated
-#             input_lang (str): Language of the input sentences
-#             output_lang (str): Language of the output sentences
-#             batch_size (int, optional): Batch size to perform the translations in. Defaults to 100.
-
-#         Returns:
-#             _type_: _description_
-#         """
-#         translations = []
-#         pbar = tqdm(total=len(sentences), position=0, leave=True)
-#         i = 0
-#         while i < len(sentences):
-#             response = self.client.translate(
-#                 values=sentences[i : i + batch_size],
-#                 source_language=input_lang,
-#                 target_language=output_lang,
-#             )
-
-#             translations.extend(
-#                 translation["translatedText"] for translation in response
-#             )
-#             pbar.update(len(response))
-#             i += batch_size
-
-#         pbar.close()
-#         return translations

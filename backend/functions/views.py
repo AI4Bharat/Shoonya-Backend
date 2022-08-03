@@ -9,12 +9,12 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from tasks.models import *
 
-from .utils import get_batch_translations_using_indictrans_nmt_api
+from .utils import get_batch_translations_using_indictrans_nmt_api, get_batch_translations_using_google_translate, check_translation_function_inputs
 
 
 ## Utility functions
 def save_translation_pairs(
-    languages, input_sentences, output_dataset_instance_id, batch_size
+    languages, input_sentences, output_dataset_instance_id, batch_size, api_type="indic-trans"
 ):
     """Function to save the translation pairs in the database.
 
@@ -23,6 +23,8 @@ def save_translation_pairs(
         input_sentences (list(list)): List of input sentences in list format containing the - [input_sentence, input_language, context, quality_status]
         output_dataset_instance_id (int): ID of the output dataset instance.
         batch_size (int): Number of sentences to be translated in a single batch.
+        api_type (str): Type of API to be used for translation. (default: indic-trans) 
+            Allowed - [indic-trans, google] 
     """
 
     # Iterate through the languages
@@ -48,7 +50,7 @@ def save_translation_pairs(
 
         # Check if the dataframe is empty
         if input_sentences_df.shape[0] == 0:
-            return "No clean sentences found. Perform project export first."
+            return {"error": "No clean sentences found. Perform project export first."}
 
         # Make a sentence list for valid sentences to be translated
         all_sentences_to_be_translated = input_sentences_df["corrected_text"].tolist()
@@ -60,25 +62,48 @@ def save_translation_pairs(
                 i : i + batch_size
             ]
 
-            # Get the translation using the Indictrans NMT API
-            translations_output = get_batch_translations_using_indictrans_nmt_api(
-                batch_of_input_sentences,
-                input_sentences_df["input_language"].iloc[0],
-                output_language,
-            )
+            # Check the API type 
+            if api_type == 'indic-trans': 
 
-            # Check if translation output didn't return an error
-            if isinstance(translations_output, Exception):
-                return translations_output
+                # Get the translation using the Indictrans NMT API
+                translations_output = get_batch_translations_using_indictrans_nmt_api(
+                    batch_of_input_sentences,
+                    input_sentences_df["input_language"].iloc[0],
+                    output_language,
+                )
 
-            # Collect the translated sentences
-            translated_sentences = [
-                translation["target"] for translation in translations_output
-            ]
+                # Check if translation output didn't return an error
+                if isinstance(translations_output, Exception):
+                    return translations_output
+
+                # Collect the translated sentences
+                translated_sentences = [
+                    translation["target"] for translation in translations_output
+                ]
+
+            elif api_type == 'google':
+                
+                # Get the translation using the Indictrans NMT API
+                translations_output = get_batch_translations_using_google_translate(
+                    sentence_list=batch_of_input_sentences,
+                    target_language=output_language,
+                )
+
+                # Check if translation output didn't return an error
+                if isinstance(translations_output, Exception):
+                    return translations_output
+
+                # Collect the translated sentences
+                translated_sentences = [
+                    translation["translatedText"] for translation in translations_output
+                ]
+            
+            else: 
+                return {"error":"Invalid API type. Allowed - [indic-trans, google]"} 
 
             # Check if the translated sentences are equal to the input sentences
             if len(translated_sentences) != len(batch_of_input_sentences):
-                return "The number of translated sentences does not match the number of input sentences."
+                return {"error" :"The number of translated sentences does not match the number of input sentences."}
 
             # Get the output dataset instance
             output_dataset_instance = dataset_models.DatasetInstance.objects.get(
@@ -265,6 +290,7 @@ def schedule_google_translate_job(request):
     {
         "input_dataset_instance_id": <int>,
         "languages": <list>
+        "output_dataset_instance_id": <int>
     }
 
     Response Body
@@ -278,23 +304,88 @@ def schedule_google_translate_job(request):
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
     languages = request.data["languages"]
 
-    # Collect the sentences from Sentence Text based on dataset id
-    input_sentences = list(
-        dataset_models.SentenceText.objects.filter(
+    # Convert string list to a list
+    languages = ast.literal_eval(languages)
+
+    # Check if the input dataset instance is a SentenceText dataset
+    try:
+        input_dataset_instance = dataset_models.DatasetInstance.objects.get(
             instance_id=input_dataset_instance_id
-        ).values_list("context")
-    )
+        )
 
-    # Create a google translator object
-    # translator = GoogleTranslator()
+        # Check if it is a sentence Text
+        if input_dataset_instance.dataset_type != "SentenceText":
+            return Response(
+                {"message": "Input dataset instance is not a SentenceText dataset"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-    # Get the google translations for the given dataset instance and languages
-    # for lang in languages:
-    #     result = translator.batch_translate(sentences=input_sentences, input_lang=, output_lang: str, batch_size: int = 100)
+    except dataset_models.DatasetInstance.DoesNotExist:
+        ret_dict = {"message": "Dataset instance does not exist!"}
+        ret_status = status.HTTP_404_NOT_FOUND
+        return Response(ret_dict, status=ret_status)
 
-    ret_dict = {"message": "SUCCESS!", "result": input_sentences}
+    # Create a dataset instance for the output dataset
+    output_dataset_instance_id = request.data["output_dataset_instance_id"]
+
+    # Check if the output dataset instance exists and is a TranslationPair type
+    try:
+        output_dataset_instance = dataset_models.DatasetInstance.objects.get(
+            instance_id=output_dataset_instance_id
+        )
+        if output_dataset_instance.dataset_type != "TranslationPair":
+            return Response(
+                {"message": "Output dataset instance is not of type TranslationPair"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        else:
+            
+            # Collect the sentences from Sentence Text based on dataset id
+            input_sentences = list(
+                dataset_models.SentenceText.objects.filter(
+                    instance_id=input_dataset_instance_id
+                ).values_list(
+                    "id",
+                    "corrected_text",
+                    "language",
+                    "context",
+                    "quality_status",
+                    "metadata_json",
+                )
+            )
+
+            # sentence_list = ["Hello, today is bad day", "What are you doing?"]
+            
+            # result = get_batch_translations_using_google_translate(sentence_list, target_language="Hindi")
+            
+            # Call the function to save the TranslationPair dataset
+            save_status = save_translation_pairs(
+                languages,
+                input_sentences,
+                output_dataset_instance_id,
+                batch_size=128,
+                api_type="google",
+            )
+
+            # Check if error in save_status 
+            if "error" in save_status: 
+                return Response(
+                    {"message": save_status['error']},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+    except dataset_models.DatasetInstance.DoesNotExist:
+        return Response(
+            {
+                "message": "Output dataset instance does not exist! Create a TranslationPair DatasetInstance"
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    ret_dict = {"message": "SUCCESS!"}
     ret_status = status.HTTP_200_OK
-    return Response(ret_dict)
+    return Response(ret_dict, status=ret_status)
 
 
 @api_view(["POST"])
@@ -341,20 +432,6 @@ def schedule_ai4b_translate_job(request):
         ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
-    # Collect the sentences from Sentence Text based on dataset id
-    input_sentences = list(
-        dataset_models.SentenceText.objects.filter(
-            instance_id=input_dataset_instance_id
-        ).values_list(
-            "id",
-            "corrected_text",
-            "language",
-            "context",
-            "quality_status",
-            "metadata_json",
-        )
-    )
-
     # Create a dataset instance for the output dataset
     output_dataset_instance_id = request.data["output_dataset_instance_id"]
 
@@ -371,17 +448,33 @@ def schedule_ai4b_translate_job(request):
 
         else:
 
+            # Collect the sentences from Sentence Text based on dataset id
+            input_sentences = list(
+                dataset_models.SentenceText.objects.filter(
+                    instance_id=input_dataset_instance_id
+                ).values_list(
+                    "id",
+                    "corrected_text",
+                    "language",
+                    "context",
+                    "quality_status",
+                    "metadata_json",
+                )
+            )
+
             # Call the function to save the TranslationPair dataset
             save_status = save_translation_pairs(
                 languages,
                 input_sentences,
                 output_dataset_instance_id,
                 batch_size=75,
+                api_type='indic-trans'
             )
-
-            if save_status != "Success":
+            
+            # Check if error in save_status 
+            if "error" in save_status: 
                 return Response(
-                    {"message": save_status},
+                    {"message": save_status['error']},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
