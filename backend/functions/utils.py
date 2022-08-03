@@ -50,8 +50,7 @@ def get_batch_translations_using_indictrans_nmt_api(
             json=json_data,
         )
 
-        output = ast.literal_eval(response.content.decode("utf-8"))
-        return output["output"]
+        return response.json()["output"]
 
     except Exception as e:
         return str(e)

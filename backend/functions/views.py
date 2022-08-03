@@ -13,13 +13,14 @@ from .utils import get_batch_translations_using_indictrans_nmt_api
 
 
 ## Utility functions
-def save_translation_pairs(languages, input_sentences, output_dataset_instance_id):
+def save_translation_pairs(languages, input_sentences, output_dataset_instance_id, batch_size):
     """Function to save the translation pairs in the database.
 
     Args:
         languages (list): List of output languages for the translations.
         input_sentences (list(list)): List of input sentences in list format containing the - [input_sentence, input_language, context, quality_status]
         output_dataset_instance_id (int): ID of the output dataset instance.
+        batch_size (int): Number of sentences to be translated in a single batch.
     """
 
     # Iterate through the languages
@@ -41,76 +42,73 @@ def save_translation_pairs(languages, input_sentences, output_dataset_instance_i
         # Keep only the clean sentences
         input_sentences_df = input_sentences_df[
             (input_sentences_df["quality_status"] == "Clean")
-        ]
+        ].reset_index(drop=True)
 
         # Check if the dataframe is empty
         if input_sentences_df.shape[0] == 0:
             return "No clean sentences found. Perform project export first."
 
         # Make a sentence list for valid sentences to be translated
-        sentences_to_be_translated = input_sentences_df["corrected_text"].tolist()
+        all_sentences_to_be_translated = input_sentences_df["corrected_text"].tolist()
 
-        # Get the translation using the Indictrans NMT API
-        translations_output = get_batch_translations_using_indictrans_nmt_api(
-            sentences_to_be_translated,
-            input_sentences_df["input_language"].iloc[0],
-            output_language,
-        )
+        # Loop through all the sentences to be translated in batch format 
+        for i in range(0, len(all_sentences_to_be_translated), batch_size):
+            
+            batch_of_input_sentences = all_sentences_to_be_translated[i: i+batch_size]
 
-        # Check if translation output didn't return an error
-        if isinstance(translations_output, Exception):
-            return translations_output
+            # Get the translation using the Indictrans NMT API
+            translations_output = get_batch_translations_using_indictrans_nmt_api(
+                batch_of_input_sentences,
+                input_sentences_df["input_language"].iloc[0],
+                output_language,
+            )
 
-        # Collect the translated sentences
-        translated_sentences = [
-            translation["target"] for translation in translations_output
-        ]
+            # Check if translation output didn't return an error
+            if isinstance(translations_output, Exception):
+                return translations_output
 
-        # Check if the translated sentences are equal to the input sentences
-        if len(translated_sentences) != len(sentences_to_be_translated):
-            return "The number of translated sentences does not match the number of input sentences."
+            # Collect the translated sentences
+            translated_sentences = [
+                translation["target"] for translation in translations_output
+            ]
 
-        # Add the translated sentences to the dataframe
-        input_sentences_df["translated_text"] = translated_sentences
-
-        # Get the output dataset instance
-        output_dataset_instance = dataset_models.DatasetInstance.objects.get(
-            instance_id=output_dataset_instance_id
-        )
-
-        # Iterate through the dataframe
-        for index, row in input_sentences_df.iterrows():
-
-            # Get the values for the TranslationPair model
-            sentence_text_id = row["sentence_text_id"]
-            input_sentence = row["corrected_text"]
-            input_language = row["input_language"]
-            translated_sentence = row["translated_text"]
-            metadata = row["metadata"]
-            context = row["context"]
+            # Check if the translated sentences are equal to the input sentences
+            if len(translated_sentences) != len(batch_of_input_sentences):
+                return "The number of translated sentences does not match the number of input sentences."
 
             # Get the output dataset instance
             output_dataset_instance = dataset_models.DatasetInstance.objects.get(
                 instance_id=output_dataset_instance_id
             )
 
-            # Get the sentencetext model object by ID
-            sentence_text_object = dataset_models.SentenceText.objects.get(
-                id=sentence_text_id
-            )
+            # Iterate through the dataframe
+            for index, row in input_sentences_df[i: i+batch_size].iterrows():
+                
+                # Get the values for the TranslationPair model
+                sentence_text_id = row["sentence_text_id"]
+                input_sentence = row["corrected_text"]
+                input_language = row["input_language"]
+                translated_sentence = translated_sentences[index-i]
+                metadata = row["metadata"]
+                context = row["context"]
 
-            # Create and save a TranslationPair object
-            translation_pair_obj = dataset_models.TranslationPair(
-                parent_data=sentence_text_object,
-                instance_id=output_dataset_instance,
-                input_language=input_language,
-                output_language=output_language,
-                input_text=input_sentence,
-                machine_translation=translated_sentence,
-                context=context,
-                metadata_json=metadata,
-            )
-            translation_pair_obj.save()
+                # Get the sentencetext model object by ID
+                sentence_text_object = dataset_models.SentenceText.objects.get(
+                    id=sentence_text_id
+                )
+
+                # Create and save a TranslationPair object
+                translation_pair_obj = dataset_models.TranslationPair(
+                    parent_data=sentence_text_object,
+                    instance_id=output_dataset_instance,
+                    input_language=input_language,
+                    output_language=output_language,
+                    input_text=input_sentence,
+                    machine_translation=translated_sentence,
+                    context=context,
+                    metadata_json=metadata,
+                )
+                translation_pair_obj.save()
 
     return "Success"
 
@@ -374,6 +372,7 @@ def schedule_ai4b_translate_job(request):
                 languages,
                 input_sentences,
                 output_dataset_instance_id,
+                batch_size=75,
             )
 
             if save_status != "Success":
