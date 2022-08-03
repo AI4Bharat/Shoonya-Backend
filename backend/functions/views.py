@@ -13,7 +13,9 @@ from .utils import get_batch_translations_using_indictrans_nmt_api
 
 
 ## Utility functions
-def save_translation_pairs(languages, input_sentences, output_dataset_instance_id, batch_size):
+def save_translation_pairs(
+    languages, input_sentences, output_dataset_instance_id, batch_size
+):
     """Function to save the translation pairs in the database.
 
     Args:
@@ -51,10 +53,12 @@ def save_translation_pairs(languages, input_sentences, output_dataset_instance_i
         # Make a sentence list for valid sentences to be translated
         all_sentences_to_be_translated = input_sentences_df["corrected_text"].tolist()
 
-        # Loop through all the sentences to be translated in batch format 
+        # Loop through all the sentences to be translated in batch format
         for i in range(0, len(all_sentences_to_be_translated), batch_size):
-            
-            batch_of_input_sentences = all_sentences_to_be_translated[i: i+batch_size]
+
+            batch_of_input_sentences = all_sentences_to_be_translated[
+                i : i + batch_size
+            ]
 
             # Get the translation using the Indictrans NMT API
             translations_output = get_batch_translations_using_indictrans_nmt_api(
@@ -82,13 +86,13 @@ def save_translation_pairs(languages, input_sentences, output_dataset_instance_i
             )
 
             # Iterate through the dataframe
-            for index, row in input_sentences_df[i: i+batch_size].iterrows():
-                
+            for index, row in input_sentences_df[i : i + batch_size].iterrows():
+
                 # Get the values for the TranslationPair model
                 sentence_text_id = row["sentence_text_id"]
                 input_sentence = row["corrected_text"]
                 input_language = row["input_language"]
-                translated_sentence = translated_sentences[index-i]
+                translated_sentence = translated_sentences[index - i]
                 metadata = row["metadata"]
                 context = row["context"]
 
