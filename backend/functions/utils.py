@@ -3,14 +3,16 @@ from rest_framework import status
 from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
 from users.utils import (
-    LANG_NAME_TO_CODE_GOOGLE, 
+    LANG_NAME_TO_CODE_GOOGLE,
     LANG_NAME_TO_CODE_ULCA,
-    LANG_TRANS_MODEL_CODES
+    LANG_TRANS_MODEL_CODES,
 )
 
 
 ### Utility Functions
-def check_translation_function_inputs(input_dataset_instance_id, output_dataset_instance_id): 
+def check_translation_function_inputs(
+    input_dataset_instance_id, output_dataset_instance_id
+):
 
     # Check if the input dataset instance is a SentenceText dataset
     try:
@@ -20,10 +22,16 @@ def check_translation_function_inputs(input_dataset_instance_id, output_dataset_
 
         # Check if it is a sentence Text
         if input_dataset_instance.dataset_type != "SentenceText":
-            return {"message": "Input dataset instance is not a SentenceText dataset.", "status": status.HTTP_400_BAD_REQUEST} 
+            return {
+                "message": "Input dataset instance is not a SentenceText dataset.",
+                "status": status.HTTP_400_BAD_REQUEST,
+            }
 
     except dataset_models.DatasetInstance.DoesNotExist:
-        return {"message": "Dataset instance does not exist!", "status": status.HTTP_404_NOT_FOUND}
+        return {
+            "message": "Dataset instance does not exist!",
+            "status": status.HTTP_404_NOT_FOUND,
+        }
 
     # Check if the output dataset instance exists and is a TranslationPair type
     try:
@@ -31,15 +39,19 @@ def check_translation_function_inputs(input_dataset_instance_id, output_dataset_
             instance_id=output_dataset_instance_id
         )
         if output_dataset_instance.dataset_type != "TranslationPair":
-            return {"message": "Output dataset instance is not of type TranslationPair", "status": status.HTTP_400_BAD_REQUEST}            
-        
-    except dataset_models.DatasetInstance.DoesNotExist:
-        return {
-                "message": "Output dataset instance does not exist! Create a TranslationPair DatasetInstance", 
-                "status": status.HTTP_404_NOT_FOUND
+            return {
+                "message": "Output dataset instance is not of type TranslationPair",
+                "status": status.HTTP_400_BAD_REQUEST,
             }
 
+    except dataset_models.DatasetInstance.DoesNotExist:
+        return {
+            "message": "Output dataset instance does not exist! Create a TranslationPair DatasetInstance",
+            "status": status.HTTP_404_NOT_FOUND,
+        }
+
     return {"message": "Success", "status": status.HTTP_200_OK}
+
 
 def get_batch_translations_using_indictrans_nmt_api(
     sentence_list, source_language, target_language
@@ -53,7 +65,7 @@ def get_batch_translations_using_indictrans_nmt_api(
         target_language (str): Final language of the sentence.
 
     Returns:
-        list: List of dictionaries containing the translated sentences. 
+        list: List of dictionaries containing the translated sentences.
     """
 
     # Get the translation model ID
@@ -142,16 +154,18 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
 
     return response.json()["output"][0]["target"]
 
-def get_batch_translations_using_google_translate(sentence_list, target_language): 
+
+def get_batch_translations_using_google_translate(sentence_list, target_language):
 
     # Change the target language to the language code
     target_lang_code = LANG_NAME_TO_CODE_GOOGLE[target_language]
 
     translate_client = translate.Client()
 
-    try: 
-        return translate_client.translate(sentence_list, target_language=target_lang_code)
+    try:
+        return translate_client.translate(
+            sentence_list, target_language=target_lang_code
+        )
 
     except Exception as e:
         return str(e)
-

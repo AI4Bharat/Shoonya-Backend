@@ -9,12 +9,20 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from tasks.models import *
 
-from .utils import get_batch_translations_using_indictrans_nmt_api, get_batch_translations_using_google_translate, check_translation_function_inputs
+from .utils import (
+    get_batch_translations_using_indictrans_nmt_api,
+    get_batch_translations_using_google_translate,
+    check_translation_function_inputs,
+)
 
 
 ## Utility functions
 def save_translation_pairs(
-    languages, input_sentences, output_dataset_instance_id, batch_size, api_type="indic-trans"
+    languages,
+    input_sentences,
+    output_dataset_instance_id,
+    batch_size,
+    api_type="indic-trans",
 ):
     """Function to save the translation pairs in the database.
 
@@ -23,8 +31,8 @@ def save_translation_pairs(
         input_sentences (list(list)): List of input sentences in list format containing the - [input_sentence, input_language, context, quality_status]
         output_dataset_instance_id (int): ID of the output dataset instance.
         batch_size (int): Number of sentences to be translated in a single batch.
-        api_type (str): Type of API to be used for translation. (default: indic-trans) 
-            Allowed - [indic-trans, google] 
+        api_type (str): Type of API to be used for translation. (default: indic-trans)
+            Allowed - [indic-trans, google]
     """
 
     # Iterate through the languages
@@ -62,8 +70,8 @@ def save_translation_pairs(
                 i : i + batch_size
             ]
 
-            # Check the API type 
-            if api_type == 'indic-trans': 
+            # Check the API type
+            if api_type == "indic-trans":
 
                 # Get the translation using the Indictrans NMT API
                 translations_output = get_batch_translations_using_indictrans_nmt_api(
@@ -81,8 +89,8 @@ def save_translation_pairs(
                     translation["target"] for translation in translations_output
                 ]
 
-            elif api_type == 'google':
-                
+            elif api_type == "google":
+
                 # Get the translation using the Indictrans NMT API
                 translations_output = get_batch_translations_using_google_translate(
                     sentence_list=batch_of_input_sentences,
@@ -97,13 +105,15 @@ def save_translation_pairs(
                 translated_sentences = [
                     translation["translatedText"] for translation in translations_output
                 ]
-            
-            else: 
-                return {"error":"Invalid API type. Allowed - [indic-trans, google]"} 
+
+            else:
+                return {"error": "Invalid API type. Allowed - [indic-trans, google]"}
 
             # Check if the translated sentences are equal to the input sentences
             if len(translated_sentences) != len(batch_of_input_sentences):
-                return {"error" :"The number of translated sentences does not match the number of input sentences."}
+                return {
+                    "error": "The number of translated sentences does not match the number of input sentences."
+                }
 
             # Get the output dataset instance
             output_dataset_instance = dataset_models.DatasetInstance.objects.get(
@@ -310,9 +320,14 @@ def schedule_google_translate_job(request):
     languages = ast.literal_eval(languages)
 
     # Perform checks on the input and output dataset instances
-    dataset_instance_check_status = check_translation_function_inputs(input_dataset_instance_id, output_dataset_instance_id)
+    dataset_instance_check_status = check_translation_function_inputs(
+        input_dataset_instance_id, output_dataset_instance_id
+    )
 
-    if dataset_instance_check_status["status"] in [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND]:
+    if dataset_instance_check_status["status"] in [
+        status.HTTP_400_BAD_REQUEST,
+        status.HTTP_404_NOT_FOUND,
+    ]:
         return Response(
             {"message": dataset_instance_check_status["message"]},
             status=status.HTTP_400_BAD_REQUEST,
@@ -331,7 +346,7 @@ def schedule_google_translate_job(request):
             "metadata_json",
         )
     )
-            
+
     # Call the function to save the TranslationPair dataset
     save_status = save_translation_pairs(
         languages,
@@ -341,10 +356,10 @@ def schedule_google_translate_job(request):
         api_type="google",
     )
 
-    # Check if error in save_status 
-    if "error" in save_status: 
+    # Check if error in save_status
+    if "error" in save_status:
         return Response(
-            {"message": save_status['error']},
+            {"message": save_status["error"]},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -382,9 +397,14 @@ def schedule_ai4b_translate_job(request):
     languages = ast.literal_eval(languages)
 
     # Perform checks on the input and output dataset instances
-    dataset_instance_check_status = check_translation_function_inputs(input_dataset_instance_id, output_dataset_instance_id)
+    dataset_instance_check_status = check_translation_function_inputs(
+        input_dataset_instance_id, output_dataset_instance_id
+    )
 
-    if dataset_instance_check_status["status"] in [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND]:
+    if dataset_instance_check_status["status"] in [
+        status.HTTP_400_BAD_REQUEST,
+        status.HTTP_404_NOT_FOUND,
+    ]:
         return Response(
             {"message": dataset_instance_check_status["message"]},
             status=status.HTTP_400_BAD_REQUEST,
@@ -410,13 +430,13 @@ def schedule_ai4b_translate_job(request):
         input_sentences,
         output_dataset_instance_id,
         batch_size=75,
-        api_type='indic-trans'
+        api_type="indic-trans",
     )
 
-    # Check if error in save_status 
-    if "error" in save_status: 
+    # Check if error in save_status
+    if "error" in save_status:
         return Response(
-            {"message": save_status['error']},
+            {"message": save_status["error"]},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
