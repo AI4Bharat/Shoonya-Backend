@@ -1,15 +1,45 @@
 import requests
+from rest_framework import status
+from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
 from users.utils import (
-        LANG_NAME_TO_CODE_GOOGLE, 
-        LANG_NAME_TO_CODE_ULCA,
-        LANG_TRANS_MODEL_CODES
-    )
+    LANG_NAME_TO_CODE_GOOGLE, 
+    LANG_NAME_TO_CODE_ULCA,
+    LANG_TRANS_MODEL_CODES
+)
 
 
 ### Utility Functions
-def check_translation_function_inputs(): 
-    pass 
+def check_translation_function_inputs(input_dataset_instance_id, output_dataset_instance_id): 
+
+    # Check if the input dataset instance is a SentenceText dataset
+    try:
+        input_dataset_instance = dataset_models.DatasetInstance.objects.get(
+            instance_id=input_dataset_instance_id
+        )
+
+        # Check if it is a sentence Text
+        if input_dataset_instance.dataset_type != "SentenceText":
+            return {"message": "Input dataset instance is not a SentenceText dataset.", "status": status.HTTP_400_BAD_REQUEST} 
+
+    except dataset_models.DatasetInstance.DoesNotExist:
+        return {"message": "Dataset instance does not exist!", "status": status.HTTP_404_NOT_FOUND}
+
+    # Check if the output dataset instance exists and is a TranslationPair type
+    try:
+        output_dataset_instance = dataset_models.DatasetInstance.objects.get(
+            instance_id=output_dataset_instance_id
+        )
+        if output_dataset_instance.dataset_type != "TranslationPair":
+            return {"message": "Output dataset instance is not of type TranslationPair", "status": status.HTTP_400_BAD_REQUEST}            
+        
+    except dataset_models.DatasetInstance.DoesNotExist:
+        return {
+                "message": "Output dataset instance does not exist! Create a TranslationPair DatasetInstance", 
+                "status": status.HTTP_404_NOT_FOUND
+            }
+
+    return {"message": "Success", "status": status.HTTP_200_OK}
 
 def get_batch_translations_using_indictrans_nmt_api(
     sentence_list, source_language, target_language

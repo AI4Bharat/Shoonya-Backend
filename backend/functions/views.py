@@ -301,86 +301,51 @@ def schedule_google_translate_job(request):
     }
     """
 
+    # Get the post request data
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
     languages = request.data["languages"]
+    output_dataset_instance_id = request.data["output_dataset_instance_id"]
 
     # Convert string list to a list
     languages = ast.literal_eval(languages)
 
-    # Check if the input dataset instance is a SentenceText dataset
-    try:
-        input_dataset_instance = dataset_models.DatasetInstance.objects.get(
-            instance_id=input_dataset_instance_id
-        )
+    # Perform checks on the input and output dataset instances
+    dataset_instance_check_status = check_translation_function_inputs(input_dataset_instance_id, output_dataset_instance_id)
 
-        # Check if it is a sentence Text
-        if input_dataset_instance.dataset_type != "SentenceText":
-            return Response(
-                {"message": "Input dataset instance is not a SentenceText dataset"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    except dataset_models.DatasetInstance.DoesNotExist:
-        ret_dict = {"message": "Dataset instance does not exist!"}
-        ret_status = status.HTTP_404_NOT_FOUND
-        return Response(ret_dict, status=ret_status)
-
-    # Create a dataset instance for the output dataset
-    output_dataset_instance_id = request.data["output_dataset_instance_id"]
-
-    # Check if the output dataset instance exists and is a TranslationPair type
-    try:
-        output_dataset_instance = dataset_models.DatasetInstance.objects.get(
-            instance_id=output_dataset_instance_id
-        )
-        if output_dataset_instance.dataset_type != "TranslationPair":
-            return Response(
-                {"message": "Output dataset instance is not of type TranslationPair"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        else:
-            
-            # Collect the sentences from Sentence Text based on dataset id
-            input_sentences = list(
-                dataset_models.SentenceText.objects.filter(
-                    instance_id=input_dataset_instance_id
-                ).values_list(
-                    "id",
-                    "corrected_text",
-                    "language",
-                    "context",
-                    "quality_status",
-                    "metadata_json",
-                )
-            )
-
-            # sentence_list = ["Hello, today is bad day", "What are you doing?"]
-            
-            # result = get_batch_translations_using_google_translate(sentence_list, target_language="Hindi")
-            
-            # Call the function to save the TranslationPair dataset
-            save_status = save_translation_pairs(
-                languages,
-                input_sentences,
-                output_dataset_instance_id,
-                batch_size=128,
-                api_type="google",
-            )
-
-            # Check if error in save_status 
-            if "error" in save_status: 
-                return Response(
-                    {"message": save_status['error']},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-    except dataset_models.DatasetInstance.DoesNotExist:
+    if dataset_instance_check_status["status"] in [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND]:
         return Response(
-            {
-                "message": "Output dataset instance does not exist! Create a TranslationPair DatasetInstance"
-            },
-            status=status.HTTP_404_NOT_FOUND,
+            {"message": dataset_instance_check_status["message"]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Collect the sentences from Sentence Text based on dataset id
+    input_sentences = list(
+        dataset_models.SentenceText.objects.filter(
+            instance_id=input_dataset_instance_id
+        ).values_list(
+            "id",
+            "corrected_text",
+            "language",
+            "context",
+            "quality_status",
+            "metadata_json",
+        )
+    )
+            
+    # Call the function to save the TranslationPair dataset
+    save_status = save_translation_pairs(
+        languages,
+        input_sentences,
+        output_dataset_instance_id,
+        batch_size=128,
+        api_type="google",
+    )
+
+    # Check if error in save_status 
+    if "error" in save_status: 
+        return Response(
+            {"message": save_status['error']},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     ret_dict = {"message": "SUCCESS!"}
@@ -408,82 +373,51 @@ def schedule_ai4b_translate_job(request):
     }
     """
 
+    # Get the post request data
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
     languages = request.data["languages"]
+    output_dataset_instance_id = request.data["output_dataset_instance_id"]
 
     # Convert string list to a list
     languages = ast.literal_eval(languages)
 
-    # Check if the input dataset instance is a SentenceText dataset
-    try:
-        input_dataset_instance = dataset_models.DatasetInstance.objects.get(
-            instance_id=input_dataset_instance_id
-        )
+    # Perform checks on the input and output dataset instances
+    dataset_instance_check_status = check_translation_function_inputs(input_dataset_instance_id, output_dataset_instance_id)
 
-        # Check if it is a sentence Text
-        if input_dataset_instance.dataset_type != "SentenceText":
-            return Response(
-                {"message": "Input dataset instance is not a SentenceText dataset"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-    except dataset_models.DatasetInstance.DoesNotExist:
-        ret_dict = {"message": "Dataset instance does not exist!"}
-        ret_status = status.HTTP_404_NOT_FOUND
-        return Response(ret_dict, status=ret_status)
-
-    # Create a dataset instance for the output dataset
-    output_dataset_instance_id = request.data["output_dataset_instance_id"]
-
-    # Check if the output dataset instance exists and is a TranslationPair type
-    try:
-        output_dataset_instance = dataset_models.DatasetInstance.objects.get(
-            instance_id=output_dataset_instance_id
-        )
-        if output_dataset_instance.dataset_type != "TranslationPair":
-            return Response(
-                {"message": "Output dataset instance is not of type TranslationPair"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        else:
-
-            # Collect the sentences from Sentence Text based on dataset id
-            input_sentences = list(
-                dataset_models.SentenceText.objects.filter(
-                    instance_id=input_dataset_instance_id
-                ).values_list(
-                    "id",
-                    "corrected_text",
-                    "language",
-                    "context",
-                    "quality_status",
-                    "metadata_json",
-                )
-            )
-
-            # Call the function to save the TranslationPair dataset
-            save_status = save_translation_pairs(
-                languages,
-                input_sentences,
-                output_dataset_instance_id,
-                batch_size=75,
-                api_type='indic-trans'
-            )
-            
-            # Check if error in save_status 
-            if "error" in save_status: 
-                return Response(
-                    {"message": save_status['error']},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-    except dataset_models.DatasetInstance.DoesNotExist:
+    if dataset_instance_check_status["status"] in [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND]:
         return Response(
-            {
-                "message": "Output dataset instance does not exist! Create a TranslationPair DatasetInstance"
-            },
-            status=status.HTTP_404_NOT_FOUND,
+            {"message": dataset_instance_check_status["message"]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Collect the sentences from Sentence Text based on dataset id
+    input_sentences = list(
+        dataset_models.SentenceText.objects.filter(
+            instance_id=input_dataset_instance_id
+        ).values_list(
+            "id",
+            "corrected_text",
+            "language",
+            "context",
+            "quality_status",
+            "metadata_json",
+        )
+    )
+
+    # Call the function to save the TranslationPair dataset
+    save_status = save_translation_pairs(
+        languages,
+        input_sentences,
+        output_dataset_instance_id,
+        batch_size=75,
+        api_type='indic-trans'
+    )
+
+    # Check if error in save_status 
+    if "error" in save_status: 
+        return Response(
+            {"message": save_status['error']},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     ret_dict = {"message": "SUCCESS!"}
