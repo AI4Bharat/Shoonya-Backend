@@ -14,6 +14,13 @@ def check_translation_function_inputs(
     input_dataset_instance_id, output_dataset_instance_id
 ):
 
+    """Function to check the input parameters for the translation function. This performs checks on input dataset instance and output dataset instance.
+
+    Returns:
+        input_dataset_instance_id: ID of the input dataset which has to be a SentenceText DatasetInstance.
+        output_dataset_instance_id: ID of the output dataset which has to be a TranslationPair DatasetInstance.
+    """
+
     # Check if the input dataset instance is a SentenceText dataset
     try:
         input_dataset_instance = dataset_models.DatasetInstance.objects.get(
@@ -60,7 +67,7 @@ def get_batch_translations_using_indictrans_nmt_api(
     """Function to get the translation for the input sentences using the IndicTrans NMT API.
 
     Args:
-        input_sentence (str): Sentence to be translated.
+        sentence_list (str): List of sentences to be translated.
         source_language (str): Original language of the sentence.
         target_language (str): Final language of the sentence.
 
@@ -156,6 +163,15 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
 
 
 def get_batch_translations_using_google_translate(sentence_list, target_language):
+    """Function to get the translation for the input sentences using the Google Translate API.
+
+    Args:
+        sentence_list (str): List of sentences to be translated.
+        target_language (str): Final language of the sentence.
+
+    Returns:
+        list: List of dictionaries containing the translated sentences.
+    """
 
     # Change the target language to the language code
     target_lang_code = LANG_NAME_TO_CODE_GOOGLE[target_language]
