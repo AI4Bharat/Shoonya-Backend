@@ -9,7 +9,7 @@ from django.forms.models import model_to_dict
 from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from users.models import LANG_CHOICES
 from users.serializers import UserEmailSerializer
@@ -216,11 +216,11 @@ def get_project_creation_status(pk) -> str:
         return "Draft"
 
 
-def get_unassigned_task_count(pk):
+def get_task_count(pk, status):
     project = Project.objects.get(pk=pk)
     tasks = (
         Task.objects.filter(project_id=pk)
-        .filter(task_status=UNLABELED)
+        .filter(task_status=status)
         .annotate(annotator_count=Count("annotation_users"))
     )
     task_count = tasks.filter(
@@ -253,7 +253,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticated,)
 
     def retrieve(self, request, pk, *args, **kwargs):
         """
@@ -287,7 +287,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_pull_result"] = last_project_export_result
 
         # Add a field to specify the no. of available tasks to be assigned
-        project_response.data["unassigned_task_count"] = get_unassigned_task_count(pk)
+        project_response.data["unassigned_task_count"] = get_task_count(pk, UNLABELED)
+
+        # Add a field to specify the no. of labeled tasks
+        project_response.data["labeled_task_count"] = Task.objects.filter(project_id=pk).filter(task_status=LABELED).filter(review_user__isnull=True).exclude(annotation_users=request.user.id).count()
 
         return project_response
 
@@ -1326,7 +1329,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 data_items = []
                 tasks = Task.objects.filter(
-                    project_id__exact=project, task_status__exact=ACCEPTED
+                    project_id__exact=project, task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES]
                 )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
@@ -1361,7 +1364,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 data_items = []
                 tasks = Task.objects.filter(
-                    project_id__exact=project, task_status__exact=ACCEPTED
+                    project_id__exact=project, task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES]
                 )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
