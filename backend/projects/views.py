@@ -273,7 +273,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["unassigned_task_count"] = get_task_count(pk, UNLABELED)
 
         # Add a field to specify the no. of labeled tasks
-        project_response.data["labeled_task_count"] = Task.objects.filter(project_id=pk).filter(task_status=LABELED).filter(review_user__isnull=True).exclude(annotation_users=cur_user.id)
+        project_response.data["labeled_task_count"] = Task.objects.filter(project_id=pk).filter(task_status=LABELED).filter(review_user__isnull=True).exclude(annotation_users=request.user.id)
 
         return project_response
 
