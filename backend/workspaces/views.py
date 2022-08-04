@@ -1,12 +1,7 @@
-from ast import Is
-import re
-from urllib import response
-from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from yaml import serialize
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -20,6 +15,7 @@ from projects.utils import no_of_words
 from tasks.models import Annotation
 from projects.utils import is_valid_date
 from datetime import datetime
+from users.serializers import UserFetchSerializer
 
 from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
@@ -272,6 +268,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = to_date + " 23:59"
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
+        #enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -613,4 +610,34 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "id", openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ],
+        responses={
+            200: UserFetchSerializer(many=True),
+            403: "Not authorized",
+            404: "Workspace not found/User not in the workspace/User not found",
+            500: "Server error occured"
+        }
+    )
+    @action(detail=True, methods=['GET'], url_path='list-managers', url_name='list_managers')
+    def list_managers(self, request, pk):
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+            managers = workspace.managers.all()
+            user_serializer = UserFetchSerializer(managers, many=True)
+            return Response(user_serializer.data)
+        except Workspace.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            print("the exception was ",e)
             return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

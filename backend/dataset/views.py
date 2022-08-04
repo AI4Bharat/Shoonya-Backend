@@ -15,7 +15,7 @@ from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -447,7 +447,7 @@ class DatasetTypeView(APIView):
     ViewSet for Dataset Type
     """
 
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, dataset_type):
         model = apps.get_model("dataset", dataset_type)
