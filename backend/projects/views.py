@@ -27,6 +27,7 @@ from tasks.models import Annotation as Annotation_model
 from tasks.models import *
 from tasks.models import Task
 from tasks.serializers import TaskSerializer
+from dataset.models import DatasetInstance
 
 from .decorators import (
     is_organization_owner_or_workspace_manager,
@@ -236,13 +237,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
-    permission_classes = (IsAuthenticated,)
+    # permission_classes = (IsAuthenticated,)
 
     def retrieve(self, request, pk, *args, **kwargs):
         """
         Retrieves a project given its ID
         """
         project_response = super().retrieve(request, *args, **kwargs)
+
+        datasets = DatasetInstance.objects.only("instance_id", "instance_name").filter(instance_id__in=project_response.data["dataset_id"]).values("instance_id", "instance_name")
+        project_response.data["datasets"] = datasets;
+        project_response.data.pop("dataset_id")
 
         # Add a new field to the project response to indicate project status
         project_response.data["status"] = get_project_creation_status(pk)
