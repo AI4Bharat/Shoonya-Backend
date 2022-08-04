@@ -5,7 +5,7 @@ from rest_framework import mixins
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 
 
 from tasks.models import *
@@ -50,8 +50,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
 
+    permission_classes = [IsAuthenticated]
+    
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
@@ -222,18 +223,34 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
 
         project_details = Project.objects.filter(id=request.query_params["project_id"])
-        project_type = project_details[0].project_type
-        project_type = project_type.lower()
-        is_translation_project = True if "translation" in project_type else False
 
-        # if (is_translation_project) and (page is not None) and ({DRAFT, LABELED,  REJECTED}):
-        # To be done for annotation_mode
+        project_type =  project_details[0].project_type
+        project_type =  project_type.lower()
+        is_translation_project = True if  "translation" in  project_type else False
+        
+        user = request.user
+        
+        if (is_translation_project) and (page is not None) and (task_status in {DRAFT, LABELED,  REJECTED}) and (not is_review_mode):
+            serializer = TaskAnnotationSerializer(page, many=True)
+            data = serializer.data
+            task_ids=[]
+            for index,each_data in enumerate(data):
+                task_ids.append(each_data["id"])
+                
+            if user.role == User.ANNOTATOR and user in Project.objects.get(id=request.query_params["project_id"]).users.all():
+                annotation_queryset=Annotation.objects.filter(completed_by=request.user).filter(task__id__in=task_ids)
+                
+                for index,each_data in enumerate(data):
+                    annotation_queryset_instance=annotation_queryset.filter(task__id=each_data["id"])
+                    if len(annotation_queryset_instance)!=0:
+                        annotation_queryset_instance=annotation_queryset_instance[0]
+                        data[index]["data"]["output_text"]=annotation_queryset_instance.result[0]["value"]["text"][0]
+                        each_data["machine_translation"] = each_data["data"]["machine_translation"]
+                        del each_data["data"]["machine_translation"]
+                return self.get_paginated_response(data)
+        
+        if (is_translation_project) and (page is not None) and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES}):
 
-        if (
-            (is_translation_project)
-            and (page is not None)
-            and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES})
-        ):
             # Shows annotations for review_mode
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
@@ -276,7 +293,7 @@ class AnnotationViewSet(
 
     queryset = Annotation.objects.all()
     serializer_class = AnnotationSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
     def create(self, request):
         # TODO: Correction annotation to be filled by validator
@@ -514,7 +531,7 @@ class PredictionViewSet(
 
     queryset = Prediction.objects.all()
     serializer_class = PredictionSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
 
     def create(self, request):
         prediction_response = super().create(request)

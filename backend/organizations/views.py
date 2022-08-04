@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework import status
 from projects.utils import no_of_words
@@ -24,7 +24,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticated,)
 
     @is_organization_owner
     def create(self, request, pk=None, *args, **kwargs):
@@ -169,12 +169,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 ]
             )
 
-            annotated_task_ids = list(annotated_tasks.values_list("id", flat=True))
-            annotated_labeled_tasks = Annotation.objects.filter(
-                task_id__in=annotated_task_ids,
-                parent_annotation_id=None,
-                updated_at__range=[start_date, end_date],
-            )
+            annotated_tasks = total_no_of_tasks_assigned.filter(task_status__in = ['accepted','rejected','accepted_with_changes','labeled'])
+
+            annotated_task_ids = list(annotated_tasks.values_list('id',flat = True))
+            annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
+                created_at__range = [start_date, end_date])
 
             annotated_tasks_count = annotated_labeled_tasks.count()
 
@@ -352,26 +351,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     project_id=proj.id, task_status="unlabeled"
                 )
                 un_labeled_count = un_labeled_task.count()
-                labeled_count_tasks = Task.objects.filter(
-                    Q(project_id=proj.id)
-                    & Q(
-                        task_status__in=[
-                            "accepted",
-                            "rejected",
-                            "accepted_with_changes",
-                            "labeled",
-                        ]
-                    )
-                )
 
-                labeled_count_tasks_ids = list(
-                    labeled_count_tasks.values_list("id", flat=True)
-                )
-                annotated_labeled_tasks = Annotation.objects.filter(
-                    task_id__in=labeled_count_tasks_ids,
-                    parent_annotation_id=None,
-                    updated_at__range=[start_date, end_date],
-                )
+                labeled_count_tasks= Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
+
+                labeled_count_tasks_ids = list(labeled_count_tasks.values_list('id',flat = True))
+                annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_count_tasks_ids ,parent_annotation_id = None,\
+                created_at__range = [start_date, end_date])
 
                 labeled_count = annotated_labeled_tasks.count()
 
