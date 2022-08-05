@@ -86,11 +86,6 @@ def get_batch_translations_using_indictrans_nmt_api(
     # Create the input sentences list
     input_sentences = [{"source": sentence} for sentence in sentence_list]
 
-    headers = {
-        # Already added when you pass json= but not when you pass data=
-        # 'Content-Type': 'application/json',
-    }
-
     json_data = {
         "input": input_sentences,
         "config": {
@@ -105,11 +100,15 @@ def get_batch_translations_using_indictrans_nmt_api(
     try:
         response = requests.post(
             "https://nmt-models.ulcacontrib.org/aai4b-nmt-inference/v0/translate",
-            headers=headers,
             json=json_data,
         )
 
-        return response.json()["output"]
+        translations_output = response.json()["output"]
+
+        # Collect the translated sentences
+        return [
+            translation["target"] for translation in translations_output
+        ]
 
     except Exception as e:
         return str(e)
@@ -180,9 +179,14 @@ def get_batch_translations_using_google_translate(sentence_list, target_language
     translate_client = translate.Client()
 
     try:
-        return translate_client.translate(
+        translations_output =  translate_client.translate(
             sentence_list, target_language=target_lang_code
         )
+
+        # Return the translated sentences
+        return [
+            translation["translatedText"] for translation in translations_output
+        ]
 
     except Exception as e:
         return str(e)
