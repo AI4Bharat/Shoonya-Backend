@@ -1,5 +1,5 @@
 name: run-linters
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:          
   run-black:
@@ -25,12 +25,12 @@ jobs:
           git commit -am "fixup: Format Python code with Black"
           git push
 
-  run-flake8:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - run: pip install -r ./backend/deploy/requirements-dev.txt
-      - run: flake8 backend/shoonya_backend/
+  # run-flake8:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #     - run: pip install -r ./backend/deploy/requirements-dev.txt
+  #     - run: flake8 backend/shoonya_backend/
 
 #   run-pylint:
 #     runs-on: ubuntu-latest
