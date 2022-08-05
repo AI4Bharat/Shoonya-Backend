@@ -11,7 +11,7 @@ from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -168,7 +168,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     """
 
     queryset = DatasetInstance.objects.all()
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticated,)
 
     # Define list of accepted file formats for file upload
     ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
@@ -358,7 +358,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     queryset = DatasetBase.objects.all()
     serializer_class = DatasetItemsSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticated,)
 
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
@@ -426,7 +426,7 @@ class DatasetTypeView(APIView):
     ViewSet for Dataset Type
     """
 
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, dataset_type):
         model = apps.get_model("dataset", dataset_type)
