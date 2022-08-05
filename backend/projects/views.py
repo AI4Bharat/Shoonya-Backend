@@ -784,13 +784,131 @@ class ProjectViewSet(viewsets.ModelViewSet):
             404: "Project does not exist!",
         },
     )
+    
+    @action(detail=True, methods=["POST"], name="Assign new tasks for review to user", url_name="assign_new_review_tasks")
+    def assign_new_review_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of labeled tasks and assign to the reviewer
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+        if not project.is_published:
+            return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
+        if not project.enable_task_reviews:
+            return Response({"message": "Task reviews are disabled for this project"}, status=status.HTTP_403_FORBIDDEN)
+        serializer = ProjectUsersSerializer(project, many=False)
+        users = serializer.data["annotation_reviewers"]
+        user_ids = set()
+        for user in users:
+            user_ids.add(user["id"])
+        # verify if user belongs in annotation_reviewers for this project
+        if not cur_user.id in user_ids:
+            return Response({"message": "You are not assigned to review this project"}, status=status.HTTP_403_FORBIDDEN)
+
+        lock_set = False
+        while(lock_set == False):
+            if project.is_locked(REVIEW_LOCK):
+                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
+                continue
+            else:
+                try:
+                    project.set_lock(cur_user, REVIEW_LOCK)
+                    lock_set = True
+                except Exception as e:
+                    continue
+
+        # check if the project contains eligible tasks to pull
+        tasks = Task.objects.filter(project_id=pk).filter(task_status=LABELED).filter(review_user__isnull=True).exclude(annotation_users=cur_user.id)
+        if not tasks:
+            project.release_lock(REVIEW_LOCK)
+            return Response({"message": "No tasks available for review in this project"}, status=status.HTTP_404_NOT_FOUND)
+
+        task_pull_count = project.tasks_pull_count_per_batch
+        if "num_tasks" in dict(request.data):
+            task_pull_count = request.data["num_tasks"]
+
+        tasks = tasks.order_by("id")
+        tasks = tasks[:task_pull_count]
+        for task in tasks:
+            task.review_user = cur_user
+            task.save()
+
+        project.release_lock(REVIEW_LOCK)
+        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], name="Unassign review tasks", url_name="unassign_review_tasks")
+    def unassign_review_tasks(self, request, pk, *args, **kwargs):
+        """
+        Unassigns all labeled tasks from a reviewer.
+        """
+        user = request.user
+        project_id = pk
+
+        if project_id:
+            project_obj = Project.objects.get(pk=project_id)
+            if project_obj and user in project_obj.annotation_reviewers.all():
+                tasks = Task.objects.filter(project_id__exact=project_id
+                    ).filter(task_status=LABELED).filter(review_user=user.id)
+                if tasks.count() > 0:
+                    tasks.update(review_user=None)
+                    return Response({"message": "Tasks unassigned"}, status=status.HTTP_200_OK)
+                return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Only reviewers can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "from_date": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="The start date",
+                    format="date",
+                ),
+                "to_date": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="The end date", format="date"
+                ),
+            },
+            required=["from_date", "to_date"],
+        ),
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Items(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "username": openapi.Schema(type=openapi.TYPE_STRING),
+                        "mail": openapi.Schema(
+                            type=openapi.TYPE_STRING, format="email"
+                        ),
+                        "total_annoted_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                        "avg_lead_time": openapi.Schema(
+                            type=openapi.TYPE_NUMBER, format="float"
+                        ),
+                        "total_assigned_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                        "skipped_tasks": openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "total_pending_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                    },
+                ),
+            ),
+            404: "Project does not exist!",
+        },
+    )
+    
     @action(
         detail=True,
         methods=["POST"],
         name="Get Reports  of a Project",
         url_name="get_analytics",
     )
-    @project_is_archived
     def get_analytics(self, request, pk=None, *args, **kwargs):
         """
         Get Reports of a Project
@@ -839,16 +957,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 if usermail in managers:
                     continue
+                
+                items = []
+
+                items.append(("Annotator",user_name))
+                items.append(("Email",usermail))
+                
                 all_tasks_in_project = Task.objects.filter(Q(project_id=pk) & Q(annotation_users= each_user))
                 assigned_tasks = all_tasks_in_project.count()
 
                 items.append(("Assigned Tasks" , assigned_tasks))
 
-                annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=ACCEPTED)
+                annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted')
                 annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
 
                 accepted_annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date])
+                    updated_at__range = [start_date, end_date])
                 annotated_tasks = accepted_annotated_objs.count()
 
                 items.append(("Accepted Tasks" , annotated_tasks))
@@ -857,50 +981,50 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 proj = Project.objects.get(id = pk)
                 if proj.enable_task_reviews : 
 
-                    accepted_wt_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=ACCEPTED_WITH_CHANGES)
+                    accepted_wt_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted_with_changes')
                     accepted_wt_tasks_objs_ids = list(accepted_wt_tasks_objs.values_list('id',flat = True))
 
                     accepted_wt_change_objs =Annotation_model.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date])
+                    updated_at__range = [start_date, end_date])
 
                     accepted_wt_tasks = accepted_wt_change_objs.count()
                     items.append(("Accepted With Canges  Tasks" , accepted_wt_tasks))
 
 
 
-                    labeled_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=LABELED)
+                    labeled_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='labeled')
                     labeled_tasks_objs_ids = list(labeled_tasks_objs.values_list('id',flat = True))
 
                     annotation_labeled_objs =Annotation_model.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date])
+                    updated_at__range = [start_date, end_date])
 
                     labeled_tasks = annotation_labeled_objs.count()
                     items.append(("Labeled Tasks" , labeled_tasks))
 
 
 
-                    rejected_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=REJECTED)
+                    rejected_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='rejected')
                     rejected_tasks_objs_ids = list(rejected_tasks_objs.values_list('id',flat = True))
 
                     annotate_rejected_objs =Annotation_model.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date])
+                    updated_at__range = [start_date, end_date])
 
                     rejected_tasks = annotate_rejected_objs.count()
                     items.append(("Rejected Tasks" , rejected_tasks))
 
                 
-                total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=UNLABELED)
+                total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='unlabeled')
                 total_unlabeled_tasks_count = total_unlabeled_tasks.count()
 
                 items.append(("Unlabeled Tasks" , total_unlabeled_tasks_count))
 
-                total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=SKIPPED)
+                total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='skipped')
                 total_skipped_tasks_count = total_skipped_tasks.count()
 
 
                 items.append(("Skipped Tasks" , total_skipped_tasks_count))
 
-                total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=DRAFT)
+                total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='draft')
                 total_draft_tasks_count = total_draft_tasks.count()
 
                 items.append(("Draft Tasks", total_draft_tasks_count))
@@ -951,11 +1075,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             items.append(("Assigned Tasks" , assigned_tasks))
 
-            annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=ACCEPTED)
+            annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted')
             annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
 
             accepted_annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
+                updated_at__range = [start_date, end_date])
             annotated_tasks = accepted_annotated_objs.count()
 
             items.append(("Accepted Tasks" , annotated_tasks))
@@ -964,50 +1088,50 @@ class ProjectViewSet(viewsets.ModelViewSet):
             proj = Project.objects.get(id = pk)
             if proj.enable_task_reviews : 
 
-                accepted_wt_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=ACCEPTED_WITH_CHANGES)
+                accepted_wt_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='accepted_with_changes')
                 accepted_wt_tasks_objs_ids = list(accepted_wt_tasks_objs.values_list('id',flat = True))
 
                 accepted_wt_change_objs =Annotation_model.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
+                updated_at__range = [start_date, end_date])
 
                 accepted_wt_tasks = accepted_wt_change_objs.count()
                 items.append(("Accepted With Canges  Tasks" , accepted_wt_tasks))
 
 
 
-                labeled_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=UNLABELED)
+                labeled_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='labeled')
                 labeled_tasks_objs_ids = list(labeled_tasks_objs.values_list('id',flat = True))
 
                 annotation_labeled_objs =Annotation_model.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
+                updated_at__range = [start_date, end_date])
 
                 labeled_tasks = annotation_labeled_objs.count()
                 items.append(("Labeled Tasks" , labeled_tasks))
 
 
 
-                rejected_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=REJECTED)
+                rejected_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status='rejected')
                 rejected_tasks_objs_ids = list(rejected_tasks_objs.values_list('id',flat = True))
 
                 annotate_rejected_objs =Annotation_model.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
+                updated_at__range = [start_date, end_date])
 
                 rejected_tasks = annotate_rejected_objs.count()
                 items.append(("Rejected Tasks" , rejected_tasks))
 
             
-            total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=LABELED)
+            total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='unlabeled')
             total_unlabeled_tasks_count = total_unlabeled_tasks.count()
 
             items.append(("Unlabeled Tasks" , total_unlabeled_tasks_count))
 
-            total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=SKIPPED)
+            total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='skipped')
             total_skipped_tasks_count = total_skipped_tasks.count()
 
 
             items.append(("Skipped Tasks" , total_skipped_tasks_count))
 
-            total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=DRAFT)
+            total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status='draft')
             total_draft_tasks_count = total_draft_tasks.count()
 
             items.append(("Draft Tasks", total_draft_tasks_count))
