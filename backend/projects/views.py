@@ -27,26 +27,21 @@ from tasks.models import Annotation as Annotation_model
 from tasks.models import *
 from tasks.models import Task
 from tasks.serializers import TaskSerializer
-
-from .decorators import (
-    is_organization_owner_or_workspace_manager,
-    is_particular_workspace_manager,
-    is_project_annotator_or_reviewer,
-    project_is_archived,
-    project_is_published,
-)
 from .models import *
 from .registry_helper import ProjectRegistry
 
 # Import celery tasks
-from .tasks import (
-    create_parameters_for_task_creation,
-    export_project_in_place,
-    export_project_new_record,
-    add_new_data_items_into_project,
-    filter_data_items,
+from .tasks import create_parameters_for_task_creation, add_new_data_items_into_project, export_project_in_place, export_project_new_record, filter_data_items
+
+from .decorators import (
+    is_organization_owner_or_workspace_manager,
+    is_project_editor,
+    project_is_archived,
+    project_is_published,
 )
 from .utils import is_valid_date, no_of_words
+
+from workspaces.decorators import is_particular_workspace_manager
 
 # Create your views here.
 
@@ -113,7 +108,7 @@ def get_project_pull_status(pk):
 
     # If the celery TaskResults table returns
     if taskresult_queryset:
-        
+
         # Sort the tasks by newest items first by date
         taskresult_queryset = taskresult_queryset.order_by("-date_done")
 
@@ -307,7 +302,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             500: "Server error occured",
         },
     )
+    @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove")
+    #TODO: Refactor code to handle better role access
     def remove_user(self, request, pk=None):
         user = User.objects.filter(email=request.data["email"]).first()
         if not user:
@@ -537,7 +534,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Return the project response
         return project_response
 
-    @is_particular_workspace_manager
+    @is_project_editor
     @project_is_archived
     def update(self, request, pk=None, *args, **kwargs):
         """
@@ -545,12 +542,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         return super().update(request, *args, **kwargs)
 
-    @is_particular_workspace_manager
+    @is_project_editor
     @project_is_archived
     def partial_update(self, request, pk=None, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
 
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     @project_is_published
     def destroy(self, request, pk=None, *args, **kwargs):
         """
@@ -560,7 +557,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     # TODO : add exceptions
     @action(detail=True, methods=["POST", "GET"], name="Archive Project")
-    @is_particular_workspace_manager
+    @is_project_editor
     def archive(self, request, pk=None, *args, **kwargs):
         """
         Archive a published project
@@ -576,7 +573,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Get Project Users",
         url_name="get_project_users",
     )
-    @project_is_archived
     def get_project_users(self, request, pk=None, *args, **kwargs):
         """
         Get the list of annotators in the project
@@ -742,8 +738,53 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response({"message": "No tasks to unassign"}, status=status.HTTP_404_NOT_FOUND)
             return Response({"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"message": "Only annotators can unassign tasks"}, status=status.HTTP_403_FORBIDDEN)
-    
 
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "from_date": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="The start date",
+                    format="date",
+                ),
+                "to_date": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="The end date", format="date"
+                ),
+            },
+            required=["from_date", "to_date"],
+        ),
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Items(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "username": openapi.Schema(type=openapi.TYPE_STRING),
+                        "mail": openapi.Schema(
+                            type=openapi.TYPE_STRING, format="email"
+                        ),
+                        "total_annoted_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                        "avg_lead_time": openapi.Schema(
+                            type=openapi.TYPE_NUMBER, format="float"
+                        ),
+                        "total_assigned_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                        "skipped_tasks": openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "total_pending_tasks": openapi.Schema(
+                            type=openapi.TYPE_INTEGER
+                        ),
+                    },
+                ),
+            ),
+            404: "Project does not exist!",
+        },
+    )
+    
     @action(detail=True, methods=["POST"], name="Assign new tasks for review to user", url_name="assign_new_review_tasks")
     def assign_new_review_tasks(self, request, pk, *args, **kwargs):
         """
@@ -867,7 +908,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Get Reports  of a Project",
         url_name="get_analytics",
     )
-    @project_is_archived
+
     def get_analytics(self, request, pk=None, *args, **kwargs):
         """
         Get Reports of a Project
@@ -1154,7 +1195,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         url_name="add_project_users",
     )
     @project_is_archived
-    @is_particular_workspace_manager
+    @is_project_editor
     def add_project_users(self, request, pk=None, *args, **kwargs):
         """
         Add annotators to the project
@@ -1263,8 +1304,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         responses={200: "Return types of project and its details"},
     )
     @action(detail=False, methods=["GET"], name="Get Project Types", url_name="types")
-    # @is_organization_owner_or_workspace_manager
-    # @is_project_annotator_or_reviewer
     def types(self, request, *args, **kwargs):
         """
         Fetches project types
@@ -1293,7 +1332,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     def pull_new_items(self, request, pk=None, *args, **kwargs):
         """
         Pull New Data Items to the Project
@@ -1335,7 +1374,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
     @project_is_archived
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     def download(self, request, pk=None, *args, **kwargs):
         """
         Download a project
@@ -1419,7 +1458,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["POST", "GET"], name="Export Project")
     @project_is_archived
-    @is_organization_owner_or_workspace_manager
+    @is_project_editor
     def project_export(self, request, pk=None, *args, **kwargs):
         """
         Export a project
@@ -1515,7 +1554,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Publish Project")
     @project_is_archived
-    @is_organization_owner_or_workspace_manager
+    @project_is_published
+    @is_project_editor
     def project_publish(self, request, pk=None, *args, **kwargs):
         """
         Publish a project
