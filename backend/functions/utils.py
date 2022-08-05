@@ -135,11 +135,6 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
     source_language = LANG_NAME_TO_CODE_ULCA[source_language]
     target_language = LANG_NAME_TO_CODE_ULCA[target_language]
 
-    headers = {
-        # Already added when you pass json= but not when you pass data=
-        # 'Content-Type': 'application/json',
-    }
-
     json_data = {
         "input": [
             {

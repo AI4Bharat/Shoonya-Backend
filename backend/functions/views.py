@@ -4,6 +4,7 @@ import json
 import pandas as pd
 from dataset import models as dataset_models
 from projects.models import *
+from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -78,6 +79,9 @@ def sentence_text_translate_and_save_translation_pairs(
     output_dataset_instance = dataset_models.DatasetInstance.objects.get(
         instance_id=output_dataset_instance_id
     )
+
+    # Create a TranslationPair object list 
+    translation_pair_objects = []
 
     # Iterate through the languages
     for output_language in languages:
@@ -155,7 +159,13 @@ def sentence_text_translate_and_save_translation_pairs(
                     context=context,
                     metadata_json=metadata,
                 )
-                translation_pair_obj.save()
+                # translation_pair_obj.save()
+
+                # Append the object to TranslationPair list for bulk create
+                translation_pair_objects.append(translation_pair_obj)
+
+    # Bulk create the TranslationPair objects
+    multi_inheritance_table_bulk_insert(translation_pair_objects)
 
     return "Success"
 
