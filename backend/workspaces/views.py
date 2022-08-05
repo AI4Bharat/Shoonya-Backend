@@ -11,7 +11,7 @@ from users.serializers import UserProfileSerializer
 from tasks.models import Task
 from organizations.models import Organization
 from django.db.models import Q
-from projects.utils import  no_of_words
+from projects.utils import no_of_words
 from tasks.models import Annotation
 from projects.utils import is_valid_date
 from datetime import datetime
@@ -20,17 +20,52 @@ from users.serializers import UserFetchSerializer
 from .serializers import UnAssignManagerSerializer, WorkspaceManagerSerializer, WorkspaceSerializer
 from .models import Workspace
 from .decorators import (
-    is_workspace_member,
     workspace_is_archived,
     is_particular_workspace_manager,
-    is_organization_owner_or_workspace_manager
+    is_particular_organization_owner,
+    is_organization_owner_or_workspace_manager,
 )
-from organizations.decorators import is_particular_organization_owner
 
 # Create your views here.
 
 EMAIL_VALIDATION_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
+def get_task_count(proj_ids,status,user,return_count = True):
+    annotated_tasks = Task.objects.filter(Q(project_id__in=proj_ids)& Q(task_status__in=status)& Q(annotation_users=user))
+
+    if return_count == True :
+        annotated_tasks_count = annotated_tasks.count()
+        return annotated_tasks_count
+    else :
+        return annotated_tasks
+def get_task_count_project_analytics(proj_id,status_list,return_count = True):
+    labeled_tasks = Task.objects.filter(project_id = proj_id,task_status__in = status_list)
+    if return_count == True:
+        labeled_tasks_count = labeled_tasks.count()
+        return labeled_tasks_count
+    else :
+        return labeled_tasks
+
+
+def get_annotated_tasks(proj_ids ,user, status_list,start_date,end_date):
+    
+    annotated_tasks_objs =get_task_count(proj_ids,status_list,user,return_count = False)
+
+    annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
+    annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
+        created_at__range = [start_date, end_date],completed_by = user )
+    
+    return annotated_labeled_tasks
+def get_annotated_tasks_project_analytics(proj_id , status_list ,start_date, end_date):
+
+    labeled_tasks = get_task_count_project_analytics( proj_id ,status_list , return_count=False )
+
+    labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
+    annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
+    created_at__range = [start_date, end_date])
+
+    return annotated_labeled_tasks
+    
 
 class WorkspaceViewSet(viewsets.ModelViewSet):
     queryset = Workspace.objects.all()
@@ -39,7 +74,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         if int(request.user.role) == User.ANNOTATOR or int(request.user.role) == User.WORKSPACE_MANAGER:
-            data = self.queryset.filter(users=request.user, is_archived=False, organization=request.user.organization)
+            data = self.queryset.filter(members=request.user, is_archived=False, organization=request.user.organization)
             try:
                 data = self.paginate_queryset(data)
             except:
@@ -71,11 +106,15 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         try:
             data = self.serializer_class(data=request.data)
             if data.is_valid():
-                obj = data.save()
-                obj.users.add(request.user)
-                obj.created_by = request.user
-                obj.save()
-                return Response({"message": "Workspace created!"}, status=status.HTTP_201_CREATED)
+                if request.user.organization == data.validated_data["organization"]:
+                    obj = data.save()
+                    obj.members.add(request.user)
+                    obj.created_by = request.user
+                    obj.save()
+                    return Response({"message": "Workspace created!"}, status=status.HTTP_201_CREATED)
+                else:
+                    return Response({"message": "You are not authorized to create workspace for this organization!"},
+                                    status=status.HTTP_403_FORBIDDEN)
             else:
                 return Response({"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST)
         except:
@@ -97,18 +136,18 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
 class WorkspaceCustomViewSet(viewsets.ViewSet):
     @swagger_auto_schema(responses={200: UserProfileSerializer})
-    @is_organization_owner_or_workspace_manager
-    @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
-    def users(self, request, pk=None):
+    @is_particular_workspace_manager
+    @action(detail=True, methods=["GET"], name="Get Workspace members", url_name="members")
+    def members(self, request, pk=None):
         """
-        Get all users of a workspace
+        Get all members of a workspace
         """
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
-        users = workspace.users.all()
-        serializer = UserProfileSerializer(users, many=True)
+        members = workspace.members.all()
+        serializer = UserProfileSerializer(members, many=True)
         return Response(serializer.data)
 
     # TODO : add exceptions
@@ -120,32 +159,30 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         workspace = Workspace.objects.get(pk=pk)
         workspace.is_archived = not workspace.is_archived
         workspace.save()
-        return Response({"done":True}, status=status.HTTP_200_OK)
+        return Response({"done": True}, status=status.HTTP_200_OK)
 
     # TODO: Add serializer
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            properties={
-                "username": openapi.Schema(type=openapi.TYPE_STRING,format="email")
-            },
-            required=["username"]
+            properties={"username": openapi.Schema(type=openapi.TYPE_STRING, format="email")},
+            required=["username"],
         ),
         responses={
-            200:"Done",
-            404:"User with such Username does not exist!",
-            400:"Bad request,Some exception occured"
+            200: "Done",
+            404: "User with such Username does not exist!",
+            400: "Bad request,Some exception occured",
         },
         manual_parameters=[
             openapi.Parameter(
-                "id",openapi.IN_PATH,
+                "id",
+                openapi.IN_PATH,
                 description=("A unique integer identifying the workspace"),
                 type=openapi.TYPE_INTEGER,
-                required=True
+                required=True,
             )
-        ]
-
+        ],
     )
     @action(detail=True, methods=["POST"], name="Assign Manager", url_name="assign_manager")
     @is_particular_organization_owner
@@ -160,10 +197,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             user = User.objects.get(username=username)
             workspace = Workspace.objects.get(pk=pk)
             workspace.managers.add(user)
-            workspace.users.add(user)
+            workspace.members.add(user)
             workspace.save()
             serializer = WorkspaceManagerSerializer(workspace, many=False)
-            ret_dict = {"done":True}
+            ret_dict = {"done": True}
             ret_status = status.HTTP_200_OK
         except User.DoesNotExist:
             ret_dict = {"message": "User with such Username does not exist!"}
@@ -183,39 +220,42 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
-        
+
         serializer = UnAssignManagerSerializer(workspace, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({"done":True}, status=status.HTTP_200_OK)
-        
+        return Response({"done": True}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         method="get",
         responses={200: ProjectSerializer(many=True)},
         manual_parameters=[
             openapi.Parameter(
-                "only_active",openapi.IN_QUERY,
-                description=("It is passed as true to get all the projects which are not archived,to get all it is passed as false"),
+                "only_active",
+                openapi.IN_QUERY,
+                description=(
+                    "It is passed as true to get all the projects which are not archived,to get all it is passed as false"
+                ),
                 type=openapi.TYPE_BOOLEAN,
-                required=False
+                required=False,
             ),
             openapi.Parameter(
-                "id", openapi.IN_PATH,
+                "id",
+                openapi.IN_PATH,
                 description=("A unique integer identifying the workspace"),
                 type=openapi.TYPE_INTEGER,
-                required=True
-            )
-        ]
+                required=True,
+            ),
+        ],
     )
     @action(detail=True, methods=["GET"], name="Get Projects", url_path="projects", url_name="projects")
-    @is_organization_owner_or_workspace_manager
+    @is_particular_workspace_manager
     def get_projects(self, request, pk=None):
         """
         API for getting all projects of a workspace
         """
-        only_active=str(request.GET.get('only_active','false'))
-        only_active=True if only_active=='true' else False
+        only_active = str(request.GET.get("only_active", "false"))
+        only_active = True if only_active == "true" else False
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
@@ -224,16 +264,21 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             projects = Project.objects.filter(users=request.user, workspace_id=workspace)
         else:
             projects = Project.objects.filter(workspace_id=workspace)
-        
-        if only_active==True:
-            projects=projects.filter(is_archived=False)
-        
+
+        if only_active == True:
+            projects = projects.filter(is_archived=False)
+
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-    @action(detail=True, methods=["POST"], name="Workspace Project Details", url_path="project_analytics", url_name="project_analytics")
-    @is_organization_owner_or_workspace_manager
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Workspace Project Details",
+        url_path="project_analytics",
+        url_name="project_analytics",
+    )
+    @is_particular_workspace_manager
     def project_analytics(self, request, pk=None):
         """
         API for getting project_analytics of a workspace
@@ -297,17 +342,16 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 except :
                     pass
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
-                un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
-                labeled_tasks = Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
 
-                labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
-                annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-                labeled_count = annotated_labeled_tasks.count()
+                labeled_tasks = get_annotated_tasks_project_analytics(proj.id , ['accepted','rejected','accepted_with_changes','labeled'] ,start_date, end_date)
+
+                labeled_count = labeled_tasks.count()
 
 
-                skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
-                dropped_tasks = Task.objects.filter(project_id = proj.id,task_status = 'draft').count()
+                un_labeled_count = get_task_count_project_analytics( proj.id ,['unlabeled']) 
+                skipped_count = get_task_count_project_analytics( proj.id ,['skipped']) 
+                dropped_tasks = get_task_count_project_analytics( proj.id ,['draft'])  
+
                 if total_tasks == 0:
                     project_progress = 0.0
                 else :
@@ -327,11 +371,16 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     }
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
-        return Response(final_result , status = ret_status )
+        return Response(final_result, status=ret_status)
 
-
-    @action(detail=True, methods=["POST"], name="Workspace annotator Details", url_path="user_analytics", url_name="user_analytics")
-    @is_organization_owner_or_workspace_manager
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Workspace member Details",
+        url_path="user_analytics",
+        url_name="user_analytics",
+    )
+    @is_particular_workspace_manager
     def user_analytics(self, request, pk=None):
         """
         API for getting user_analytics of a workspace
@@ -373,10 +422,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         if start_date > end_date:
             return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user_obj = list(ws.users.all())
-        user_mail =[user.get_username() for user in ws.users.all()]
-        user_name =[user.username for user in ws.users.all()]
-        users_id = [user.id for user in ws.users.all()]
+        user_obj = list(ws.members.all())
+        user_mail =[user.get_username() for user in ws.members.all()]
+        user_name =[user.username for user in ws.members.all()]
+        users_id = [user.id for user in ws.members.all()]
 
         project_type = request.data.get("project_type")
         project_type_lower =  project_type.lower()
@@ -407,34 +456,19 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             all_tasks_in_project = Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user ))
             assigned_tasks = all_tasks_in_project.count()
             
-
-            annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
-                    & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
-
-            annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
-            annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-                
+            
+            annotated_labeled_tasks = get_annotated_tasks(proj_ids ,each_user, ['accepted','rejected','accepted_with_changes','labeled'],start_date,end_date)
+    
             annotated_tasks = annotated_labeled_tasks.count()
-                
             lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_labeled_tasks]
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0 :
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
                 
-            all_skipped_tasks_in_project = Task.objects.filter(
-                    Q(project_id__in=proj_ids)
-                    & Q(task_status="skipped")
-                    & Q(annotation_users=each_user)
-                )
-            total_skipped_tasks = all_skipped_tasks_in_project.count()
-
-            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) )
-            all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
-
-            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "draft") & Q(annotation_users = each_user))
-            all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
-
+            total_skipped_tasks = get_task_count(proj_ids,["skipped"],each_user)
+            all_pending_tasks_in_project =  get_task_count(proj_ids,["unlabeled"],each_user)
+            all_draft_tasks_in_project = get_task_count(proj_ids,["draft"],each_user)
+            
             if is_translation_project :
                 total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in annotated_labeled_tasks]
                 total_word_count = sum(total_word_count_list)
@@ -470,54 +504,59 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         return Response(final_result)
 
 
-
-
 class WorkspaceusersViewSet(viewsets.ViewSet):
-    
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "user_id": openapi.Schema(type=openapi.TYPE_STRING, description="String containing emails separated by commas")
+                "user_id": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="String containing emails separated by commas"
+                )
             },
-            required=["user_id"]
+            required=["user_id"],
         ),
         manual_parameters=[
             openapi.Parameter(
-                "id", openapi.IN_PATH,
+                "id",
+                openapi.IN_PATH,
                 description=("A unique integer identifying the workspace"),
                 type=openapi.TYPE_INTEGER,
-                required=True
+                required=True,
             )
         ],
         responses={
-            200:"Users added Successfully",
-            403:"Not authorized",
-            400:"No valid user_ids found",
-            404:"Workspace not found",
-            500:"Server error occured"
-        }
-
+            200: "Users added Successfully",
+            403: "Not authorized",
+            400: "No valid user_ids found",
+            404: "Workspace not found",
+            500: "Server error occured",
+        },
     )
-    @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
-    @action(detail=True, methods=['POST'], url_path='addannotators', url_name='add_annotators')
-    def add_annotators(self, request,pk=None):
-        user_id = request.data.get('user_id',"")
+    @action(detail=True, methods=["POST"], url_path="addmembers", url_name="add_members")
+    @is_particular_workspace_manager
+    def add_members(self, request, pk=None):
+        user_id = request.data.get("user_id", "")
         try:
             workspace = Workspace.objects.get(pk=pk)
 
-            if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization)==(workspace.organization)) or ((request.user.role==User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
+            if (
+                (
+                    (request.user.role) == (User.ORGANIZAION_OWNER)
+                    and (request.user.organization) == (workspace.organization)
+                )
+                or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))
+            ) == False:
                 return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
 
-            user_ids = user_id.split(',')
+            user_ids = user_id.split(",")
             invalid_user_ids = []
             for user_id in user_ids:
                 try:
                     user = User.objects.get(pk=user_id)
-                    if((user.organization) == (workspace.organization)):
-                        workspace.users.add(user)
+                    if (user.organization) == (workspace.organization):
+                        workspace.members.add(user)
                     else:
                         invalid_user_ids.append(user_id)
                 except User.DoesNotExist:
@@ -526,55 +565,62 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
             workspace.save()
             if len(invalid_user_ids) == 0:
                 return Response({"message": "users added successfully"}, status=status.HTTP_200_OK)
-            elif len(invalid_user_ids)==len(user_ids):
+            elif len(invalid_user_ids) == len(user_ids):
                 return Response({"message": "No valid user_ids found"}, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response({"message": f"users added partially! Invalid user_ids: {','.join(invalid_user_ids)}"}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": f"users added partially! Invalid user_ids: {','.join(invalid_user_ids)}"},
+                status=status.HTTP_200_OK,
+            )
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
             return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            properties={
-                "user_id": openapi.Schema(type=openapi.TYPE_STRING, format="email")
-            },
-            required=["user_id"]
+            properties={"user_id": openapi.Schema(type=openapi.TYPE_STRING, format="email")},
+            required=["user_id"],
         ),
         manual_parameters=[
             openapi.Parameter(
-                "id", openapi.IN_PATH,
+                "id",
+                openapi.IN_PATH,
                 description=("A unique integer identifying the workspace"),
                 type=openapi.TYPE_INTEGER,
-                required=True
+                required=True,
             )
         ],
         responses={
             200: "User removed Successfully",
             403: "Not authorized",
             404: "Workspace not found/User not in the workspace/User not found",
-            500: "Server error occured"
-        }
+            500: "Server error occured",
+        },
     )
-    @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
-    @action(detail=True, methods=['POST'], url_path='removeannotators', url_name='remove_annotators')
-    def remove_annotators(self, request,pk=None):
-        user_id = request.data.get('user_id',"")
+    @action(detail=True, methods=["POST"], url_path="removemembers", url_name="remove_members")
+    @is_particular_workspace_manager
+    def remove_members(self, request, pk=None):
+        user_id = request.data.get("user_id", "")
         try:
             workspace = Workspace.objects.get(pk=pk)
 
-            if(((request.user.role) == (User.ORGANIZAION_OWNER) and (request.user.organization) == (workspace.organization)) or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))) == False:
+            if (
+                (
+                    (request.user.role) == (User.ORGANIZAION_OWNER)
+                    and (request.user.organization) == (workspace.organization)
+                )
+                or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))
+            ) == False:
                 return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
 
             try:
                 user = User.objects.get(pk=user_id)
-                if user in workspace.users.all():
-                    workspace.users.remove(user)
+                if user in workspace.members.all():
+                    workspace.members.remove(user)
                     return Response({"message": "User removed successfully"}, status=status.HTTP_200_OK)
                 else:
                     return Response({"message": "User not in workspace"}, status=status.HTTP_404_NOT_FOUND)
