@@ -224,6 +224,23 @@ def get_task_count(pk, status):
     return task_count
 
 
+def get_tasks_count( pk,user,status,return_task_count=True):
+    Task_objs = Task.objects.filter(project_id=pk,annotation_users =user,task_status=status)
+    if return_task_count == True :
+        Task_objs_count =  Task_objs.count()
+        return Task_objs_count
+    else :
+        return Task_objs
+
+def get_annotated_tasks(pk , user , status ,start_date,end_date):
+    annotated_tasks_objs = get_tasks_count( pk,user,status,return_task_count = False)
+    annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
+    annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
+        created_at__range = [start_date, end_date],completed_by = user )
+    return annotated_objs
+
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     """
     Project ViewSet
@@ -944,230 +961,100 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_type =  proj_obj.project_type
         project_type =  project_type.lower()
         is_translation_project = True if  "translation" in  project_type else False
+        managers = [user1.get_username() for user1 in proj_obj.workspace_id.managers.all()]
 
         final_result = []
+        users_ids =[]
+        user_mails = []
+        user_names = []
         if ( request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser ):
-            managers = [user1.get_username() for user1 in proj_obj.workspace_id.managers.all()]
+           
             users_ids = [obj.id for obj in proj_obj.users.all()]
             user_mails =[user.get_username() for user in proj_obj.users.all()]
             user_names =[user.username for user in proj_obj.users.all()]
-            for index,each_user in enumerate(users_ids):
-                user_name = user_names[index]
-                usermail = user_mails[index]
-
-                if usermail in managers:
-                    continue
-                
-                items = []
-
-                items.append(("Annotator",user_name))
-                items.append(("Email",usermail))
-                
-                all_tasks_in_project = Task.objects.filter(Q(project_id=pk) & Q(annotation_users= each_user))
-                assigned_tasks = all_tasks_in_project.count()
-
-                items.append(("Assigned Tasks" , assigned_tasks))
-
-                annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=ACCEPTED)
-                annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
-
-                accepted_annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date])
-                annotated_tasks = accepted_annotated_objs.count()
-
-                items.append(("Accepted Tasks" , annotated_tasks))
-
-
-                proj = Project.objects.get(id = pk)
-                if proj.enable_task_reviews : 
-
-                    accepted_wt_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=ACCEPTED_WITH_CHANGES)
-                    accepted_wt_tasks_objs_ids = list(accepted_wt_tasks_objs.values_list('id',flat = True))
-
-                    accepted_wt_change_objs =Annotation_model.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date])
-
-                    accepted_wt_tasks = accepted_wt_change_objs.count()
-                    items.append(("Accepted With Canges  Tasks" , accepted_wt_tasks))
-
-
-
-                    labeled_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=LABELED)
-                    labeled_tasks_objs_ids = list(labeled_tasks_objs.values_list('id',flat = True))
-
-                    annotation_labeled_objs =Annotation_model.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date])
-
-                    labeled_tasks = annotation_labeled_objs.count()
-                    items.append(("Labeled Tasks" , labeled_tasks))
-
-
-
-                    rejected_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=REJECTED)
-                    rejected_tasks_objs_ids = list(rejected_tasks_objs.values_list('id',flat = True))
-
-                    annotate_rejected_objs =Annotation_model.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
-                    created_at__range = [start_date, end_date])
-
-                    rejected_tasks = annotate_rejected_objs.count()
-                    items.append(("Rejected Tasks" , rejected_tasks))
-
-                
-                total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=UNLABELED)
-                total_unlabeled_tasks_count = total_unlabeled_tasks.count()
-
-                items.append(("Unlabeled Tasks" , total_unlabeled_tasks_count))
-
-                total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=SKIPPED)
-                total_skipped_tasks_count = total_skipped_tasks.count()
-
-
-                items.append(("Skipped Tasks" , total_skipped_tasks_count))
-
-                total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=DRAFT)
-                total_draft_tasks_count = total_draft_tasks.count()
-
-                items.append(("Draft Tasks", total_draft_tasks_count))
-
-                if is_translation_project :
-                    if proj.enable_task_reviews:
-                        all_annotated_tasks = list(accepted_annotated_objs) + list(accepted_wt_change_objs)\
-                            + list(annotation_labeled_objs) + list(annotate_rejected_objs) 
-
-                        total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in all_annotated_tasks]
-                        total_word_count = sum(total_word_count_list)
-                    else:
-                        total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in accepted_annotated_objs]
-                        total_word_count = sum(total_word_count_list)
-
-                    items.append(("Word Count" , total_word_count))
-
-
-                if proj.enable_task_reviews:
-                    all_annotated_tasks = list(accepted_annotated_objs) + list(accepted_wt_change_objs)\
-                            + list(annotation_labeled_objs) + list(annotate_rejected_objs) 
-
-                    lead_time_annotated_tasks = [annot.lead_time for annot in all_annotated_tasks]
-                else:
-                    lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in accepted_annotated_objs]
-                avg_lead_time = 0
-                if len(lead_time_annotated_tasks) > 0 :
-                    avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
-
-                items.append(("Average Annotation Time (In Seconds)" , round(avg_lead_time, 2)))
-
-                
-                final_result.append(dict(items))
-            ret_status = status.HTTP_200_OK
 
         elif request.user.role == User.ANNOTATOR:
-            items = []
 
-            each_user = request.user.id
-            user_name = request.user.username
-            usermail = request.user.email
+            users_ids = [request.user.id]
+            user_names = [request.user.username]
+            user_mails = [request.user.email]
+
+        for index,each_user in enumerate(users_ids):
+            user_name = user_names[index]
+            usermail = user_mails[index]
+            if usermail in managers:
+                continue
+            items = []
 
             items.append(("Annotator",user_name))
             items.append(("Email",usermail))
-
+            
+            # get total tasks
             all_tasks_in_project = Task.objects.filter(Q(project_id=pk) & Q(annotation_users= each_user))
             assigned_tasks = all_tasks_in_project.count()
-
             items.append(("Assigned Tasks" , assigned_tasks))
 
-            annotated_tasks_objs =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=ACCEPTED)
-            annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list('id',flat=True))
-
-            accepted_annotated_objs =Annotation_model.objects.filter(task_id__in = annotated_tasks_objs_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-            annotated_tasks = accepted_annotated_objs.count()
-
-            items.append(("Accepted Tasks" , annotated_tasks))
+            #get accepted tasks
+            annotated_accept_tasks = get_annotated_tasks(pk , each_user , 'accepted' ,start_date,end_date)
+            items.append(("Accepted Tasks" , annotated_accept_tasks.count()))
 
 
             proj = Project.objects.get(id = pk)
             if proj.enable_task_reviews : 
+                # get accepted with changes tasks count
+                accepted_wt_tasks = get_annotated_tasks(pk , each_user , 'accepted_with_changes' ,start_date,end_date)
+                items.append(("Accepted With Changes  Tasks" , accepted_wt_tasks.count()))
 
-                accepted_wt_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=ACCEPTED_WITH_CHANGES)
-                accepted_wt_tasks_objs_ids = list(accepted_wt_tasks_objs.values_list('id',flat = True))
+                # get labeled task count 
+                labeled_tasks = get_annotated_tasks(pk , each_user , 'labeled' ,start_date,end_date)
+                items.append(("Labeled Tasks" , labeled_tasks.count()))
 
-                accepted_wt_change_objs =Annotation_model.objects.filter(task_id__in = accepted_wt_tasks_objs_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
+                #get rejected count
+                rejected_tasks = get_annotated_tasks(pk , each_user , 'rejected' ,start_date,end_date)
+                items.append(("Rejected Tasks" , rejected_tasks.count()))
 
-                accepted_wt_tasks = accepted_wt_change_objs.count()
-                items.append(("Accepted With Canges  Tasks" , accepted_wt_tasks))
-
-
-
-                labeled_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=UNLABELED)
-                labeled_tasks_objs_ids = list(labeled_tasks_objs.values_list('id',flat = True))
-
-                annotation_labeled_objs =Annotation_model.objects.filter(task_id__in = labeled_tasks_objs_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-
-                labeled_tasks = annotation_labeled_objs.count()
-                items.append(("Labeled Tasks" , labeled_tasks))
-
-
-
-                rejected_tasks_objs  =Task.objects.filter(project_id=pk,annotation_users= each_user,task_status__exact=REJECTED)
-                rejected_tasks_objs_ids = list(rejected_tasks_objs.values_list('id',flat = True))
-
-                annotate_rejected_objs =Annotation_model.objects.filter(task_id__in = rejected_tasks_objs_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-
-                rejected_tasks = annotate_rejected_objs.count()
-                items.append(("Rejected Tasks" , rejected_tasks))
-
-            
-            total_unlabeled_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=LABELED)
-            total_unlabeled_tasks_count = total_unlabeled_tasks.count()
-
+            # get unlabeled count
+            total_unlabeled_tasks_count = get_tasks_count( pk,each_user,'unlabeled')
             items.append(("Unlabeled Tasks" , total_unlabeled_tasks_count))
 
-            total_skipped_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=SKIPPED)
-            total_skipped_tasks_count = total_skipped_tasks.count()
-
-
+            # get skipped tasks count
+            total_skipped_tasks_count = get_tasks_count( pk,each_user,'skipped')
             items.append(("Skipped Tasks" , total_skipped_tasks_count))
 
-            total_draft_tasks = Task.objects.filter(project_id=pk,annotation_users =each_user,task_status__exact=DRAFT)
-            total_draft_tasks_count = total_draft_tasks.count()
-
+            # get draft tasks count
+            total_draft_tasks_count = get_tasks_count( pk,each_user,'draft')
             items.append(("Draft Tasks", total_draft_tasks_count))
 
             if is_translation_project :
                 if proj.enable_task_reviews:
-                    all_annotated_tasks = list(accepted_annotated_objs) + list(accepted_wt_change_objs)\
-                        + list(annotation_labeled_objs) + list(annotate_rejected_objs) 
-
+                    all_annotated_tasks = list(annotated_accept_tasks) + list(accepted_wt_tasks)\
+                        + list(labeled_tasks) + list(rejected_tasks) 
                     total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in all_annotated_tasks]
                     total_word_count = sum(total_word_count_list)
                 else:
-                    total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in accepted_annotated_objs]
+                    total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in annotated_accept_tasks]
                     total_word_count = sum(total_word_count_list)
-
                 items.append(("Word Count" , total_word_count))
 
 
             if proj.enable_task_reviews:
-                all_annotated_tasks = list(accepted_annotated_objs) + list(accepted_wt_change_objs)\
-                        + list(annotation_labeled_objs) + list(annotate_rejected_objs) 
-
+                all_annotated_tasks = list(annotated_accept_tasks) + list(accepted_wt_tasks)\
+                        + list(labeled_tasks) + list(rejected_tasks) 
                 lead_time_annotated_tasks = [annot.lead_time for annot in all_annotated_tasks]
             else:
-                lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in accepted_annotated_objs]
+                lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_accept_tasks]
+
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0 :
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
-
             items.append(("Average Annotation Time (In Seconds)" , round(avg_lead_time, 2)))
 
-            final_result = [dict(items)]
-
-            ret_status = status.HTTP_200_OK
+            final_result.append(dict(items))
+        ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
+
     
+
 
     @swagger_auto_schema(
         method="post",
