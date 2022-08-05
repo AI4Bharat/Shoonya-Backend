@@ -99,10 +99,10 @@ def sentence_text_translate_and_save_translation_pairs(
                     output_language,
                 )
 
-                # Check if the translations output is a string or a list 
+                # Check if the translations output is a string or a list
                 if isinstance(translations_output, str):
                     return {"error": translations_output}
-                else: 
+                else:
                     translated_sentences = translations_output
 
             elif api_type == "google":
@@ -112,11 +112,11 @@ def sentence_text_translate_and_save_translation_pairs(
                     sentence_list=batch_of_input_sentences,
                     target_language=output_language,
                 )
-                
-                # Check if translation output returned a list or a string 
+
+                # Check if translation output returned a list or a string
                 if isinstance(translations_output, str):
                     return {"error": translations_output}
-                else: 
+                else:
                     translated_sentences = translations_output
 
             else:

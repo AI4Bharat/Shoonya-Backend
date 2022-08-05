@@ -6,7 +6,7 @@ from users.utils import (
     LANG_NAME_TO_CODE_GOOGLE,
     LANG_NAME_TO_CODE_ULCA,
     LANG_TRANS_MODEL_CODES,
-    DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID
+    DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID,
 )
 
 
@@ -77,7 +77,9 @@ def get_batch_translations_using_indictrans_nmt_api(
     """
 
     # Get the translation model ID
-    model_id = LANG_TRANS_MODEL_CODES.get(f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID)
+    model_id = LANG_TRANS_MODEL_CODES.get(
+        f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID
+    )
 
     # Convert language names to the language code
     source_language = LANG_NAME_TO_CODE_ULCA[source_language]
@@ -106,9 +108,7 @@ def get_batch_translations_using_indictrans_nmt_api(
         translations_output = response.json()["output"]
 
         # Collect the translated sentences
-        return [
-            translation["target"] for translation in translations_output
-        ]
+        return [translation["target"] for translation in translations_output]
 
     except Exception as e:
         return str(e)
@@ -127,7 +127,9 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
     """
 
     # Get the translation model ID
-    model_id = LANG_TRANS_MODEL_CODES.get(f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID)
+    model_id = LANG_TRANS_MODEL_CODES.get(
+        f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID
+    )
 
     # Convert language names to the language code
     source_language = LANG_NAME_TO_CODE_ULCA[source_language]
@@ -179,14 +181,12 @@ def get_batch_translations_using_google_translate(sentence_list, target_language
     translate_client = translate.Client()
 
     try:
-        translations_output =  translate_client.translate(
+        translations_output = translate_client.translate(
             sentence_list, target_language=target_lang_code
         )
 
         # Return the translated sentences
-        return [
-            translation["translatedText"] for translation in translations_output
-        ]
+        return [translation["translatedText"] for translation in translations_output]
 
     except Exception as e:
         return str(e)
