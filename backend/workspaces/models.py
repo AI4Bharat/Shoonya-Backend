@@ -16,7 +16,7 @@ class Workspace(models.Model, DummyModelMixin):
         Organization, related_name="organization_workspace", on_delete=models.CASCADE
     )
 
-    users = models.ManyToManyField(
+    members = models.ManyToManyField(
         settings.AUTH_USER_MODEL, related_name="organization_users"
     )
 

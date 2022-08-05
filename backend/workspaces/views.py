@@ -74,7 +74,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         if int(request.user.role) == User.ANNOTATOR or int(request.user.role) == User.WORKSPACE_MANAGER:
-            data = self.queryset.filter(users=request.user, is_archived=False, organization=request.user.organization)
+            data = self.queryset.filter(members=request.user, is_archived=False, organization=request.user.organization)
             try:
                 data = self.paginate_queryset(data)
             except:
@@ -108,7 +108,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             if data.is_valid():
                 if request.user.organization == data.validated_data["organization"]:
                     obj = data.save()
-                    obj.users.add(request.user)
+                    obj.members.add(request.user)
                     obj.created_by = request.user
                     obj.save()
                     return Response({"message": "Workspace created!"}, status=status.HTTP_201_CREATED)
@@ -146,8 +146,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
-        users = workspace.users.all()
-        serializer = UserProfileSerializer(users, many=True)
+        members = workspace.members.all()
+        serializer = UserProfileSerializer(members, many=True)
         return Response(serializer.data)
 
     # TODO : add exceptions
@@ -197,7 +197,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             user = User.objects.get(username=username)
             workspace = Workspace.objects.get(pk=pk)
             workspace.managers.add(user)
-            workspace.users.add(user)
+            workspace.members.add(user)
             workspace.save()
             serializer = WorkspaceManagerSerializer(workspace, many=False)
             ret_dict = {"done": True}
@@ -422,10 +422,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         if start_date > end_date:
             return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user_obj = list(ws.users.all())
-        user_mail =[user.get_username() for user in ws.users.all()]
-        user_name =[user.username for user in ws.users.all()]
-        users_id = [user.id for user in ws.users.all()]
+        user_obj = list(ws.members.all())
+        user_mail =[user.get_username() for user in ws.members.all()]
+        user_name =[user.username for user in ws.members.all()]
+        users_id = [user.id for user in ws.members.all()]
 
         project_type = request.data.get("project_type")
         project_type_lower =  project_type.lower()
@@ -556,7 +556,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 try:
                     user = User.objects.get(pk=user_id)
                     if (user.organization) == (workspace.organization):
-                        workspace.users.add(user)
+                        workspace.members.add(user)
                     else:
                         invalid_user_ids.append(user_id)
                 except User.DoesNotExist:
@@ -619,8 +619,8 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
             try:
                 user = User.objects.get(pk=user_id)
-                if user in workspace.users.all():
-                    workspace.users.remove(user)
+                if user in workspace.members.all():
+                    workspace.members.remove(user)
                     return Response({"message": "User removed successfully"}, status=status.HTTP_200_OK)
                 else:
                     return Response({"message": "User not in workspace"}, status=status.HTTP_404_NOT_FOUND)
