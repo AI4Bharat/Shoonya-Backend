@@ -80,7 +80,7 @@ def sentence_text_translate_and_save_translation_pairs(
         instance_id=output_dataset_instance_id
     )
 
-    # Create a TranslationPair object list 
+    # Create a TranslationPair object list
     translation_pair_objects = []
 
     # Iterate through the languages
@@ -159,7 +159,6 @@ def sentence_text_translate_and_save_translation_pairs(
                     context=context,
                     metadata_json=metadata,
                 )
-                # translation_pair_obj.save()
 
                 # Append the object to TranslationPair list for bulk create
                 translation_pair_objects.append(translation_pair_obj)

@@ -4,7 +4,8 @@ from django.db import transaction
 from django.db.models import Model
 from django.db.models.query import QuerySet
 
-M = TypeVar('M', bound=Model)
+M = TypeVar("M", bound=Model)
+
 
 def multi_inheritance_table_bulk_insert(data: List[M]) -> None:
     """
@@ -19,7 +20,9 @@ def multi_inheritance_table_bulk_insert(data: List[M]) -> None:
     parent_fields = parent_model._meta.local_fields
 
     parent_objects = [
-        parent_model(**{field.name: getattr(obj, field.name) for field in parent_fields})
+        parent_model(
+            **{field.name: getattr(obj, field.name) for field in parent_fields}
+        )
         for obj in data
     ]
     parent_model.objects.bulk_create(parent_objects)
