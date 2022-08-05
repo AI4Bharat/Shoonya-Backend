@@ -6,6 +6,7 @@ from users.utils import (
     LANG_NAME_TO_CODE_GOOGLE,
     LANG_NAME_TO_CODE_ULCA,
     LANG_TRANS_MODEL_CODES,
+    DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID
 )
 
 
@@ -76,7 +77,7 @@ def get_batch_translations_using_indictrans_nmt_api(
     """
 
     # Get the translation model ID
-    model_id = LANG_TRANS_MODEL_CODES.get(f"{source_language}-{target_language}", 144)
+    model_id = LANG_TRANS_MODEL_CODES.get(f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID)
 
     # Convert language names to the language code
     source_language = LANG_NAME_TO_CODE_ULCA[source_language]
@@ -127,7 +128,7 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
     """
 
     # Get the translation model ID
-    model_id = LANG_TRANS_MODEL_CODES.get(f"{source_language}-{target_language}", 144)
+    model_id = LANG_TRANS_MODEL_CODES.get(f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID)
 
     # Convert language names to the language code
     source_language = LANG_NAME_TO_CODE_ULCA[source_language]
