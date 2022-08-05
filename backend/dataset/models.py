@@ -48,7 +48,6 @@ class DatasetInstance(models.Model):
         verbose_name="dataset_instance_description", null=True, blank=True
     )
     organisation_id = models.ForeignKey(Organization, null=True, on_delete=models.SET_NULL)
-    workspace_id = models.ForeignKey(Workspace, null=True, on_delete=models.SET_NULL)
     dataset_type = models.CharField(
         verbose_name="dataset_type",
         choices=DATASET_TYPE_CHOICES,
@@ -56,6 +55,7 @@ class DatasetInstance(models.Model):
         help_text=("Dataset Type which is specific for each annotation task")
     )
     users = models.ManyToManyField(User, related_name="dataset_users")
+    public_to_managers = models.BooleanField(verbose_name="dataset_public_to_managers", default=False)
 
     class Meta:
         db_table = "dataset_instance"

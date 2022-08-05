@@ -89,6 +89,52 @@ def create_tasks_from_dataitems(items, project):
     return tasks
 
 
+def filter_data_items(project_type, dataset_instance_ids, filter_string, ids_to_exclude=None):
+    """Function to apply filtering for tasks.
+
+    Args:
+        project_type (str): Describes the type of project passed by the user
+        dataset_instance_ids (int): ID of the dataset that has been provided for the annotation task
+        filter_string (str): _description_
+        ids_to_exclude(list): List of ids that need to be filtered(excluded) from the result
+    """
+
+    # Load the dataset model from the instance id using the project registry
+    registry_helper = ProjectRegistry.get_instance()
+    input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
+
+    dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
+
+    # Get items corresponding to the instance id
+    data_items = dataset_model.objects.filter(
+        instance_id__in=dataset_instance_ids
+    ).order_by("id")
+
+    # Apply filtering
+    query_params = dict(parse_qsl(filter_string, keep_blank_values=True))
+    query_params = filter.fix_booleans_in_dict(query_params)
+    filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
+
+    # Create tasks from the filtered items
+    if ids_to_exclude is not None:
+        filtered_items = filtered_items.exclude(id__in=ids_to_exclude.values("input_data"))
+
+
+    # Get the input dataset fields from the filtered items
+    if input_dataset_info["prediction"] is not None:
+        filtered_items = list(
+            filtered_items.values(
+                "id", *input_dataset_info["fields"], input_dataset_info["prediction"]
+            )
+        )
+    else:
+        filtered_items = list(
+            filtered_items.values("id", *input_dataset_info["fields"])
+        )
+    
+    return filtered_items
+
+
 # def assign_users_to_tasks(tasks, users):
 #     annotatorList = []
 #     for user in users:
@@ -149,34 +195,7 @@ def create_parameters_for_task_creation(
 
     """
 
-    # Load the dataset model from the instance id using the project registry
-    registry_helper = ProjectRegistry.get_instance()
-    input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
-    output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
-
-    dataset_model = getattr(dataset_models, input_dataset_info["dataset_type"])
-
-    # Get items corresponding to the instance id
-    data_items = dataset_model.objects.filter(
-        instance_id__in=dataset_instance_ids
-    ).order_by("id")
-
-    # Apply filtering
-    query_params = dict(parse_qsl(filter_string))
-    query_params = filter.fix_booleans_in_dict(query_params)
-    filtered_items = filter.filter_using_dict_and_queryset(query_params, data_items)
-
-    # Get the input dataset fields from the filtered items
-    if input_dataset_info["prediction"] is not None:
-        filtered_items = list(
-            filtered_items.values(
-                "id", *input_dataset_info["fields"], input_dataset_info["prediction"]
-            )
-        )
-    else:
-        filtered_items = list(
-            filtered_items.values("id", *input_dataset_info["fields"])
-        )
+    filtered_items = filter_data_items(project_type, dataset_instance_ids, filter_string)
 
     # Apply sampling
     if sampling_mode == RANDOM:
@@ -203,6 +222,7 @@ def create_parameters_for_task_creation(
     project = Project.objects.get(pk=project_id)
 
     # Set the labelstudio label config
+    registry_helper = ProjectRegistry.get_instance()
     label_config = registry_helper.get_label_studio_jsx_payload(project_type)
 
     project.label_config = label_config
@@ -235,7 +255,7 @@ def export_project_in_place(
     project = Project.objects.get(pk=project_id)
 
     # Get all the accepted tasks for the project
-    tasks = Task.objects.filter(project_id__exact=project, task_status__exact=ACCEPTED)
+    tasks = Task.objects.filter(project_id__exact=project, task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES])
 
     data_items = []
     tasks_list = []
@@ -308,7 +328,7 @@ def export_project_new_record(
     project = Project.objects.get(pk=project_id)
 
     # Get all the accepted tasks for the project
-    tasks = Task.objects.filter(project_id__exact=project, task_status__exact=ACCEPTED)
+    tasks = Task.objects.filter(project_id__exact=project, task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES])
 
     tasks_list = []
     annotated_tasks = []

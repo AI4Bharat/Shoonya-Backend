@@ -7,17 +7,22 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
+from django.db.models import Q
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import resources
 from .models import *
 from .serializers import *
+from .permissions import DatasetInstancePermission
 from .tasks import upload_data_to_data_instance
 from users.serializers import UserFetchSerializer
 
@@ -168,7 +173,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     """
 
     queryset = DatasetInstance.objects.all()
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (DatasetInstancePermission, )
 
     # Define list of accepted file formats for file upload
     ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
@@ -200,13 +205,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         return dataset_instance_response
 
     def list(self, request, *args, **kwargs):
-        if "dataset_type" in dict(request.query_params):
-            queryset = DatasetInstance.objects.filter(
-                dataset_type__exact=request.query_params["dataset_type"]
-            )
-        else:
+        # Org Owners and superusers see all datasets
+        if request.user.role == User.ORGANIZAION_OWNER or request.user.is_superuser:
             queryset = DatasetInstance.objects.all()
-        serializer = DatasetInstanceSerializer(queryset, many=True)
+        # Managers only see datasets that they are added to and public datasets
+        else:
+            queryset = DatasetInstance.objects.filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
+
+        # Filter the queryset based on the query params
+        if "dataset_type" in dict(request.query_params):
+            queryset = queryset.filter(dataset_type__exact=request.query_params["dataset_type"])
+
+        # Serialize the distinct items and sort by instance ID
+        serializer = DatasetInstanceSerializer(queryset.distinct().order_by('instance_id'), many=True)
 
         # Add status fields to the serializer data
         for dataset_instance in serializer.data:
@@ -240,6 +251,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         except DatasetInstance.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
+        # Check if user has permissions to download
+        self.check_object_permissions(self.request, dataset_instance)
+
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
         dataset_resource = getattr(
@@ -259,7 +273,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         """
 
         # Get the dataset type using the instance ID
-        dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
+        dataset_obj = get_object_or_404(DatasetInstance, pk=pk)
+        self.check_object_permissions(self.request, dataset_obj)
+
+        dataset_type = dataset_obj.dataset_type
 
         if 'dataset' not in request.FILES:
             return Response({
@@ -296,7 +313,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         )
 
         # Get name of the dataset instance
-        dataset_name = get_object_or_404(DatasetInstance, pk=pk).instance_name
+        dataset_name = dataset_obj.instance_name
         return Response(
             {
                 "message": f"Uploading {dataset_type} data to Dataset Instance: {dataset_name}",
@@ -358,7 +375,11 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     queryset = DatasetBase.objects.all()
     serializer_class = DatasetItemsSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly,DatasetInstancePermission,)
+
+    def list(self, request):
+        dataset_instances = DatasetInstance.objects.filter(instance_id__in=self.queryset.distinct("instance_id").values_list("instance_id")).values("instance_id", "dataset_type")
+        return Response(data=dataset_instances, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
@@ -426,7 +447,7 @@ class DatasetTypeView(APIView):
     ViewSet for Dataset Type
     """
 
-    permission_classes = (IsAuthenticatedOrReadOnly,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, dataset_type):
         model = apps.get_model("dataset", dataset_type)
