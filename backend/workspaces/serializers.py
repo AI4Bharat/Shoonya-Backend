@@ -6,9 +6,10 @@ from users.serializers import UserProfileSerializer
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
-    managers = UserProfileSerializer(read_only=True,many=True)
+    managers = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
     users = UserProfileSerializer(read_only=True, many=True)
+
     class Meta:
         model = Workspace
         fields = [
@@ -30,24 +31,24 @@ class WorkspaceManagerSerializer(serializers.ModelSerializer):
         model = Workspace
         fields = ["id", "workspace_name", "managers"]
 
+
 class UnAssignManagerSerializer(serializers.Serializer):
     usernames = serializers.ListField(child=serializers.CharField())
 
     def validate_emails(self, usernames):
         users = User.objects.filter(username__in=usernames).all()
-        
+
         if len(users) != len(usernames):
             raise serializers.ValidationError("Enter existing user usernames")
-        
+
         return usernames
 
     def update(self, workspace, validated_data):
-        usernames = validated_data.pop('usernames')
+        usernames = validated_data.pop("usernames")
         users = User.objects.filter(username__in=usernames).all()
 
         for user in users:
             workspace.managers.remove(user)
         workspace.save()
-        
-        return workspace
 
+        return workspace

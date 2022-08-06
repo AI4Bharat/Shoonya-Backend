@@ -107,13 +107,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="last annotation activity by the user", auto_now=True
     )
 
-    languages = ArrayField(models.CharField(
-        verbose_name="language",
-        choices=LANG_CHOICES,
-        max_length=15
-    ), blank=True, null=True, default=list)
+    languages = ArrayField(
+        models.CharField(verbose_name="language", choices=LANG_CHOICES, max_length=15),
+        blank=True,
+        null=True,
+        default=list,
+    )
     # languages = models.ManyToManyField(Language, related_name="user_languages", blank=True, help_text=("Languages known by the user."))
-
 
     # maximum_annotations_per_day = models.IntegerField(
     #     verbose_name="maximum annotations per day", null=True
@@ -128,15 +128,20 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     availability_status = models.PositiveSmallIntegerField(
-        choices=AVAILABILITY_STATUS_CHOICES, blank=False, null=False, default=AVAILABLE, 
-        help_text=("Indicates whether a user is available for doing annotation or not.")
+        choices=AVAILABILITY_STATUS_CHOICES,
+        blank=False,
+        null=False,
+        default=AVAILABLE,
+        help_text=(
+            "Indicates whether a user is available for doing annotation or not."
+        ),
     )
 
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
 
-    unverified_email=models.EmailField(blank=True)
-    old_email_update_code=models.CharField(max_length=256,blank=True)
-    new_email_verification_code=models.CharField(max_length=256,blank=True)
+    unverified_email = models.EmailField(blank=True)
+    old_email_update_code = models.CharField(max_length=256, blank=True)
+    new_email_verification_code = models.CharField(max_length=256, blank=True)
 
     objects = UserManager()
 

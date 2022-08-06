@@ -6,14 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataset', '0021_datasetbase_parent_data'),
-        ('projects', '0018_auto_20220404_0604'),
+        ("dataset", "0021_datasetbase_parent_data"),
+        ("projects", "0018_auto_20220404_0604"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='project',
-            name='dataset_id',
-            field=models.ManyToManyField(blank=True, related_name='project_dataset_instances', to='dataset.DatasetInstance'),
+            model_name="project",
+            name="dataset_id",
+            field=models.ManyToManyField(
+                blank=True,
+                related_name="project_dataset_instances",
+                to="dataset.DatasetInstance",
+            ),
         ),
     ]
