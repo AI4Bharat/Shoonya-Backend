@@ -43,7 +43,7 @@ class Workspace(models.Model, DummyModelMixin):
     created_at = models.DateTimeField(verbose_name="created_at", auto_now_add=True)
 
     def __str__(self):
-        return str(self.workspace_name) 
+        return str(self.workspace_name)
 
     def has_user(self, user):
         if self.user.filter(pk=user.pk).exists():

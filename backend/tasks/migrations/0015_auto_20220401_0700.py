@@ -6,13 +6,25 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tasks', '0014_auto_20220401_0657'),
+        ("tasks", "0014_auto_20220401_0657"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='task',
-            name='task_status',
-            field=models.CharField(choices=[('unlabeled', 'unlabeled'), ('labeled', 'labeled'), ('skipped', 'skipped'), ('accepted', 'accepted'), ('freezed', 'freezed'), ('rejected', 'rejected')], default='unlabeled', max_length=100, verbose_name='task_status'),
+            model_name="task",
+            name="task_status",
+            field=models.CharField(
+                choices=[
+                    ("unlabeled", "unlabeled"),
+                    ("labeled", "labeled"),
+                    ("skipped", "skipped"),
+                    ("accepted", "accepted"),
+                    ("freezed", "freezed"),
+                    ("rejected", "rejected"),
+                ],
+                default="unlabeled",
+                max_length=100,
+                verbose_name="task_status",
+            ),
         ),
     ]
