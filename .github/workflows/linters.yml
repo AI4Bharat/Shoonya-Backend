@@ -12,10 +12,10 @@ jobs:
           python-version: 3.7
       - name: Install Black
         run: pip install black
-      - name: "Debug message: Git and Github info"
-        run:  echo "Pushing to ${GITHUB_HEAD_REF} from ${GITHUB_REF##*/}..."
       - name: Run black --check .
-        run: black --check .
+        run: |
+        black --check .
+        echo "Pushing to ${GITHUB_REF##*/}..."
       - name: If needed, commit black changes to the pull request
         if: failure()
         run: |
