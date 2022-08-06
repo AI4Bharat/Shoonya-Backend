@@ -89,7 +89,9 @@ def create_tasks_from_dataitems(items, project):
     return tasks
 
 
-def filter_data_items(project_type, dataset_instance_ids, filter_string, ids_to_exclude=None):
+def filter_data_items(
+    project_type, dataset_instance_ids, filter_string, ids_to_exclude=None
+):
     """Function to apply filtering for tasks.
 
     Args:
@@ -117,8 +119,9 @@ def filter_data_items(project_type, dataset_instance_ids, filter_string, ids_to_
 
     # Create tasks from the filtered items
     if ids_to_exclude is not None:
-        filtered_items = filtered_items.exclude(id__in=ids_to_exclude.values("input_data"))
-
+        filtered_items = filtered_items.exclude(
+            id__in=ids_to_exclude.values("input_data")
+        )
 
     # Get the input dataset fields from the filtered items
     if input_dataset_info["prediction"] is not None:
@@ -131,7 +134,7 @@ def filter_data_items(project_type, dataset_instance_ids, filter_string, ids_to_
         filtered_items = list(
             filtered_items.values("id", *input_dataset_info["fields"])
         )
-    
+
     return filtered_items
 
 
@@ -195,7 +198,9 @@ def create_parameters_for_task_creation(
 
     """
 
-    filtered_items = filter_data_items(project_type, dataset_instance_ids, filter_string)
+    filtered_items = filter_data_items(
+        project_type, dataset_instance_ids, filter_string
+    )
 
     # Apply sampling
     if sampling_mode == RANDOM:

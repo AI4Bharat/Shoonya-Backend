@@ -9,17 +9,22 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('organizations', '0005_merge_20220328_0340'),
+        ("organizations", "0005_merge_20220328_0340"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='invite',
-            name='users',
+            model_name="invite",
+            name="users",
         ),
         migrations.AddField(
-            model_name='invite',
-            name='user',
-            field=models.OneToOneField(null=True, on_delete=django.db.models.deletion.CASCADE, related_name='invite_users', to=settings.AUTH_USER_MODEL),
+            model_name="invite",
+            name="user",
+            field=models.OneToOneField(
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="invite_users",
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
     ]

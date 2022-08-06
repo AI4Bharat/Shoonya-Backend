@@ -6,13 +6,20 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataset', '0006_auto_20220319_1023'),
+        ("dataset", "0006_auto_20220319_1023"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='datasetinstance',
-            name='dataset_type',
-            field=models.CharField(choices=[('SentenceText', 'SentenceText'), ('TranslationPair', 'TranslationPair')], max_length=100, verbose_name='dataset_type'),
+            model_name="datasetinstance",
+            name="dataset_type",
+            field=models.CharField(
+                choices=[
+                    ("SentenceText", "SentenceText"),
+                    ("TranslationPair", "TranslationPair"),
+                ],
+                max_length=100,
+                verbose_name="dataset_type",
+            ),
         ),
     ]
