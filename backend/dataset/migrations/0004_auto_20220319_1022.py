@@ -6,20 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("dataset", "0003_alter_translationpair_input_lang_id_and_more"),
+        ('dataset', '0003_alter_translationpair_input_lang_id_and_more'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="translationpair",
-            name="machine_translation",
-            field=models.TextField(
-                blank=True, null=True, verbose_name="machine_translation"
-            ),
+            model_name='translationpair',
+            name='machine_translation',
+            field=models.TextField(blank=True, null=True, verbose_name='machine_translation'),
         ),
         migrations.AlterField(
-            model_name="translationpair",
-            name="output_text",
-            field=models.TextField(blank=True, null=True, verbose_name="output_text"),
+            model_name='translationpair',
+            name='output_text',
+            field=models.TextField(blank=True, null=True, verbose_name='output_text'),
         ),
     ]

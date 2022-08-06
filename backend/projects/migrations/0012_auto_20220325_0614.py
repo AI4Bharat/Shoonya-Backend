@@ -6,29 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0011_auto_20220325_0529"),
+        ('projects', '0011_auto_20220325_0529'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="project",
-            name="project_mode",
-            field=models.CharField(
-                choices=[("Collection", "Collection"), ("Annotation", "Annotation")],
-                max_length=100,
-            ),
+            model_name='project',
+            name='project_mode',
+            field=models.CharField(choices=[('Collection', 'Collection'), ('Annotation', 'Annotation')], max_length=100),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="project_type",
-            field=models.CharField(
-                choices=[
-                    ("MonolingualTranslation", "MonolingualTranslation"),
-                    ("TranslationEditing", "TranslationEditing"),
-                    ("OCRAnnotation", "OCRAnnotation"),
-                    ("MonolingualCollection", "MonolingualCollection"),
-                ],
-                max_length=100,
-            ),
+            model_name='project',
+            name='project_type',
+            field=models.CharField(choices=[('MonolingualTranslation', 'MonolingualTranslation'), ('TranslationEditing', 'TranslationEditing'), ('OCRAnnotation', 'OCRAnnotation'), ('MonolingualCollection', 'MonolingualCollection')], max_length=100),
         ),
     ]

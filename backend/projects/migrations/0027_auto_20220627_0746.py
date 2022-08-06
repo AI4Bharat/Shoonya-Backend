@@ -8,27 +8,18 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("projects", "0027_project_created_at"),
+        ('projects', '0027_project_created_at'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="project",
-            name="enable_task_reviews",
-            field=models.BooleanField(
-                default=False,
-                help_text="Indicates whether the annotations need to be reviewed",
-                verbose_name="enable_task_reviews",
-            ),
+            model_name='project',
+            name='enable_task_reviews',
+            field=models.BooleanField(default=False, help_text='Indicates whether the annotations need to be reviewed', verbose_name='enable_task_reviews'),
         ),
         migrations.AddField(
-            model_name="project",
-            name="annotation_reviewers",
-            field=models.ManyToManyField(
-                blank=True,
-                help_text="Project Annotation Reviewers",
-                related_name="review_projects",
-                to=settings.AUTH_USER_MODEL,
-            ),
+            model_name='project',
+            name='annotation_reviewers',
+            field=models.ManyToManyField(blank=True, help_text='Project Annotation Reviewers', related_name='review_projects', to=settings.AUTH_USER_MODEL),
         ),
     ]

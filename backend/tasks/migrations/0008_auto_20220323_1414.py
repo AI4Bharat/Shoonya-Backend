@@ -7,18 +7,13 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("tasks", "0007_auto_20220323_1044"),
+        ('tasks', '0007_auto_20220323_1044'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="task",
-            name="correct_annotation",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.RESTRICT,
-                to="tasks.annotation",
-            ),
+            model_name='task',
+            name='correct_annotation',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.RESTRICT, to='tasks.annotation'),
         ),
     ]

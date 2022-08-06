@@ -7,7 +7,6 @@ from .models import *
 class DatasetInstanceAdmin(ImportExportActionModelAdmin):
     resource_class = DatasetInstanceResource
 
-
 admin.site.register(DatasetInstance, DatasetInstanceAdmin)
 
 ### Dataset types ###
@@ -16,18 +15,14 @@ admin.site.register(DatasetInstance, DatasetInstanceAdmin)
 class SentenceTextAdmin(ImportExportActionModelAdmin):
     resource_class = SentenceTextResource
 
-
 class TranslationPairAdmin(ImportExportActionModelAdmin):
     resource_class = TranslationPairResource
-
 
 class OCRDocumentAdmin(ImportExportActionModelAdmin):
     resource_class = OCRResource
 
-
 class BlockTextAdmin(ImportExportActionModelAdmin):
     resource_class = BlockTextResource
-
 
 admin.site.register(SentenceText, SentenceTextAdmin)
 admin.site.register(TranslationPair, TranslationPairAdmin)

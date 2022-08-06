@@ -6,15 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0017_auto_20220404_0603"),
+        ('projects', '0017_auto_20220404_0603'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="project",
-            name="required_annotators_per_task",
-            field=models.IntegerField(
-                default=1, verbose_name="required_annotators_per_task"
-            ),
+            model_name='project',
+            name='required_annotators_per_task',
+            field=models.IntegerField(default=1, verbose_name='required_annotators_per_task'),
         ),
     ]

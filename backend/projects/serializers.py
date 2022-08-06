@@ -3,13 +3,11 @@ from rest_framework import serializers
 from .models import *
 from users.serializers import UserProfileSerializer
 
-
 class ProjectSerializer(serializers.ModelSerializer):
     users = UserProfileSerializer(read_only=True, many=True)
     annotation_reviewers = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
     frozen_users = UserProfileSerializer(read_only=True, many=True)
-
     class Meta:
         model = Project
 
@@ -51,11 +49,4 @@ class ProjectUsersSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
-        fields = [
-            "title",
-            "description",
-            "is_archived",
-            "is_published",
-            "users",
-            "annotation_reviewers",
-        ]
+        fields = ["title", "description", "is_archived", "is_published", "users", "annotation_reviewers"]

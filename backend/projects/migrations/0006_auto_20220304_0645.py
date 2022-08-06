@@ -6,24 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0005_alter_project_dataset_id"),
+        ('projects', '0005_alter_project_dataset_id'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="project",
-            name="project_type",
-            field=models.PositiveSmallIntegerField(
-                choices=[(1, "MonolingualTranslation"), (2, "TranslationEditing")]
-            ),
+            model_name='project',
+            name='project_type',
+            field=models.PositiveSmallIntegerField(choices=[(1, 'MonolingualTranslation'), (2, 'TranslationEditing')]),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="sampling_mode",
-            field=models.CharField(
-                choices=[("r", "Random"), ("b", "Batch"), ("f", "Full")],
-                default="f",
-                max_length=1,
-            ),
+            model_name='project',
+            name='sampling_mode',
+            field=models.CharField(choices=[('r', 'Random'), ('b', 'Batch'), ('f', 'Full')], default='f', max_length=1),
         ),
     ]

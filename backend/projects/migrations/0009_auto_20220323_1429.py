@@ -6,59 +6,48 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0008_project_variable_parameters"),
+        ('projects', '0008_project_variable_parameters'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="project",
-            name="color",
+            model_name='project',
+            name='color',
             field=models.CharField(blank=True, max_length=6, null=True),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="data_type",
-            field=models.JSONField(
-                blank=True, null=True, verbose_name="data type in project xml"
-            ),
+            model_name='project',
+            name='data_type',
+            field=models.JSONField(blank=True, null=True, verbose_name='data type in project xml'),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="description",
+            model_name='project',
+            name='description',
             field=models.TextField(blank=True, max_length=1000, null=True),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="expert_instruction",
+            model_name='project',
+            name='expert_instruction',
             field=models.TextField(blank=True, max_length=500, null=True),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="filter_string",
+            model_name='project',
+            name='filter_string',
             field=models.CharField(blank=True, max_length=1000, null=True),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="label_config",
-            field=models.CharField(
-                blank=True,
-                max_length=1000,
-                null=True,
-                verbose_name="XML Template Config",
-            ),
+            model_name='project',
+            name='label_config',
+            field=models.CharField(blank=True, max_length=1000, null=True, verbose_name='XML Template Config'),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="sampling_parameters_json",
-            field=models.JSONField(
-                blank=True, null=True, verbose_name="sampling parameters json"
-            ),
+            model_name='project',
+            name='sampling_parameters_json',
+            field=models.JSONField(blank=True, null=True, verbose_name='sampling parameters json'),
         ),
         migrations.AlterField(
-            model_name="project",
-            name="variable_parameters",
-            field=models.JSONField(
-                blank=True, null=True, verbose_name="variable parameters for project"
-            ),
+            model_name='project',
+            name='variable_parameters',
+            field=models.JSONField(blank=True, null=True, verbose_name='variable parameters for project'),
         ),
     ]

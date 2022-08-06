@@ -6,13 +6,13 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0016_project_maximum_annotators"),
+        ('projects', '0016_project_maximum_annotators'),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name="project",
-            old_name="maximum_annotators",
-            new_name="required_annotators_per_task",
+            model_name='project',
+            old_name='maximum_annotators',
+            new_name='required_annotators_per_task',
         ),
     ]

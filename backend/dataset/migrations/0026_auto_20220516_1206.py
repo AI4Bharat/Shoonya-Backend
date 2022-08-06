@@ -6,28 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("dataset", "0025_auto_20220516_0721"),
+        ('dataset', '0025_auto_20220516_0721'),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name="sentencetext",
-            name="is_profane",
+            model_name='sentencetext',
+            name='is_profane',
         ),
         migrations.AddField(
-            model_name="sentencetext",
-            name="quality_status",
-            field=models.CharField(
-                choices=[
-                    ("Unchecked", "Unchecked"),
-                    ("Clean", "Clean"),
-                    ("Profane", "Profane"),
-                    ("Corrupt", "Corrupt"),
-                ],
-                default="Unchecked",
-                help_text="Quality of the Sentence",
-                max_length=10,
-                verbose_name="quality_status",
-            ),
+            model_name='sentencetext',
+            name='quality_status',
+            field=models.CharField(choices=[('Unchecked', 'Unchecked'), ('Clean', 'Clean'), ('Profane', 'Profane'), ('Corrupt', 'Corrupt')], default='Unchecked', help_text='Quality of the Sentence', max_length=10, verbose_name='quality_status'),
         ),
     ]

@@ -6,31 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("users", "0005_auto_20220303_1122"),
+        ('users', '0005_auto_20220303_1122'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="user",
-            name="lang_id",
-            field=models.CharField(
-                choices=[
-                    ("bn", "Bengali"),
-                    ("gu", "Gujarati"),
-                    ("en", "English"),
-                    ("hi", "Hindi"),
-                    ("kn", "Kannada"),
-                    ("mr", "Marathi"),
-                    ("ne", "Nepali"),
-                    ("ne", "Odia"),
-                    ("pa", "Punjabi"),
-                    ("sa", "Sanskrit"),
-                    ("ta", "Tamil"),
-                    ("te", "Telugu"),
-                ],
-                default="en",
-                max_length=3,
-                verbose_name="language_id",
-            ),
+            model_name='user',
+            name='lang_id',
+            field=models.CharField(choices=[('bn', 'Bengali'), ('gu', 'Gujarati'), ('en', 'English'), ('hi', 'Hindi'), ('kn', 'Kannada'), ('mr', 'Marathi'), ('ne', 'Nepali'), ('ne', 'Odia'), ('pa', 'Punjabi'), ('sa', 'Sanskrit'), ('ta', 'Tamil'), ('te', 'Telugu')], default='en', max_length=3, verbose_name='language_id'),
         ),
     ]

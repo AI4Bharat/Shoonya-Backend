@@ -9,41 +9,17 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("tasks", "0015_auto_20220401_0700"),
+        ('tasks', '0015_auto_20220401_0700'),
     ]
 
     operations = [
         migrations.CreateModel(
-            name="TaskLock",
+            name='TaskLock',
             fields=[
-                (
-                    "id",
-                    models.AutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("expire_at", models.DateTimeField(verbose_name="expire_at")),
-                (
-                    "task",
-                    models.ForeignKey(
-                        help_text="Locked task",
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="locks",
-                        to="tasks.task",
-                    ),
-                ),
-                (
-                    "user",
-                    models.ForeignKey(
-                        help_text="User who locked this task",
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="task_locks",
-                        to=settings.AUTH_USER_MODEL,
-                    ),
-                ),
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('expire_at', models.DateTimeField(verbose_name='expire_at')),
+                ('task', models.ForeignKey(help_text='Locked task', on_delete=django.db.models.deletion.CASCADE, related_name='locks', to='tasks.task')),
+                ('user', models.ForeignKey(help_text='User who locked this task', on_delete=django.db.models.deletion.CASCADE, related_name='task_locks', to=settings.AUTH_USER_MODEL)),
             ],
         ),
     ]

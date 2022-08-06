@@ -1,12 +1,10 @@
 import tablib
 from django.db.models.query import QuerySet
 
-
 class ResourceMixin:
     """
     Resource Mixin for streaming CSV file
     """
-
     def export_as_generator(self, queryset=None, *args, **kwargs):
         self.before_export(queryset, *args, **kwargs)
         if queryset is None:

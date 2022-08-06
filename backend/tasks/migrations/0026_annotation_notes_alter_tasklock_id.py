@@ -6,20 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("tasks", "0025_auto_20220606_1629"),
+        ('tasks', '0025_auto_20220606_1629'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="annotation",
-            name="notes",
+            model_name='annotation',
+            name='notes',
             field=models.TextField(blank=True),
         ),
         migrations.AlterField(
-            model_name="tasklock",
-            name="id",
-            field=models.BigAutoField(
-                auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
-            ),
+            model_name='tasklock',
+            name='id',
+            field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
         ),
     ]

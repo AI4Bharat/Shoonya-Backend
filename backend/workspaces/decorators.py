@@ -5,9 +5,7 @@ from organizations.models import Organization
 from rest_framework.response import Response
 from rest_framework import status
 
-PERMISSION_ERROR = {
-    "message": "You do not have enough permissions to access this view!"
-}
+PERMISSION_ERROR = {"message": "You do not have enough permissions to access this view!"}
 WORKSPACE_IS_ARCHIVED_ERROR = {"message": "This Workspace is archived!"}
 NOT_IN_WORKSPACE_ERROR = {"message": "You do not belong to this workspace!"}
 
@@ -37,9 +35,7 @@ def is_particular_workspace_manager(f):
             )
             or (
                 request.user.role == User.ORGANIZAION_OWNER
-                and Organization.objects.get(
-                    pk=Workspace.objects.get(pk=pk).organization.pk
-                ).created_by
+                and Organization.objects.get(pk=Workspace.objects.get(pk=pk).organization.pk).created_by
                 == request.user
             )
             or request.user.is_superuser
@@ -70,5 +66,4 @@ def is_workspace_member(f):
             return f(self, request, pk, *args, **kwargs)
         else:
             return Response(NOT_IN_WORKSPACE_ERROR, status=status.HTTP_403_FORBIDDEN)
-
     return wrapper

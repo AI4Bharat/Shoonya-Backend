@@ -6,25 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("tasks", "0013_task_metadata_json"),
+        ('tasks', '0013_task_metadata_json'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="task",
-            name="task_status",
-            field=models.CharField(
-                choices=[
-                    ("unlabeled", "unlabeled"),
-                    ("labeled", "labeled"),
-                    ("skipped", "skipped"),
-                    ("accepted", "accepted"),
-                    ("freezed", "freezed"),
-                    ("rejected", "rejected"),
-                ],
-                default="UnLabel",
-                max_length=100,
-                verbose_name="task_status",
-            ),
+            model_name='task',
+            name='task_status',
+            field=models.CharField(choices=[('unlabeled', 'unlabeled'), ('labeled', 'labeled'), ('skipped', 'skipped'), ('accepted', 'accepted'), ('freezed', 'freezed'), ('rejected', 'rejected')], default='UnLabel', max_length=100, verbose_name='task_status'),
         ),
     ]

@@ -6,20 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("tasks", "0011_auto_20220329_0819"),
+        ('tasks', '0011_auto_20220329_0819'),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name="annotation",
-            old_name="annotation_id",
-            new_name="id",
+            model_name='annotation',
+            old_name='annotation_id',
+            new_name='id',
         ),
         migrations.AlterField(
-            model_name="prediction",
-            name="id",
-            field=models.AutoField(
-                primary_key=True, serialize=False, verbose_name="prediction_id"
-            ),
+            model_name='prediction',
+            name='id',
+            field=models.AutoField(primary_key=True, serialize=False, verbose_name='prediction_id'),
         ),
     ]

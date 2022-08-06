@@ -10,7 +10,6 @@ except ImportError:
 from dataset import models
 from projects.registry_helper import ProjectRegistry
 
-
 class Command(BaseCommand):
     """
     Command to check to do integrity checks before starting the server.

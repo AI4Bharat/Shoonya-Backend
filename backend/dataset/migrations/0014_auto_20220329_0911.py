@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("dataset", "0013_auto_20220329_0910"),
+        ('dataset', '0013_auto_20220329_0910'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="blocktext",
-            name="splitted_text",
-            field=models.TextField(blank=True, null=True, verbose_name="splitted_text"),
+            model_name='blocktext',
+            name='splitted_text',
+            field=models.TextField(blank=True, null=True, verbose_name='splitted_text'),
         ),
     ]

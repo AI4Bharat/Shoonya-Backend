@@ -6,15 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("tasks", "0026_annotation_notes_alter_tasklock_id"),
+        ('tasks', '0026_annotation_notes_alter_tasklock_id'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="annotation",
-            name="notes",
-            field=models.TextField(
-                blank=True, null=True, verbose_name="annotation_notes"
-            ),
+            model_name='annotation',
+            name='notes',
+            field=models.TextField(blank=True, null=True, verbose_name='annotation_notes'),
         ),
     ]

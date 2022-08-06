@@ -7,33 +7,19 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("dataset", "0020_auto_20220429_0636"),
+        ('dataset', '0020_auto_20220429_0636'),
         # ('tasks', '0018_auto_20220429_0635'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="task",
-            name="input_data",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="input_data",
-                to="dataset.datasetbase",
-                verbose_name="input_data",
-            ),
+            model_name='task',
+            name='input_data',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='input_data', to='dataset.datasetbase', verbose_name='input_data'),
         ),
         migrations.AlterField(
-            model_name="task",
-            name="output_data",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="output_data",
-                to="dataset.datasetbase",
-                verbose_name="output_data",
-            ),
+            model_name='task',
+            name='output_data',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='output_data', to='dataset.datasetbase', verbose_name='output_data'),
         ),
     ]

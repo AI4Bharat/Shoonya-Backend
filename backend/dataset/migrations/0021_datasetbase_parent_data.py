@@ -7,18 +7,13 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("dataset", "0020_auto_20220429_0636"),
+        ('dataset', '0020_auto_20220429_0636'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="datasetbase",
-            name="parent_data",
-            field=models.ForeignKey(
-                blank=True,
-                null=True,
-                on_delete=django.db.models.deletion.SET_NULL,
-                to="dataset.datasetbase",
-            ),
+            model_name='datasetbase',
+            name='parent_data',
+            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='dataset.datasetbase'),
         ),
     ]

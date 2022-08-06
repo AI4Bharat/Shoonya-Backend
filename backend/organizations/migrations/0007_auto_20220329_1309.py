@@ -7,19 +7,13 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("organizations", "0006_auto_20220328_0503"),
+        ('organizations', '0006_auto_20220328_0503'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="invite",
-            name="organization",
-            field=models.ForeignKey(
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="invite_oganization",
-                to="organizations.organization",
-                verbose_name="organization",
-            ),
+            model_name='invite',
+            name='organization',
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, related_name='invite_oganization', to='organizations.organization', verbose_name='organization'),
         ),
     ]

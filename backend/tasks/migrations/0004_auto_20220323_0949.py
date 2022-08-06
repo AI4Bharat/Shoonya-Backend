@@ -7,39 +7,29 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0008_project_variable_parameters"),
-        ("tasks", "0003_auto_20220318_0809"),
+        ('projects', '0008_project_variable_parameters'),
+        ('tasks', '0003_auto_20220318_0809'),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name="annotation",
-            old_name="result_json",
-            new_name="result",
+            model_name='annotation',
+            old_name='result_json',
+            new_name='result',
         ),
         migrations.RenameField(
-            model_name="task",
-            old_name="task_id",
-            new_name="id",
+            model_name='task',
+            old_name='task_id',
+            new_name='id',
         ),
         migrations.AlterField(
-            model_name="annotation",
-            name="task_id",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="annotations",
-                to="tasks.task",
-                verbose_name="annotation_task_id",
-            ),
+            model_name='annotation',
+            name='task_id',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='annotations', to='tasks.task', verbose_name='annotation_task_id'),
         ),
         migrations.AlterField(
-            model_name="task",
-            name="project_id",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="tasks",
-                to="projects.project",
-                verbose_name="project_id",
-            ),
+            model_name='task',
+            name='project_id',
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='tasks', to='projects.project', verbose_name='project_id'),
         ),
     ]

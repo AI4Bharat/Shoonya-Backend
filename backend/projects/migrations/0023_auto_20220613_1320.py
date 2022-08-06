@@ -6,18 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0022_auto_20220516_1206"),
+        ('projects', '0022_auto_20220516_1206'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="project",
-            name="label_config",
-            field=models.TextField(
-                blank=True,
-                help_text="Label Studio Config XML to be used to show annotation task UI",
-                null=True,
-                verbose_name="XML Template Config",
-            ),
+            model_name='project',
+            name='label_config',
+            field=models.TextField(blank=True, help_text='Label Studio Config XML to be used to show annotation task UI', null=True, verbose_name='XML Template Config'),
         ),
     ]

@@ -6,42 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("users", "0010_merge_20220328_0340"),
+        ('users', '0010_merge_20220328_0340'),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name="user",
-            name="lang_id",
-            field=models.CharField(
-                choices=[
-                    ("English", "English"),
-                    ("Assamese", "Assamese"),
-                    ("Bengali", "Bengali"),
-                    ("Bodo", "Bodo"),
-                    ("Dogri", "Dogri"),
-                    ("Gujarati", "Gujarati"),
-                    ("Hindi", "Hindi"),
-                    ("Kannada", "Kannada"),
-                    ("Kashmiri", "Kashmiri"),
-                    ("Konkani", "Konkani"),
-                    ("Maithili", "Maithili"),
-                    ("Malayalam", "Malayalam"),
-                    ("Manipuri", "Manipuri"),
-                    ("Marathi", "Marathi"),
-                    ("Nepali", "Nepali"),
-                    ("Odia", "Odia"),
-                    ("Punjabi", "Punjabi"),
-                    ("Sanskrit", "Sanskrit"),
-                    ("Santali", "Santali"),
-                    ("Sindhi", "Sindhi"),
-                    ("Tamil", "Tamil"),
-                    ("Telugu", "Telugu"),
-                    ("Urdu", "Urdu"),
-                ],
-                default="English",
-                max_length=15,
-                verbose_name="language_id",
-            ),
+            model_name='user',
+            name='lang_id',
+            field=models.CharField(choices=[('English', 'English'), ('Assamese', 'Assamese'), ('Bengali', 'Bengali'), ('Bodo', 'Bodo'), ('Dogri', 'Dogri'), ('Gujarati', 'Gujarati'), ('Hindi', 'Hindi'), ('Kannada', 'Kannada'), ('Kashmiri', 'Kashmiri'), ('Konkani', 'Konkani'), ('Maithili', 'Maithili'), ('Malayalam', 'Malayalam'), ('Manipuri', 'Manipuri'), ('Marathi', 'Marathi'), ('Nepali', 'Nepali'), ('Odia', 'Odia'), ('Punjabi', 'Punjabi'), ('Sanskrit', 'Sanskrit'), ('Santali', 'Santali'), ('Sindhi', 'Sindhi'), ('Tamil', 'Tamil'), ('Telugu', 'Telugu'), ('Urdu', 'Urdu')], default='English', max_length=15, verbose_name='language_id'),
         ),
     ]

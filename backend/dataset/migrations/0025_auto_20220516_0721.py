@@ -6,36 +6,23 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("dataset", "0024_auto_20220516_0657"),
+        ('dataset', '0024_auto_20220516_0657'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="sentencetext",
-            name="context",
-            field=models.TextField(
-                blank=True, help_text="Context Text", null=True, verbose_name="context"
-            ),
+            model_name='sentencetext',
+            name='context',
+            field=models.TextField(blank=True, help_text='Context Text', null=True, verbose_name='context'),
         ),
         migrations.AddField(
-            model_name="sentencetext",
-            name="corrected_text",
-            field=models.TextField(
-                blank=True,
-                help_text="Corrected Sentence Text",
-                null=True,
-                verbose_name="corrected_text",
-            ),
+            model_name='sentencetext',
+            name='corrected_text',
+            field=models.TextField(blank=True, help_text='Corrected Sentence Text', null=True, verbose_name='corrected_text'),
         ),
         migrations.AlterField(
-            model_name="sentencetext",
-            name="domain",
-            field=models.CharField(
-                blank=True,
-                help_text="Domain of the Sentence",
-                max_length=1024,
-                null=True,
-                verbose_name="domain",
-            ),
+            model_name='sentencetext',
+            name='domain',
+            field=models.CharField(blank=True, help_text='Domain of the Sentence', max_length=1024, null=True, verbose_name='domain'),
         ),
     ]
