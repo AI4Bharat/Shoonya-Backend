@@ -962,7 +962,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if proj.enable_task_reviews : 
                 # get accepted with changes tasks count
                 accepted_wt_tasks = get_annotated_tasks(pk , each_user , 'accepted_with_changes' ,start_date,end_date)
-                items.append(("Accepted With Canges  Tasks" , accepted_wt_tasks.count()))
+                items.append(("Accepted With Changes  Tasks" , accepted_wt_tasks.count()))
 
                 # get labeled task count 
                 labeled_tasks = get_annotated_tasks(pk , each_user , 'labeled' ,start_date,end_date)
