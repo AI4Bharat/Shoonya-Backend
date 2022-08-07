@@ -11,7 +11,7 @@ jobs:
         with:
           python-version: 3.7
       - name: Debug Message - Check Github branch
-        run: git checkout ${GITHUB_REF##*/} 
+        run: echo "Current Git branch is ${GITHUB_REF##*/}" 
       - name: Install Black
         run: pip install black
       - name: Run black --check .
