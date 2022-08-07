@@ -15,7 +15,11 @@ NOT_IN_WORKSPACE_ERROR = {"message": "You do not belong to this workspace!"}
 def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
-        if (request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser):
+        if (
+            request.user.role == User.ORGANIZAION_OWNER
+            or request.user.role == User.WORKSPACE_MANAGER
+            or request.user.is_superuser
+        ):
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
 
