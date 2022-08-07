@@ -21,7 +21,7 @@ jobs:
         run: |
           black .
           git config --global user.name 'autoblack'
-          git config --global user.email 'anuran-roy@users.noreply.github.com'
+          git config --global user.email '${{ toJSON(actor) }}@users.noreply.github.com'
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY
           echo "Pushing to ${GITHUB_REF##*/}..."
           git commit -am "fixup: Format Python code with Black"
