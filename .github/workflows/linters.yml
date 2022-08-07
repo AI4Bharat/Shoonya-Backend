@@ -18,7 +18,7 @@ jobs:
         run: black --check .
       - name: If needed, commit black changes to the pull request
         env: 
-          GITHUB_ACTOR: ${{ toJson(actor) }}   
+          GITHUB_ACTOR: ${{ github.actor }}   
         if: failure()
         run: |
           black .
