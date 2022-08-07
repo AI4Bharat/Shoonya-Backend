@@ -83,7 +83,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 return Response({"status": status.HTTP_200_OK, "message": "No more record.", "results": data})
             serializer = WorkspaceSerializer(data, many=True)
             return self.get_paginated_response(serializer.data)
-        elif int(request.user.role) == User.ORGANIZAION_OWNER:
+        elif int(request.user.role) == User.ORGANIZATION_OWNER:
             data = self.queryset.filter(organization=request.user.organization)
             try:
                 data = self.paginate_queryset(data)
@@ -543,7 +543,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
             if (
                 (
-                    (request.user.role) == (User.ORGANIZAION_OWNER)
+                    (request.user.role) == (User.ORGANIZATION_OWNER)
                     and (request.user.organization) == (workspace.organization)
                 )
                 or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))
@@ -610,7 +610,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
             if (
                 (
-                    (request.user.role) == (User.ORGANIZAION_OWNER)
+                    (request.user.role) == (User.ORGANIZATION_OWNER)
                     and (request.user.organization) == (workspace.organization)
                 )
                 or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))

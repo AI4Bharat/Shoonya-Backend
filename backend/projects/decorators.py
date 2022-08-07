@@ -24,7 +24,7 @@ PROJECT_IS_PUBLISHED_ERROR = {
 def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
-        if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
+        if request.user.role == User.ORGANIZATION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
     return wrapper
@@ -56,7 +56,7 @@ def project_is_published(f):
 def is_project_editor(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
-        if request.user.role == User.ORGANIZAION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
+        if request.user.role == User.ORGANIZATION_OWNER or request.user.role == User.WORKSPACE_MANAGER or request.user.is_superuser:
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
     return wrapper
