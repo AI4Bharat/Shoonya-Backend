@@ -26,4 +26,4 @@ jobs:
           echo "Pushing to ${GITHUB_REF##*/}..."
           git commit -am "fixup: Format Python code with Black"
           echo "Pushing to ${GITHUB_REF##*/}..."
-          git push
+          git push origin HEAD:${GITHUB_REF##*/}
