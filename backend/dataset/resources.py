@@ -81,5 +81,6 @@ RESOURCE_MAP = {
     'TranslationPair' :TranslationPairResource,
     'SentenceText': SentenceTextResource,
     'OCRDocument': OCRResource,
-    'BlockText': BlockTextResource
+    'BlockText': BlockTextResource, 
+    'Conversation': ConversationResource, 
 }
