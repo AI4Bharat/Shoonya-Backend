@@ -30,7 +30,7 @@ jobs:
     # Set the target Azure Kubernetes Service (AKS) cluster. 
     - uses: azure/aks-set-context@v1
       with:
-        creds: '${{ secrets.AZURE_CREDENTIALS }}'
+        creds: '${{ secrets.SHOONYA_AZURE_CREDS }}'
         cluster-name: ${{ env.CLUSTER_NAME }}
         resource-group: ${{ env.CLUSTER_RESOURCE_GROUP }}
     
@@ -53,7 +53,7 @@ jobs:
         POSTGRES_USER=${{ secrets.POSTGRES_USER }}
         POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}
         POSTGRES_PORT=${{ secrets.POSTGRES_PORT }}
-        AZURE_STORAGE_KEY=${{ secrets.AZURE_STORAGE_KEY }}
+        AZURE_STORAGE_KEY=${{ secrets.SHOONYA_AZURE_STORAGEKEY_STAGE }}
         AZURE_ACCOUNT_NAME=${{ secrets.AZURE_ACCOUNT_NAME }}
         AZURE_MEDIA_CONTAINER=${{ secrets.AZURE_MEDIA_CONTAINER }}
         AZURE_STATIC_CONTAINER=${{ secrets.AZURE_STATIC_CONTAINER }}
