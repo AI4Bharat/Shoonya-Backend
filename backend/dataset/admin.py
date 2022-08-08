@@ -25,11 +25,11 @@ class OCRDocumentAdmin(ImportExportActionModelAdmin):
 class BlockTextAdmin(ImportExportActionModelAdmin):
     resource_class = BlockTextResource
 
-class ConversationTranslationAdmin(ImportExportActionModelAdmin):
-    resource_class=ConversationTranslationResource
+class ConversationAdmin(ImportExportActionModelAdmin):
+    resource_class=ConversationResource
 
 admin.site.register(SentenceText, SentenceTextAdmin)
 admin.site.register(TranslationPair, TranslationPairAdmin)
 admin.site.register(OCRDocument, OCRDocumentAdmin)
 admin.site.register(BlockText, BlockTextAdmin)
-admin.site.register(ConversationTranslation,ConversationTranslationAdmin)
+admin.site.register(Conversation, ConversationAdmin)

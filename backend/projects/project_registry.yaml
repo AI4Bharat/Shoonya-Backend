@@ -138,7 +138,7 @@ Conversation:
       project_mode: "Annotation"
       label_studio_jsx_file: "conversation/conversation_translation.jsx"
       input_dataset:
-        class: ConversationTranslation
+        class: Conversation
         fields:
           - domain
           - topic
@@ -146,10 +146,9 @@ Conversation:
           - prompt
           - speaker_count
           - speakers_json
-          - language
           - conversation_json
       output_dataset:
-        class: ConversationTranslation
+        class: Conversation
         save_type: new_record
         fields:
           variable_parameters:

@@ -64,14 +64,14 @@ class BlockTextResource(ModelResource, ResourceMixin):
         skip_diff=True
         force_init_instance = True
 
-class ConversationTranslationResource(ModelResource,ResourceMixin):
+class ConversationResource(ModelResource,ResourceMixin):
     '''
-    Import/Export Resource for ConversationTranslation
+    Import/Export Resource for Conversation
     '''
     class Meta:
         import_id_fields=('id',)
         exclude=('datasetbase_ptr',)
-        model=ConversationTranslation
+        model=Conversation
         clean_model_instances=True
         skip_diff=True
         force_init_instance=True

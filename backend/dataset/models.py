@@ -13,7 +13,7 @@ DATASET_TYPE_CHOICES = [
     ("TranslationPair", "TranslationPair"),
     ("OCRDocument", "OCRDocument"),
     ("BlockText","BlockText"),
-    ("ConversationTranslation","ConversationTranslation")
+    ("Conversation","Conversation")
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
@@ -207,9 +207,9 @@ class BlockText(DatasetBase):
         return str(self.id)
 
 
-class ConversationTranslation(DatasetBase):
+class Conversation(DatasetBase):
     """
-    Dataset for storing conversation translation data
+    Dataset for storing Conversation data
     """
 
     domain=models.CharField(
@@ -218,30 +218,30 @@ class ConversationTranslation(DatasetBase):
     )
     topic=models.TextField(
         verbose_name="topic",null=True,blank=True,
-        help_text=("topic of the conversation")
+        help_text=("Topic of the conversation")
     )
     scenario=models.TextField(
         verbose_name="scenario",null=True,blank=True,
-        help_text=("scenario of the conversation")
+        help_text=("Scenario of the conversation")
     )
     prompt=models.TextField(
         verbose_name="prompt",null=True,blank=True,
-        help_text=("prompt of the conversation")
+        help_text=("Prompt of the conversation")
     )
     speaker_count=models.IntegerField(
         verbose_name="speaker_count",null=True,blank=True,
-        help_text=("the number of speakers involved in conversation")
+        help_text=("Number of speakers involved in conversation")
     )
     speakers_json=models.JSONField(
         verbose_name="speakers_details",null=True,blank=True,
-        help_text=("details of the speakers involved in the conversation")
+        help_text=("Details of the speakers involved in the conversation")
     )
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
     conversation_json=models.JSONField(
         verbose_name="conversation_details",null=True,blank=True,
-        help_text=("details of the conversation")
+        help_text=("Details of the conversation")
     )
 
     def __str__(self):
