@@ -13,7 +13,7 @@ NO_ORGANIZATION_OWNER_ERROR = {"message": "You do not belong to this organizatio
 def is_organization_owner(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
-        if request.user.is_authenticated and (request.user.role == User.ORGANIZAION_OWNER or request.user.is_superuser):
+        if request.user.is_authenticated and (request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser):
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=403)
 
@@ -24,7 +24,7 @@ def is_organization_owner(f):
 def is_particular_organization_owner(f):
     @wraps(f)
     def wrapper(self, request, pk=None, *args, **kwargs):
-        if request.user.role == User.ORGANIZAION_OWNER or request.user.is_superuser:
+        if request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser:
             if 'organization' in request.data:
                 organization = Organization.objects.filter(pk=request.data['organization']).first()
             else:

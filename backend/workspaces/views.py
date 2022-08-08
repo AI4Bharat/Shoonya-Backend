@@ -30,6 +30,42 @@ from .decorators import (
 
 EMAIL_VALIDATION_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
+def get_task_count(proj_ids,status,user,return_count = True):
+    annotated_tasks = Task.objects.filter(Q(project_id__in=proj_ids)& Q(task_status__in=status)& Q(annotation_users=user))
+
+    if return_count == True :
+        annotated_tasks_count = annotated_tasks.count()
+        return annotated_tasks_count
+    else :
+        return annotated_tasks
+def get_task_count_project_analytics(proj_id,status_list,return_count = True):
+    labeled_tasks = Task.objects.filter(project_id = proj_id,task_status__in = status_list)
+    if return_count == True:
+        labeled_tasks_count = labeled_tasks.count()
+        return labeled_tasks_count
+    else :
+        return labeled_tasks
+
+
+def get_annotated_tasks(proj_ids ,user, status_list,start_date,end_date):
+    
+    annotated_tasks_objs =get_task_count(proj_ids,status_list,user,return_count = False)
+
+    annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
+    annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
+        created_at__range = [start_date, end_date],completed_by = user )
+    
+    return annotated_labeled_tasks
+def get_annotated_tasks_project_analytics(proj_id , status_list ,start_date, end_date):
+
+    labeled_tasks = get_task_count_project_analytics( proj_id ,status_list , return_count=False )
+
+    labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
+    annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
+    created_at__range = [start_date, end_date])
+
+    return annotated_labeled_tasks
+    
 
 class WorkspaceViewSet(viewsets.ModelViewSet):
     queryset = Workspace.objects.all()
@@ -38,7 +74,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         if int(request.user.role) == User.ANNOTATOR or int(request.user.role) == User.WORKSPACE_MANAGER:
-            data = self.queryset.filter(users=request.user, is_archived=False, organization=request.user.organization)
+            data = self.queryset.filter(members=request.user, is_archived=False, organization=request.user.organization)
             try:
                 data = self.paginate_queryset(data)
             except:
@@ -47,7 +83,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 return Response({"status": status.HTTP_200_OK, "message": "No more record.", "results": data})
             serializer = WorkspaceSerializer(data, many=True)
             return self.get_paginated_response(serializer.data)
-        elif int(request.user.role) == User.ORGANIZAION_OWNER:
+        elif int(request.user.role) == User.ORGANIZATION_OWNER:
             data = self.queryset.filter(organization=request.user.organization)
             try:
                 data = self.paginate_queryset(data)
@@ -72,7 +108,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             if data.is_valid():
                 if request.user.organization == data.validated_data["organization"]:
                     obj = data.save()
-                    obj.users.add(request.user)
+                    obj.members.add(request.user)
                     obj.created_by = request.user
                     obj.save()
                     return Response({"message": "Workspace created!"}, status=status.HTTP_201_CREATED)
@@ -110,8 +146,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
-        users = workspace.users.all()
-        serializer = UserProfileSerializer(users, many=True)
+        members = workspace.members.all()
+        serializer = UserProfileSerializer(members, many=True)
         return Response(serializer.data)
 
     # TODO : add exceptions
@@ -161,7 +197,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             user = User.objects.get(username=username)
             workspace = Workspace.objects.get(pk=pk)
             workspace.managers.add(user)
-            workspace.users.add(user)
+            workspace.members.add(user)
             workspace.save()
             serializer = WorkspaceManagerSerializer(workspace, many=False)
             ret_dict = {"done": True}
@@ -306,17 +342,16 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 except :
                     pass
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
-                un_labeled_count = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled').count()
-                labeled_tasks = Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
 
-                labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
-                annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-                labeled_count = annotated_labeled_tasks.count()
+                labeled_tasks = get_annotated_tasks_project_analytics(proj.id , ['accepted','rejected','accepted_with_changes','labeled'] ,start_date, end_date)
+
+                labeled_count = labeled_tasks.count()
 
 
-                skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
-                dropped_tasks = Task.objects.filter(project_id = proj.id,task_status = 'draft').count()
+                un_labeled_count = get_task_count_project_analytics( proj.id ,['unlabeled']) 
+                skipped_count = get_task_count_project_analytics( proj.id ,['skipped']) 
+                dropped_tasks = get_task_count_project_analytics( proj.id ,['draft'])  
+
                 if total_tasks == 0:
                     project_progress = 0.0
                 else :
@@ -387,10 +422,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         if start_date > end_date:
             return Response({"message": "'To' Date should be after 'From' Date"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user_obj = list(ws.users.all())
-        user_mail =[user.get_username() for user in ws.users.all()]
-        user_name =[user.username for user in ws.users.all()]
-        users_id = [user.id for user in ws.users.all()]
+        user_obj = list(ws.members.all())
+        user_mail =[user.get_username() for user in ws.members.all()]
+        user_name =[user.username for user in ws.members.all()]
+        users_id = [user.id for user in ws.members.all()]
 
         project_type = request.data.get("project_type")
         project_type_lower =  project_type.lower()
@@ -421,34 +456,19 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             all_tasks_in_project = Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user ))
             assigned_tasks = all_tasks_in_project.count()
             
-
-            annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
-                    & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
-
-            annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
-            annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-                
+            
+            annotated_labeled_tasks = get_annotated_tasks(proj_ids ,each_user, ['accepted','rejected','accepted_with_changes','labeled'],start_date,end_date)
+    
             annotated_tasks = annotated_labeled_tasks.count()
-                
             lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_labeled_tasks]
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0 :
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
                 
-            all_skipped_tasks_in_project = Task.objects.filter(
-                    Q(project_id__in=proj_ids)
-                    & Q(task_status="skipped")
-                    & Q(annotation_users=each_user)
-                )
-            total_skipped_tasks = all_skipped_tasks_in_project.count()
-
-            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "unlabeled") & Q(annotation_users = each_user) )
-            all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
-
-            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id__in = proj_ids) & Q(task_status = "draft") & Q(annotation_users = each_user))
-            all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
-
+            total_skipped_tasks = get_task_count(proj_ids,["skipped"],each_user)
+            all_pending_tasks_in_project =  get_task_count(proj_ids,["unlabeled"],each_user)
+            all_draft_tasks_in_project = get_task_count(proj_ids,["draft"],each_user)
+            
             if is_translation_project :
                 total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in annotated_labeled_tasks]
                 total_word_count = sum(total_word_count_list)
@@ -523,7 +543,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
             if (
                 (
-                    (request.user.role) == (User.ORGANIZAION_OWNER)
+                    (request.user.role) == (User.ORGANIZATION_OWNER)
                     and (request.user.organization) == (workspace.organization)
                 )
                 or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))
@@ -536,7 +556,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 try:
                     user = User.objects.get(pk=user_id)
                     if (user.organization) == (workspace.organization):
-                        workspace.users.add(user)
+                        workspace.members.add(user)
                     else:
                         invalid_user_ids.append(user_id)
                 except User.DoesNotExist:
@@ -590,7 +610,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
             if (
                 (
-                    (request.user.role) == (User.ORGANIZAION_OWNER)
+                    (request.user.role) == (User.ORGANIZATION_OWNER)
                     and (request.user.organization) == (workspace.organization)
                 )
                 or ((request.user.role == User.WORKSPACE_MANAGER) and (request.user in workspace.managers.all()))
@@ -599,8 +619,8 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
             try:
                 user = User.objects.get(pk=user_id)
-                if user in workspace.users.all():
-                    workspace.users.remove(user)
+                if user in workspace.members.all():
+                    workspace.members.remove(user)
                     return Response({"message": "User removed successfully"}, status=status.HTTP_200_OK)
                 else:
                     return Response({"message": "User not in workspace"}, status=status.HTTP_404_NOT_FOUND)
