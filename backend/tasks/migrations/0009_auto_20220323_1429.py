@@ -8,24 +8,48 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('tasks', '0008_auto_20220323_1414'),
+        ("tasks", "0008_auto_20220323_1414"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='annotation',
-            name='result',
-            field=models.JSONField(default=[{'from_name': 'output_text', 'id': 'J8YCOM29gd', 'origin': 'manual', 'to_name': 'input_text', 'type': 'textarea', 'value': {'text': ['OUtput3 EDITED twice!!!']}}], verbose_name='annotation_result_json'),
+            model_name="annotation",
+            name="result",
+            field=models.JSONField(
+                default=[
+                    {
+                        "from_name": "output_text",
+                        "id": "J8YCOM29gd",
+                        "origin": "manual",
+                        "to_name": "input_text",
+                        "type": "textarea",
+                        "value": {"text": ["OUtput3 EDITED twice!!!"]},
+                    }
+                ],
+                verbose_name="annotation_result_json",
+            ),
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='task',
-            name='annotation_users',
-            field=models.ManyToManyField(blank=True, null=True, related_name='annotation_users', to=settings.AUTH_USER_MODEL, verbose_name='annotation_users'),
+            model_name="task",
+            name="annotation_users",
+            field=models.ManyToManyField(
+                blank=True,
+                null=True,
+                related_name="annotation_users",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="annotation_users",
+            ),
         ),
         migrations.AlterField(
-            model_name='task',
-            name='review_user',
-            field=models.ManyToManyField(blank=True, null=True, related_name='review_users', to=settings.AUTH_USER_MODEL, verbose_name='review_users'),
+            model_name="task",
+            name="review_user",
+            field=models.ManyToManyField(
+                blank=True,
+                null=True,
+                related_name="review_users",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="review_users",
+            ),
         ),
     ]
