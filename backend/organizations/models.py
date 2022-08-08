@@ -108,7 +108,7 @@ class Invite(models.Model):
                     invite.save()
                 send_mail(
                     "Invitation to join Organization",
-                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/invite/{invite.invite_code}",
+                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                 )
