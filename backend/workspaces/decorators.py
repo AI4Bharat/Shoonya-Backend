@@ -15,7 +15,7 @@ def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
         if (
-            request.user.role == User.ORGANIZAION_OWNER
+            request.user.role == User.ORGANIZATION_OWNER
             or request.user.role == User.WORKSPACE_MANAGER
             or request.user.is_superuser
         ):
@@ -35,7 +35,7 @@ def is_particular_workspace_manager(f):
                 and request.user in Workspace.objects.get(pk=pk).managers.all()
             )
             or (
-                request.user.role == User.ORGANIZAION_OWNER
+                request.user.role == User.ORGANIZATION_OWNER
                 and Workspace.objects.get(pk=pk).organization
                 == request.user.organization
             )
@@ -83,7 +83,7 @@ def is_particular_organization_owner(f):
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response(WORKSPACE_ERROR,status=status.HTTP_404_NOT_FOUND)
-        if request.user.organization == workspace.organization and request.user.role == User.ORGANIZAION_OWNER:
+        if request.user.organization == workspace.organization and request.user.role == User.ORGANIZATION_OWNER:
             return f(self, request, pk, *args, **kwargs)
         else:
             return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
