@@ -29,6 +29,7 @@ from tasks.models import Task
 from tasks.serializers import TaskSerializer
 from .models import *
 from .registry_helper import ProjectRegistry
+from dataset.models import DatasetInstance
 
 # Import celery tasks
 from .tasks import create_parameters_for_task_creation, add_new_data_items_into_project, export_project_in_place, export_project_new_record, filter_data_items
@@ -255,6 +256,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Retrieves a project given its ID
         """
         project_response = super().retrieve(request, *args, **kwargs)
+        
+        datasets = DatasetInstance.objects.only("instance_id", "instance_name").filter(instance_id__in=project_response.data["dataset_id"]).values("instance_id", "instance_name")
+        project_response.data["datasets"] = datasets;
+        project_response.data.pop("dataset_id")
 
         # Add a new field to the project response to indicate project status
         project_response.data["status"] = get_project_creation_status(pk)
