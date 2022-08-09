@@ -8,7 +8,7 @@
     </View>
     <View>
         <Header size="3" value="Rating"/>
-        <Choices name="rating" toName="output_text" choice="single-radio" required="false" requiredMessage="Please select a rating for the translation">
+        <Choices name="rating" toName="output_text" choice="single-radio" required="true" requiredMessage="Please select a rating for the translation">
             <Choice alias="0" value="0, The two sentences are completely dissimilar." />
             <Choice alias="1" value="1, The two sentences are not equivalent, but are on the same topic." />
             <Choice alias="2" value="2, The two sentences are not equivalent, but share some details" />
