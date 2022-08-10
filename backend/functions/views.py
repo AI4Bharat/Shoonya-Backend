@@ -1,4 +1,5 @@
 import ast
+from email import message
 import json
 
 import pandas as pd
@@ -14,6 +15,7 @@ from .utils import (
     get_batch_translations_using_indictrans_nmt_api,
     get_batch_translations_using_google_translate,
     check_translation_function_inputs,
+    check_if_particular_organization_owner,
 )
 
 
@@ -318,6 +320,7 @@ def schedule_google_translate_job(request):
         "input_dataset_instance_id": <int>,
         "languages": <list>
         "output_dataset_instance_id": <int>
+        "organization_id": <int>
     }
 
     Response Body
@@ -327,6 +330,12 @@ def schedule_google_translate_job(request):
         "status": DjangoStatusCode
     }
     """
+
+    # Check if the user is the organization owner 
+    result = check_if_particular_organization_owner(request)
+    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
+
+        return Response({"error": result['error']}, status=result["status"])
 
     # Get the post request data
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
@@ -381,6 +390,7 @@ def schedule_ai4b_translate_job(request):
         "input_dataset_instance_id": <int>,
         "languages": <list>
         "output_dataset_instance_id": <int>
+        "organization_id": <int>
     }
 
     Response Body
@@ -390,6 +400,12 @@ def schedule_ai4b_translate_job(request):
         "status": DjangoStatusCode
     }
     """
+
+    # Check if the user is the organization owner 
+    result = check_if_particular_organization_owner(request)
+    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
+
+        return Response({"error": result['error']}, status=result["status"])
 
     # Get the post request data
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
