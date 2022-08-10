@@ -377,7 +377,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if project.frozen_users.filter(id=user.id).exists():
             return Response({"message": "User is already frozen in this project"}, status=status.HTTP_400_BAD_REQUEST)
 
-        tasks = Task.objects.filter(project_id=project.id).filter(review_user=user).exclude(task_status__in=[ACCEPTED, REJECTED])
+        tasks = Task.objects.filter(project_id=project.id).filter(review_user=user).exclude(task_status__in=[ACCEPTED, REVISE])
         for task in tasks:
             task.review_user = None
             task.save()
@@ -1014,9 +1014,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 labeled_tasks = get_annotated_tasks(pk , each_user , 'labeled' ,start_date,end_date)
                 items.append(("Labeled Tasks" , labeled_tasks.count()))
 
-                #get rejected count
-                rejected_tasks = get_annotated_tasks(pk , each_user , 'rejected' ,start_date,end_date)
-                items.append(("Rejected Tasks" , rejected_tasks.count()))
+                #get Revise count
+                revise_tasks = get_annotated_tasks(pk , each_user , 'revise' ,start_date,end_date)
+                items.append(("Revise Tasks" , revise_tasks.count()))
 
             # get unlabeled count
             total_unlabeled_tasks_count = get_tasks_count( pk,each_user,'unlabeled')
@@ -1033,7 +1033,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if is_translation_project :
                 if proj.enable_task_reviews:
                     all_annotated_tasks = list(annotated_accept_tasks) + list(accepted_wt_tasks)\
-                        + list(labeled_tasks) + list(rejected_tasks) 
+                        + list(labeled_tasks) + list(revise_tasks) 
                     total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in all_annotated_tasks]
                     total_word_count = sum(total_word_count_list)
                 else:
@@ -1044,7 +1044,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             if proj.enable_task_reviews:
                 all_annotated_tasks = list(annotated_accept_tasks) + list(accepted_wt_tasks)\
-                        + list(labeled_tasks) + list(rejected_tasks) 
+                        + list(labeled_tasks) + list(revise_tasks) 
                 lead_time_annotated_tasks = [annot.lead_time for annot in all_annotated_tasks]
             else:
                 lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_accept_tasks]
@@ -1166,7 +1166,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             tasks = Task.objects.filter(project_id=project.id)
             # delete review annotations for review tasks
-            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, REJECTED])
+            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, REVISE])
             Annotation_model.objects.filter(task__in=reviewed_tasks).exclude(parent_annotation__isnull=True).delete()
             # mark all unreviewed tasks accepted
             unreviewed_tasks = tasks.filter(task_status=LABELED)

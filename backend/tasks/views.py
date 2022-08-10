@@ -198,7 +198,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         
         user = request.user
         
-        if (is_translation_project) and (page is not None) and (task_status in {DRAFT, LABELED,  REJECTED}) and (not is_review_mode):
+        if (is_translation_project) and (page is not None) and (task_status in {DRAFT, LABELED,  REVISE}) and (not is_review_mode):
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
             task_ids=[]
@@ -320,7 +320,7 @@ class AnnotationViewSet(
 
     def create_review_annotation(self, request):
         task_id = request.data["task"]
-        if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REJECTED]:
+        if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REVISE ]:
             review_status = request.data["review_status"]
         else:
             ret_dict = {"message": "Missing param : review_status"}
@@ -414,7 +414,7 @@ class AnnotationViewSet(
                 task.task_status = request.data["task_status"]
         # Review annotation update
         else:
-            if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REJECTED]:
+            if "review_status" in dict(request.data) and request.data["review_status"] in [ACCEPTED, REVISE ]:
                 review_status = request.data["review_status"]
             else:
                 ret_dict = {"message": "Missing param : review_status"}

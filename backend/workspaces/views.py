@@ -344,7 +344,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     pass
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in owners ])
 
-                labeled_tasks = get_annotated_tasks_project_analytics(proj.id , ['accepted','rejected','accepted_with_changes','labeled'] ,start_date, end_date)
+                labeled_tasks = get_annotated_tasks_project_analytics(proj.id , ['accepted','revise','accepted_with_changes','labeled'] ,start_date, end_date)
 
                 labeled_count = labeled_tasks.count()
 
@@ -458,7 +458,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             assigned_tasks = all_tasks_in_project.count()
             
             
-            annotated_labeled_tasks = get_annotated_tasks(proj_ids ,each_user, ['accepted','rejected','accepted_with_changes','labeled'],start_date,end_date)
+            annotated_labeled_tasks = get_annotated_tasks(proj_ids ,each_user, ['accepted','revise','accepted_with_changes','labeled'],start_date,end_date)
     
             annotated_tasks = annotated_labeled_tasks.count()
             lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_labeled_tasks]

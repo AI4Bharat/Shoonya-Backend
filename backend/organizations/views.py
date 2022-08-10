@@ -64,7 +64,7 @@ def get_counts(user,project_type,organization,start_date,end_date,is_translation
         total_no_of_tasks_count = total_no_of_tasks_assigned.count()
 
         annotated_labeled_tasks = get_annotated_tasks(user ,None , project_type ,\
-            ['accepted','rejected','accepted_with_changes','labeled'] , organization ,start_date,end_date)
+            ['accepted','revise','accepted_with_changes','labeled'] , organization ,start_date,end_date)
         annotated_tasks_count = annotated_labeled_tasks.count()
 
         total_skipped_tasks_count = get_task_count(user, None, project_type , ['skipped'] , organization)
@@ -84,7 +84,7 @@ def get_counts(user,project_type,organization,start_date,end_date,is_translation
         total_no_of_tasks_count = total_no_of_tasks_assigned.count()
 
         annotated_labeled_tasks = get_annotated_tasks(user ,tgt_language , project_type ,\
-            ['accepted','rejected','accepted_with_changes','labeled'] , organization ,start_date ,end_date)
+            ['accepted','revise','accepted_with_changes','labeled'] , organization ,start_date ,end_date)
         annotated_tasks_count = annotated_labeled_tasks.count()
 
         
@@ -321,7 +321,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 no_of_annotators_assigned = len( [annotator for annotator in annotators_list if annotator not in proj_manager ])
                 un_labeled_task = Task.objects.filter(project_id = proj.id,task_status = 'unlabeled')
                 un_labeled_count = un_labeled_task.count()
-                labeled_count_tasks= Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
+                labeled_count_tasks= Task.objects.filter(Q (project_id = proj.id) & Q(task_status__in = ['accepted','revise','accepted_with_changes','labeled']))
 
                 labeled_count_tasks_ids = list(labeled_count_tasks.values_list('id',flat = True))
                 annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_count_tasks_ids ,parent_annotation_id = None,\

@@ -303,7 +303,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
         for  proj in project_objs:
 
             project_name = proj.title
-            labeld_tasks_objs =Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
+            labeld_tasks_objs =Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status__in = ['accepted','revise','accepted_with_changes','labeled']))
 
 
 
