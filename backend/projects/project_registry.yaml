@@ -41,6 +41,25 @@ Translation:
         fields:
           annotations:
             - output_text
+    SemanticTextualSimilarity:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "translation/semantic_textual_similarity.jsx"
+      input_dataset:
+        class: TranslationPair
+        fields:
+          - input_language
+          - input_text
+          - output_language
+          - output_text
+        display_fields:
+          - input_text
+          - output_text
+      output_dataset: 
+        class: TranslationPair
+        save_type: in_place
+        fields:
+          annotations: 
+            - rating
     ContextualTranslationEditing:
       project_mode: "Annotation"
       label_studio_jsx_file: "translation/contextual_translation_editing.jsx"
