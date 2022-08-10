@@ -331,11 +331,11 @@ def schedule_google_translate_job(request):
     }
     """
 
-    # Check if the user is the organization owner 
+    # Check if the user is the organization owner
     result = check_if_particular_organization_owner(request)
     if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
 
-        return Response({"error": result['error']}, status=result["status"])
+        return Response({"error": result["error"]}, status=result["status"])
 
     # Get the post request data
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
@@ -401,11 +401,11 @@ def schedule_ai4b_translate_job(request):
     }
     """
 
-    # Check if the user is the organization owner 
+    # Check if the user is the organization owner
     result = check_if_particular_organization_owner(request)
     if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
 
-        return Response({"error": result['error']}, status=result["status"])
+        return Response({"error": result["error"]}, status=result["status"])
 
     # Get the post request data
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
