@@ -642,6 +642,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
+        except AttributeError: 
+            ret_dict = {"message": "No tasks found!"}
+            ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
     @action(
