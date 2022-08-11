@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .decorators import is_organization_owner, is_particular_organization_owner
+from organization.decorators import is_organization_owner, is_particular_organization_owner
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
