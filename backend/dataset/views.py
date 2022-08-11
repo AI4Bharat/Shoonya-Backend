@@ -7,22 +7,24 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
-from django.db.models import Q
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from .decorators import is_organization_owner, is_particular_organization_owner
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from rest_framework.permissions import IsAuthenticated
+from users.models import User
+from organizations.models import Organization
+from workspaces.models import Workspace
 
 from . import resources
 from .models import *
 from .serializers import *
-from .permissions import DatasetInstancePermission
 from .tasks import upload_data_to_data_instance
 from users.serializers import UserFetchSerializer
 
@@ -129,7 +131,7 @@ def get_dataset_upload_status(dataset_instance_pk):
         task_datetime = task_queryset.first().as_dict()["date_done"]
         task_result = task_queryset.first().as_dict()["result"]
 
-        # Convert task result 
+        # Convert task result
         if "exc_message" in task_result:
             task_result = ast.literal_eval(task_result)["exc_message"]
 
@@ -173,7 +175,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     """
 
     queryset = DatasetInstance.objects.all()
-    permission_classes = (DatasetInstancePermission, )
+    permission_classes = (IsAuthenticated,)
 
     # Define list of accepted file formats for file upload
     ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
@@ -205,19 +207,13 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         return dataset_instance_response
 
     def list(self, request, *args, **kwargs):
-        # Org Owners and superusers see all datasets
-        if request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser:
-            queryset = DatasetInstance.objects.all()
-        # Managers only see datasets that they are added to and public datasets
-        else:
-            queryset = DatasetInstance.objects.filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
-
-        # Filter the queryset based on the query params
         if "dataset_type" in dict(request.query_params):
-            queryset = queryset.filter(dataset_type__exact=request.query_params["dataset_type"])
-
-        # Serialize the distinct items and sort by instance ID
-        serializer = DatasetInstanceSerializer(queryset.distinct().order_by('instance_id'), many=True)
+            queryset = DatasetInstance.objects.filter(
+                dataset_type__exact=request.query_params["dataset_type"]
+            )
+        else:
+            queryset = DatasetInstance.objects.all()
+        serializer = DatasetInstanceSerializer(queryset, many=True)
 
         # Add status fields to the serializer data
         for dataset_instance in serializer.data:
@@ -251,9 +247,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         except DatasetInstance.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if user has permissions to download
-        self.check_object_permissions(self.request, dataset_instance)
-
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
         dataset_resource = getattr(
@@ -273,10 +266,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         """
 
         # Get the dataset type using the instance ID
-        dataset_obj = get_object_or_404(DatasetInstance, pk=pk)
-        self.check_object_permissions(self.request, dataset_obj)
-
-        dataset_type = dataset_obj.dataset_type
+        dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
+        print(dataset_type)
+        print("pppppppppppppppppppp")
 
         if 'dataset' not in request.FILES:
             return Response({
@@ -284,9 +276,12 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         dataset = request.FILES['dataset']
         content_type = dataset.name.split('.')[-1]
+        print(content_type)
+        print("-----------------------------")
 
         # Ensure that the content type is accepted, return error otherwise
         if content_type not in DatasetInstanceViewSet.ACCEPTED_FILETYPES:
+            print("+++++++++++++++++++++++++++++++")
             return Response({
                 "message": f"Invalid Dataset File. Only accepts the following file formats: {DatasetInstanceViewSet.ACCEPTED_FILETYPES}",
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -294,11 +289,14 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Read the dataset as a string from the dataset pointer
         try:
             if content_type in ['xls', 'xlsx']:
+                print("iiiiiiiiiiiiiiiiiiiiiiiii")
                 # xls and xlsx files cannot be decoded as a string
                 dataset_string = b64encode(dataset.read()).decode()
+                print("mmmmmmmmmmmmmmmmmmmmmm")
             else:
                 dataset_string = dataset.read().decode()
         except Exception as e:
+            print("ooooooooooooooooooooooooooooo")
             return Response({
                 "message": f"Error while reading file. Please check the file data and try again.",
                 "exception": str(e)
@@ -313,7 +311,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         )
 
         # Get name of the dataset instance
-        dataset_name = dataset_obj.instance_name
+        dataset_name = get_object_or_404(DatasetInstance, pk=pk).instance_name
+        print("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn")
         return Response(
             {
                 "message": f"Uploading {dataset_type} data to Dataset Instance: {dataset_name}",
@@ -354,9 +353,93 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     @action(methods=['GET'], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
+        print(users)
         serializer = UserFetchSerializer(many=True, data=users)
+        print(serializer)
         serializer.is_valid()
         return Response(serializer.data)
+
+
+    #creating endpoint for adding workspacemanagers
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_STRING, description="String containing emails separated by commas")
+            },
+            required=["user_id"]
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id", openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True
+            )
+        ],
+        responses={
+            200:"Workspace manager added Successfully",
+            403:"Not authorized",
+            400:"No valid user_ids found",
+            404:"Workspace not found",
+            500:"Server error occured"
+        }
+
+    )
+    #only admin can add wokspace managers within that organization
+    @is_particular_organization_owner
+    @action(detail=True, methods=['POST'], url_path='addworkspacemanagers', url_name='add_managers')
+    def add_managers(self, request,pk=None):
+        user_id = request.data.get('user_id',"")
+        print(user_id)
+        try:
+
+            dataset = DatasetInstance.objects.get(pk=pk)
+            workspace = Workspace.objects.get(workspace_name="workspace_name")
+
+            if request.user.role == User.WORKSPACE_MANAGER:
+                managers = [user1.get_username() for user1 in dataset.workspace_id.managers.all()]
+                users_id = [obj.id for obj in dataset.users.all()]
+                user_mails = [user.get_username() for user in dataset.users.all()]
+                for index, each_user in enumerate(users_id):
+                    usermail = user_mails[index]
+
+                    if usermail is managers:
+                        continue
+
+
+
+            user_ids = user_id.split(',')
+            invalid_user_ids = []
+            for user_id in user_ids:
+                try:
+                    user = User.objects.get(pk=user_id)
+                    if((user.organization) == (workspace.organization)):
+                        dataset.users.add(user)
+                    else:
+                        invalid_user_ids.append(user_id)
+                except User.DoesNotExist:
+                    invalid_user_ids.append(user_id)
+            return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
+
+            dataset.save()
+            if len(invalid_user_ids) == 0:
+                return Response({"message": "managers added successfully"}, status=status.HTTP_200_OK)
+            elif len(invalid_user_ids)==len(user_ids):
+                return Response({"message": "No valid user_ids found"}, status=status.HTTP_400_BAD_REQUEST)
+
+            return Response({"message": f"managers added partially! Invalid user_ids: {','.join(invalid_user_ids)}"}, status=status.HTTP_200_OK)
+        except DatasetInstance.DoesNotExist:
+            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+
 
     @action(methods=['GET'], detail=False, name="List all Dataset Instance Types")
     def dataset_types(self, request):
@@ -375,11 +458,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     queryset = DatasetBase.objects.all()
     serializer_class = DatasetItemsSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,DatasetInstancePermission,)
-
-    def list(self, request):
-        dataset_instances = DatasetInstance.objects.filter(instance_id__in=self.queryset.distinct("instance_id").values_list("instance_id")).values("instance_id", "dataset_type")
-        return Response(data=dataset_instances, status=status.HTTP_200_OK)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
@@ -447,7 +526,7 @@ class DatasetTypeView(APIView):
     ViewSet for Dataset Type
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def get(self, request, dataset_type):
         model = apps.get_model("dataset", dataset_type)

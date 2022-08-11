@@ -10,8 +10,10 @@ media/
 static/
 frontend/
 
+
 # Env
 .env
+virtualenv/
 myvenv/
 venv/
 env/
@@ -39,6 +41,9 @@ $RECYCLE.BIN/
 .vscode/
 .history/
 *.code-workspace
+
+# pycharm
+.idea/
 
 # Coverage
 /coverage.data
