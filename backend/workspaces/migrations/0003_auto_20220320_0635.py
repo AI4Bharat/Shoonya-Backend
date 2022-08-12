@@ -8,17 +8,22 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('workspaces', '0002_auto_20220317_1527'),
+        ("workspaces", "0002_auto_20220317_1527"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='workspace',
-            name='manager',
+            model_name="workspace",
+            name="manager",
         ),
         migrations.AddField(
-            model_name='workspace',
-            name='manager',
-            field=models.ManyToManyField(null=True, related_name='workspace_manager', to=settings.AUTH_USER_MODEL, verbose_name='manager'),
+            model_name="workspace",
+            name="manager",
+            field=models.ManyToManyField(
+                null=True,
+                related_name="workspace_manager",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="manager",
+            ),
         ),
     ]

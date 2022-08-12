@@ -4,8 +4,8 @@ from rest_framework import routers
 from .views import *
 
 router = routers.SimpleRouter()
-router.register(r'', ProjectViewSet)
+router.register(r"", ProjectViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]
