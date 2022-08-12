@@ -88,7 +88,7 @@ def check_translation_function_inputs(
 
 
 def get_batch_translations_using_indictrans_nmt_api(
-    sentence_list, source_language, target_language
+    sentence_list, source_language, target_language, checks_for_particular_languages=False
 ):
 
     """Function to get the translation for the input sentences using the IndicTrans NMT API.
@@ -97,6 +97,7 @@ def get_batch_translations_using_indictrans_nmt_api(
         sentence_list (str): List of sentences to be translated.
         source_language (str): Original language of the sentence.
         target_language (str): Final language of the sentence.
+        checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
 
     Returns:
         list: List of dictionaries containing the translated sentences.
@@ -106,6 +107,13 @@ def get_batch_translations_using_indictrans_nmt_api(
     model_id = LANG_TRANS_MODEL_CODES.get(
         f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID
     )
+
+    if checks_for_particular_languages: 
+        # Checks for particular languages
+        if target_language in ["Bodo", "Maithili"]: 
+            target_language = "Hindi"
+        elif target_language == "Kashmiri":
+            target_language = "Urdu"
 
     # Convert language names to the language code
     source_language = LANG_NAME_TO_CODE_ULCA[source_language]
@@ -185,16 +193,24 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
     return response.json()["output"][0]["target"]
 
 
-def get_batch_translations_using_google_translate(sentence_list, target_language):
+def get_batch_translations_using_google_translate(sentence_list, target_language, checks_for_particular_languages=False):
     """Function to get the translation for the input sentences using the Google Translate API.
 
     Args:
         sentence_list (str): List of sentences to be translated.
         target_language (str): Final language of the sentence.
+        checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
 
     Returns:
         list: List of dictionaries containing the translated sentences.
     """
+
+    if checks_for_particular_languages: 
+        # Checks for particular languages
+        if target_language in ["Bodo", "Maithili"]: 
+            target_language = "Hindi"
+        elif target_language == "Kashmiri":
+            target_language = "Urdu"
 
     # Change the target language to the language code
     target_lang_code = LANG_NAME_TO_CODE_GOOGLE[target_language]

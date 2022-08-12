@@ -26,6 +26,7 @@ def sentence_text_translate_and_save_translation_pairs(
     output_dataset_instance_id,
     batch_size,
     api_type="indic-trans",
+    checks_for_particular_languages=False, 
 ):
     """Function to translate SentenceTexts and to save the TranslationPairs in the database.
 
@@ -36,6 +37,7 @@ def sentence_text_translate_and_save_translation_pairs(
         batch_size (int): Number of sentences to be translated in a single batch.
         api_type (str): Type of API to be used for translation. (default: indic-trans)
             Allowed - [indic-trans, google]
+        checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
     """
 
     # Collect the sentences from Sentence Text based on dataset id
@@ -103,6 +105,7 @@ def sentence_text_translate_and_save_translation_pairs(
                     batch_of_input_sentences,
                     input_sentences_df["input_language"].iloc[0],
                     output_language,
+                    checks_for_particular_languages=checks_for_particular_languages, 
                 )
 
                 # Check if the translations output is a string or a list
@@ -117,6 +120,7 @@ def sentence_text_translate_and_save_translation_pairs(
                 translations_output = get_batch_translations_using_google_translate(
                     sentence_list=batch_of_input_sentences,
                     target_language=output_language,
+                    checks_for_particular_languages=checks_for_particular_languages,
                 )
 
                 # Check if translation output returned a list or a string
@@ -321,6 +325,7 @@ def schedule_google_translate_job(request):
         "languages": <list>
         "output_dataset_instance_id": <int>
         "organization_id": <int>
+        "checks_for_particular_languages": <bool>
     }
 
     Response Body
@@ -341,6 +346,7 @@ def schedule_google_translate_job(request):
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
     languages = request.data["languages"]
     output_dataset_instance_id = request.data["output_dataset_instance_id"]
+    checks_for_particular_languages = request.data["checks_for_particular_languages"]
 
     # Convert string list to a list
     languages = ast.literal_eval(languages)
@@ -366,6 +372,7 @@ def schedule_google_translate_job(request):
         output_dataset_instance_id,
         batch_size=128,
         api_type="google",
+        checks_for_particular_languages=checks_for_particular_languages,
     )
 
     # Check if error in save_status
@@ -391,6 +398,7 @@ def schedule_ai4b_translate_job(request):
         "languages": <list>
         "output_dataset_instance_id": <int>
         "organization_id": <int>
+        "checks_for_particular_languages" : <bool>
     }
 
     Response Body
@@ -411,6 +419,7 @@ def schedule_ai4b_translate_job(request):
     input_dataset_instance_id = request.data["input_dataset_instance_id"]
     languages = request.data["languages"]
     output_dataset_instance_id = request.data["output_dataset_instance_id"]
+    checks_for_particular_languages = request.data["checks_for_particular_languages"]
 
     # Convert string list to a list
     languages = ast.literal_eval(languages)
@@ -436,6 +445,7 @@ def schedule_ai4b_translate_job(request):
         output_dataset_instance_id,
         batch_size=75,
         api_type="indic-trans",
+        checks_for_particular_languages=checks_for_particular_languages, 
     )
 
     # Check if error in save_status
