@@ -26,7 +26,7 @@ def sentence_text_translate_and_save_translation_pairs(
     output_dataset_instance_id,
     batch_size,
     api_type="indic-trans",
-    checks_for_particular_languages=False, 
+    checks_for_particular_languages=False,
 ):
     """Function to translate SentenceTexts and to save the TranslationPairs in the database.
 
@@ -105,7 +105,7 @@ def sentence_text_translate_and_save_translation_pairs(
                     batch_of_input_sentences,
                     input_sentences_df["input_language"].iloc[0],
                     output_language,
-                    checks_for_particular_languages=checks_for_particular_languages, 
+                    checks_for_particular_languages=checks_for_particular_languages,
                 )
 
                 # Check if the translations output is a string or a list
@@ -445,7 +445,7 @@ def schedule_ai4b_translate_job(request):
         output_dataset_instance_id,
         batch_size=75,
         api_type="indic-trans",
-        checks_for_particular_languages=checks_for_particular_languages, 
+        checks_for_particular_languages=checks_for_particular_languages,
     )
 
     # Check if error in save_status

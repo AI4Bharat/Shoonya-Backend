@@ -88,7 +88,10 @@ def check_translation_function_inputs(
 
 
 def get_batch_translations_using_indictrans_nmt_api(
-    sentence_list, source_language, target_language, checks_for_particular_languages=False
+    sentence_list,
+    source_language,
+    target_language,
+    checks_for_particular_languages=False,
 ):
 
     """Function to get the translation for the input sentences using the IndicTrans NMT API.
@@ -108,9 +111,9 @@ def get_batch_translations_using_indictrans_nmt_api(
         f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID
     )
 
-    if checks_for_particular_languages: 
+    if checks_for_particular_languages:
         # Checks for particular languages
-        if target_language in ["Bodo", "Maithili"]: 
+        if target_language in ["Bodo", "Maithili"]:
             target_language = "Hindi"
         elif target_language == "Kashmiri":
             target_language = "Urdu"
@@ -193,7 +196,9 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
     return response.json()["output"][0]["target"]
 
 
-def get_batch_translations_using_google_translate(sentence_list, target_language, checks_for_particular_languages=False):
+def get_batch_translations_using_google_translate(
+    sentence_list, target_language, checks_for_particular_languages=False
+):
     """Function to get the translation for the input sentences using the Google Translate API.
 
     Args:
@@ -205,9 +210,9 @@ def get_batch_translations_using_google_translate(sentence_list, target_language
         list: List of dictionaries containing the translated sentences.
     """
 
-    if checks_for_particular_languages: 
+    if checks_for_particular_languages:
         # Checks for particular languages
-        if target_language in ["Bodo", "Maithili"]: 
+        if target_language in ["Bodo", "Maithili"]:
             target_language = "Hindi"
         elif target_language == "Kashmiri":
             target_language = "Urdu"
