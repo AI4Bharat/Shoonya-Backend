@@ -258,7 +258,11 @@ def export_project_in_place(
     tasks = Task.objects.filter(project_id__exact=project, task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES])
 
     data_items = []
+
+    # List for storing tasks fetched with modified data to the task_dict
     tasks_list = []
+
+    # List for storing the annotated tasks that have been accepted as correct annotation
     annotated_tasks = []
     for task in tasks:
         task_dict = model_to_dict(task)
@@ -286,7 +290,12 @@ def export_project_in_place(
         task.save()
         data_item = dataset_model.objects.get(id__exact=tl["input_data"])
         for field in annotation_fields:
-            setattr(data_item, field, ta[field])
+            # Check being done for rating as Label studio stores all the data in string format
+            # We need to store the rating in integer format
+            if field == "rating":
+                setattr(data_item, field, int(ta[field]))
+            else:
+                setattr(data_item, field, ta[field])
         data_items.append(data_item)
 
     # Write json to dataset columns
