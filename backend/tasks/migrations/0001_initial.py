@@ -11,32 +11,114 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('projects', '0001_initial'),
-        ('dataset', '0001_initial'),
+        ("projects", "0001_initial"),
+        ("dataset", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Task',
+            name="Task",
             fields=[
-                ('task_id', models.AutoField(primary_key=True, serialize=False, verbose_name='task_id')),
-                ('data', models.JSONField(blank=True, null=True, verbose_name='task_data')),
-                ('correct_annotation', models.TextField(blank=True, null=True, verbose_name='task_correct_annotation')),
-                ('task_status', models.CharField(choices=[('UnLabel', 'unlabelled'), ('Label', 'labelled'), ('Skip', 'skipped'), ('Accept', 'accepted'), ('Reject', 'rejected')], default='UnLabel', max_length=100, verbose_name='task_status')),
-                ('annotation_users', models.ManyToManyField(related_name='annotation_users', to=settings.AUTH_USER_MODEL, verbose_name='annotation_users')),
-                ('data_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='dataset.datasetbase', verbose_name='dataset_data_id')),
-                ('project_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='projects.project', verbose_name='project_id')),
-                ('review_user', models.ManyToManyField(related_name='review_users', to=settings.AUTH_USER_MODEL, verbose_name='review_users')),
+                (
+                    "task_id",
+                    models.AutoField(
+                        primary_key=True, serialize=False, verbose_name="task_id"
+                    ),
+                ),
+                (
+                    "data",
+                    models.JSONField(blank=True, null=True, verbose_name="task_data"),
+                ),
+                (
+                    "correct_annotation",
+                    models.TextField(
+                        blank=True, null=True, verbose_name="task_correct_annotation"
+                    ),
+                ),
+                (
+                    "task_status",
+                    models.CharField(
+                        choices=[
+                            ("UnLabel", "unlabelled"),
+                            ("Label", "labelled"),
+                            ("Skip", "skipped"),
+                            ("Accept", "accepted"),
+                            ("Reject", "rejected"),
+                        ],
+                        default="UnLabel",
+                        max_length=100,
+                        verbose_name="task_status",
+                    ),
+                ),
+                (
+                    "annotation_users",
+                    models.ManyToManyField(
+                        related_name="annotation_users",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="annotation_users",
+                    ),
+                ),
+                (
+                    "data_id",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="dataset.datasetbase",
+                        verbose_name="dataset_data_id",
+                    ),
+                ),
+                (
+                    "project_id",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="projects.project",
+                        verbose_name="project_id",
+                    ),
+                ),
+                (
+                    "review_user",
+                    models.ManyToManyField(
+                        related_name="review_users",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="review_users",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Annotation',
+            name="Annotation",
             fields=[
-                ('annotation_id', models.AutoField(primary_key=True, serialize=False, verbose_name='annotation_id')),
-                ('result_json', models.JSONField(null=True, verbose_name='annotation_result_json')),
-                ('lead_time', models.DateTimeField(auto_now_add=True, verbose_name='annotation_lead_time')),
-                ('completed_by', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL, verbose_name='annotation_completed_by')),
-                ('task_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='tasks.task', verbose_name='annotation_task_id')),
+                (
+                    "annotation_id",
+                    models.AutoField(
+                        primary_key=True, serialize=False, verbose_name="annotation_id"
+                    ),
+                ),
+                (
+                    "result_json",
+                    models.JSONField(null=True, verbose_name="annotation_result_json"),
+                ),
+                (
+                    "lead_time",
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="annotation_lead_time"
+                    ),
+                ),
+                (
+                    "completed_by",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="annotation_completed_by",
+                    ),
+                ),
+                (
+                    "task_id",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="tasks.task",
+                        verbose_name="annotation_task_id",
+                    ),
+                ),
             ],
         ),
     ]

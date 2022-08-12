@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataset', '0019_auto_20220429_0635'),
+        ("dataset", "0019_auto_20220429_0635"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='datasetbase',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
+            model_name="datasetbase",
+            name="id",
+            field=models.AutoField(
+                auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+            ),
         ),
     ]

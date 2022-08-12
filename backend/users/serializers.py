@@ -51,13 +51,28 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "unverified_email",
             "date_joined",
         ]
-        read_only_fields = ["id", "email", "role", "organization","unverified_email","date_joined"]
+        read_only_fields = [
+            "id",
+            "email",
+            "role",
+            "organization",
+            "unverified_email",
+            "date_joined",
+        ]
 
 
 class UserFetchSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "role", "has_accepted_invite"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "role",
+            "has_accepted_invite",
+        ]
         read_only_fields = [
             "id",
             "email",
@@ -73,4 +88,4 @@ class LanguageSerializer(serializers.Serializer):
 class UserEmailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields =["email"]
+        fields = ["email"]

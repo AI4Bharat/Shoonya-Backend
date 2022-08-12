@@ -129,7 +129,7 @@ def get_dataset_upload_status(dataset_instance_pk):
         task_datetime = task_queryset.first().as_dict()["date_done"]
         task_result = task_queryset.first().as_dict()["result"]
 
-        # Convert task result 
+        # Convert task result
         if "exc_message" in task_result:
             task_result = ast.literal_eval(task_result)["exc_message"]
 
@@ -173,10 +173,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     """
 
     queryset = DatasetInstance.objects.all()
-    permission_classes = (DatasetInstancePermission, )
+    permission_classes = (DatasetInstancePermission,)
 
     # Define list of accepted file formats for file upload
-    ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
+    ACCEPTED_FILETYPES = ["csv", "tsv", "json", "yaml", "xls", "xlsx"]
 
     def get_serializer_class(self):
         if self.action == "upload":
@@ -193,7 +193,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             dataset_instance_status,
             dataset_instance_date,
             dataset_instance_time,
-            dataset_instance_result
+            dataset_instance_result,
         ) = get_dataset_upload_status(pk)
 
         # Add the task status and time to the dataset instance response
@@ -210,14 +210,20 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             queryset = DatasetInstance.objects.all()
         # Managers only see datasets that they are added to and public datasets
         else:
-            queryset = DatasetInstance.objects.filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
+            queryset = DatasetInstance.objects.filter(
+                Q(public_to_managers=True) | Q(users__id=request.user.id)
+            )
 
         # Filter the queryset based on the query params
         if "dataset_type" in dict(request.query_params):
-            queryset = queryset.filter(dataset_type__exact=request.query_params["dataset_type"])
+            queryset = queryset.filter(
+                dataset_type__exact=request.query_params["dataset_type"]
+            )
 
         # Serialize the distinct items and sort by instance ID
-        serializer = DatasetInstanceSerializer(queryset.distinct().order_by('instance_id'), many=True)
+        serializer = DatasetInstanceSerializer(
+            queryset.distinct().order_by("instance_id"), many=True
+        )
 
         # Add status fields to the serializer data
         for dataset_instance in serializer.data:
@@ -227,7 +233,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_instance_status,
                 dataset_instance_date,
                 dataset_instance_time,
-                dataset_instance_result
+                dataset_instance_result,
             ) = get_dataset_upload_status(dataset_instance["instance_id"])
 
             # Add the task status and time to the dataset instance response
@@ -278,38 +284,47 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         dataset_type = dataset_obj.dataset_type
 
-        if 'dataset' not in request.FILES:
-            return Response({
-                "message": "Please provide a file with key 'dataset'.",
-            }, status=status.HTTP_400_BAD_REQUEST)
-        dataset = request.FILES['dataset']
-        content_type = dataset.name.split('.')[-1]
+        if "dataset" not in request.FILES:
+            return Response(
+                {
+                    "message": "Please provide a file with key 'dataset'.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        dataset = request.FILES["dataset"]
+        content_type = dataset.name.split(".")[-1]
 
         # Ensure that the content type is accepted, return error otherwise
         if content_type not in DatasetInstanceViewSet.ACCEPTED_FILETYPES:
-            return Response({
-                "message": f"Invalid Dataset File. Only accepts the following file formats: {DatasetInstanceViewSet.ACCEPTED_FILETYPES}",
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "message": f"Invalid Dataset File. Only accepts the following file formats: {DatasetInstanceViewSet.ACCEPTED_FILETYPES}",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Read the dataset as a string from the dataset pointer
         try:
-            if content_type in ['xls', 'xlsx']:
+            if content_type in ["xls", "xlsx"]:
                 # xls and xlsx files cannot be decoded as a string
                 dataset_string = b64encode(dataset.read()).decode()
             else:
                 dataset_string = dataset.read().decode()
         except Exception as e:
-            return Response({
-                "message": f"Error while reading file. Please check the file data and try again.",
-                "exception": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "message": f"Error while reading file. Please check the file data and try again.",
+                    "exception": str(e),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Uplod the dataset to the dataset instance
         upload_data_to_data_instance.delay(
             pk=pk,
             dataset_type=dataset_type,
             dataset_string=dataset_string,
-            content_type=content_type
+            content_type=content_type,
         )
 
         # Get name of the dataset instance
@@ -321,7 +336,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @action(methods=['GET'], detail=True, name="List all Projects using Dataset")
+    @action(methods=["GET"], detail=True, name="List all Projects using Dataset")
     def projects(self, request, pk):
         """
         View to list all projects using a dataset
@@ -351,19 +366,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-    @action(methods=['GET'], detail=True, name="List all Users using Dataset")
+    @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
         serializer = UserFetchSerializer(many=True, data=users)
         serializer.is_valid()
         return Response(serializer.data)
 
-    @action(methods=['GET'], detail=False, name="List all Dataset Instance Types")
+    @action(methods=["GET"], detail=False, name="List all Dataset Instance Types")
     def dataset_types(self, request):
         dataset_types = [dataset[0] for dataset in DATASET_TYPE_CHOICES]
         return Response(dataset_types)
 
-    @action(methods=['GET'], detail=False, name="List all Accepted Upload Filetypes")
+    @action(methods=["GET"], detail=False, name="List all Accepted Upload Filetypes")
     def accepted_filetypes(self, request):
         return Response(DatasetInstanceViewSet.ACCEPTED_FILETYPES)
 
@@ -375,10 +390,17 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     queryset = DatasetBase.objects.all()
     serializer_class = DatasetItemsSerializer
-    permission_classes = (IsAuthenticatedOrReadOnly,DatasetInstancePermission,)
+    permission_classes = (
+        IsAuthenticatedOrReadOnly,
+        DatasetInstancePermission,
+    )
 
     def list(self, request):
-        dataset_instances = DatasetInstance.objects.filter(instance_id__in=self.queryset.distinct("instance_id").values_list("instance_id")).values("instance_id", "dataset_type")
+        dataset_instances = DatasetInstance.objects.filter(
+            instance_id__in=self.queryset.distinct("instance_id").values_list(
+                "instance_id"
+            )
+        ).values("instance_id", "dataset_type")
         return Response(data=dataset_instances, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["POST"], name="Get data Items")

@@ -97,7 +97,8 @@ LANG_TRANS_MODEL_CODES = {
     "Telugu-English": 142,
 }  # 144 for all the other  indic-indic translations
 
-DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID =  144 
+DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID = 144
+
 
 def hash_upload(instance, filename):
     filename = str(uuid.uuid4())[0:8] + "-" + filename
