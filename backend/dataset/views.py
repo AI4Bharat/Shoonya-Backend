@@ -14,7 +14,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from organizations.decorators import is_organization_owner, is_particular_organization_owner
+from organizations.decorators import (
+    is_organization_owner,
+    is_particular_organization_owner,
+)
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
@@ -176,7 +179,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
 
     # Define list of accepted file formats for file upload
-    ACCEPTED_FILETYPES = ['csv', 'tsv', 'json', 'yaml', 'xls', 'xlsx']
+    ACCEPTED_FILETYPES = ["csv", "tsv", "json", "yaml", "xls", "xlsx"]
 
     def get_serializer_class(self):
         if self.action == "upload":
@@ -193,7 +196,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             dataset_instance_status,
             dataset_instance_date,
             dataset_instance_time,
-            dataset_instance_result
+            dataset_instance_result,
         ) = get_dataset_upload_status(pk)
 
         # Add the task status and time to the dataset instance response
@@ -220,7 +223,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_instance_status,
                 dataset_instance_date,
                 dataset_instance_time,
-                dataset_instance_result
+                dataset_instance_result,
             ) = get_dataset_upload_status(dataset_instance["instance_id"])
 
             # Add the task status and time to the dataset instance response
@@ -267,25 +270,31 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         print(dataset_type)
         print("pppppppppppppppppppp")
 
-        if 'dataset' not in request.FILES:
-            return Response({
-                "message": "Please provide a file with key 'dataset'.",
-            }, status=status.HTTP_400_BAD_REQUEST)
-        dataset = request.FILES['dataset']
-        content_type = dataset.name.split('.')[-1]
+        if "dataset" not in request.FILES:
+            return Response(
+                {
+                    "message": "Please provide a file with key 'dataset'.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        dataset = request.FILES["dataset"]
+        content_type = dataset.name.split(".")[-1]
         print(content_type)
         print("-----------------------------")
 
         # Ensure that the content type is accepted, return error otherwise
         if content_type not in DatasetInstanceViewSet.ACCEPTED_FILETYPES:
             print("+++++++++++++++++++++++++++++++")
-            return Response({
-                "message": f"Invalid Dataset File. Only accepts the following file formats: {DatasetInstanceViewSet.ACCEPTED_FILETYPES}",
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "message": f"Invalid Dataset File. Only accepts the following file formats: {DatasetInstanceViewSet.ACCEPTED_FILETYPES}",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Read the dataset as a string from the dataset pointer
         try:
-            if content_type in ['xls', 'xlsx']:
+            if content_type in ["xls", "xlsx"]:
                 print("iiiiiiiiiiiiiiiiiiiiiiiii")
                 # xls and xlsx files cannot be decoded as a string
                 dataset_string = b64encode(dataset.read()).decode()
@@ -294,17 +303,20 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_string = dataset.read().decode()
         except Exception as e:
             print("ooooooooooooooooooooooooooooo")
-            return Response({
-                "message": f"Error while reading file. Please check the file data and try again.",
-                "exception": str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "message": f"Error while reading file. Please check the file data and try again.",
+                    "exception": str(e),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Uplod the dataset to the dataset instance
         upload_data_to_data_instance.delay(
             pk=pk,
             dataset_type=dataset_type,
             dataset_string=dataset_string,
-            content_type=content_type
+            content_type=content_type,
         )
 
         # Get name of the dataset instance
@@ -317,7 +329,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @action(methods=['GET'], detail=True, name="List all Projects using Dataset")
+    @action(methods=["GET"], detail=True, name="List all Projects using Dataset")
     def projects(self, request, pk):
         """
         View to list all projects using a dataset
@@ -346,7 +358,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
-    @action(methods=['GET'], detail=True, name="List all Users using Dataset")
+    @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
         print(users)
@@ -362,17 +374,20 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "user_id": openapi.Schema(type=openapi.TYPE_STRING,
-                                          description="String containing emails separated by commas")
+                "user_id": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="String containing emails separated by commas",
+                )
             },
-            required=["user_id"]
+            required=["user_id"],
         ),
         manual_parameters=[
             openapi.Parameter(
-                "id", openapi.IN_PATH,
+                "id",
+                openapi.IN_PATH,
                 description=("A unique integer identifying the workspace"),
                 type=openapi.TYPE_INTEGER,
-                required=True
+                required=True,
             )
         ],
         responses={
@@ -380,15 +395,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             403: "Not authorized",
             400: "No valid user_ids found",
             404: "Workspace not found",
-            500: "Server error occured"
-        }
-
+            500: "Server error occured",
+        },
     )
     # only admin can add wokspace managers within that organization
     @is_particular_organization_owner
-    @action(detail=True, methods=['POST'], url_path='addworkspacemanagers', url_name='add_managers')
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="addworkspacemanagers",
+        url_name="add_managers",
+    )
     def add_managers(self, request, pk=None):
-        user_id_list = request.data.get('user_id_list', "")
+        user_id_list = request.data.get("user_id_list", "")
         print(user_id_list)
         try:
 
@@ -398,14 +417,25 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 if user.role == 2:
                     dataset.users.add(user)
                     dataset.save()
-                    return Response({"message": "managers added successfully"}, status=status.HTTP_200_OK)
+                    return Response(
+                        {"message": "managers added successfully"},
+                        status=status.HTTP_200_OK,
+                    )
                 else:
-                    return Response({"message": "user is not a manager"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {"message": "user is not a manager"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
         except DatasetInstance.DoesNotExist:
-            return Response({"message": "users not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "users not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         except ValueError:
-            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"message": "Server Error occured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     # removing managers from the dataset
 
@@ -413,7 +443,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
-            properties={"user_id": openapi.Schema(type=openapi.TYPE_STRING, format="email")},
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_STRING, format="email")
+            },
             required=["user_id"],
         ),
         manual_parameters=[
@@ -432,10 +464,15 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             500: "Server error occured",
         },
     )
-    @action(detail=True, methods=["POST"], url_path="removemanagers", url_name="remove_managers")
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="removemanagers",
+        url_name="remove_managers",
+    )
     # @is_particular_organization_owner
     def remove_managers(self, request, pk=None):
-        user_id_list = request.data.get('user_id_list', "")
+        user_id_list = request.data.get("user_id_list", "")
         try:
 
             dataset = DatasetInstance.objects.get(pk=pk)
@@ -443,20 +480,27 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             for user_id in user_id_list:
                 user = User.objects.get(id=user_id)
                 dataset.users.remove(user)
-            return Response({"message": "manager removed successfully"}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "manager removed successfully"}, status=status.HTTP_200_OK
+            )
 
         except DatasetInstance.DoesNotExist:
-            return Response({"message": "user not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "user not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         except ValueError:
-            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"message": "Server Error occured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
-    @action(methods=['GET'], detail=False, name="List all Dataset Instance Types")
+    @action(methods=["GET"], detail=False, name="List all Dataset Instance Types")
     def dataset_types(self, request):
         dataset_types = [dataset[0] for dataset in DATASET_TYPE_CHOICES]
         return Response(dataset_types)
 
-    @action(methods=['GET'], detail=False, name="List all Accepted Upload Filetypes")
+    @action(methods=["GET"], detail=False, name="List all Accepted Upload Filetypes")
     def accepted_filetypes(self, request):
         return Response(DatasetInstanceViewSet.ACCEPTED_FILETYPES)
 
@@ -554,6 +598,7 @@ class DatasetTypeView(APIView):
                     "choices": None,
                 }
         return Response(dict, status=status.HTTP_200_OK)
+
 
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
