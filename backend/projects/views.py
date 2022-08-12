@@ -413,7 +413,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks = (
             Task.objects.filter(project_id=project.id)
             .filter(review_user=user)
-            .exclude(task_status__in=[ACCEPTED, REJECTED])
+            .exclude(task_status__in=[ACCEPTED, TO_BE_REVISED])
         )
         for task in tasks:
             task.review_user = None
@@ -1148,11 +1148,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
                 items.append(("Labeled Tasks", labeled_tasks.count()))
 
-                # get rejected count
-                rejected_tasks = get_annotated_tasks(
-                    pk, each_user, "rejected", start_date, end_date
+                # get to_be_revised count
+                to_be_revised_tasks = get_annotated_tasks(
+                    pk, each_user, "to_be_revised", start_date, end_date
                 )
-                items.append(("Rejected Tasks", rejected_tasks.count()))
+                items.append(("To Be Revised Tasks", to_be_revised_tasks.count()))
 
             # get unlabeled count
             total_unlabeled_tasks_count = get_tasks_count(pk, each_user, "unlabeled")
@@ -1172,7 +1172,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         list(annotated_accept_tasks)
                         + list(accepted_wt_tasks)
                         + list(labeled_tasks)
-                        + list(rejected_tasks)
+                        + list(to_be_revised_tasks)
                     )
                     total_word_count_list = [
                         no_of_words(each_task.task.data["input_text"])
@@ -1192,7 +1192,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     list(annotated_accept_tasks)
                     + list(accepted_wt_tasks)
                     + list(labeled_tasks)
-                    + list(rejected_tasks)
+                    + list(to_be_revised_tasks)
                 )
                 lead_time_annotated_tasks = [
                     annot.lead_time for annot in all_annotated_tasks
@@ -1368,7 +1368,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             tasks = Task.objects.filter(project_id=project.id)
             # delete review annotations for review tasks
-            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, REJECTED])
+            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, TO_BE_REVISED])
             Annotation_model.objects.filter(task__in=reviewed_tasks).exclude(
                 parent_annotation__isnull=True
             ).delete()
