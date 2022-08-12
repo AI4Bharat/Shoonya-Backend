@@ -29,6 +29,7 @@ from tasks.models import Task
 from tasks.serializers import TaskSerializer
 from .models import *
 from .registry_helper import ProjectRegistry
+from dataset.models import DatasetInstance
 
 # Import celery tasks
 from .tasks import (
@@ -269,6 +270,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Retrieves a project given its ID
         """
         project_response = super().retrieve(request, *args, **kwargs)
+        
+        datasets = DatasetInstance.objects.only("instance_id", "instance_name").filter(instance_id__in=project_response.data["dataset_id"]).values("instance_id", "instance_name")
+        project_response.data["datasets"] = datasets;
+        project_response.data.pop("dataset_id")
 
         # Add a new field to the project response to indicate project status
         project_response.data["status"] = get_project_creation_status(pk)
@@ -316,7 +321,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             # projects = self.queryset.filter(users=request.user)
 
-            if request.user.role == User.ORGANIZAION_OWNER:
+            if request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
                     organization_id=request.user.organization
                 )
@@ -673,7 +678,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             # role check
             if (
-                request.user.role == User.ORGANIZAION_OWNER
+                request.user.role == User.ORGANIZATION_OWNER
                 or request.user.role == User.WORKSPACE_MANAGER
                 or request.user.is_superuser
             ):
@@ -1086,11 +1091,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         user_mails = []
         user_names = []
         if (
-            request.user.role == User.ORGANIZAION_OWNER
+            request.user.role == User.ORGANIZATION_OWNER
             or request.user.role == User.WORKSPACE_MANAGER
             or request.user.is_superuser
         ):
-
             users_ids = [obj.id for obj in proj_obj.users.all()]
             user_mails = [user.get_username() for user in proj_obj.users.all()]
             user_names = [user.username for user in proj_obj.users.all()]
@@ -1272,7 +1276,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         url_name="add_project_reviewers",
     )
     @project_is_archived
-    @is_particular_workspace_manager
+    @is_project_editor
     def add_project_reviewers(self, request, pk, *args, **kwargs):
         """
         Adds annotation reviewers to the project
@@ -1313,7 +1317,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Enable Task Reviews",
         url_name="allow_task_reviews",
     )
-    @is_particular_workspace_manager
+    @is_project_editor
     def allow_task_reviews(self, request, pk):
         try:
             project = Project.objects.get(pk=pk)
@@ -1348,7 +1352,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Disable Task Reviews",
         url_name="disable_task_reviews",
     )
-    @is_particular_workspace_manager
+    @is_project_editor
     def disable_task_reviews(self, request, pk):
         try:
             project = Project.objects.get(pk=pk)

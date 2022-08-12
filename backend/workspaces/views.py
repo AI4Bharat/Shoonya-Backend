@@ -28,6 +28,7 @@ from .decorators import (
     is_particular_workspace_manager,
     is_particular_organization_owner,
     is_organization_owner_or_workspace_manager,
+    is_workspace_creator,
 )
 
 # Create your views here.
@@ -120,7 +121,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 )
             serializer = WorkspaceSerializer(data, many=True)
             return self.get_paginated_response(serializer.data)
-        elif int(request.user.role) == User.ORGANIZAION_OWNER:
+        elif int(request.user.role) == User.ORGANIZATION_OWNER:
             data = self.queryset.filter(organization=request.user.organization)
             try:
                 data = self.paginate_queryset(data)
@@ -144,7 +145,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
-    @is_particular_organization_owner
+    @is_workspace_creator
     def create(self, request, *args, **kwargs):
         # TODO: Make sure to add the user to the workspace and created_by
         # return super().create(request, *args, **kwargs)
@@ -688,7 +689,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
             if (
                 (
-                    (request.user.role) == (User.ORGANIZAION_OWNER)
+                    (request.user.role) == (User.ORGANIZATION_OWNER)
                     and (request.user.organization) == (workspace.organization)
                 )
                 or (
@@ -779,7 +780,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
             if (
                 (
-                    (request.user.role) == (User.ORGANIZAION_OWNER)
+                    (request.user.role) == (User.ORGANIZATION_OWNER)
                     and (request.user.organization) == (workspace.organization)
                 )
                 or (

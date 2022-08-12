@@ -206,7 +206,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         # Org Owners and superusers see all datasets
-        if request.user.role == User.ORGANIZAION_OWNER or request.user.is_superuser:
+        if request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser:
             queryset = DatasetInstance.objects.all()
         # Managers only see datasets that they are added to and public datasets
         else:

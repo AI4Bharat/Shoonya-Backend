@@ -21,7 +21,7 @@ def is_organization_owner_or_workspace_manager(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
         if (
-            request.user.role == User.ORGANIZAION_OWNER
+            request.user.role == User.ORGANIZATION_OWNER
             or request.user.role == User.WORKSPACE_MANAGER
             or request.user.is_superuser
         ):
@@ -67,7 +67,7 @@ def is_project_editor(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
         if (
-            request.user.role == User.ORGANIZAION_OWNER
+            request.user.role == User.ORGANIZATION_OWNER
             or request.user.role == User.WORKSPACE_MANAGER
             or request.user.is_superuser
         ):
