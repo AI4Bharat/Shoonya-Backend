@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from organization.decorators import is_organization_owner, is_particular_organization_owner
+from organizations.decorators import is_organization_owner, is_particular_organization_owner
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
@@ -31,7 +31,6 @@ from users.serializers import UserFetchSerializer
 
 ## Utility functions used inside the view functions
 def extract_status_date_time_from_task_queryset(task_queryset):
-
     # Sort the tasks by newest items first by date
     task_queryset = task_queryset.order_by("-date_done")
 
@@ -77,7 +76,6 @@ def get_project_export_status(pk):
 
     # If the celery TaskResults table returns
     if task_queryset:
-
         (
             task_status,
             task_date,
@@ -217,7 +215,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Add status fields to the serializer data
         for dataset_instance in serializer.data:
-
             # Get the task statuses for the dataset instance
             (
                 dataset_instance_status,
@@ -335,7 +332,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Add new fields to the serializer data to show project exprot status and date
         for project in serializer.data:
-
             # Get project export status details
             (
                 project_export_status,
@@ -359,15 +355,15 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         serializer.is_valid()
         return Response(serializer.data)
 
-
-    #creating endpoint for adding workspacemanagers
+    # creating endpoint for adding workspacemanagers
 
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "user_id": openapi.Schema(type=openapi.TYPE_STRING, description="String containing emails separated by commas")
+                "user_id": openapi.Schema(type=openapi.TYPE_STRING,
+                                          description="String containing emails separated by commas")
             },
             required=["user_id"]
         ),
@@ -380,66 +376,80 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             )
         ],
         responses={
-            200:"Workspace manager added Successfully",
-            403:"Not authorized",
-            400:"No valid user_ids found",
-            404:"Workspace not found",
-            500:"Server error occured"
+            200: "Workspace manager added Successfully",
+            403: "Not authorized",
+            400: "No valid user_ids found",
+            404: "Workspace not found",
+            500: "Server error occured"
         }
 
     )
-    #only admin can add wokspace managers within that organization
+    # only admin can add wokspace managers within that organization
     @is_particular_organization_owner
     @action(detail=True, methods=['POST'], url_path='addworkspacemanagers', url_name='add_managers')
-    def add_managers(self, request,pk=None):
-        user_id = request.data.get('user_id',"")
-        print(user_id)
+    def add_managers(self, request, pk=None):
+        user_id_list = request.data.get('user_id_list', "")
+        print(user_id_list)
         try:
 
             dataset = DatasetInstance.objects.get(pk=pk)
-            workspace = Workspace.objects.get(workspace_name="workspace_name")
+            for user_id in user_id_list:
+                user = User.objects.get(id=user_id)
+                if user.role == 2:
+                    dataset.users.add(user)
+                    dataset.save()
+                    return Response({"message": "managers added successfully"}, status=status.HTTP_200_OK)
+                else:
+                    return Response({"message": "user is not a manager"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if request.user.role == User.WORKSPACE_MANAGER:
-                managers = [user1.get_username() for user1 in dataset.workspace_id.managers.all()]
-                users_id = [obj.id for obj in dataset.users.all()]
-                user_mails = [user.get_username() for user in dataset.users.all()]
-                for index, each_user in enumerate(users_id):
-                    usermail = user_mails[index]
-
-                    if usermail is managers:
-                        continue
-
-
-
-            user_ids = user_id.split(',')
-            invalid_user_ids = []
-            for user_id in user_ids:
-                try:
-                    user = User.objects.get(pk=user_id)
-                    if((user.organization) == (workspace.organization)):
-                        dataset.users.add(user)
-                    else:
-                        invalid_user_ids.append(user_id)
-                except User.DoesNotExist:
-                    invalid_user_ids.append(user_id)
-            return Response({"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN)
-
-            dataset.save()
-            if len(invalid_user_ids) == 0:
-                return Response({"message": "managers added successfully"}, status=status.HTTP_200_OK)
-            elif len(invalid_user_ids)==len(user_ids):
-                return Response({"message": "No valid user_ids found"}, status=status.HTTP_400_BAD_REQUEST)
-
-            return Response({"message": f"managers added partially! Invalid user_ids: {','.join(invalid_user_ids)}"}, status=status.HTTP_200_OK)
         except DatasetInstance.DoesNotExist:
-            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "users not found"}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
             return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    # removing managers from the dataset
 
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={"user_id": openapi.Schema(type=openapi.TYPE_STRING, format="email")},
+            required=["user_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "manager removed Successfully",
+            403: "Not authorized",
+            404: "Workspace not found/User not in the workspace/User not found",
+            500: "Server error occured",
+        },
+    )
+    @action(detail=True, methods=["POST"], url_path="removemanagers", url_name="remove_managers")
+    # @is_particular_organization_owner
+    def remove_managers(self, request, pk=None):
+        user_id_list = request.data.get('user_id_list', "")
+        try:
 
+            dataset = DatasetInstance.objects.get(pk=pk)
 
+            for user_id in user_id_list:
+                user = User.objects.get(id=user_id)
+                dataset.users.remove(user)
+            return Response({"message": "manager removed successfully"}, status=status.HTTP_200_OK)
 
+        except DatasetInstance.DoesNotExist:
+            return Response({"message": "user not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        except ValueError:
+            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(methods=['GET'], detail=False, name="List all Dataset Instance Types")
     def dataset_types(self, request):
@@ -544,7 +554,6 @@ class DatasetTypeView(APIView):
                     "choices": None,
                 }
         return Response(dict, status=status.HTTP_200_OK)
-
 
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
