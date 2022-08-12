@@ -460,7 +460,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         responses={
             200: "manager removed Successfully",
             403: "Not authorized",
-            404: "Workspace not found/User not in the workspace/User not found",
+            404: "User not in the organization/User not found",
             500: "Server error occured",
         },
     )
@@ -470,7 +470,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         url_path="removemanagers",
         url_name="remove_managers",
     )
-    # @is_particular_organization_owner
+    @is_particular_organization_owner
     def remove_managers(self, request, pk=None):
         user_id_list = request.data.get("user_id_list", "")
         try:
@@ -479,10 +479,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
             for user_id in user_id_list:
                 user = User.objects.get(id=user_id)
-                dataset.users.remove(user)
-            return Response(
-                {"message": "manager removed successfully"}, status=status.HTTP_200_OK
-            )
+                if user.role == 2:
+                    dataset.users.remove(user)
+                    return Response(
+                        {"message": "manager removed successfully"}, status=status.HTTP_200_OK
+                    )
 
         except DatasetInstance.DoesNotExist:
             return Response(
@@ -598,7 +599,6 @@ class DatasetTypeView(APIView):
                     "choices": None,
                 }
         return Response(dict, status=status.HTTP_200_OK)
-
 
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
