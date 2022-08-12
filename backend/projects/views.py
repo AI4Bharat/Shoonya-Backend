@@ -270,9 +270,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Retrieves a project given its ID
         """
         project_response = super().retrieve(request, *args, **kwargs)
-        
-        datasets = DatasetInstance.objects.only("instance_id", "instance_name").filter(instance_id__in=project_response.data["dataset_id"]).values("instance_id", "instance_name")
-        project_response.data["datasets"] = datasets;
+
+        datasets = (
+            DatasetInstance.objects.only("instance_id", "instance_name")
+            .filter(instance_id__in=project_response.data["dataset_id"])
+            .values("instance_id", "instance_name")
+        )
+        project_response.data["datasets"] = datasets
         project_response.data.pop("dataset_id")
 
         # Add a new field to the project response to indicate project status

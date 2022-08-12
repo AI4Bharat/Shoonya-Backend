@@ -101,13 +101,16 @@ def is_particular_organization_owner(f):
 
     return wrapper
 
+
 # Allow detail view only if user is a particular organization's owner.
 def is_workspace_creator(f):
     @wraps(f)
     def wrapper(self, request, pk=None, *args, **kwargs):
         if request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser:
-            if 'organization' in request.data:
-                organization = Organization.objects.filter(pk=request.data['organization']).first()
+            if "organization" in request.data:
+                organization = Organization.objects.filter(
+                    pk=request.data["organization"]
+                ).first()
             else:
                 organization = Organization.objects.filter(pk=pk).first()
 

@@ -135,10 +135,20 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
 
             if is_review_mode:
-                if request.user in Project.objects.get(id=request.query_params["project_id"]).annotation_reviewers.all():
-                    queryset = Task.objects.filter(project_id__exact=request.query_params["project_id"]).filter(review_user=user.id)
-                    
-                elif request.user.role == User.WORKSPACE_MANAGER or request.user.role == User.ORGANIZATION_OWNER :
+                if (
+                    request.user
+                    in Project.objects.get(
+                        id=request.query_params["project_id"]
+                    ).annotation_reviewers.all()
+                ):
+                    queryset = Task.objects.filter(
+                        project_id__exact=request.query_params["project_id"]
+                    ).filter(review_user=user.id)
+
+                elif (
+                    request.user.role == User.WORKSPACE_MANAGER
+                    or request.user.role == User.ORGANIZATION_OWNER
+                ):
                     if "user_filter" in dict(request.query_params):
                         queryset = Task.objects.filter(
                             project_id__exact=request.query_params["project_id"]
