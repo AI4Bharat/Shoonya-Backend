@@ -8,6 +8,7 @@ from .registry_helper import ProjectRegistry
 from django.utils.timezone import now
 from datetime import datetime, timedelta
 from users.models import LANG_CHOICES
+
 # from dataset import LANG_CHOICES
 
 RANDOM = "r"
@@ -50,87 +51,179 @@ class Project(models.Model):
     """
 
     title = models.CharField(max_length=100, help_text=("Project Title"))
-    description = models.TextField(max_length=1000, null=True, blank=True, help_text=("Project Description"))
+    description = models.TextField(
+        max_length=1000, null=True, blank=True, help_text=("Project Description")
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         on_delete=models.SET_NULL,
         related_name="project_creator",
         verbose_name="created_by",
-        help_text=("Project Created By")
+        help_text=("Project Created By"),
     )
 
-    annotators = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="project_annotators", help_text=("Project Annotators"))
-    annotation_reviewers = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="review_projects", blank=True, help_text=("Project Annotation Reviewers"))
-    frozen_annotators = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="frozen_project_annotators", blank=True, help_text=("Frozen Project Annotators"))
-    organization_id = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, help_text=("Organization to which the Project belongs"))
-    workspace_id = models.ForeignKey(Workspace, on_delete=models.SET_NULL, null=True, help_text=("Workspace to which the Project belongs"))
-    dataset_id = models.ManyToManyField(DatasetInstance, related_name="project_dataset_instances", blank=True, help_text=("Dataset Instances that are available for project creation"))
-    created_at = models.DateTimeField(auto_now_add=True, help_text=("Project Created At"))
-
+    users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="project_users",
+        help_text=("Project Users"),
+    )
+    annotation_reviewers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="review_projects",
+        blank=True,
+        help_text=("Project Annotation Reviewers"),
+    )
+    frozen_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="frozen_project_users",
+        blank=True,
+        help_text=("Frozen Project Users"),
+    )
+    organization_id = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        help_text=("Organization to which the Project belongs"),
+    )
+    workspace_id = models.ForeignKey(
+        Workspace,
+        on_delete=models.SET_NULL,
+        null=True,
+        help_text=("Workspace to which the Project belongs"),
+    )
+    dataset_id = models.ManyToManyField(
+        DatasetInstance,
+        related_name="project_dataset_instances",
+        blank=True,
+        help_text=("Dataset Instances that are available for project creation"),
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True, help_text=("Project Created At")
+    )
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
         default=False,
-        help_text=("Indicates whether a project is archived or not."),
+        help_text=("Indicates whether a project is archieved or not."),
     )
     is_published = models.BooleanField(
         verbose_name="project_is_published",
         default=False,
         help_text=("Indicates whether a project is published or not."),
     )
-
-    expert_instruction = models.TextField(max_length=500, null=True, blank=True, help_text=("Expert Instruction"))
-    show_instruction = models.BooleanField(verbose_name="show_instruction_to_annotator", 
-        default=False, help_text=("Show Instruction to Annotator"))
-    show_skip_button = models.BooleanField(verbose_name="annotator_can_skip_project", 
-        default=False, help_text=("Button to Skip the Project"))
+    expert_instruction = models.TextField(
+        max_length=500, null=True, blank=True, help_text=("Expert Instruction")
+    )
+    show_instruction = models.BooleanField(
+        verbose_name="show_instruction_to_annotator",
+        default=False,
+        help_text=("Show Instruction to Annotator"),
+    )
+    show_skip_button = models.BooleanField(
+        verbose_name="annotator_can_skip_project",
+        default=False,
+        help_text=("Button to Skip the Project"),
+    )
     show_predictions_to_annotator = models.BooleanField(
-        verbose_name="annotator_can_see_model_predictions", default=False,
-        help_text=("Show Annotation predictions to annotator")
+        verbose_name="annotator_can_see_model_predictions",
+        default=False,
+        help_text=("Show Annotation predictions to annotator"),
     )
 
-    filter_string = models.CharField(max_length=1000, null=True, blank=True, 
-        help_text=("Filter string for filtering data for project"))
-    label_config = models.TextField(verbose_name="XML Template Config", null=True, blank=True, 
-        help_text=("Label Studio Config XML to be used to show annotation task UI"))
+    filter_string = models.CharField(
+        max_length=1000,
+        null=True,
+        blank=True,
+        help_text=("Filter string for filtering data for project"),
+    )
+    label_config = models.TextField(
+        verbose_name="XML Template Config",
+        null=True,
+        blank=True,
+        help_text=("Label Studio Config XML to be used to show annotation task UI"),
+    )
 
     color = models.CharField(max_length=6, null=True, blank=True, help_text=("Colour"))
 
-    sampling_mode = models.CharField(choices=SAMPLING_MODE_CHOICES, default=FULL, max_length=1,
-        help_text=("Sampling Mode of the dataset for the project - Random, Batch or Full"))
+    sampling_mode = models.CharField(
+        choices=SAMPLING_MODE_CHOICES,
+        default=FULL,
+        max_length=1,
+        help_text=(
+            "Sampling Mode of the dataset for the project - Random, Batch or Full"
+        ),
+    )
 
-    sampling_parameters_json = models.JSONField(verbose_name="sampling parameters json", null=True, blank=True,
-        help_text=("Sampling parameters for the sampling mode - percentage for random and batch number and size for batch"))
+    sampling_parameters_json = models.JSONField(
+        verbose_name="sampling parameters json",
+        null=True,
+        blank=True,
+        help_text=(
+            "Sampling parameters for the sampling mode - percentage for random and batch number and size for batch"
+        ),
+    )
 
-    data_type = models.JSONField(verbose_name="data type in project xml", null=True, blank=True,
-        help_text=("Data Type in the Project XML"))
+    data_type = models.JSONField(
+        verbose_name="data type in project xml",
+        null=True,
+        blank=True,
+        help_text=("Data Type in the Project XML"),
+    )
 
-    project_type = models.CharField(choices=PROJECT_TYPE_CHOICES, max_length=100,
-        help_text=("Project Type indicating the annotation task"))
+    project_type = models.CharField(
+        choices=PROJECT_TYPE_CHOICES,
+        max_length=100,
+        help_text=("Project Type indicating the annotation task"),
+    )
 
-    project_mode = models.CharField(choices=PROJECT_MODE_CHOICES, max_length=100,
-        help_text=("Mode of the Project - Annotation or Collection"))
+    project_mode = models.CharField(
+        choices=PROJECT_MODE_CHOICES,
+        max_length=100,
+        help_text=("Mode of the Project - Annotation or Collection"),
+    )
 
-    variable_parameters = models.JSONField(verbose_name="variable parameters for project", null=True, blank=True,
-        help_text=("Variable parameters specific for each project type")) 
+    variable_parameters = models.JSONField(
+        verbose_name="variable parameters for project",
+        null=True,
+        blank=True,
+        help_text=("Variable parameters specific for each project type"),
+    )
 
-    metadata_json = models.JSONField(verbose_name="metadata json", null=True, blank=True,
-        help_text=("Metadata for project"))
+    metadata_json = models.JSONField(
+        verbose_name="metadata json",
+        null=True,
+        blank=True,
+        help_text=("Metadata for project"),
+    )
     # maximum_annotators
     # total_annotations
-    required_annotators_per_task = models.IntegerField(verbose_name="required_annotators_per_task", default=1,
-        help_text=("No. of annotators required for each task"))
+    required_annotators_per_task = models.IntegerField(
+        verbose_name="required_annotators_per_task",
+        default=1,
+        help_text=("No. of annotators required for each task"),
+    )
     # language = models.CharField(
     #     verbose_name="language", choices=LANG_CHOICES, max_length=3
     # )
-    tasks_pull_count_per_batch = models.IntegerField(verbose_name="tasks_pull_count_per_batch", default=10,
-        help_text=("Maximum no. of new tasks that can be assigned to an annotator at once"))
+    tasks_pull_count_per_batch = models.IntegerField(
+        verbose_name="tasks_pull_count_per_batch",
+        default=10,
+        help_text=("Maximum no. of new tasks that can be assigned to a user at once"),
+    )
 
-    max_pending_tasks_per_annotator = models.IntegerField(verbose_name="max_pending_tasks_per_annotator", default=60,
-        help_text=("Maximum no. of tasks assigned to an annotator which are at unlabeled stage, as a threshold for pulling new tasks"))
+    max_pending_tasks_per_user = models.IntegerField(
+        verbose_name="max_pending_tasks_per_user",
+        default=60,
+        help_text=(
+            "Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks"
+        ),
+    )
 
-    enable_task_reviews = models.BooleanField(verbose_name="enable_task_reviews", default=False,
-        help_text=("Indicates whether the annotations need to be reviewed"))
+    enable_task_reviews = models.BooleanField(
+        verbose_name="enable_task_reviews",
+        default=False,
+        help_text=("Indicates whether the annotations need to be reviewed"),
+    )
 
     def clear_expired_lock(self):
         self.lock.filter(expires_at__lt=now()).delete()
@@ -140,14 +233,21 @@ class Project(models.Model):
 
     def is_locked(self, context):
         self.clear_expired_lock()
-        return self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
+        return (
+            self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
+        )
 
-    def set_lock(self, annotator, context):
+    def set_lock(self, user, context):
         """
-        Locks the project for a annotator
+        Locks the project for a user
         """
         if not self.is_locked(context):
-            ProjectTaskRequestLock.objects.create(project=self, user=annotator, lock_context=context, expires_at=now()+timedelta(seconds=settings.PROJECT_LOCK_TTL))
+            ProjectTaskRequestLock.objects.create(
+                project=self,
+                user=user,
+                lock_context=context,
+                expires_at=now() + timedelta(seconds=settings.PROJECT_LOCK_TTL),
+            )
         else:
             raise Exception("Project already locked")
 
@@ -157,7 +257,7 @@ class Project(models.Model):
         blank=True,
         max_length=50,
         help_text=("Source language of the project"),
-        verbose_name="Source Language"
+        verbose_name="Source Language",
     )
     tgt_language = models.CharField(
         choices=LANG_CHOICES,
@@ -165,7 +265,7 @@ class Project(models.Model):
         blank=True,
         max_length=50,
         help_text=("Target language of the project"),
-        verbose_name="Target Language"
+        verbose_name="Target Language",
     )
 
     def __str__(self):
@@ -177,7 +277,23 @@ class ProjectTaskRequestLock(models.Model):
     Basic database lock implementation to handle
     concurrency in tasks pull requests for same project
     """
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='lock', help_text='Project locked for task pulling')
-    annotator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_lock', help_text='User locking this project to pull tasks')
-    lock_context = models.CharField(choices=LOCK_CONTEXT, max_length=50, default=ANNOTATION_LOCK, verbose_name="lock_context")
-    expires_at = models.DateTimeField('expires_at')
+
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="lock",
+        help_text="Project locked for task pulling",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="project_lock",
+        help_text="User locking this project to pull tasks",
+    )
+    lock_context = models.CharField(
+        choices=LOCK_CONTEXT,
+        max_length=50,
+        default=ANNOTATION_LOCK,
+        verbose_name="lock_context",
+    )
+    expires_at = models.DateTimeField("expires_at")

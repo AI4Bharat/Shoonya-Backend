@@ -340,12 +340,12 @@ class AnalyticsViewSet(viewsets.ViewSet):
         workspace_id = request.data.get("workspace_id")
 
         try:
-            annotator = User.objects.get(id=request.user.id)
+            user = User.objects.get(id=request.user.id)
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        if annotator.organization_id is not request.user.organization_id:
+        if user.organization_id is not request.user.organization_id:
             return Response(
                 {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
             )
@@ -376,27 +376,45 @@ class AnalyticsViewSet(viewsets.ViewSet):
         for proj in project_objs:
 
             project_name = proj.title
-            labeld_tasks_objs =Task.objects.filter(Q(project_id=proj.id) & Q(annotation_users= request.user.id ) & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
+            labeld_tasks_objs = Task.objects.filter(
+                Q(project_id=proj.id)
+                & Q(annotation_users=request.user.id)
+                & Q(
+                    task_status__in=[
+                        "accepted",
+                        "rejected",
+                        "accepted_with_changes",
+                        "labeled",
+                    ]
+                )
+            )
 
-
-
-            annotated_task_ids = list(labeld_tasks_objs.values_list('id',flat = True))
-            annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
+            annotated_task_ids = list(labeld_tasks_objs.values_list("id", flat=True))
+            annotated_labeled_tasks = Annotation.objects.filter(
+                task_id__in=annotated_task_ids,
+                parent_annotation_id=None,
+                created_at__range=[start_date, end_date],
+                completed_by=request.user.id,
+            )
 
             annotated_tasks_count = annotated_labeled_tasks.count()
 
-
             avg_lead_time = 0
-            lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_labeled_tasks]
-            if len(lead_time_annotated_tasks) > 0 :
-                avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
-                avg_lead_time = round(avg_lead_time,2)
-
+            lead_time_annotated_tasks = [
+                eachtask.lead_time for eachtask in annotated_labeled_tasks
+            ]
+            if len(lead_time_annotated_tasks) > 0:
+                avg_lead_time = sum(lead_time_annotated_tasks) / len(
+                    lead_time_annotated_tasks
+                )
+                avg_lead_time = round(avg_lead_time, 2)
 
             total_word_count = 0
             if is_translation_project:
-                total_word_count_list = [no_of_words(each_task.task.data['input_text']) for  each_task in annotated_labeled_tasks]
+                total_word_count_list = [
+                    no_of_words(each_task.task.data["input_text"])
+                    for each_task in annotated_labeled_tasks
+                ]
                 total_word_count = sum(total_word_count_list)
 
             all_tasks_in_project = Task.objects.filter(
@@ -410,11 +428,18 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 & Q(annotation_users=request.user.id)
             ).order_by("id")
             total_skipped_tasks = all_skipped_tasks_in_project.count()
- 
-            all_pending_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "unlabeled") & Q(annotation_users = request.user.id) )
+            all_pending_tasks_in_project_objs = Task.objects.filter(
+                Q(project_id=proj.id)
+                & Q(task_status="unlabeled")
+                & Q(annotation_users=request.user.id)
+            )
             all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
 
-            all_draft_tasks_in_project_objs =  Task.objects.filter(Q(project_id = proj.id) & Q(task_status = "draft") & Q(annotation_users = request.user.id))
+            all_draft_tasks_in_project_objs = Task.objects.filter(
+                Q(project_id=proj.id)
+                & Q(task_status="draft")
+                & Q(annotation_users=request.user.id)
+            )
             all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
             if is_translation_project:
                 result = {

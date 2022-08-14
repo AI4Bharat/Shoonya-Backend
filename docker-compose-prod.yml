@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    restart: always
+    image: "postgres:11"
+    environment:
+      - "POSTGRES_HOST_AUTH_METHOD=trust"
+      - "POSTGRES_DB=main"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data/
+  web:
+    build: ./backend
+    command: gunicorn --bind 0.0.0.0:8000 --workers 6 shoonya_backend.wsgi --timeout 300
+    volumes:
+      - ./backend/:/usr/src/backend/
+      - static_volume:/usr/src/backend/static
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+      - redis
+  redis:
+    container_name: redis
+    image: "redis"
+    ports:
+      - 6379:6379
+  
+  celery:
+    container_name: celery
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker --concurrency=2 --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend/
+      - static_volume:/usr/src/backend/static
+    depends_on:
+      - db
+      - redis
+      - web 
+
+volumes:
+  postgres_data:
+  static_volume:

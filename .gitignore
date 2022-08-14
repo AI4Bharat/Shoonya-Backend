@@ -1,0 +1,51 @@
+all_data
+
+# Ignore all json and csv files
+*.json
+*.csv
+
+# Python
+*.pyc
+*~
+__pycache__
+media/
+static/
+frontend/
+
+# Env
+.env
+myvenv/
+venv/
+env/
+postgres_data/
+
+# Database
+db.sqlite3
+
+# Static folder at project root
+/static/
+
+# macOS
+._*
+.DS_Store
+.fseventsd
+.Spotlight-V100
+
+# Windows
+Thumbs.db*
+ehthumbs*.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Visual Studio
+.vscode/
+.history/
+*.code-workspace
+
+# Coverage
+/coverage.data
+/coverage/
+.coverage
+
+# Logs
+**/logs/*

@@ -120,18 +120,18 @@ class Task(models.Model):
         verbose_name="metadata json", null=True, blank=True
     )
 
-    def assign(self, annotators):
+    def assign(self, users):
         """
-        Assign annotators to a task
+        Assign users to a task
         """
-        for annotator in annotators:
-            self.annotation_users.add(annotator)
+        for user in users:
+            self.annotation_users.add(user)
 
-    def unassign(self, annotator):
+    def unassign(self, user):
         """
-        Unassign annotator from a task
+        Unassign user from a task
         """
-        self.annotation_users.remove(annotator)
+        self.annotation_users.remove(user)
 
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
@@ -147,13 +147,13 @@ class Task(models.Model):
     def num_locks(self):
         return self.locks.filter(expire_at__gt=now()).count()
 
-    def set_lock(self, annotator):
-        """Lock current task by specified annotator. Lock lifetime is set by `expire_in_secs`"""
+    def set_lock(self, user):
+        """Lock current task by specified user. Lock lifetime is set by `expire_in_secs`"""
         num_locks = self.num_locks
         if num_locks < self.project_id.required_annotators_per_task:
             lock_ttl = self.get_lock_ttl()
             expire_at = now() + timedelta(seconds=lock_ttl)
-            TaskLock.objects.create(task=self, user=annotator, expire_at=expire_at)
+            TaskLock.objects.create(task=self, user=user, expire_at=expire_at)
         else:
             raise Exception(
                 "Setting lock failed. Num locks > max annotators. Please call has_lock() before setting the lock."
@@ -163,23 +163,23 @@ class Task(models.Model):
             #     f"that's a bug because this task should not be taken in a label stream (task should be locked)")
         self.clear_expired_locks()
 
-    def release_lock(self, annotator=None):
+    def release_lock(self, user=None):
         """Release lock for the task.
-        If annotator specified, it checks whether lock is released by the annotator who previously has locked that task"""
+        If user specified, it checks whether lock is released by the user who previously has locked that task"""
 
-        if annotator is not None:
-            self.locks.filter(user=annotator).delete()
+        if user is not None:
+            self.locks.filter(user=user).delete()
         else:
             self.locks.all().delete()
         self.clear_expired_locks()
 
-    def is_locked(self, annotator=None):
-        """Check whether current task has been locked by some annotator"""
+    def is_locked(self, user=None):
+        """Check whether current task has been locked by some user"""
         self.clear_expired_locks()
         num_locks = self.num_locks
         # print("Num locks:", num_locks)
         # if self.project.skip_queue == self.project.SkipQueue.REQUEUE_FOR_ME:
-        #     num_annotations = self.annotations.filter(ground_truth=False).exclude(Q(was_cancelled=True) | ~Q(completed_by=annotator)).count()
+        #     num_annotations = self.annotations.filter(ground_truth=False).exclude(Q(was_cancelled=True) | ~Q(completed_by=user)).count()
         # else:
         num_annotations = self.annotations.count()
 
@@ -215,11 +215,11 @@ class TaskLock(models.Model):
         Task, on_delete=models.CASCADE, related_name="locks", help_text="Locked task"
     )
     expire_at = models.DateTimeField("expire_at")
-    annotator = models.ForeignKey(
+    user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="task_locks",
-        help_text="Annotator who locked this task",
+        help_text="User who locked this task",
     )
 
 

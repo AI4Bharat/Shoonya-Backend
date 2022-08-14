@@ -24,16 +24,72 @@ from .serializers import (
 )
 from .models import Workspace
 from .decorators import (
-    is_workspace_member,
     workspace_is_archived,
     is_particular_workspace_manager,
+    is_particular_organization_owner,
     is_organization_owner_or_workspace_manager,
+    is_workspace_creator,
 )
-from organizations.decorators import is_particular_organization_owner
 
 # Create your views here.
 
 EMAIL_VALIDATION_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+
+
+def get_task_count(proj_ids, status, user, return_count=True):
+    annotated_tasks = Task.objects.filter(
+        Q(project_id__in=proj_ids)
+        & Q(task_status__in=status)
+        & Q(annotation_users=user)
+    )
+
+    if return_count == True:
+        annotated_tasks_count = annotated_tasks.count()
+        return annotated_tasks_count
+    else:
+        return annotated_tasks
+
+
+def get_task_count_project_analytics(proj_id, status_list, return_count=True):
+    labeled_tasks = Task.objects.filter(project_id=proj_id, task_status__in=status_list)
+    if return_count == True:
+        labeled_tasks_count = labeled_tasks.count()
+        return labeled_tasks_count
+    else:
+        return labeled_tasks
+
+
+def get_annotated_tasks(proj_ids, user, status_list, start_date, end_date):
+
+    annotated_tasks_objs = get_task_count(
+        proj_ids, status_list, user, return_count=False
+    )
+
+    annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
+    annotated_labeled_tasks = Annotation.objects.filter(
+        task_id__in=annotated_task_ids,
+        parent_annotation_id=None,
+        created_at__range=[start_date, end_date],
+        completed_by=user,
+    )
+
+    return annotated_labeled_tasks
+
+
+def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_date):
+
+    labeled_tasks = get_task_count_project_analytics(
+        proj_id, status_list, return_count=False
+    )
+
+    labeled_tasks_ids = list(labeled_tasks.values_list("id", flat=True))
+    annotated_labeled_tasks = Annotation.objects.filter(
+        task_id__in=labeled_tasks_ids,
+        parent_annotation_id=None,
+        created_at__range=[start_date, end_date],
+    )
+
+    return annotated_labeled_tasks
 
 
 class WorkspaceViewSet(viewsets.ModelViewSet):
@@ -47,7 +103,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             or int(request.user.role) == User.WORKSPACE_MANAGER
         ):
             data = self.queryset.filter(
-                users=request.user,
+                members=request.user,
                 is_archived=False,
                 organization=request.user.organization,
             )
@@ -89,20 +145,29 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
-    @is_particular_organization_owner
+    @is_workspace_creator
     def create(self, request, *args, **kwargs):
         # TODO: Make sure to add the user to the workspace and created_by
         # return super().create(request, *args, **kwargs)
         try:
             data = self.serializer_class(data=request.data)
             if data.is_valid():
-                obj = data.save()
-                obj.users.add(request.user)
-                obj.created_by = request.user
-                obj.save()
-                return Response(
-                    {"message": "Workspace created!"}, status=status.HTTP_201_CREATED
-                )
+                if request.user.organization == data.validated_data["organization"]:
+                    obj = data.save()
+                    obj.members.add(request.user)
+                    obj.created_by = request.user
+                    obj.save()
+                    return Response(
+                        {"message": "Workspace created!"},
+                        status=status.HTTP_201_CREATED,
+                    )
+                else:
+                    return Response(
+                        {
+                            "message": "You are not authorized to create workspace for this organization!"
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
             else:
                 return Response(
                     {"message": "Invalid Data"}, status=status.HTTP_400_BAD_REQUEST
@@ -131,11 +196,13 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
 class WorkspaceCustomViewSet(viewsets.ViewSet):
     @swagger_auto_schema(responses={200: UserProfileSerializer})
-    @is_organization_owner_or_workspace_manager
-    @action(detail=True, methods=["GET"], name="Get Workspace users", url_name="users")
-    def users(self, request, pk=None):
+    @is_particular_workspace_manager
+    @action(
+        detail=True, methods=["GET"], name="Get Workspace members", url_name="members"
+    )
+    def members(self, request, pk=None):
         """
-        Get all users of a workspace
+        Get all members of a workspace
         """
         try:
             workspace = Workspace.objects.get(pk=pk)
@@ -143,8 +210,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        users = workspace.users.all()
-        serializer = UserProfileSerializer(users, many=True)
+        members = workspace.members.all()
+        serializer = UserProfileSerializer(members, many=True)
         return Response(serializer.data)
 
     # TODO : add exceptions
@@ -198,10 +265,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         ret_status = 0
         username = str(request.data["username"])
         try:
-            workspace_manager_user = User.objects.get(username=username)
+            user = User.objects.get(username=username)
             workspace = Workspace.objects.get(pk=pk)
-            workspace.managers.add(workspace_manager_user)
-            workspace.users.add(workspace_manager_user)
+            workspace.managers.add(user)
+            workspace.members.add(user)
             workspace.save()
             serializer = WorkspaceManagerSerializer(workspace, many=False)
             ret_dict = {"done": True}
@@ -266,7 +333,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         url_path="projects",
         url_name="projects",
     )
-    @is_organization_owner_or_workspace_manager
+    @is_particular_workspace_manager
     def get_projects(self, request, pk=None):
         """
         API for getting all projects of a workspace
@@ -299,27 +366,27 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         url_path="project_analytics",
         url_name="project_analytics",
     )
-    @is_organization_owner_or_workspace_manager
+    @is_particular_workspace_manager
     def project_analytics(self, request, pk=None):
         """
         API for getting project_analytics of a workspace
         """
         try:
-            workspace = Workspace.objects.get(pk=pk)
+            ws = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
         try:
-            workspace_owner = workspace.created_by.get_username()
+            ws_owner = ws.created_by.get_username()
         except:
-            workspace_owner = ""
+            ws_owner = ""
         try:
-            organization_id = workspace.organization.id
-            organization_object = Organization.objects.get(id=organization_id)
-            organization_owner = organization_object.created_by.get_username()
+            org_id = ws.organization.id
+            org_obj = Organization.objects.get(id=org_id)
+            org_owner = org_obj.created_by.get_username()
         except:
-            organization_owner = ""
+            org_owner = ""
 
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
@@ -327,7 +394,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = to_date + " 23:59"
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
-        #enable_task_reviews = request.data.get("enable_task_reviews")
+        # enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -363,7 +430,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         final_result = []
         if projects_objs.count() != 0:
             for proj in projects_objs:
-                owners = [organization_owner, workspace_owner]
+                owners = [org_owner, ws_owner]
                 project_id = proj.id
                 project_name = proj.title
                 project_type = proj.project_type
@@ -375,17 +442,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     owners.append(proj_owner)
                 except:
                     pass
-
-<<<<<<< HEAD
-                labeled_tasks_ids = list(labeled_tasks.values_list('id',flat = True))
-                annotated_labeled_tasks =Annotation.objects.filter(task_id__in = labeled_tasks_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-                labeled_count = annotated_labeled_tasks.count()
-
-
-                skipped_count = Task.objects.filter(project_id = proj.id,task_status = 'skipped').count()
-                dropped_tasks = Task.objects.filter(project_id = proj.id,task_status = 'draft').count()
-=======
                 no_of_annotators_assigned = len(
                     [
                         annotator
@@ -393,21 +449,21 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         if annotator not in owners
                     ]
                 )
-                un_labeled_count = Task.objects.filter(
-                    project_id=proj.id, task_status="unlabeled"
-                ).count()
-                labeled_count = Task.objects.filter(
-                    Q(project_id=proj.id)
-                    & Q(task_status="accepted")
-                    & Q(correct_annotation__created_at__range=[start_date, end_date])
-                ).count()
-                skipped_count = Task.objects.filter(
-                    project_id=proj.id, task_status="skipped"
-                ).count()
-                dropped_tasks = Task.objects.filter(
-                    project_id=proj.id, task_status="draft"
-                ).count()
->>>>>>> 40486065960e2f32bf1c0132b410e29dde784519
+                labeled_tasks = get_annotated_tasks_project_analytics(
+                    proj.id,
+                    ["accepted", "rejected", "accepted_with_changes", "labeled"],
+                    start_date,
+                    end_date,
+                )
+
+                labeled_count = labeled_tasks.count()
+
+                un_labeled_count = get_task_count_project_analytics(
+                    proj.id, ["unlabeled"]
+                )
+                skipped_count = get_task_count_project_analytics(proj.id, ["skipped"])
+                dropped_tasks = get_task_count_project_analytics(proj.id, ["draft"])
+
                 if total_tasks == 0:
                     project_progress = 0.0
                 else:
@@ -432,38 +488,38 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @action(
         detail=True,
         methods=["POST"],
-        name="Workspace annotator Details",
+        name="Workspace member Details",
         url_path="user_analytics",
         url_name="user_analytics",
     )
-    @is_organization_owner_or_workspace_manager
+    @is_particular_workspace_manager
     def user_analytics(self, request, pk=None):
         """
         API for getting user_analytics of a workspace
         """
         try:
-            workspace = Workspace.objects.get(pk=pk)
+            ws = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
         try:
-            workspace_owner = workspace.created_by.get_username()
+            ws_owner = ws.created_by.get_username()
         except:
-            workspace_owner = ""
+            ws_owner = ""
         try:
-
-            organization_id = workspace.organization.id
-            organization_object = Organization.objects.get(id=organization_id)
-            organization_owner = organization_object.created_by.get_username()
+            org_id = ws.organization.id
+            org_obj = Organization.objects.get(id=org_id)
+            org_owner = org_obj.created_by.get_username()
         except:
-            organization_owner = ""
+            org_owner = ""
 
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
         to_date = to_date + " 23:59"
         tgt_language = request.data.get("tgt_language")
+        # enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
         if not cond:
@@ -486,10 +542,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user_obj = list(workspace.users.all())
-        user_mail = [user.get_username() for user in workspace.users.all()]
-        user_name = [user.username for user in workspace.users.all()]
-        users_id = [user.id for user in workspace.users.all()]
+        user_obj = list(ws.members.all())
+        user_mail = [user.get_username() for user in ws.members.all()]
+        user_name = [user.username for user in ws.members.all()]
+        users_id = [user.id for user in ws.members.all()]
 
         project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
@@ -505,7 +561,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             if tgt_language != None and tgt_language not in list_of_user_languages:
                 continue
 
-            if email == workspace_owner or email == organization_owner:
+            if email == ws_owner or email == org_owner:
                 continue
 
             if tgt_language == None:
@@ -527,51 +583,35 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 Q(project_id__in=proj_ids) & Q(annotation_users=each_user)
             )
             assigned_tasks = all_tasks_in_project.count()
-            
+            annotated_labeled_tasks = get_annotated_tasks(
+                proj_ids,
+                each_user,
+                ["accepted", "rejected", "accepted_with_changes", "labeled"],
+                start_date,
+                end_date,
+            )
 
-            annotated_tasks_objs =Task.objects.filter(Q(project_id__in=proj_ids) & Q(annotation_users= each_user )\
-                    & Q(task_status__in = ['accepted','rejected','accepted_with_changes','labeled']))
-
-            annotated_task_ids = list(annotated_tasks_objs.values_list('id',flat = True))
-            annotated_labeled_tasks =Annotation.objects.filter(task_id__in = annotated_task_ids ,parent_annotation_id = None,\
-                created_at__range = [start_date, end_date])
-                
             annotated_tasks = annotated_labeled_tasks.count()
-                
-            lead_time_annotated_tasks = [ eachtask.lead_time for eachtask in annotated_labeled_tasks]
+            lead_time_annotated_tasks = [
+                eachtask.lead_time for eachtask in annotated_labeled_tasks
+            ]
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0:
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(
                     lead_time_annotated_tasks
                 )
 
-            all_skipped_tasks_in_project = Task.objects.filter(
-                Q(project_id__in=proj_ids)
-                & Q(task_status="skipped")
-                & Q(annotation_users=each_user)
+            total_skipped_tasks = get_task_count(proj_ids, ["skipped"], each_user)
+            all_pending_tasks_in_project = get_task_count(
+                proj_ids, ["unlabeled"], each_user
             )
-            total_skipped_tasks = all_skipped_tasks_in_project.count()
-
-            all_pending_tasks_in_project_objs = Task.objects.filter(
-                Q(project_id__in=proj_ids)
-                & Q(task_status="unlabeled")
-                & Q(annotation_users=each_user)
-            )
-            all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
-
-            all_draft_tasks_in_project_objs = Task.objects.filter(
-                Q(project_id__in=proj_ids)
-                & Q(task_status="draft")
-                & Q(annotation_users=each_user)
-            )
-            all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
+            all_draft_tasks_in_project = get_task_count(proj_ids, ["draft"], each_user)
 
             if is_translation_project:
                 total_word_count_list = [
-                    no_of_words(each_task.data["input_text"])
-                    for each_task in annotated_tasks_objs
+                    no_of_words(each_task.task.data["input_text"])
+                    for each_task in annotated_labeled_tasks
                 ]
-
                 total_word_count = sum(total_word_count_list)
                 result = {
                     "Annotator": name,
@@ -635,15 +675,12 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
             500: "Server error occured",
         },
     )
-    @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
     @action(
-        detail=True,
-        methods=["POST"],
-        url_path="addannotators",
-        url_name="add_annotators",
+        detail=True, methods=["POST"], url_path="addmembers", url_name="add_members"
     )
-    def add_annotators(self, request, pk=None):
+    @is_particular_workspace_manager
+    def add_members(self, request, pk=None):
         user_id = request.data.get("user_id", "")
         try:
             workspace = Workspace.objects.get(pk=pk)
@@ -666,9 +703,9 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
             invalid_user_ids = []
             for user_id in user_ids:
                 try:
-                    annotator = User.objects.get(pk=user_id)
-                    if (annotator.organization) == (workspace.organization):
-                        workspace.users.add(annotator)
+                    user = User.objects.get(pk=user_id)
+                    if (user.organization) == (workspace.organization):
+                        workspace.members.add(user)
                     else:
                         invalid_user_ids.append(user_id)
                 except User.DoesNotExist:
@@ -726,15 +763,15 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
             500: "Server error occured",
         },
     )
-    @is_organization_owner_or_workspace_manager
     @permission_classes((IsAuthenticated,))
     @action(
         detail=True,
         methods=["POST"],
-        url_path="removeannotators",
-        url_name="remove_annotators",
+        url_path="removemembers",
+        url_name="remove_members",
     )
-    def remove_annotators(self, request, pk=None):
+    @is_particular_workspace_manager
+    def remove_members(self, request, pk=None):
         user_id = request.data.get("user_id", "")
         try:
             workspace = Workspace.objects.get(pk=pk)
@@ -754,9 +791,9 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 )
 
             try:
-                annotator = User.objects.get(pk=user_id)
-                if annotator in workspace.users.all():
-                    workspace.users.remove(annotator)
+                user = User.objects.get(pk=user_id)
+                if user in workspace.members.all():
+                    workspace.members.remove(user)
                     return Response(
                         {"message": "User removed successfully"},
                         status=status.HTTP_200_OK,
@@ -776,26 +813,32 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
         except ValueError:
-            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"message": "Server Error occured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @swagger_auto_schema(
         method="get",
         manual_parameters=[
             openapi.Parameter(
-                "id", openapi.IN_PATH,
+                "id",
+                openapi.IN_PATH,
                 description=("A unique integer identifying the workspace"),
                 type=openapi.TYPE_INTEGER,
-                required=True
+                required=True,
             )
         ],
         responses={
             200: UserFetchSerializer(many=True),
             403: "Not authorized",
             404: "Workspace not found/User not in the workspace/User not found",
-            500: "Server error occured"
-        }
+            500: "Server error occured",
+        },
     )
-    @action(detail=True, methods=['GET'], url_path='list-managers', url_name='list_managers')
+    @action(
+        detail=True, methods=["GET"], url_path="list-managers", url_name="list_managers"
+    )
     def list_managers(self, request, pk):
         try:
             workspace = Workspace.objects.get(pk=pk)
@@ -803,7 +846,12 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
             user_serializer = UserFetchSerializer(managers, many=True)
             return Response(user_serializer.data)
         except Workspace.DoesNotExist:
-            return Response({"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         except Exception as e:
-            print("the exception was ",e)
-            return Response({"message": "Server Error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print("the exception was ", e)
+            return Response(
+                {"message": "Server Error occured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
