@@ -410,7 +410,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         status_list = [status.replace("'", "") for status in status_list]
 
         # Extract date and time from the datetime object
-        all_dates = [date.strftime("%Y-%m-%d") for date in dates]
+        all_dates = [date.strftime("%d-%m-%Y") for date in dates]
         all_times = [date.strftime("%H:%M:%S") for date in dates]
 
         # Add the date, time and status to the serializer data

@@ -43,6 +43,15 @@ LOCK_CONTEXT = (
     (REVIEW_LOCK, "review_lock"),
 )
 
+# List of async functions pertaining to the dataset models
+ALLOWED_CELERY_TASKS = [
+    "projects.tasks.add_new_data_items_into_project",
+    "projects.tasks.create_parameters_for_task_creation", 
+    "projects.tasks.export_project_in_place", 
+    "projects.tasks.pull_new_data_items_into_project",
+    "projects.tasks.export_project_new_record",
+]
+
 
 # Create your models here.
 class Project(models.Model):

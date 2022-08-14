@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from users.models import LANG_CHOICES
 from users.serializers import UserEmailSerializer
+from dataset.serializers import TaskResultSerializer
 
 from utils.search import process_search_query
 
@@ -1718,3 +1719,71 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["GET"], name="Get language choices")
     def language_choices(self, request):
         return Response(LANG_CHOICES)
+
+    @action(methods=["GET"], detail=True, name="Get all past instances of celery tasks")
+    def get_async_task_results(self, request, pk):
+        """
+        View to get all past instances of celery tasks
+        URL: /projects/<project_id>/get_async_task_results?task_name=<task-name>
+        Accepted methods: GET
+
+        Returns:
+            A list of all past instances of celery tasks for a specific task using the project ID
+        """
+
+        # Get the task name from the request
+        task_name = request.query_params.get("task_name")
+
+        # Check if task name is in allowed task names list
+        if task_name not in ALLOWED_CELERY_TASKS:
+            return Response(
+                {
+                    "message": "Invalid task name for this app.",
+                    "allowed_tasks": ALLOWED_CELERY_TASKS,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Create the keyword argument for dataset instance ID
+        project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
+
+        # Handle 'create_parameter' task separately
+        if task_name == "projects.tasks.create_parameters_for_task_creation": 
+            
+            # Create the keyword argument for dataset instance ID
+            project_id_keyword_arg = "'project_id': " + str(pk) + "}"  
+
+        # Check the celery project export status
+        task_queryset = TaskResult.objects.filter(
+            task_name=task_name,
+            task_kwargs__contains=project_id_keyword_arg,
+        )
+
+        # Check if queryset is empty 
+        if not task_queryset:
+            return Response({"message": "No results found"}, status=status.HTTP_204_NO_CONTENT)
+
+        # Sort the task queryset by date and time
+        task_queryset = task_queryset.order_by("-date_done")
+
+        # Serialize the task queryset and return it to the frontend
+        serializer = TaskResultSerializer(task_queryset, many=True)
+
+        # Get a list of all dates 
+        dates = task_queryset.values_list("date_done", flat=True)
+        status_list = task_queryset.values_list("status", flat=True)
+
+        # Remove quotes from all statuses 
+        status_list = [status.replace("'", "") for status in status_list]
+
+        # Extract date and time from the datetime object
+        all_dates = [date.strftime("%d-%m-%Y") for date in dates]
+        all_times = [date.strftime("%H:%M:%S") for date in dates]
+
+        # Add the date, time and status to the serializer data
+        for i in range(len(serializer.data)):
+            serializer.data[i]["date"] = all_dates[i]
+            serializer.data[i]["time"] = all_times[i]
+            serializer.data[i]["status"] = status_list[i]
+
+        return Response(serializer.data)
