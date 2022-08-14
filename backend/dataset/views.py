@@ -7,24 +7,21 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
-from django.db.models import Q
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import (IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from users.serializers import UserFetchSerializer
 
 from . import resources
 from .models import *
-from .serializers import *
 from .permissions import DatasetInstancePermission
+from .serializers import *
 from .tasks import upload_data_to_data_instance
-from users.serializers import UserFetchSerializer
 
 
 ## Utility functions used inside the view functions
@@ -402,11 +399,27 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Sort the task queryset by date and time
         task_queryset = task_queryset.order_by("-date_done")
 
-        # Filter the required details from task queryset and return to the frontend
-        task_queryset = task_queryset.values(
-            "task_id", "task_name", "date_done", "status", "result", "traceback"
-        )
-        return Response(task_queryset)
+        # Serialize the task queryset and return it to the frontend
+        serializer = TaskResultSerializer(task_queryset, many=True)
+
+        # Get a list of all dates 
+        dates = task_queryset.values_list("date_done", flat=True)
+        status_list = task_queryset.values_list("status", flat=True)
+
+        # Remove quotes from all statuses 
+        status_list = [status.replace("'", "") for status in status_list]
+
+        # Extract date and time from the datetime object
+        all_dates = [date.strftime("%Y-%m-%d") for date in dates]
+        all_times = [date.strftime("%H:%M:%S") for date in dates]
+
+        # Add the date, time and status to the serializer data
+        for i in range(len(serializer.data)):
+            serializer.data[i]["date"] = all_dates[i]
+            serializer.data[i]["time"] = all_times[i]
+            serializer.data[i]["status"] = status_list[i]
+
+        return Response(serializer.data)
 
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
