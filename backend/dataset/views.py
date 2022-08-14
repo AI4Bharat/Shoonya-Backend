@@ -11,8 +11,7 @@ from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import (IsAuthenticated,
-                                        IsAuthenticatedOrReadOnly)
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from users.serializers import UserFetchSerializer
@@ -402,11 +401,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Serialize the task queryset and return it to the frontend
         serializer = TaskResultSerializer(task_queryset, many=True)
 
-        # Get a list of all dates 
+        # Get a list of all dates
         dates = task_queryset.values_list("date_done", flat=True)
         status_list = task_queryset.values_list("status", flat=True)
 
-        # Remove quotes from all statuses 
+        # Remove quotes from all statuses
         status_list = [status.replace("'", "") for status in status_list]
 
         # Extract date and time from the datetime object

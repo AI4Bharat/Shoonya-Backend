@@ -1743,15 +1743,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         # Create the keyword argument for dataset instance ID
         project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
 
         # Handle 'create_parameter' task separately
-        if task_name == "projects.tasks.create_parameters_for_task_creation": 
-            
+        if task_name == "projects.tasks.create_parameters_for_task_creation":
+
             # Create the keyword argument for dataset instance ID
-            project_id_keyword_arg = "'project_id': " + str(pk) + "}"  
+            project_id_keyword_arg = "'project_id': " + str(pk) + "}"
 
         # Check the celery project export status
         task_queryset = TaskResult.objects.filter(
@@ -1759,9 +1759,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task_kwargs__contains=project_id_keyword_arg,
         )
 
-        # Check if queryset is empty 
+        # Check if queryset is empty
         if not task_queryset:
-            return Response({"message": "No results found"}, status=status.HTTP_204_NO_CONTENT)
+            return Response(
+                {"message": "No results found"}, status=status.HTTP_204_NO_CONTENT
+            )
 
         # Sort the task queryset by date and time
         task_queryset = task_queryset.order_by("-date_done")
@@ -1769,11 +1771,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Serialize the task queryset and return it to the frontend
         serializer = TaskResultSerializer(task_queryset, many=True)
 
-        # Get a list of all dates 
+        # Get a list of all dates
         dates = task_queryset.values_list("date_done", flat=True)
         status_list = task_queryset.values_list("status", flat=True)
 
-        # Remove quotes from all statuses 
+        # Remove quotes from all statuses
         status_list = [status.replace("'", "") for status in status_list]
 
         # Extract date and time from the datetime object
