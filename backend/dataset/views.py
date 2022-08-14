@@ -366,6 +366,40 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @action(methods=["GET"], detail=True, name="Get all past instances of celery tasks")
+    def get_async_task_results(self, request, pk): 
+        """
+        View to get all past instances of celery tasks
+        URL: /data/instances/<instance-id>/get_async_task_results?task_name=<task-name>
+        Accepted methods: GET
+
+        Returns:
+            A list of all past instances of celery tasks for a specific task 
+        """
+
+        # Get the task name from the request
+        task_name = request.query_params.get("task_name")
+
+        # Check if task name is in allowed task names list
+        if task_name not in ALLOWED_CELERY_TASKS: 
+            return Response({"message": "Invalid task name for this app.", "allowed_tasks": ALLOWED_CELERY_TASKS}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the keyword argument for dataset instance ID
+        instance_id_keyword_arg = "{'pk': " + "'" + str(pk) + "'" + ","
+
+        # Check the celery project export status
+        task_queryset = TaskResult.objects.filter(
+            task_name=task_name,
+            task_kwargs__contains=instance_id_keyword_arg,
+        )
+
+        # Sort the task queryset by date and time
+        task_queryset = task_queryset.order_by("-date_done")
+
+        # Filter the required details from task queryset and return to the frontend
+        task_queryset = task_queryset.values("task_id", "task_name", "date_done", "status", "result", "traceback")
+        return Response(task_queryset)
+
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
