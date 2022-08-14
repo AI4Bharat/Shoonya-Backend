@@ -40,6 +40,7 @@ ALLOWED_CELERY_TASKS = [
     "dataset.tasks.upload_data_to_data_instance",
 ]
 
+
 class DatasetInstance(models.Model):
     """
     Dataset Instance Model
