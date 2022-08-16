@@ -452,7 +452,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                 labeled_tasks = get_annotated_tasks_project_analytics(
                     proj.id,
-                    ["accepted", "rejected", "accepted_with_changes", "labeled"],
+                    ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
                     start_date,
                     end_date,
                 )
@@ -588,7 +588,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             annotated_labeled_tasks = get_annotated_tasks(
                 proj_ids,
                 each_user,
-                ["accepted", "rejected", "accepted_with_changes", "labeled"],
+                ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
                 start_date,
                 end_date,
             )
