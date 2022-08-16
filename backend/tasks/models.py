@@ -41,7 +41,7 @@ LABELED = "labeled"
 SKIPPED = "skipped"
 ACCEPTED = "accepted"
 ACCEPTED_WITH_CHANGES = "accepted_with_changes"
-REJECTED = "rejected"
+TO_BE_REVISED = "to_be_revised"
 FREEZED = "freezed"
 DRAFT = "draft"
 
@@ -52,7 +52,7 @@ TASK_STATUS = (
     (ACCEPTED, "accepted"),
     (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
     (FREEZED, "freezed"),
-    (REJECTED, "rejected"),
+    (TO_BE_REVISED, "to_be_revised"),
     (DRAFT, "draft"),
 )
 
