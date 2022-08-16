@@ -1,6 +1,6 @@
 import requests
 from dataset import models as dataset_models
-#from google.cloud import translate_v2 as translate
+from google.cloud import translate_v2 as translate
 from rest_framework import status
 from rest_framework.response import Response
 from organizations.models import Organization
