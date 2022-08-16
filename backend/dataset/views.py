@@ -394,7 +394,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             200: "Workspace manager added Successfully",
             403: "Not authorized",
             400: "No valid user_ids found",
-            404: "Workspace not found",
+            404: "dataset not found",
             500: "Server error occured",
         },
     )
@@ -407,8 +407,15 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         url_name="add_managers",
     )
     def add_managers(self, request, pk=None):
-        user_id_list = request.data.get("user_id_list", "")
-        print(user_id_list)
+        if "user_id_list" in dict(request.data):
+            user_id_list = request.data.get("user_id_list", "")
+            print(user_id_list)
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
 
             dataset = DatasetInstance.objects.get(pk=pk)
@@ -417,24 +424,30 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 if user.role == 2:
                     dataset.users.add(user)
                     dataset.save()
+                    if User.objects.filter(id=user.id).exists():
+                        return Response(
+                            {"message": "User already exists "},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
                     return Response(
                         {"message": "managers added successfully"},
                         status=status.HTTP_200_OK,
                     )
-                else:
-                    return Response(
-                        {"message": "user is not a manager"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+
+
+            else:
+                return Response(
+                    {"message": "user is not a manager"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        except User.DoesNotExist:
+            return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
         except DatasetInstance.DoesNotExist:
             return Response(
-                {"message": "users not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        except ValueError:
-            return Response(
-                {"message": "Server Error occured"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"message": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
     # removing managers from the dataset
@@ -487,7 +500,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         except DatasetInstance.DoesNotExist:
             return Response(
-                {"message": "user not found"}, status=status.HTTP_404_NOT_FOUND
+                {"message": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         except ValueError:
