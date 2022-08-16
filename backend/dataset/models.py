@@ -12,33 +12,42 @@ DATASET_TYPE_CHOICES = [
     ("SentenceText", "SentenceText"),
     ("TranslationPair", "TranslationPair"),
     ("OCRDocument", "OCRDocument"),
-    ("BlockText","BlockText")
+    ("BlockText", "BlockText"),
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
 
-OCR_FILE_CHOICES = (('PDF', "pdf"), (('IMG', 'image')))
-OCR_TYPE_CHOICES = (('ST', "SceneText"), ('DT', "DenseText"))
+OCR_FILE_CHOICES = (("PDF", "pdf"), (("IMG", "image")))
+OCR_TYPE_CHOICES = (("ST", "SceneText"), ("DT", "DenseText"))
 OCR_DOMAIN_CHOICES = (
     ("BO", "Books"),
     ("FO", "Forms"),
     ("OT", "Others"),
 )
 
-QUALITY_CHOICES = (('Unchecked', 'Unchecked'), ('Clean', 'Clean'), ('Profane', 'Profane'), ('Difficult vocabulary', 'Difficult vocabulary'), ('Ambiguous sentence', 'Ambiguous sentence'), ('Context incomplete', 'Context incomplete'), ('Corrupt', 'Corrupt') )
+QUALITY_CHOICES = (
+    ("Unchecked", "Unchecked"),
+    ("Clean", "Clean"),
+    ("Profane", "Profane"),
+    ("Difficult vocabulary", "Difficult vocabulary"),
+    ("Ambiguous sentence", "Ambiguous sentence"),
+    ("Context incomplete", "Context incomplete"),
+    ("Corrupt", "Corrupt"),
+)
+
 
 class DatasetInstance(models.Model):
     """
     Dataset Instance Model
     """
 
-    instance_id = models.AutoField(
-        verbose_name="dataset_instance_id", primary_key=True
-    )
+    instance_id = models.AutoField(verbose_name="dataset_instance_id", primary_key=True)
 
     parent_instance_id = models.IntegerField(
-        verbose_name="parent_instance_id", blank=True, null=True,
-        help_text=("The instance id of the source dataset")
+        verbose_name="parent_instance_id",
+        blank=True,
+        null=True,
+        help_text=("The instance id of the source dataset"),
     )
     instance_name = models.CharField(
         verbose_name="dataset_instance_name", max_length=1024
@@ -46,15 +55,19 @@ class DatasetInstance(models.Model):
     instance_description = models.TextField(
         verbose_name="dataset_instance_description", null=True, blank=True
     )
-    organisation_id = models.ForeignKey(Organization, null=True, on_delete=models.SET_NULL)
+    organisation_id = models.ForeignKey(
+        Organization, null=True, on_delete=models.SET_NULL
+    )
     dataset_type = models.CharField(
         verbose_name="dataset_type",
         choices=DATASET_TYPE_CHOICES,
         max_length=100,
-        help_text=("Dataset Type which is specific for each annotation task")
+        help_text=("Dataset Type which is specific for each annotation task"),
     )
     users = models.ManyToManyField(User, related_name="dataset_users")
-    public_to_managers = models.BooleanField(verbose_name="dataset_public_to_managers", default=False)
+    public_to_managers = models.BooleanField(
+        verbose_name="dataset_public_to_managers", default=False
+    )
 
     class Meta:
         db_table = "dataset_instance"
@@ -75,11 +88,17 @@ class DatasetBase(models.Model):
     """
 
     # id = models.AutoField(verbose_name="id", primary_key=True)
-    parent_data = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
+    parent_data = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True
+    )
     instance_id = models.ForeignKey(DatasetInstance, on_delete=models.CASCADE)
     metadata_json = models.JSONField(
-        verbose_name="metadata_json", null=True, blank=True,
-        help_text=("Metadata having details related to the annotation tasks or functions this data was involved in")
+        verbose_name="metadata_json",
+        null=True,
+        blank=True,
+        help_text=(
+            "Metadata having details related to the annotation tasks or functions this data was involved in"
+        ),
     )
 
     # class Meta:
@@ -96,10 +115,29 @@ class SentenceText(DatasetBase):
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
     text = models.TextField(verbose_name="text", help_text=("Sentence Text"))
-    context = models.TextField(verbose_name="context", help_text=("Context Text"), null=True, blank=True)
-    corrected_text = models.TextField(verbose_name="corrected_text", help_text=("Corrected Sentence Text"), null=True, blank=True)
-    domain = models.CharField(verbose_name="domain", max_length=1024, help_text=("Domain of the Sentence"), null=True, blank=True)
-    quality_status = models.CharField(verbose_name="quality_status", default="Unchecked", max_length=32, choices=QUALITY_CHOICES, help_text=("Quality of the Sentence"))
+    context = models.TextField(
+        verbose_name="context", help_text=("Context Text"), null=True, blank=True
+    )
+    corrected_text = models.TextField(
+        verbose_name="corrected_text",
+        help_text=("Corrected Sentence Text"),
+        null=True,
+        blank=True,
+    )
+    domain = models.CharField(
+        verbose_name="domain",
+        max_length=1024,
+        help_text=("Domain of the Sentence"),
+        null=True,
+        blank=True,
+    )
+    quality_status = models.CharField(
+        verbose_name="quality_status",
+        default="Unchecked",
+        max_length=32,
+        choices=QUALITY_CHOICES,
+        help_text=("Quality of the Sentence"),
+    )
 
     def __str__(self):
         return str(self.id)
@@ -116,21 +154,40 @@ class TranslationPair(DatasetBase):
     output_language = models.CharField(
         verbose_name="output_language", choices=LANG_CHOICES, max_length=15
     )
-    input_text = models.TextField(verbose_name="input_text", help_text=("The text to be translated"))
-    output_text = models.TextField(verbose_name="output_text", null=True, blank=True,
-        help_text=("The translation of the sentence"))
+    input_text = models.TextField(
+        verbose_name="input_text", help_text=("The text to be translated")
+    )
+    output_text = models.TextField(
+        verbose_name="output_text",
+        null=True,
+        blank=True,
+        help_text=("The translation of the sentence"),
+    )
     machine_translation = models.TextField(
-        verbose_name="machine_translation", null=True, blank=True,
-        help_text=("Machine translation of the sentence")
+        verbose_name="machine_translation",
+        null=True,
+        blank=True,
+        help_text=("Machine translation of the sentence"),
     )
     context = models.TextField(
-        verbose_name="context", null=True, blank=True,
-        help_text=("Context of the sentence to be translated")
+        verbose_name="context",
+        null=True,
+        blank=True,
+        help_text=("Context of the sentence to be translated"),
     )
-    labse_score = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True,
-        help_text=("Labse Score of the Translation"))
-    rating = models.IntegerField(verbose_name="translation_rating", null=True, blank=True,
-        help_text=("Rating of the translation"))
+    labse_score = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=("Labse Score of the Translation"),
+    )
+    rating = models.IntegerField(
+        verbose_name="translation_rating",
+        null=True,
+        blank=True,
+        help_text=("Rating of the translation"),
+    )
 
     def __str__(self):
         return str(self.id)
@@ -145,11 +202,9 @@ class OCRDocument(DatasetBase):
         verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=3
     )
     file_url = models.URLField(
-        verbose_name = 'bucket_url_for_file', max_length = 500, null=True, blank=True
+        verbose_name="bucket_url_for_file", max_length=500, null=True, blank=True
     )
-    image_url = models.URLField(
-        verbose_name = 'bucket_url_for_image', max_length = 500
-    )
+    image_url = models.URLField(verbose_name="bucket_url_for_image", max_length=500)
     page_number = models.IntegerField(verbose_name="page_number", default=1)
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
@@ -183,6 +238,7 @@ class OCRDocument(DatasetBase):
     def __str__(self):
         return str(self.id)
 
+
 class BlockText(DatasetBase):
     """
     Dataset for storing monolingual data.
@@ -191,21 +247,27 @@ class BlockText(DatasetBase):
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
-    text = models.TextField(verbose_name="text",
-        help_text=("A block of text having many sentences"))
-    splitted_text_prediction = models.JSONField(
-        verbose_name="splitted_text_prediction", null=True, blank=True,
-        help_text=("Prediction showing the block text split into sentences")
+    text = models.TextField(
+        verbose_name="text", help_text=("A block of text having many sentences")
     )
-    splitted_text = models.TextField(verbose_name="splitted_text", null=True, blank=True,
-        help_text=("Sentences Split from the Block Text"))
-    domain = models.CharField(verbose_name="domain", max_length=1024,
-        help_text=("Domain of the block text"))
+    splitted_text_prediction = models.JSONField(
+        verbose_name="splitted_text_prediction",
+        null=True,
+        blank=True,
+        help_text=("Prediction showing the block text split into sentences"),
+    )
+    splitted_text = models.TextField(
+        verbose_name="splitted_text",
+        null=True,
+        blank=True,
+        help_text=("Sentences Split from the Block Text"),
+    )
+    domain = models.CharField(
+        verbose_name="domain", max_length=1024, help_text=("Domain of the block text")
+    )
 
     def __str__(self):
         return str(self.id)
-
-
 
 
 D1 = SentenceText

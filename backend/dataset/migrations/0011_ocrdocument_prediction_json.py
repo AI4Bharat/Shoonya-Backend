@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataset', '0010_auto_20220325_0614'),
+        ("dataset", "0010_auto_20220325_0614"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='ocrdocument',
-            name='prediction_json',
-            field=models.JSONField(blank=True, null=True, verbose_name='prediction_json'),
+            model_name="ocrdocument",
+            name="prediction_json",
+            field=models.JSONField(
+                blank=True, null=True, verbose_name="prediction_json"
+            ),
         ),
     ]

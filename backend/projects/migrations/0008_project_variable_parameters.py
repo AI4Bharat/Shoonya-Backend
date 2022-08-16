@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('projects', '0007_auto_20220317_0924'),
+        ("projects", "0007_auto_20220317_0924"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='project',
-            name='variable_parameters',
-            field=models.JSONField(null=True, verbose_name='variable parameters for project'),
+            model_name="project",
+            name="variable_parameters",
+            field=models.JSONField(
+                null=True, verbose_name="variable parameters for project"
+            ),
         ),
     ]

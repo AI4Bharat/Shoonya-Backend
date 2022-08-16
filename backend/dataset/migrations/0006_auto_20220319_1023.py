@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataset', '0005_auto_20220319_1023'),
+        ("dataset", "0005_auto_20220319_1023"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='sentencetext',
-            name='is_profane',
+            model_name="sentencetext",
+            name="is_profane",
             field=models.BooleanField(blank=True, null=True),
         ),
     ]
