@@ -1744,14 +1744,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Create the keyword argument for dataset instance ID
-        project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
-
         # Handle 'create_parameter' task separately
         if task_name == "projects.tasks.create_parameters_for_task_creation":
 
             # Create the keyword argument for dataset instance ID
             project_id_keyword_arg = "'project_id': " + str(pk) + "}"
+
+        else: 
+            # Create the keyword argument for dataset instance ID
+            project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
 
         # Check the celery project export status
         task_queryset = TaskResult.objects.filter(
