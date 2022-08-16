@@ -12,12 +12,9 @@ class Migration(migrations.Migration):
         ('tasks', '0030_auto_20220707_0959'),
     ]
 
-    operations = [ migrations.RunSQL(
-        sql= sql_query , reverse_sql= reverse_query
-        ),
+    operations = [ migrations.RunSQL( sql= sql_query , reverse_sql= reverse_query ,),
         migrations.AlterField(
             model_name='task',
             name='task_status',
             field=models.CharField(choices=[('unlabeled', 'unlabeled'), ('labeled', 'labeled'), ('skipped', 'skipped'), ('accepted', 'accepted'), ('accepted_with_changes', 'accepted_with_changes'), ('freezed', 'freezed'), ('to_be_revised', 'to_be_revised'), ('draft', 'draft')], default='unlabeled', max_length=100, verbose_name='task_status'),
-        ),
-        ]
+        ),]
