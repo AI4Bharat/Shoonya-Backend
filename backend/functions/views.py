@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from tasks.models import *
-from users.utils import LANG_TRANS_MODEL_CODES
+from users.utils import LANG_TRANS_MODEL_CODES, INDIC_TRANS_SUPPORTED_LANGUAGES
 
 from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 
@@ -463,10 +463,14 @@ def schedule_ai4b_translate_job(request):
 
 
 @api_view(["GET"])
-def get_indic_trans_model_codes(request):
-    """Function to get the translations supported by the indic-trans models"""
+def get_indic_trans_supported_langs_model_codes(request):
+    """Function to get the supported languages and the translations supported by the indic-trans models"""
 
     # Return the allowed translations and model codes
     return Response(
-        {"indic_trans_model_codes": LANG_TRANS_MODEL_CODES}, status=status.HTTP_200_OK
+        {
+            "supported_languages": INDIC_TRANS_SUPPORTED_LANGUAGES,
+            "indic_trans_model_codes": LANG_TRANS_MODEL_CODES,
+        },
+        status=status.HTTP_200_OK,
     )

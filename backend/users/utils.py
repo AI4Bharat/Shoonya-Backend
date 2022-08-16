@@ -2,6 +2,21 @@ import uuid
 
 ## Define constants
 
+# Indic Trans API supported languages
+INDIC_TRANS_SUPPORTED_LANGUAGES = [
+    "Assamese",
+    "Bengali",
+    "Gujarati",
+    "Hindi",
+    "Kannada",
+    "Malayalam",
+    "Marathi",
+    "Odia",
+    "Punjabi",
+    "Tamil",
+    "Telugu",
+]
+
 # Language names to language codes
 LANG_NAME_TO_CODE_GOOGLE = {
     "English": "en",
@@ -95,9 +110,10 @@ LANG_TRANS_MODEL_CODES = {
     "Odia-English": 138,
     "Punjabi-English": 140,
     "Telugu-English": 142,
-}  # 144 for all the other  indic-indic translations
+}  # 144 for all the other indic-indic translations
 
-DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID =  144 
+DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID = 144
+
 
 def hash_upload(instance, filename):
     filename = str(uuid.uuid4())[0:8] + "-" + filename
