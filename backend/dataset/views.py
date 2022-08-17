@@ -419,25 +419,26 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         try:
 
             dataset = DatasetInstance.objects.get(pk=pk)
+
             for user_id in user_id_list:
                 user = User.objects.get(id=user_id)
                 if user.role == 2:
-                    dataset.users.add(user)
-                    dataset.save()
-                    if User.objects.filter(id=user.id).exists():
+                    if user in dataset.users.all():
+                                    return Response(
+                                        {"message": "user already exists"},
+                                        status=status.HTTP_400_BAD_REQUEST,
+                                    )
+                    else:
+                        dataset.users.add(user)
+                        dataset.save()
                         return Response(
-                            {"message": "User already exists "},
-                            status=status.HTTP_400_BAD_REQUEST,
+                            {"message": "manager added successfully"},
+                            status=status.HTTP_200_OK,
                         )
 
+
+                else:
                     return Response(
-                        {"message": "managers added successfully"},
-                        status=status.HTTP_200_OK,
-                    )
-
-
-            else:
-                return Response(
                     {"message": "user is not a manager"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
