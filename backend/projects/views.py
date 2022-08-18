@@ -1165,10 +1165,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         final_reports.append(result)
 
                 elif users_id in reviewer_ids:
-                    reviewer_id = request.data.get("reviewer_id")
-                    if reviewer_id == None:
-                        reviewer_id = users_id
-                    result = get_review_reports(pk, reviewer_id, start_date, end_date)
+                    result = get_review_reports(pk, users_id, start_date, end_date)
                     final_reports.append(result)
                 else:
                     final_reports = {
