@@ -368,7 +368,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         project_objs = Project.objects.filter(
             workspace_id__in=workspace_id,
-            users=request.user.id,
+            annotators=request.user.id,
             project_type=project_type,
         )
 

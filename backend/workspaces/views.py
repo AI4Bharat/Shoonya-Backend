@@ -348,7 +348,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
         if request.user.role == User.ANNOTATOR:
             projects = Project.objects.filter(
-                users=request.user, workspace_id=workspace
+                annotators=request.user, workspace_id=workspace
             )
         else:
             projects = Project.objects.filter(workspace_id=workspace)
@@ -566,13 +566,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             if tgt_language == None:
                 projects_objs = Project.objects.filter(
-                    workspace_id=pk, users=each_user, project_type=project_type
+                    workspace_id=pk, annotators=each_user, project_type=project_type
                 )
             else:
                 selected_language = tgt_language
                 projects_objs = Project.objects.filter(
                     workspace_id=pk,
-                    users=each_user,
+                    annotators=each_user,
                     project_type=project_type,
                     tgt_language=tgt_language,
                 )

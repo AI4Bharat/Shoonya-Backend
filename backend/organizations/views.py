@@ -113,7 +113,7 @@ def get_counts(
         )
 
         projects_objs = Project.objects.filter(
-            users=user, project_type=project_type, organization_id=organization
+            annotators=user, project_type=project_type, organization_id=organization
         )
         no_of_projects = projects_objs.count()
 
@@ -151,7 +151,7 @@ def get_counts(
         )
 
         projects_objs = Project.objects.filter(
-            users=user,
+            annotators=user,
             project_type=project_type,
             tgt_language=tgt_language,
             organization_id=organization,

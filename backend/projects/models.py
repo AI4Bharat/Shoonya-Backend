@@ -63,7 +63,7 @@ class Project(models.Model):
         help_text=("Project Created By"),
     )
 
-    users = models.ManyToManyField(
+    annotators = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="project_users",
         help_text=("Project Users"),
