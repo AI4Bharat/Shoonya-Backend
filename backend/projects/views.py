@@ -67,7 +67,7 @@ def batch(iterable, n=1):
         yield iterable[ndx : min(ndx + n, l)]
 
 
-def get_review_reports(proj_id, userid, start_date, end_date, is_translation_project):
+def get_review_reports(proj_id, userid, start_date, end_date):
 
     user = User.objects.get(id=userid)
     userName = user.username
@@ -1154,19 +1154,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 final_reports = []
                 if (
-                    request.user.role == User.ORGANIZATION_OWNER
-                    or request.user.role == User.WORKSPACE_MANAGER
-                ):
+                    (
+                        request.user.role == User.ORGANIZATION_OWNER
+                        or request.user.role == User.WORKSPACE_MANAGER
+                    )
+                ) and (request.user.id not in reviewer_ids):
 
                     for id in reviewer_ids:
-                        result = get_review_reports(
-                            pk, id, start_date, end_date, is_translation_project
-                        )
+                        result = get_review_reports(pk, id, start_date, end_date)
                         final_reports.append(result)
+
                 elif users_id in reviewer_ids:
-                    result = get_review_reports(
-                        pk, users_id, start_date, end_date, is_translation_project
-                    )
+                    reviewer_id = request.data.get("reviewer_id")
+                    if reviewer_id == None:
+                        reviewer_id = users_id
+                    result = get_review_reports(pk, reviewer_id, start_date, end_date)
                     final_reports.append(result)
                 else:
                     final_reports = {
