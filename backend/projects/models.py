@@ -237,7 +237,7 @@ class Project(models.Model):
             self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
         )
 
-    def set_lock(self, user, context):
+    def set_lock(self, annotator, context):
         """
         Locks the project for a user
         """

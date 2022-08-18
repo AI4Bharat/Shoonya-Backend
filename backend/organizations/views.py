@@ -20,19 +20,19 @@ from projects.utils import is_valid_date, no_of_words
 
 
 def get_task_count(
-    user, tgt_language, project_type, status_list, organization, return_count=True
+    annotator, tgt_language, project_type, status_list, organization, return_count=True
 ):
     labeled_task = []
     if tgt_language == None:
         labeled_task = Task.objects.filter(
-            annotation_users=user,
+            annotation_users=annotator,
             project_id__project_type=project_type,
             task_status__in=status_list,
             project_id__organization_id=organization,
         )
     else:
         labeled_task = Task.objects.filter(
-            annotation_users=user,
+            annotation_users=annotator,
             project_id__tgt_language=tgt_language,
             project_id__project_type=project_type,
             task_status__in=status_list,
@@ -46,23 +46,23 @@ def get_task_count(
 
 
 def get_annotated_tasks(
-    user, tgt_language, project_type, status_list, organization, start_date, end_date
+    annotator, tgt_language, project_type, status_list, organization, start_date, end_date
 ):
     annotated_tasks = get_task_count(
-        user, tgt_language, project_type, status_list, organization, return_count=False
+        annotator, tgt_language, project_type, status_list, organization, return_count=False
     )
     annotated_task_ids = list(annotated_tasks.values_list("id", flat=True))
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
         parent_annotation_id=None,
         created_at__range=[start_date, end_date],
-        completed_by=user,
+        completed_by=annotator,
     )
     return annotated_labeled_tasks
 
 
 def get_counts(
-    user,
+    annotator,
     project_type,
     organization,
     start_date,
@@ -83,14 +83,14 @@ def get_counts(
 
     if tgt_language == None:
         total_no_of_tasks_assigned = Task.objects.filter(
-            annotation_users=user,
+            annotation_users=annotator,
             project_id__project_type=project_type,
             project_id__organization_id=organization,
         )
         total_no_of_tasks_count = total_no_of_tasks_assigned.count()
 
         annotated_labeled_tasks = get_annotated_tasks(
-            user,
+            annotator,
             None,
             project_type,
             ["accepted", "rejected", "accepted_with_changes", "labeled"],
@@ -101,26 +101,26 @@ def get_counts(
         annotated_tasks_count = annotated_labeled_tasks.count()
 
         total_skipped_tasks_count = get_task_count(
-            user, None, project_type, ["skipped"], organization
+            annotator, None, project_type, ["skipped"], organization
         )
 
         total_unlabeled_tasks_count = get_task_count(
-            user, None, project_type, ["unlabeled"], organization
+            annotator, None, project_type, ["unlabeled"], organization
         )
 
         total_draft_tasks_count = get_task_count(
-            user, None, project_type, ["draft"], organization
+            annotator, None, project_type, ["draft"], organization
         )
 
         projects_objs = Project.objects.filter(
-            annotators=user, project_type=project_type, organization_id=organization
+            annotators=annotator, project_type=project_type, organization_id=organization
         )
         no_of_projects = projects_objs.count()
 
     else:
 
         total_no_of_tasks_assigned = Task.objects.filter(
-            annotation_users=user,
+            annotation_users=annotator,
             project_id__project_type=project_type,
             project_id__tgt_language=tgt_language,
             project_id__organization_id=organization,
@@ -128,7 +128,7 @@ def get_counts(
         total_no_of_tasks_count = total_no_of_tasks_assigned.count()
 
         annotated_labeled_tasks = get_annotated_tasks(
-            user,
+            annotator,
             tgt_language,
             project_type,
             ["accepted", "rejected", "accepted_with_changes", "labeled"],
@@ -139,19 +139,19 @@ def get_counts(
         annotated_tasks_count = annotated_labeled_tasks.count()
 
         total_skipped_tasks_count = get_task_count(
-            user, tgt_language, project_type, ["skipped"], organization
+            annotator, tgt_language, project_type, ["skipped"], organization
         )
 
         total_unlabeled_tasks_count = get_task_count(
-            user, tgt_language, project_type, ["unlabeled"], organization
+            annotator, tgt_language, project_type, ["unlabeled"], organization
         )
 
         total_draft_tasks_count = get_task_count(
-            user, tgt_language, project_type, ["draft"], organization
+            annotator, tgt_language, project_type, ["draft"], organization
         )
 
         projects_objs = Project.objects.filter(
-            annotators=user,
+            annotators=annotator,
             project_type=project_type,
             tgt_language=tgt_language,
             organization_id=organization,
@@ -244,7 +244,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        users = User.objects.filter(organization=organization).order_by("username")
+        annotators = User.objects.filter(organization=organization).order_by("username")
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
@@ -283,9 +283,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             )
 
         result = []
-        for user in users:
-            name = user.username
-            email = user.get_username()
+        for annotator in annotators:
+            name = annotator.username
+            email = annotator.get_username()
             if tgt_language == None:
                 selected_language = "-"
                 (
@@ -299,7 +299,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     no_of_workspaces_objs,
                     total_word_count,
                 ) = get_counts(
-                    user,
+                    annotator,
                     project_type,
                     organization,
                     start_date,
@@ -309,7 +309,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
             else:
                 selected_language = tgt_language
-                list_of_user_languages = user.languages
+                list_of_user_languages = annotator.languages
                 if tgt_language != None and tgt_language not in list_of_user_languages:
                     continue
                 (
@@ -323,7 +323,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     no_of_workspaces_objs,
                     total_word_count,
                 ) = get_counts(
-                    user,
+                    annotator,
                     project_type,
                     organization,
                     start_date,
@@ -452,7 +452,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 project_type = proj.project_type
                 all_tasks = Task.objects.filter(project_id=proj.id)
                 total_tasks = all_tasks.count()
-                annotators_list = [user_.get_username() for user_ in proj.users.all()]
+                annotators_list = [user_.get_username() for user_ in proj.annotators.all()]
                 no_of_annotators_assigned = len(
                     [
                         annotator
