@@ -268,7 +268,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
         print(dataset_type)
-        print("pppppppppppppppppppp")
 
         if "dataset" not in request.FILES:
             return Response(
@@ -280,11 +279,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         dataset = request.FILES["dataset"]
         content_type = dataset.name.split(".")[-1]
         print(content_type)
-        print("-----------------------------")
 
         # Ensure that the content type is accepted, return error otherwise
         if content_type not in DatasetInstanceViewSet.ACCEPTED_FILETYPES:
-            print("+++++++++++++++++++++++++++++++")
             return Response(
                 {
                     "message": f"Invalid Dataset File. Only accepts the following file formats: {DatasetInstanceViewSet.ACCEPTED_FILETYPES}",
@@ -295,14 +292,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Read the dataset as a string from the dataset pointer
         try:
             if content_type in ["xls", "xlsx"]:
-                print("iiiiiiiiiiiiiiiiiiiiiiiii")
                 # xls and xlsx files cannot be decoded as a string
                 dataset_string = b64encode(dataset.read()).decode()
-                print("mmmmmmmmmmmmmmmmmmmmmm")
             else:
                 dataset_string = dataset.read().decode()
         except Exception as e:
-            print("ooooooooooooooooooooooooooooo")
             return Response(
                 {
                     "message": f"Error while reading file. Please check the file data and try again.",
@@ -321,7 +315,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Get name of the dataset instance
         dataset_name = get_object_or_404(DatasetInstance, pk=pk).instance_name
-        print("nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn")
         return Response(
             {
                 "message": f"Uploading {dataset_type} data to Dataset Instance: {dataset_name}",
