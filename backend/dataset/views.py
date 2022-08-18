@@ -409,7 +409,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     def add_managers(self, request, pk=None):
         if "user_id_list" in dict(request.data):
             user_id_list = request.data.get("user_id_list", "")
-            print(user_id_list)
         else:
             return Response(
                 {"message": "key doesnot match"},
@@ -424,10 +423,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 user = User.objects.get(id=user_id)
                 if user.role == 2:
                     if user in dataset.users.all():
-                                    return Response(
+                        return Response(
                                         {"message": "user already exists"},
                                         status=status.HTTP_400_BAD_REQUEST,
                                     )
+  
                     else:
                         dataset.users.add(user)
                         dataset.save()
