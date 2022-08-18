@@ -1750,7 +1750,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Create the keyword argument for dataset instance ID
             project_id_keyword_arg = "'project_id': " + str(pk) + "}"
 
-        else: 
+        else:
             # Create the keyword argument for dataset instance ID
             project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
 

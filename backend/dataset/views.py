@@ -1,5 +1,5 @@
 import ast
-import re 
+import re
 from base64 import b64encode
 from urllib.parse import parse_qsl
 
@@ -387,17 +387,26 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check if the task name has the word projects in it 
+        # Check if the task name has the word projects in it
         if "projects" in task_name:
 
             # Get the IDs of the projects associated with the dataset instance
-            project_ids = apps.get_model("projects", "Project").objects.filter(dataset_id=pk).values_list("id", flat=True)
-            
+            project_ids = (
+                apps.get_model("projects", "Project")
+                .objects.filter(dataset_id=pk)
+                .values_list("id", flat=True)
+            )
+
             # Create the project keywords list
-            project_id_keyword_args = ["'project_id': " + "'" + str(pk) + "'" for pk in project_ids]
+            project_id_keyword_args = [
+                "'project_id': " + "'" + str(pk) + "'" for pk in project_ids
+            ]
 
             # Turn list of project ID keywords into list of Q objects
-            queries = [Q(task_kwargs__contains=project_keyword) for project_keyword in project_id_keyword_args]
+            queries = [
+                Q(task_kwargs__contains=project_keyword)
+                for project_keyword in project_id_keyword_args
+            ]
             print("The QUERY", queries)
             query = queries.pop()
 
@@ -405,16 +414,16 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             for item in queries:
                 query |= item
 
-            # Get the task queryset for the task name and all the corresponding projects for this dataset 
+            # Get the task queryset for the task name and all the corresponding projects for this dataset
             task_queryset = TaskResult.objects.filter(
-                query, 
-                task_name=task_name, 
-            ) 
+                query,
+                task_name=task_name,
+            )
 
-        else: 
+        else:
             # Create the keyword argument for dataset instance ID
             instance_id_keyword_arg = "{'pk': " + "'" + str(pk) + "'" + ","
-            
+
             # Check the celery project export status
             task_queryset = TaskResult.objects.filter(
                 task_name=task_name,
@@ -447,17 +456,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Add the project ID from the task kwargs to the serializer data
         if "projects" in task_name:
             for i in range(len(serializer.data)):
-                
-                try: 
+
+                try:
                     # Apply regex query to task kwargs and get the project ID string
-                    project_id_list = re.findall(r"('project_id': '[0-9]+')", serializer.data[i]["task_kwargs"])
+                    project_id_list = re.findall(
+                        r"('project_id': '[0-9]+')", serializer.data[i]["task_kwargs"]
+                    )
                     project_id = int(project_id_list[0].split("'")[-2])
 
                     # Add to serializer data
                     serializer.data[i]["project_id"] = project_id
-                
-                except: 
-                    # Handle the project ID exception 
+
+                except:
+                    # Handle the project ID exception
                     serializer.data[i]["project_id"] = "Not ID found"
 
         return Response(serializer.data)

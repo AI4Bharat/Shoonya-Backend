@@ -65,6 +65,7 @@ class BlockTextSerializer(serializers.ModelSerializer):
         model = BlockText
         fields = "__all__"
 
+
 class TaskResultSerializer(serializers.ModelSerializer):
     """
     Serializer for TaskResult data
@@ -73,6 +74,7 @@ class TaskResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskResult
         fields = "__all__"
+
 
 # Define a mapping between dataset instance type and serializer
 SERIALIZER_MAP = {
