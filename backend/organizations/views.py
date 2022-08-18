@@ -46,10 +46,21 @@ def get_task_count(
 
 
 def get_annotated_tasks(
-    annotator, tgt_language, project_type, status_list, organization, start_date, end_date
+    annotator,
+    tgt_language,
+    project_type,
+    status_list,
+    organization,
+    start_date,
+    end_date,
 ):
     annotated_tasks = get_task_count(
-        annotator, tgt_language, project_type, status_list, organization, return_count=False
+        annotator,
+        tgt_language,
+        project_type,
+        status_list,
+        organization,
+        return_count=False,
     )
     annotated_task_ids = list(annotated_tasks.values_list("id", flat=True))
     annotated_labeled_tasks = Annotation.objects.filter(
@@ -113,7 +124,9 @@ def get_counts(
         )
 
         projects_objs = Project.objects.filter(
-            annotators=annotator, project_type=project_type, organization_id=organization
+            annotators=annotator,
+            project_type=project_type,
+            organization_id=organization,
         )
         no_of_projects = projects_objs.count()
 
@@ -452,7 +465,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 project_type = proj.project_type
                 all_tasks = Task.objects.filter(project_id=proj.id)
                 total_tasks = all_tasks.count()
-                annotators_list = [user_.get_username() for user_ in proj.annotators.all()]
+                annotators_list = [
+                    user_.get_username() for user_ in proj.annotators.all()
+                ]
                 no_of_annotators_assigned = len(
                     [
                         annotator

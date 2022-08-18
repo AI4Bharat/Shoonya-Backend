@@ -245,7 +245,9 @@ def get_tasks_count(pk, annotator, status, return_task_count=True):
 
 
 def get_annotated_tasks(pk, annotator, status, start_date, end_date):
-    annotated_tasks_objs = get_tasks_count(pk, annotator, status, return_task_count=False)
+    annotated_tasks_objs = get_tasks_count(
+        pk, annotator, status, return_task_count=False
+    )
     annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list("id", flat=True))
     annotated_objs = Annotation_model.objects.filter(
         task_id__in=annotated_tasks_objs_ids,
