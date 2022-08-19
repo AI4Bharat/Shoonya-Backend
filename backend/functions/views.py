@@ -1,8 +1,6 @@
 import ast
 import json
-from email import message
 
-import pandas as pd
 from dataset import models as dataset_models
 from projects.models import *
 from rest_framework import status
@@ -10,13 +8,10 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from tasks.models import *
-from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 
 from .tasks import sentence_text_translate_and_save_translation_pairs
 from .utils import (check_if_particular_organization_owner,
-                    check_translation_function_inputs,
-                    get_batch_translations_using_google_translate,
-                    get_batch_translations_using_indictrans_nmt_api)
+                    check_translation_function_inputs)
 
 ## Utility functions
 # def sentence_text_translate_and_save_translation_pairs(
