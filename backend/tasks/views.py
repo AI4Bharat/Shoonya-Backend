@@ -74,15 +74,15 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         """
         task = self.get_object()
         user_ids = request.data.get("user_ids")
-        users = []
+        annotators = []
         for u_id in user_ids:
             try:
-                users.append(User.objects.get(id=u_id))
+                annotators.append(User.objects.get(id=u_id))
             except User.DoesNotExist:
                 return Response(
                     {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
                 )
-        task.assign(users)
+        task.assign(annotators)
         return Response({"message": "Task assigned"}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get"], url_path="annotations")
@@ -93,14 +93,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         task = self.get_object()
         annotations = Annotation.objects.filter(task=task)
         project = Project.objects.get(id=task.project_id.id)
-        user = request.user
+        annotators = request.user
 
         if (
-            user.role == User.ANNOTATOR
-            and user not in project.annotation_reviewers.all()
+            annotators.role == User.ANNOTATOR
+            and annotators not in project.annotation_reviewers.all()
         ):
-            if user in project.users.all():
-                annotations = annotations.filter(completed_by=user)
+            if annotator in project.annotators.all():
+                annotations = annotations.filter(completed_by=annotators)
             else:
                 return Response(
                     {"message": "You are not a part of this project"},
@@ -241,11 +241,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids.append(each_data["id"])
 
             if (
-                user.role == User.ANNOTATOR
-                and user
+                annotators.role == User.ANNOTATOR
+                and annotators
                 in Project.objects.get(
                     id=request.query_params["project_id"]
-                ).users.all()
+                ).annotators.all()
             ):
                 annotation_queryset = Annotation.objects.filter(
                     completed_by=request.user
