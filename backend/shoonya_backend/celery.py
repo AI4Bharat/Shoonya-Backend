@@ -18,12 +18,13 @@ celery_app = Celery(
 # Celery settings
 celery_app.config_from_object("django.conf:settings", namespace="CELERY")
 
-# Celery Queue related settings 
-celery_app.conf.task_default_queue = 'default'
-celery_app.conf.task_routes = {'functions.tasks.*': {'queue': 'functions'}}
+# Celery Queue related settings
+celery_app.conf.task_default_queue = "default"
+celery_app.conf.task_routes = {"functions.tasks.*": {"queue": "functions"}}
 
 # Celery Task related settings
 celery_app.autodiscover_tasks()
+
 
 @celery_app.task(bind=True)
 def debug_task(self):

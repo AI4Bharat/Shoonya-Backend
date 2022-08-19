@@ -11,8 +11,10 @@ from rest_framework.response import Response
 from tasks.models import *
 
 from .tasks import sentence_text_translate_and_save_translation_pairs
-from .utils import (check_if_particular_organization_owner,
-                    check_translation_function_inputs)
+from .utils import (
+    check_if_particular_organization_owner,
+    check_translation_function_inputs,
+)
 
 ## Utility functions
 # def sentence_text_translate_and_save_translation_pairs(
