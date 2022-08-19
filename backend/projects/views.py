@@ -68,6 +68,64 @@ def batch(iterable, n=1):
         yield iterable[ndx : min(ndx + n, l)]
 
 
+def get_review_reports(proj_id, userid, start_date, end_date):
+
+    user = User.objects.get(id=userid)
+    userName = user.username
+
+    total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
+
+    total_task_count = total_tasks.count()
+
+    accepted_tasks = Task.objects.filter(
+        project_id=proj_id, review_user=userid, task_status="accepted"
+    )
+
+    accepted_tasks_objs_ids = list(accepted_tasks.values_list("id", flat=True))
+    accepted_objs = Annotation_model.objects.filter(
+        task_id__in=accepted_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    accepted_objs_count = accepted_objs.count()
+
+    acceptedwtchange_tasks = Task.objects.filter(
+        project_id=proj_id, review_user=userid, task_status="accepted_with_changes"
+    )
+
+    acceptedwtchange_tasks_objs_ids = list(
+        acceptedwtchange_tasks.values_list("id", flat=True)
+    )
+    acceptedwtchange_objs = Annotation_model.objects.filter(
+        task_id__in=acceptedwtchange_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    acceptedwtchange_objs_count = acceptedwtchange_objs.count()
+
+    labeled_tasks = Task.objects.filter(
+        project_id=proj_id, review_user=userid, task_status="labeled"
+    )
+    labeled_tasks_count = labeled_tasks.count()
+
+    to_be_revised_tasks = Task.objects.filter(
+        project_id=proj_id, review_user=userid, task_status="to_be_revised"
+    )
+    to_be_revised_tasks_count = to_be_revised_tasks.count()
+
+    result = {
+        "Reviewer Name": userName,
+        "Assigned Tasks": total_task_count,
+        "Accepted Tasks": accepted_objs_count,
+        "Accepted With Changes Tasks": acceptedwtchange_objs_count,
+        "Labeled Tasks": labeled_tasks_count,
+        "To Be Revised Tasks": to_be_revised_tasks_count,
+    }
+    return result
+
+
 def extract_latest_status_date_time_from_taskresult_queryset(taskresult_queryset):
     """Function to extract the latest status and date time from the celery task results.
 
@@ -1087,6 +1145,38 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_type = proj_obj.project_type
         project_type = project_type.lower()
         is_translation_project = True if "translation" in project_type else False
+        users_id = request.user.id
+
+        reports_type = request.data.get("reports_type")
+
+        if reports_type == "review_reports":
+            if proj_obj.enable_task_reviews:
+                reviewer_names_list = proj_obj.annotation_reviewers.all()
+                reviewer_ids = [name.id for name in reviewer_names_list]
+                final_reports = []
+                if (
+                    (
+                        request.user.role == User.ORGANIZATION_OWNER
+                        or request.user.role == User.WORKSPACE_MANAGER
+                    )
+                ) and (request.user.id not in reviewer_ids):
+
+                    for id in reviewer_ids:
+                        result = get_review_reports(pk, id, start_date, end_date)
+                        final_reports.append(result)
+
+                elif users_id in reviewer_ids:
+                    result = get_review_reports(pk, users_id, start_date, end_date)
+                    final_reports.append(result)
+                else:
+                    final_reports = {
+                        "message": "You do not have enough permissions to access this view!"
+                    }
+                return Response(final_reports)
+            else:
+                result = {"message": "disabled task reviews for this project "}
+                return Response(result)
+
         managers = [
             user1.get_username() for user1 in proj_obj.workspace_id.managers.all()
         ]
