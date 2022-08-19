@@ -858,16 +858,15 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-
-    
     @action(
-        detail=True,methods=["GET"],url_path="particular-user-workspaces",url_name="particular_user_workspaces"
+        detail=True,
+        methods=["GET"],
+        url_path="particular-user-workspaces",
+        url_name="particular_user_workspaces",
     )
-    def particular_user_workspaces(self,request,pk):
+    def particular_user_workspaces(self, request, pk):
         if request.user.is_anonymous:
-            return Response(
-                {"message":"Access Denied."}
-            )
-        workspaces=Workspace.objects.filter(members__in=[pk])
-        workspaces_serializer=WorkspaceSerializer(workspaces,many=True)
+            return Response({"message": "Access Denied."})
+        workspaces = Workspace.objects.filter(members__in=[pk])
+        workspaces_serializer = WorkspaceSerializer(workspaces, many=True)
         return Response(workspaces_serializer.data)
