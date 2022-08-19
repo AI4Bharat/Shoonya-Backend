@@ -1,5 +1,6 @@
 import ast
 import json
+from email import message
 
 from dataset import models as dataset_models
 from projects.models import *
@@ -452,3 +453,17 @@ def schedule_ai4b_translate_job(request):
     ret_dict = {"message": "Creating translation pairs from the input dataset."}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
+
+
+@api_view(["GET"])
+def get_indic_trans_supported_langs_model_codes(request):
+    """Function to get the supported languages and the translations supported by the indic-trans models"""
+
+    # Return the allowed translations and model codes
+    return Response(
+        {
+            "supported_languages": INDIC_TRANS_SUPPORTED_LANGUAGES,
+            "indic_trans_model_codes": LANG_TRANS_MODEL_CODES,
+        },
+        status=status.HTTP_200_OK,
+    )
