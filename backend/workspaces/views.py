@@ -21,6 +21,7 @@ from .serializers import (
     UnAssignManagerSerializer,
     WorkspaceManagerSerializer,
     WorkspaceSerializer,
+    WorkspaceNameSerializer,
 )
 from .models import Workspace
 from .decorators import (
@@ -859,14 +860,14 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
             )
 
     @action(
-        detail=True,
+        detail=False,
         methods=["GET"],
-        url_path="particular-user-workspaces",
-        url_name="particular_user_workspaces",
+        url_path="user-workspaces/loggedin-user-workspaces",
+        url_name="loggedin_user_workspaces",
     )
-    def particular_user_workspaces(self, request, pk):
+    def loggedin_user_workspaces(self, request):
         if request.user.is_anonymous:
             return Response({"message": "Access Denied."})
-        workspaces = Workspace.objects.filter(members__in=[pk])
-        workspaces_serializer = WorkspaceSerializer(workspaces, many=True)
+        workspaces = Workspace.objects.filter(members__in=[request.user.pk])
+        workspaces_serializer = WorkspaceNameSerializer(workspaces, many=True)
         return Response(workspaces_serializer.data)
