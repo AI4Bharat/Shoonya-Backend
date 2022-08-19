@@ -280,7 +280,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
-        
 
         dataset_type = dataset_obj.dataset_type
 
@@ -293,7 +292,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             )
         dataset = request.FILES["dataset"]
         content_type = dataset.name.split(".")[-1]
-      
 
         # Ensure that the content type is accepted, return error otherwise
         if content_type not in DatasetInstanceViewSet.ACCEPTED_FILETYPES:
@@ -432,10 +430,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 if user.role == 2:
                     if user in dataset.users.all():
                         return Response(
-                                        {"message": "user already exists"},
-                                        status=status.HTTP_400_BAD_REQUEST,
-                                    )
-  
+                            {"message": "user already exists"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
                     else:
                         dataset.users.add(user)
                         dataset.save()
@@ -444,15 +442,16 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_200_OK,
                         )
 
-
                 else:
                     return Response(
-                    {"message": "user is not a manager"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                        {"message": "user is not a manager"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
         except User.DoesNotExist:
-            return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         except DatasetInstance.DoesNotExist:
             return Response(
@@ -504,7 +503,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 if user.role == 2:
                     dataset.users.remove(user)
                     return Response(
-                        {"message": "manager removed successfully"}, status=status.HTTP_200_OK
+                        {"message": "manager removed successfully"},
+                        status=status.HTTP_200_OK,
                     )
 
         except DatasetInstance.DoesNotExist:
@@ -632,6 +632,7 @@ class DatasetTypeView(APIView):
                     "choices": None,
                 }
         return Response(dict, status=status.HTTP_200_OK)
+
 
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
