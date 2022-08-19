@@ -6,13 +6,29 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('projects', '0028_projecttaskrequestlock_lock_context'),
+        ("projects", "0028_projecttaskrequestlock_lock_context"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='project',
-            name='project_type',
-            field=models.CharField(choices=[('MonolingualTranslation', 'MonolingualTranslation'), ('TranslationEditing', 'TranslationEditing'), ('SemanticTextualSimilarity', 'SemanticTextualSimilarity'), ('ContextualTranslationEditing', 'ContextualTranslationEditing'), ('OCRAnnotation', 'OCRAnnotation'), ('MonolingualCollection', 'MonolingualCollection'), ('SentenceSplitting', 'SentenceSplitting'), ('ContextualSentenceVerification', 'ContextualSentenceVerification')], help_text='Project Type indicating the annotation task', max_length=100),
+            model_name="project",
+            name="project_type",
+            field=models.CharField(
+                choices=[
+                    ("MonolingualTranslation", "MonolingualTranslation"),
+                    ("TranslationEditing", "TranslationEditing"),
+                    ("SemanticTextualSimilarity", "SemanticTextualSimilarity"),
+                    ("ContextualTranslationEditing", "ContextualTranslationEditing"),
+                    ("OCRAnnotation", "OCRAnnotation"),
+                    ("MonolingualCollection", "MonolingualCollection"),
+                    ("SentenceSplitting", "SentenceSplitting"),
+                    (
+                        "ContextualSentenceVerification",
+                        "ContextualSentenceVerification",
+                    ),
+                ],
+                help_text="Project Type indicating the annotation task",
+                max_length=100,
+            ),
         ),
     ]

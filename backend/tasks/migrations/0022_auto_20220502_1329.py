@@ -7,18 +7,28 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tasks', '0021_auto_20220430_0708'),
+        ("tasks", "0021_auto_20220430_0708"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='annotation',
-            name='result',
-            field=models.JSONField(help_text='Has the annotation done by the annotator', verbose_name='annotation_result_json'),
+            model_name="annotation",
+            name="result",
+            field=models.JSONField(
+                help_text="Has the annotation done by the annotator",
+                verbose_name="annotation_result_json",
+            ),
         ),
         migrations.AlterField(
-            model_name='task',
-            name='correct_annotation',
-            field=models.ForeignKey(blank=True, help_text='Correct Annotation of the task', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='correct_annotation', to='tasks.annotation'),
+            model_name="task",
+            name="correct_annotation",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="Correct Annotation of the task",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="correct_annotation",
+                to="tasks.annotation",
+            ),
         ),
     ]

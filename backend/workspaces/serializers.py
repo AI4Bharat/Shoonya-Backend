@@ -6,9 +6,10 @@ from users.serializers import UserProfileSerializer
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
-    managers = UserProfileSerializer(read_only=True,many=True)
+    managers = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
     users = UserProfileSerializer(read_only=True, many=True)
+
     class Meta:
         model = Workspace
         fields = [
@@ -35,22 +36,20 @@ class UnAssignManagerSerializer(serializers.Serializer):
     # Change request data from username to user_id in unassign_managers endpoint
     user_id = serializers.IntegerField(required=True)
 
-    def validate_user_id(self, user_id):
-        users = User.objects.filter(id=user_id).all()
-        print(users)
-        
-        if not User.objects.filter(pk=user_id).exists():
-            raise serializers.ValidationError("User does not exist")
-        
-        return user_id
+    def validate_emails(self, usernames):
+        users = User.objects.filter(username__in=usernames).all()
+
+        if len(users) != len(usernames):
+            raise serializers.ValidationError("Enter existing user usernames")
+
+        return usernames
 
     def update(self, workspace, validated_data):
-        user_id = validated_data.pop('user_id')
-        users = User.objects.filter(id=user_id).all()
+        usernames = validated_data.pop("usernames")
+        users = User.objects.filter(username__in=usernames).all()
 
         for user in users:
             workspace.managers.remove(user)
         workspace.save()
-        
-        return workspace
 
+        return workspace
