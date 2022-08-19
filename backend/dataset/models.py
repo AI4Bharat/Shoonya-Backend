@@ -35,6 +35,13 @@ QUALITY_CHOICES = (
     ("Corrupt", "Corrupt"),
 )
 
+# List of async functions pertaining to the dataset models
+ALLOWED_CELERY_TASKS = [
+    "dataset.tasks.upload_data_to_data_instance",
+    "projects.tasks.export_project_new_record",
+    "projects.tasks.export_project_in_place",
+]
+
 
 class DatasetInstance(models.Model):
     """
