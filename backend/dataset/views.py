@@ -408,10 +408,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 for project_keyword in project_id_keyword_args
             ]
 
-            # Handle exception when queries is empty 
-            try: 
+            # Handle exception when queries is empty
+            try:
                 query = queries.pop()
-            
+
             except IndexError:
                 return Response(
                     {
@@ -419,7 +419,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-                
+
             # Convert the list of Q objects into a single query
             for item in queries:
                 query |= item
