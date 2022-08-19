@@ -1,3 +1,4 @@
+from email.policy import strict
 import pandas as pd
 from celery import shared_task
 from dataset import models as dataset_models
@@ -62,10 +63,18 @@ def sentence_text_translate_and_save_translation_pairs(
     input_sentences_df = input_sentences_df[
         (input_sentences_df["quality_status"] == "Clean")
     ].reset_index(drop=True)
-
     # Check if the dataframe is empty
     if input_sentences_df.shape[0] == 0:
-        return {"error": "No clean sentences found. Perform project export first."}
+        
+        # Update the task status 
+        self.update_state(
+            state="FAILURE",
+            meta={
+                "No sentences to upload.",
+            },
+        )
+
+        raise Exception("No clean sentences found. Perform project export first.") 
 
     # Make a sentence list for valid sentences to be translated
     all_sentences_to_be_translated = input_sentences_df["corrected_text"].tolist()
@@ -74,7 +83,6 @@ def sentence_text_translate_and_save_translation_pairs(
     output_dataset_instance = dataset_models.DatasetInstance.objects.get(
         instance_id=output_dataset_instance_id
     )
-
     # Create a TranslationPair object list
     translation_pair_objects = []
 
@@ -101,33 +109,61 @@ def sentence_text_translate_and_save_translation_pairs(
 
                 # Check if the translations output is a string or a list
                 if isinstance(translations_output, str):
-                    return {"error": translations_output}
+
+                    # Update the task status and raise an exception
+                    self.update_state(
+                        state="FAILURE",
+                        meta={
+                            "Error: {}".format(translations_output),
+                        },
+                    )
+
+                    raise Exception(translations_output)
                 else:
                     translated_sentences = translations_output
-
+            
             elif api_type == "google":
-
                 # Get the translation using the Indictrans NMT API
                 translations_output = get_batch_translations_using_google_translate(
                     sentence_list=batch_of_input_sentences,
                     target_language=output_language,
                     checks_for_particular_languages=checks_for_particular_languages,
                 )
-
                 # Check if translation output returned a list or a string
-                if isinstance(translations_output, str):
-                    return {"error": translations_output}
+                if type(translations_output) != list:  
+                    # Update the task status and raise an exception
+                    self.update_state(
+                        state="FAILURE",
+                        meta={
+                            "Google API Error",
+                        },
+                    )
+
+                    raise Exception("Google API Error")
                 else:
                     translated_sentences = translations_output
 
             else:
-                return {"error": "Invalid API type. Allowed - [indic-trans, google]"}
+                # Update the task status and raise an exception
+                self.update_state(
+                    state="FAILURE",
+                    meta={
+                        "Invalid API type. Allowed - [indic-trans, google]",
+                    },
+                )
+
+                raise Exception("Invalid API type. Allowed - [indic-trans, google]")
 
             # Check if the translated sentences are equal to the input sentences
             if len(translated_sentences) != len(batch_of_input_sentences):
-                return {
-                    "error": "The number of translated sentences does not match the number of input sentences."
-                }
+                # Update the task status and raise an exception
+                self.update_state(
+                    state="FAILURE",
+                    meta={
+                        "Error: Number of translated sentences does not match with the number of input sentences.",
+                    },
+                )
+                raise Exception("The number of translated sentences does not match the number of input sentences.")
 
             # Iterate through the dataframe
             for index, row in input_sentences_df[i : i + batch_size].iterrows():
@@ -159,8 +195,8 @@ def sentence_text_translate_and_save_translation_pairs(
 
                 # Append the object to TranslationPair list for bulk create
                 translation_pair_objects.append(translation_pair_obj)
-
+    
     # Bulk create the TranslationPair objects
     multi_inheritance_table_bulk_insert(translation_pair_objects)
 
-    return "Success"
+    return f"{len(translation_pair_objects)} translation pairs created for languages: {str(languages)}"
