@@ -415,7 +415,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             except IndexError:
                 return Response(
                     {
-                        "message": "No past instances of this task found.",
+                        "message": "No projects associated with this task.",
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
