@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import os
+
 from celery import Celery
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shoonya_backend.settings")
@@ -14,9 +15,15 @@ celery_app = Celery(
     task_serializer="json",
 )
 
+# Celery settings
 celery_app.config_from_object("django.conf:settings", namespace="CELERY")
+
+# Celery Queue related settings 
+celery_app.conf.task_default_queue = 'default'
+celery_app.conf.task_routes = {'functions.tasks.*': {'queue': 'functions'}}
+
+# Celery Task related settings
 celery_app.autodiscover_tasks()
-# celery_app.conf.task_routes = {'functions.tasks.*': {'queue': 'functions'}}
 
 @celery_app.task(bind=True)
 def debug_task(self):
