@@ -407,9 +407,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 Q(task_kwargs__contains=project_keyword)
                 for project_keyword in project_id_keyword_args
             ]
-            print("The QUERY", queries)
-            query = queries.pop()
 
+            # Handle exception when queries is empty 
+            try: 
+                query = queries.pop()
+            
+            except IndexError:
+                return Response(
+                    {
+                        "message": "No past instances of this task found.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+                
             # Convert the list of Q objects into a single query
             for item in queries:
                 query |= item
