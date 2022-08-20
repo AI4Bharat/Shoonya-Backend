@@ -93,14 +93,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         task = self.get_object()
         annotations = Annotation.objects.filter(task=task)
         project = Project.objects.get(id=task.project_id.id)
-        annotators = request.user
+        annotator = request.user
 
         if (
-            annotators.role == User.ANNOTATOR
-            and annotators not in project.annotation_reviewers.all()
+            annotator.role == User.ANNOTATOR
+            and annotator not in project.annotation_reviewers.all()
         ):
             if annotator in project.annotators.all():
-                annotations = annotations.filter(completed_by=annotators)
+                annotations = annotations.filter(completed_by=annotator)
             else:
                 return Response(
                     {"message": "You are not a part of this project"},
