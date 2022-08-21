@@ -1,4 +1,5 @@
 import ast
+import re
 from base64 import b64encode
 from urllib.parse import parse_qsl
 
@@ -7,24 +8,20 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
-from django.db.models import Q
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from users.serializers import UserFetchSerializer
 
 from . import resources
 from .models import *
-from .serializers import *
 from .permissions import DatasetInstancePermission
+from .serializers import *
 from .tasks import upload_data_to_data_instance
-from users.serializers import UserFetchSerializer
 
 
 ## Utility functions used inside the view functions
@@ -363,6 +360,126 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             project["last_project_export_status"] = project_export_status
             project["last_project_export_date"] = last_project_export_date
             project["last_project_export_time"] = last_project_export_time
+
+        return Response(serializer.data)
+
+    @action(methods=["GET"], detail=True, name="Get all past instances of celery tasks")
+    def get_async_task_results(self, request, pk):
+        """
+        View to get all past instances of celery tasks
+        URL: /data/instances/<instance-id>/get_async_task_results?task_name=<task-name>
+        Accepted methods: GET
+
+        Returns:
+            A list of all past instances of celery tasks for a specific task
+        """
+
+        # Get the task name from the request
+        task_name = request.query_params.get("task_name")
+
+        # Check if task name is in allowed task names list
+        if task_name not in ALLOWED_CELERY_TASKS:
+            return Response(
+                {
+                    "message": "Invalid task name for this app.",
+                    "allowed_tasks": ALLOWED_CELERY_TASKS,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if the task name has the word projects in it
+        if "projects" in task_name:
+
+            # Get the IDs of the projects associated with the dataset instance
+            project_ids = (
+                apps.get_model("projects", "Project")
+                .objects.filter(dataset_id=pk)
+                .values_list("id", flat=True)
+            )
+
+            # Create the project keywords list
+            project_id_keyword_args = [
+                "'project_id': " + "'" + str(pk) + "'" for pk in project_ids
+            ]
+
+            # Turn list of project ID keywords into list of Q objects
+            queries = [
+                Q(task_kwargs__contains=project_keyword)
+                for project_keyword in project_id_keyword_args
+            ]
+
+            # Handle exception when queries is empty
+            try:
+                query = queries.pop()
+
+            except IndexError:
+                return Response(
+                    {
+                        "message": "No projects associated with this task.",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Convert the list of Q objects into a single query
+            for item in queries:
+                query |= item
+
+            # Get the task queryset for the task name and all the corresponding projects for this dataset
+            task_queryset = TaskResult.objects.filter(
+                query,
+                task_name=task_name,
+            )
+
+        else:
+            # Create the keyword argument for dataset instance ID
+            instance_id_keyword_arg = "{'pk': " + "'" + str(pk) + "'" + ","
+
+            # Check the celery project export status
+            task_queryset = TaskResult.objects.filter(
+                task_name=task_name,
+                task_kwargs__contains=instance_id_keyword_arg,
+            )
+
+        # Sort the task queryset by date and time
+        task_queryset = task_queryset.order_by("-date_done")
+
+        # Serialize the task queryset and return it to the frontend
+        serializer = TaskResultSerializer(task_queryset, many=True)
+
+        # Get a list of all dates
+        dates = task_queryset.values_list("date_done", flat=True)
+        status_list = task_queryset.values_list("status", flat=True)
+
+        # Remove quotes from all statuses
+        status_list = [status.replace("'", "") for status in status_list]
+
+        # Extract date and time from the datetime object
+        all_dates = [date.strftime("%d-%m-%Y") for date in dates]
+        all_times = [date.strftime("%H:%M:%S") for date in dates]
+
+        # Add the date, time and status to the serializer data
+        for i in range(len(serializer.data)):
+            serializer.data[i]["date"] = all_dates[i]
+            serializer.data[i]["time"] = all_times[i]
+            serializer.data[i]["status"] = status_list[i]
+
+        # Add the project ID from the task kwargs to the serializer data
+        if "projects" in task_name:
+            for i in range(len(serializer.data)):
+
+                try:
+                    # Apply regex query to task kwargs and get the project ID string
+                    project_id_list = re.findall(
+                        r"('project_id': '[0-9]+')", serializer.data[i]["task_kwargs"]
+                    )
+                    project_id = int(project_id_list[0].split("'")[-2])
+
+                    # Add to serializer data
+                    serializer.data[i]["project_id"] = project_id
+
+                except:
+                    # Handle the project ID exception
+                    serializer.data[i]["project_id"] = "Not ID found"
 
         return Response(serializer.data)
 
