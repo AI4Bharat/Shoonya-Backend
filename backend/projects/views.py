@@ -708,7 +708,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["GET"],
-        name="Get Project Users",
+        name="Get Project Annotators",
         url_name="get_project_annotators",
     )
     def get_project_annotators(self, request, pk=None, *args, **kwargs):
@@ -1193,8 +1193,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             or request.user.is_superuser
         ):
             users_ids = [obj.id for obj in proj_obj.annotators.all()]
-            user_mails = [user.get_username() for user in proj_obj.annotators.all()]
-            user_names = [user.username for user in proj_obj.annotators.all()]
+            user_mails = [annotator.get_username() for annotator in proj_obj.annotators.all()]
+            user_names = [annotator.username for annotator in proj_obj.annotators.all()]
 
         elif request.user.role == User.ANNOTATOR:
 
@@ -1332,7 +1332,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["POST"],
-        name="Add Project Users",
+        name="Add Project Annotators",
         url_name="add_project_annotators",
     )
     @project_is_archived
