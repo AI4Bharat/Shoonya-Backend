@@ -21,6 +21,7 @@ from .serializers import (
     UnAssignManagerSerializer,
     WorkspaceManagerSerializer,
     WorkspaceSerializer,
+    WorkspaceNameSerializer,
 )
 from .models import Workspace
 from .decorators import (
@@ -857,3 +858,16 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 {"message": "Server Error occured"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="user-workspaces/loggedin-user-workspaces",
+        url_name="loggedin_user_workspaces",
+    )
+    def loggedin_user_workspaces(self, request):
+        if request.user.is_anonymous:
+            return Response({"message": "Access Denied."})
+        workspaces = Workspace.objects.filter(members__in=[request.user.pk])
+        workspaces_serializer = WorkspaceNameSerializer(workspaces, many=True)
+        return Response(workspaces_serializer.data)
