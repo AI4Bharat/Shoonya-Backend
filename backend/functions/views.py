@@ -1,21 +1,23 @@
 import ast
-from email import message
 import json
+from email import message
 
 import pandas as pd
 from dataset import models as dataset_models
 from projects.models import *
-from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from tasks.models import *
+from users.utils import LANG_TRANS_MODEL_CODES, INDIC_TRANS_SUPPORTED_LANGUAGES
+
+from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 
 from .utils import (
-    get_batch_translations_using_indictrans_nmt_api,
-    get_batch_translations_using_google_translate,
-    check_translation_function_inputs,
     check_if_particular_organization_owner,
+    check_translation_function_inputs,
+    get_batch_translations_using_google_translate,
+    get_batch_translations_using_indictrans_nmt_api,
 )
 
 
@@ -458,3 +460,17 @@ def schedule_ai4b_translate_job(request):
     ret_dict = {"message": "SUCCESS!"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
+
+
+@api_view(["GET"])
+def get_indic_trans_supported_langs_model_codes(request):
+    """Function to get the supported languages and the translations supported by the indic-trans models"""
+
+    # Return the allowed translations and model codes
+    return Response(
+        {
+            "supported_languages": INDIC_TRANS_SUPPORTED_LANGUAGES,
+            "indic_trans_model_codes": LANG_TRANS_MODEL_CODES,
+        },
+        status=status.HTTP_200_OK,
+    )

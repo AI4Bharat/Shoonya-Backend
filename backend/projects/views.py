@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from users.models import LANG_CHOICES
 from users.serializers import UserEmailSerializer
+from dataset.serializers import TaskResultSerializer
 
 from utils.search import process_search_query
 
@@ -65,6 +66,64 @@ def batch(iterable, n=1):
     l = len(iterable)
     for ndx in range(0, l, n):
         yield iterable[ndx : min(ndx + n, l)]
+
+
+def get_review_reports(proj_id, userid, start_date, end_date):
+
+    user = User.objects.get(id=userid)
+    userName = user.username
+
+    total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
+
+    total_task_count = total_tasks.count()
+
+    accepted_tasks = Task.objects.filter(
+        project_id=proj_id, review_user=userid, task_status="accepted"
+    )
+
+    accepted_tasks_objs_ids = list(accepted_tasks.values_list("id", flat=True))
+    accepted_objs = Annotation_model.objects.filter(
+        task_id__in=accepted_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    accepted_objs_count = accepted_objs.count()
+
+    acceptedwtchange_tasks = Task.objects.filter(
+        project_id=proj_id, review_user=userid, task_status="accepted_with_changes"
+    )
+
+    acceptedwtchange_tasks_objs_ids = list(
+        acceptedwtchange_tasks.values_list("id", flat=True)
+    )
+    acceptedwtchange_objs = Annotation_model.objects.filter(
+        task_id__in=acceptedwtchange_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    acceptedwtchange_objs_count = acceptedwtchange_objs.count()
+
+    labeled_tasks = Task.objects.filter(
+        project_id=proj_id, review_user=userid, task_status="labeled"
+    )
+    labeled_tasks_count = labeled_tasks.count()
+
+    to_be_revised_tasks = Task.objects.filter(
+        project_id=proj_id, review_user=userid, task_status="to_be_revised"
+    )
+    to_be_revised_tasks_count = to_be_revised_tasks.count()
+
+    result = {
+        "Reviewer Name": userName,
+        "Assigned Tasks": total_task_count,
+        "Accepted Tasks": accepted_objs_count,
+        "Accepted With Changes Tasks": acceptedwtchange_objs_count,
+        "Labeled Tasks": labeled_tasks_count,
+        "To Be Revised Tasks": to_be_revised_tasks_count,
+    }
+    return result
 
 
 def extract_latest_status_date_time_from_taskresult_queryset(taskresult_queryset):
@@ -1086,6 +1145,38 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_type = proj_obj.project_type
         project_type = project_type.lower()
         is_translation_project = True if "translation" in project_type else False
+        users_id = request.user.id
+
+        reports_type = request.data.get("reports_type")
+
+        if reports_type == "review_reports":
+            if proj_obj.enable_task_reviews:
+                reviewer_names_list = proj_obj.annotation_reviewers.all()
+                reviewer_ids = [name.id for name in reviewer_names_list]
+                final_reports = []
+                if (
+                    (
+                        request.user.role == User.ORGANIZATION_OWNER
+                        or request.user.role == User.WORKSPACE_MANAGER
+                    )
+                ) and (request.user.id not in reviewer_ids):
+
+                    for id in reviewer_ids:
+                        result = get_review_reports(pk, id, start_date, end_date)
+                        final_reports.append(result)
+
+                elif users_id in reviewer_ids:
+                    result = get_review_reports(pk, users_id, start_date, end_date)
+                    final_reports.append(result)
+                else:
+                    final_reports = {
+                        "message": "You do not have enough permissions to access this view!"
+                    }
+                return Response(final_reports)
+            else:
+                result = {"message": "disabled task reviews for this project "}
+                return Response(result)
+
         managers = [
             user1.get_username() for user1 in proj_obj.workspace_id.managers.all()
         ]
@@ -1718,3 +1809,74 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["GET"], name="Get language choices")
     def language_choices(self, request):
         return Response(LANG_CHOICES)
+
+    @action(methods=["GET"], detail=True, name="Get all past instances of celery tasks")
+    def get_async_task_results(self, request, pk):
+        """
+        View to get all past instances of celery tasks
+        URL: /projects/<project_id>/get_async_task_results?task_name=<task-name>
+        Accepted methods: GET
+
+        Returns:
+            A list of all past instances of celery tasks for a specific task using the project ID
+        """
+
+        # Get the task name from the request
+        task_name = request.query_params.get("task_name")
+
+        # Check if task name is in allowed task names list
+        if task_name not in ALLOWED_CELERY_TASKS:
+            return Response(
+                {
+                    "message": "Invalid task name for this app.",
+                    "allowed_tasks": ALLOWED_CELERY_TASKS,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Handle 'create_parameter' task separately
+        if task_name == "projects.tasks.create_parameters_for_task_creation":
+
+            # Create the keyword argument for dataset instance ID
+            project_id_keyword_arg = "'project_id': " + str(pk) + "}"
+
+        else:
+            # Create the keyword argument for dataset instance ID
+            project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
+
+        # Check the celery project export status
+        task_queryset = TaskResult.objects.filter(
+            task_name=task_name,
+            task_kwargs__contains=project_id_keyword_arg,
+        )
+
+        # Check if queryset is empty
+        if not task_queryset:
+            return Response(
+                {"message": "No results found"}, status=status.HTTP_204_NO_CONTENT
+            )
+
+        # Sort the task queryset by date and time
+        task_queryset = task_queryset.order_by("-date_done")
+
+        # Serialize the task queryset and return it to the frontend
+        serializer = TaskResultSerializer(task_queryset, many=True)
+
+        # Get a list of all dates
+        dates = task_queryset.values_list("date_done", flat=True)
+        status_list = task_queryset.values_list("status", flat=True)
+
+        # Remove quotes from all statuses
+        status_list = [status.replace("'", "") for status in status_list]
+
+        # Extract date and time from the datetime object
+        all_dates = [date.strftime("%d-%m-%Y") for date in dates]
+        all_times = [date.strftime("%H:%M:%S") for date in dates]
+
+        # Add the date, time and status to the serializer data
+        for i in range(len(serializer.data)):
+            serializer.data[i]["date"] = all_dates[i]
+            serializer.data[i]["time"] = all_times[i]
+            serializer.data[i]["status"] = status_list[i]
+
+        return Response(serializer.data)
