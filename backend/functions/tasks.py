@@ -20,7 +20,7 @@ def sentence_text_translate_and_save_translation_pairs(
     batch_size,
     api_type="indic-trans",
     checks_for_particular_languages=False,
-):
+):  # sourcery skip: raise-specific-error
     """Function to translate SentenceTexts and to save the TranslationPairs in the database.
 
     Args:
@@ -102,9 +102,9 @@ def sentence_text_translate_and_save_translation_pairs(
 
                 # Get the translation using the Indictrans NMT API
                 translations_output = get_batch_translations_using_indictrans_nmt_api(
-                    batch_of_input_sentences,
-                    input_sentences_df["input_language"].iloc[0],
-                    output_language,
+                    sentence_list=batch_of_input_sentences,
+                    source_language=input_sentences_df["input_language"].iloc[0],
+                    target_language=output_language,
                     checks_for_particular_languages=checks_for_particular_languages,
                 )
 
@@ -127,6 +127,7 @@ def sentence_text_translate_and_save_translation_pairs(
                 # Get the translation using the Indictrans NMT API
                 translations_output = get_batch_translations_using_google_translate(
                     sentence_list=batch_of_input_sentences,
+                    source_language=input_sentences_df["input_language"].iloc[0],
                     target_language=output_language,
                     checks_for_particular_languages=checks_for_particular_languages,
                 )

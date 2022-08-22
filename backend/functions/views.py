@@ -216,13 +216,6 @@ def schedule_google_translate_job(request):
         checks_for_particular_languages=checks_for_particular_languages,
     )
 
-    # # Check if error in save_status
-    # if "error" in save_status:
-    #     return Response(
-    #         {"message": save_status["error"]},
-    #         status=status.HTTP_400_BAD_REQUEST,
-    #     )
-
     ret_dict = {"message": "Creating translation pairs from the input dataset."}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
@@ -288,13 +281,6 @@ def schedule_ai4b_translate_job(request):
         api_type="indic-trans",
         checks_for_particular_languages=checks_for_particular_languages,
     )
-
-    # # Check if error in save_status
-    # if "error" in save_status:
-    #     return Response(
-    #         {"message": save_status["error"]},
-    #         status=status.HTTP_400_BAD_REQUEST,
-    #     )
 
     ret_dict = {"message": "Creating translation pairs from the input dataset."}
     ret_status = status.HTTP_200_OK
