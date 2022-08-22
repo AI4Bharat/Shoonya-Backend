@@ -1,3 +1,4 @@
+from typing_extensions import Required
 from rest_framework import serializers
 
 from .models import *
@@ -33,7 +34,8 @@ class WorkspaceManagerSerializer(serializers.ModelSerializer):
 
 
 class UnAssignManagerSerializer(serializers.Serializer):
-    ids = serializers.IntegerField()
+
+    ids = serializers.IntegerField(required=True)
 
     def validate_user_id(self, value):
         try:
