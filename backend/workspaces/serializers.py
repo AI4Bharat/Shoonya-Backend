@@ -33,7 +33,7 @@ class WorkspaceManagerSerializer(serializers.ModelSerializer):
 
 
 class UnAssignManagerSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField()
+    ids = serializers.IntegerField()
 
     def validate_user_id(self, value):
         try:
@@ -43,7 +43,7 @@ class UnAssignManagerSerializer(serializers.Serializer):
         return user
 
     def update(self, workspace, validated_data):
-        users = validated_data.get("user_id")
+        users = validated_data.get("ids")
         workspace.managers.remove(users)
         workspace.save()
         return workspace
