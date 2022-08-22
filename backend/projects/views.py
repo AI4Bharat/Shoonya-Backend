@@ -1248,7 +1248,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 items.append(("To Be Revised Tasks", to_be_revised_tasks.count()))
 
             # get unlabeled count
-            total_unlabeled_tasks_count = get_tasks_count(pk, each_annotator, "unlabeled")
+            total_unlabeled_tasks_count = get_tasks_count(
+                pk, each_annotator, "unlabeled"
+            )
             items.append(("Unlabeled Tasks", total_unlabeled_tasks_count))
 
             # get skipped tasks count
