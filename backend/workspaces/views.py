@@ -264,9 +264,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         """
         ret_dict = {}
         ret_status = 0
-        user_id = request.data["user_id"]
+        username = str(request.data["username"])
         try:
-            user = User.objects.get(id=user_id)
+            user = User.objects.get(username=username)
             workspace = Workspace.objects.get(pk=pk)
             workspace.managers.add(user)
             workspace.members.add(user)
