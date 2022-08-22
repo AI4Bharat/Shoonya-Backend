@@ -535,7 +535,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             if (
                 request.user in project.annotation_reviewers.all()
-                or request.user in project.users.all()
+                or request.user in project.annotators.all()
             ):
                 # Filter Tasks based on whether the request is in review mode or not
                 queryset = (
@@ -785,11 +785,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
         serializer = ProjectUsersSerializer(project, many=False)
         annotators = serializer.data["annotators"]
-        user_ids = set()
+        annotator_ids = set()
         for annotator in annotators:
-            user_ids.add(user["id"])
+            annotator_ids.add(annotator["id"])
         # verify if user belongs in project annotators
-        if not cur_user.id in user_ids:
+        if not cur_user.id in annotator_ids:
             return Response(
                 {"message": "You are not assigned to this project"},
                 status=status.HTTP_403_FORBIDDEN,
