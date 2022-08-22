@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
+from users.serializers import UserFetchSerializer
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
@@ -505,7 +506,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     description="String containing emails separated by commas",
                 )
             },
-            required=["user_id"],
+            required=["ids"],
         ),
         manual_parameters=[
             openapi.Parameter(
@@ -524,7 +525,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             500: "Server error occured",
         },
     )
-    # only admin can add wokspace managers within that organization
     @is_particular_organization_owner
     @action(
         detail=True,
@@ -533,8 +533,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         url_name="add_managers",
     )
     def add_managers(self, request, pk=None):
-        if "user_id_list" in dict(request.data):
-            user_id_list = request.data.get("user_id_list", "")
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
         else:
             return Response(
                 {"message": "key doesnot match"},
@@ -544,8 +544,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         try:
 
             dataset = DatasetInstance.objects.get(pk=pk)
-
-            for user_id in user_id_list:
+            for user_id in ids:
                 user = User.objects.get(id=user_id)
                 if user.role == 2:
                     if user in dataset.users.all():
@@ -553,20 +552,18 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                             {"message": "user already exists"},
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-
                     else:
                         dataset.users.add(user)
                         dataset.save()
-                        return Response(
-                            {"message": "manager added successfully"},
-                            status=status.HTTP_200_OK,
-                        )
-
                 else:
                     return Response(
                         {"message": "user is not a manager"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+            return Response(
+                {"message": "managers added successfully"}, status=status.HTTP_200_OK
+            )
 
         except User.DoesNotExist:
             return Response(
@@ -585,9 +582,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "user_id": openapi.Schema(type=openapi.TYPE_STRING, format="email")
+                "ids": openapi.Schema(type=openapi.TYPE_STRING, format="email")
             },
-            required=["user_id"],
+            required=["ids"],
         ),
         manual_parameters=[
             openapi.Parameter(
@@ -613,19 +610,43 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     )
     @is_particular_organization_owner
     def remove_managers(self, request, pk=None):
-        user_id_list = request.data.get("user_id_list", "")
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
 
             dataset = DatasetInstance.objects.get(pk=pk)
 
-            for user_id in user_id_list:
+            for user_id in ids:
                 user = User.objects.get(id=user_id)
                 if user.role == 2:
-                    dataset.users.remove(user)
+                    if user not in dataset.users.all():
+                        return Response(
+                            {"message": "user doesnot exists"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    else:
+                        dataset.users.remove(user)
+
+                else:
                     return Response(
-                        {"message": "manager removed successfully"},
-                        status=status.HTTP_200_OK,
+                        {"message": "user is not a manager"},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
+
+            return Response(
+                {"message": "manager removed successfully"},
+                status=status.HTTP_200_OK,
+            )
+
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         except DatasetInstance.DoesNotExist:
             return Response(
