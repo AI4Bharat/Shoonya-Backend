@@ -384,7 +384,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all Projects
         """
         try:
-            # projects = self.queryset.filter(users=request.user)
+            # projects = self.queryset.filter(annotators=request.user)
 
             if request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
@@ -392,7 +392,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             else:
                 projects = self.queryset.filter(
-                    users=request.user
+                    annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
                 projects = projects.distinct()
             projects_json = self.serializer_class(projects, many=True)
