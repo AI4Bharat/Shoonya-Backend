@@ -63,7 +63,7 @@ class DatasetInstance(models.Model):
         verbose_name="dataset_instance_description", null=True, blank=True
     )
     organisation_id = models.ForeignKey(
-        Organization, null=True, on_delete=models.SET_NULL
+        Organization,on_delete=models.CASCADE
     )
     dataset_type = models.CharField(
         verbose_name="dataset_type",
