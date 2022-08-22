@@ -62,9 +62,7 @@ class DatasetInstance(models.Model):
     instance_description = models.TextField(
         verbose_name="dataset_instance_description", null=True, blank=True
     )
-    organisation_id = models.ForeignKey(
-        Organization,on_delete=models.CASCADE
-    )
+    organisation_id = models.ForeignKey(Organization, on_delete=models.CASCADE)
     dataset_type = models.CharField(
         verbose_name="dataset_type",
         choices=DATASET_TYPE_CHOICES,

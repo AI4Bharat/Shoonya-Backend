@@ -7,14 +7,17 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('organizations', '0007_auto_20220329_1309'),
-        ('dataset', '0028_auto_20220617_1309'),
+        ("organizations", "0007_auto_20220329_1309"),
+        ("dataset", "0028_auto_20220617_1309"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='datasetinstance',
-            name='organisation_id',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='organizations.organization'),
+            model_name="datasetinstance",
+            name="organisation_id",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                to="organizations.organization",
+            ),
         ),
     ]
