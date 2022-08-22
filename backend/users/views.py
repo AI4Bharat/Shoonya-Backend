@@ -382,7 +382,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 & Q(
                     task_status__in=[
                         "accepted",
-                        "rejected",
+                        "to_be_revised",
                         "accepted_with_changes",
                         "labeled",
                     ]

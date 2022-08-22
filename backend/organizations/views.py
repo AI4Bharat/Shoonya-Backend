@@ -104,7 +104,7 @@ def get_counts(
             annotator,
             None,
             project_type,
-            ["accepted", "rejected", "accepted_with_changes", "labeled"],
+            ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
             organization,
             start_date,
             end_date,
@@ -144,7 +144,7 @@ def get_counts(
             annotator,
             tgt_language,
             project_type,
-            ["accepted", "rejected", "accepted_with_changes", "labeled"],
+            ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
             organization,
             start_date,
             end_date,
@@ -484,7 +484,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     & Q(
                         task_status__in=[
                             "accepted",
-                            "rejected",
+                            "to_be_revised",
                             "accepted_with_changes",
                             "labeled",
                         ]

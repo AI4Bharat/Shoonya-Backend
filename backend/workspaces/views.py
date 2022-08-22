@@ -21,6 +21,7 @@ from .serializers import (
     UnAssignManagerSerializer,
     WorkspaceManagerSerializer,
     WorkspaceSerializer,
+    WorkspaceNameSerializer,
 )
 from .models import Workspace
 from .decorators import (
@@ -451,7 +452,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 )
                 labeled_tasks = get_annotated_tasks_project_analytics(
                     proj.id,
-                    ["accepted", "rejected", "accepted_with_changes", "labeled"],
+                    ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
                     start_date,
                     end_date,
                 )
@@ -586,7 +587,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             annotated_labeled_tasks = get_annotated_tasks(
                 proj_ids,
                 each_user,
-                ["accepted", "rejected", "accepted_with_changes", "labeled"],
+                ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
                 start_date,
                 end_date,
             )
@@ -855,3 +856,16 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 {"message": "Server Error occured"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="user-workspaces/loggedin-user-workspaces",
+        url_name="loggedin_user_workspaces",
+    )
+    def loggedin_user_workspaces(self, request):
+        if request.user.is_anonymous:
+            return Response({"message": "Access Denied."})
+        workspaces = Workspace.objects.filter(members__in=[request.user.pk])
+        workspaces_serializer = WorkspaceNameSerializer(workspaces, many=True)
+        return Response(workspaces_serializer.data)
