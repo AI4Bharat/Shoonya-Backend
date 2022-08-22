@@ -292,9 +292,9 @@ def get_task_count(pk, status):
     return task_count
 
 
-def get_tasks_count(pk, user, status, return_task_count=True):
+def get_tasks_count(pk, annotator, status, return_task_count=True):
     Task_objs = Task.objects.filter(
-        project_id=pk, annotation_users=user, task_status=status
+        project_id=pk, annotation_users=annotator, task_status=status
     )
     if return_task_count == True:
         Task_objs_count = Task_objs.count()
@@ -303,14 +303,16 @@ def get_tasks_count(pk, user, status, return_task_count=True):
         return Task_objs
 
 
-def get_annotated_tasks(pk, user, status, start_date, end_date):
-    annotated_tasks_objs = get_tasks_count(pk, user, status, return_task_count=False)
+def get_annotated_tasks(pk, annotator, status, start_date, end_date):
+    annotated_tasks_objs = get_tasks_count(
+        pk, annotator, status, return_task_count=False
+    )
     annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list("id", flat=True))
     annotated_objs = Annotation_model.objects.filter(
         task_id__in=annotated_tasks_objs_ids,
         parent_annotation_id=None,
         created_at__range=[start_date, end_date],
-        completed_by=user,
+        completed_by=annotator,
     )
     return annotated_objs
 
@@ -382,7 +384,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all Projects
         """
         try:
-            # projects = self.queryset.filter(users=request.user)
+            # projects = self.queryset.filter(annotators=request.user)
 
             if request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
@@ -390,7 +392,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             else:
                 projects = self.queryset.filter(
-                    users=request.user
+                    annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
                 projects = projects.distinct()
             projects_json = self.serializer_class(projects, many=True)

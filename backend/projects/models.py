@@ -72,7 +72,7 @@ class Project(models.Model):
         help_text=("Project Created By"),
     )
 
-    users = models.ManyToManyField(
+    annotators = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="project_users",
         help_text=("Project Users"),
@@ -110,7 +110,6 @@ class Project(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True, help_text=("Project Created At")
     )
-
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
         default=False,
@@ -121,7 +120,6 @@ class Project(models.Model):
         default=False,
         help_text=("Indicates whether a project is published or not."),
     )
-
     expert_instruction = models.TextField(
         max_length=500, null=True, blank=True, help_text=("Expert Instruction")
     )
@@ -248,7 +246,7 @@ class Project(models.Model):
             self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
         )
 
-    def set_lock(self, user, context):
+    def set_lock(self, annotator, context):
         """
         Locks the project for a user
         """
