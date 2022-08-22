@@ -47,3 +47,9 @@ class UnAssignManagerSerializer(serializers.Serializer):
         workspace.managers.remove(users)
         workspace.save()
         return workspace
+
+
+class WorkspaceNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Workspace
+        fields = ["id", "workspace_name"]
