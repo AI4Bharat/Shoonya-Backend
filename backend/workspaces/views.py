@@ -276,7 +276,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             ret_dict = {"message": "User with such Username does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(ret_dict, status=ret_status)
-        
+
         try:
             workspace = Workspace.objects.get(pk=pk)
         except Workspace.DoesNotExist:
@@ -293,7 +293,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         serializer = WorkspaceManagerSerializer(workspace, many=False)
         ret_dict = {"done": True}
         ret_status = status.HTTP_200_OK
-        return Response(ret_dict, status=ret_status)       
+        return Response(ret_dict, status=ret_status)
 
     @action(
         detail=True,
@@ -318,7 +318,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         else:
             return Response(
                 {"message": "key doesnot match"},
-                status=status.HTTP_400_BAD_REQUEST,)
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             user = User.objects.get(id=ids)
         except User.DoesNotExist:
