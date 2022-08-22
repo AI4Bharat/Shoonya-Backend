@@ -37,11 +37,11 @@ from .decorators import (
 EMAIL_VALIDATION_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
 
-def get_task_count(proj_ids, status, user, return_count=True):
+def get_task_count(proj_ids, status, annotator, return_count=True):
     annotated_tasks = Task.objects.filter(
         Q(project_id__in=proj_ids)
         & Q(task_status__in=status)
-        & Q(annotation_users=user)
+        & Q(annotation_users=annotator)
     )
 
     if return_count == True:
@@ -60,10 +60,10 @@ def get_task_count_project_analytics(proj_id, status_list, return_count=True):
         return labeled_tasks
 
 
-def get_annotated_tasks(proj_ids, user, status_list, start_date, end_date):
+def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
 
     annotated_tasks_objs = get_task_count(
-        proj_ids, status_list, user, return_count=False
+        proj_ids, status_list, annotator, return_count=False
     )
 
     annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
@@ -71,7 +71,7 @@ def get_annotated_tasks(proj_ids, user, status_list, start_date, end_date):
         task_id__in=annotated_task_ids,
         parent_annotation_id=None,
         created_at__range=[start_date, end_date],
-        completed_by=user,
+        completed_by=annotator,
     )
 
     return annotated_labeled_tasks
@@ -553,7 +553,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         is_translation_project = True if "translation" in project_type_lower else False
         selected_language = "-"
         final_result = []
-        for index, each_user in enumerate(users_id):
+        for index, each_annotation_user in enumerate(users_id):
 
             name = user_name[index]
             email = user_mail[index]
@@ -567,13 +567,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             if tgt_language == None:
                 projects_objs = Project.objects.filter(
-                    workspace_id=pk, annotators=each_user, project_type=project_type
+                    workspace_id=pk, annotators=each_annotation_user, project_type=project_type
                 )
             else:
                 selected_language = tgt_language
                 projects_objs = Project.objects.filter(
                     workspace_id=pk,
-                    annotators=each_user,
+                    annotators=each_annotation_user,
                     project_type=project_type,
                     tgt_language=tgt_language,
                 )
@@ -581,12 +581,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
 
             all_tasks_in_project = Task.objects.filter(
-                Q(project_id__in=proj_ids) & Q(annotation_users=each_user)
+                Q(project_id__in=proj_ids) & Q(annotation_users=each_annotation_user)
             )
             assigned_tasks = all_tasks_in_project.count()
             annotated_labeled_tasks = get_annotated_tasks(
                 proj_ids,
-                each_user,
+                each_annotation_user,
                 ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
                 start_date,
                 end_date,
@@ -602,11 +602,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     lead_time_annotated_tasks
                 )
 
-            total_skipped_tasks = get_task_count(proj_ids, ["skipped"], each_user)
+            total_skipped_tasks = get_task_count(proj_ids, ["skipped"], each_annotation_user)
             all_pending_tasks_in_project = get_task_count(
-                proj_ids, ["unlabeled"], each_user
+                proj_ids, ["unlabeled"], each_annotation_user
             )
-            all_draft_tasks_in_project = get_task_count(proj_ids, ["draft"], each_user)
+            all_draft_tasks_in_project = get_task_count(proj_ids, ["draft"], each_annotation_user)
 
             if is_translation_project:
                 total_word_count_list = [
