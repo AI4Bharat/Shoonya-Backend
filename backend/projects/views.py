@@ -292,9 +292,9 @@ def get_task_count(pk, status):
     return task_count
 
 
-def get_tasks_count(pk, user, status, return_task_count=True):
+def get_tasks_count(pk, annotator, status, return_task_count=True):
     Task_objs = Task.objects.filter(
-        project_id=pk, annotation_users=user, task_status=status
+        project_id=pk, annotation_users=annotator, task_status=status
     )
     if return_task_count == True:
         Task_objs_count = Task_objs.count()
@@ -303,14 +303,16 @@ def get_tasks_count(pk, user, status, return_task_count=True):
         return Task_objs
 
 
-def get_annotated_tasks(pk, user, status, start_date, end_date):
-    annotated_tasks_objs = get_tasks_count(pk, user, status, return_task_count=False)
+def get_annotated_tasks(pk, annotator, status, start_date, end_date):
+    annotated_tasks_objs = get_tasks_count(
+        pk, annotator, status, return_task_count=False
+    )
     annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list("id", flat=True))
     annotated_objs = Annotation_model.objects.filter(
         task_id__in=annotated_tasks_objs_ids,
         parent_annotation_id=None,
         created_at__range=[start_date, end_date],
-        completed_by=user,
+        completed_by=annotator,
     )
     return annotated_objs
 
@@ -382,7 +384,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all Projects
         """
         try:
-            # projects = self.queryset.filter(users=request.user)
+            # projects = self.queryset.filter(annotators=request.user)
 
             if request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
@@ -390,7 +392,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             else:
                 projects = self.queryset.filter(
-                    users=request.user
+                    annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
                 projects = projects.distinct()
             projects_json = self.serializer_class(projects, many=True)
@@ -412,7 +414,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove")
     # TODO: Refactor code to handle better role access
-    def remove_user(self, request, pk=None):
+    def remove_annotator(self, request, pk=None):
         user = User.objects.filter(email=request.data["email"]).first()
         if not user:
             return Response(
@@ -707,9 +709,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         detail=True,
         methods=["GET"],
         name="Get Project Users",
-        url_name="get_project_users",
+        url_name="get_project_annotators",
     )
-    def get_project_users(self, request, pk=None, *args, **kwargs):
+    def get_project_annotators(self, request, pk=None, *args, **kwargs):
         """
         Get the list of annotators in the project
         """
@@ -782,11 +784,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         serializer = ProjectUsersSerializer(project, many=False)
-        users = serializer.data["users"]
+        annotators = serializer.data["annotators"]
         user_ids = set()
-        for user in users:
+        for annotator in annotators:
             user_ids.add(user["id"])
-        # verify if user belongs in project users
+        # verify if user belongs in project annotators
         if not cur_user.id in user_ids:
             return Response(
                 {"message": "You are not assigned to this project"},
@@ -967,12 +969,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         serializer = ProjectUsersSerializer(project, many=False)
-        users = serializer.data["annotation_reviewers"]
-        user_ids = set()
-        for user in users:
-            user_ids.add(user["id"])
+        annotation_reviewers = serializer.data["annotation_reviewers"]
+        reviewer_ids = set()
+        for annotation_reviewer in annotation_reviewers:
+            reviewer_ids.add(annotation_reviewer["id"])
         # verify if user belongs in annotation_reviewers for this project
-        if not cur_user.id in user_ids:
+        if not cur_user.id in reviewer_ids:
             return Response(
                 {"message": "You are not assigned to review this project"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1155,11 +1157,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 final_reports = []
                 if (
-                    (
-                        request.user.role == User.ORGANIZATION_OWNER
-                        or request.user.role == User.WORKSPACE_MANAGER
-                    )
-                ) and (request.user.id not in reviewer_ids):
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.role == User.WORKSPACE_MANAGER
+                    or request.user.is_superuser
+                ):
 
                     for id in reviewer_ids:
                         result = get_review_reports(pk, id, start_date, end_date)
@@ -1190,9 +1191,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             or request.user.role == User.WORKSPACE_MANAGER
             or request.user.is_superuser
         ):
-            users_ids = [obj.id for obj in proj_obj.users.all()]
-            user_mails = [user.get_username() for user in proj_obj.users.all()]
-            user_names = [user.username for user in proj_obj.users.all()]
+            users_ids = [obj.id for obj in proj_obj.annotators.all()]
+            user_mails = [user.get_username() for user in proj_obj.annotators.all()]
+            user_names = [user.username for user in proj_obj.annotators.all()]
 
         elif request.user.role == User.ANNOTATOR:
 
@@ -1200,7 +1201,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             user_names = [request.user.username]
             user_mails = [request.user.email]
 
-        for index, each_user in enumerate(users_ids):
+        for index, each_annotator in enumerate(users_ids):
             user_name = user_names[index]
             usermail = user_mails[index]
             if usermail in managers:
@@ -1212,14 +1213,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # get total tasks
             all_tasks_in_project = Task.objects.filter(
-                Q(project_id=pk) & Q(annotation_users=each_user)
+                Q(project_id=pk) & Q(annotation_users=each_annotator)
             )
             assigned_tasks = all_tasks_in_project.count()
             items.append(("Assigned Tasks", assigned_tasks))
 
             # get accepted tasks
             annotated_accept_tasks = get_annotated_tasks(
-                pk, each_user, "accepted", start_date, end_date
+                pk, each_annotator, "accepted", start_date, end_date
             )
             items.append(("Accepted Tasks", annotated_accept_tasks.count()))
 
@@ -1227,7 +1228,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if proj.enable_task_reviews:
                 # get accepted with changes tasks count
                 accepted_wt_tasks = get_annotated_tasks(
-                    pk, each_user, "accepted_with_changes", start_date, end_date
+                    pk, each_annotator, "accepted_with_changes", start_date, end_date
                 )
                 items.append(
                     ("Accepted With Changes  Tasks", accepted_wt_tasks.count())
@@ -1235,26 +1236,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 # get labeled task count
                 labeled_tasks = get_annotated_tasks(
-                    pk, each_user, "labeled", start_date, end_date
+                    pk, each_annotator, "labeled", start_date, end_date
                 )
                 items.append(("Labeled Tasks", labeled_tasks.count()))
 
                 # get to_be_revised count
                 to_be_revised_tasks = get_annotated_tasks(
-                    pk, each_user, "to_be_revised", start_date, end_date
+                    pk, each_annotator, "to_be_revised", start_date, end_date
                 )
                 items.append(("To Be Revised Tasks", to_be_revised_tasks.count()))
 
             # get unlabeled count
-            total_unlabeled_tasks_count = get_tasks_count(pk, each_user, "unlabeled")
+            total_unlabeled_tasks_count = get_tasks_count(
+                pk, each_annotator, "unlabeled"
+            )
             items.append(("Unlabeled Tasks", total_unlabeled_tasks_count))
 
             # get skipped tasks count
-            total_skipped_tasks_count = get_tasks_count(pk, each_user, "skipped")
+            total_skipped_tasks_count = get_tasks_count(pk, each_annotator, "skipped")
             items.append(("Skipped Tasks", total_skipped_tasks_count))
 
             # get draft tasks count
-            total_draft_tasks_count = get_tasks_count(pk, each_user, "draft")
+            total_draft_tasks_count = get_tasks_count(pk, each_annotator, "draft")
             items.append(("Draft Tasks", total_draft_tasks_count))
 
             if is_translation_project:
@@ -1314,7 +1317,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "emails": openapi.Schema(
                     type=openapi.TYPE_ARRAY,
                     items=openapi.Items(type=openapi.TYPE_INTEGER, format="ids"),
-                    description="List of ids of users to be added to project",
+                    description="List of ids of annotators to be added to project",
                 )
             },
             required=["ids"],
@@ -1329,11 +1332,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         detail=True,
         methods=["POST"],
         name="Add Project Users",
-        url_name="add_project_users",
+        url_name="add_project_annotators",
     )
     @project_is_archived
     @is_project_editor
-    def add_project_users(self, request, pk=None, *args, **kwargs):
+    def add_project_annotators(self, request, pk=None, *args, **kwargs):
         """
         Add annotators to the project
         """
@@ -1342,16 +1345,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project = Project.objects.get(pk=pk)
 
             ids = request.data.get("ids")
-            users = User.objects.filter(id__in=ids)
+            annotators = User.objects.filter(id__in=ids)
 
-            if users.count() != len(ids):
+            if annotators.count() != len(ids):
                 return Response(
                     {"message": "Enter all valid user ids"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            for user in users:
-                project.users.add(user)
+            for annotator in annotators:
+                project.annotators.add(annotator)
 
             return Response({"message": "Added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
@@ -1768,9 +1771,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             serializer = ProjectUsersSerializer(project, many=False)
             # ret_dict = serializer.data
-            users = serializer.data["users"]
+            annotators = serializer.data["annotators"]
 
-            if len(users) < project.required_annotators_per_task:
+            if len(annotators) < project.required_annotators_per_task:
                 ret_dict = {
                     "message": "Number of annotators is less than required annotators per task"
                 }
@@ -1780,7 +1783,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # get all tasks of a project
             # tasks = Task.objects.filter(project_id=pk)
 
-            # assign_users_to_tasks(tasks, users)
+            # assign_users_to_tasks(tasks, annotators)
 
             # print("Here",task.annotation_users.all().count(), task.annotation_users.all())
             # for user in annotatorList:
