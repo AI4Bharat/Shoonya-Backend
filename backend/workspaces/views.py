@@ -567,7 +567,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             if tgt_language == None:
                 projects_objs = Project.objects.filter(
-                    workspace_id=pk, annotators=each_annotation_user, project_type=project_type
+                    workspace_id=pk,
+                    annotators=each_annotation_user,
+                    project_type=project_type,
                 )
             else:
                 selected_language = tgt_language
@@ -602,11 +604,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     lead_time_annotated_tasks
                 )
 
-            total_skipped_tasks = get_task_count(proj_ids, ["skipped"], each_annotation_user)
+            total_skipped_tasks = get_task_count(
+                proj_ids, ["skipped"], each_annotation_user
+            )
             all_pending_tasks_in_project = get_task_count(
                 proj_ids, ["unlabeled"], each_annotation_user
             )
-            all_draft_tasks_in_project = get_task_count(proj_ids, ["draft"], each_annotation_user)
+            all_draft_tasks_in_project = get_task_count(
+                proj_ids, ["draft"], each_annotation_user
+            )
 
             if is_translation_project:
                 total_word_count_list = [
