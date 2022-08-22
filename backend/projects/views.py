@@ -1156,7 +1156,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 reviewer_names_list = proj_obj.annotation_reviewers.all()
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 final_reports = []
-                if request.user.role == User.ORGANIZATION_OWNER or request.user.role == User.WORKSPACE_MANAGER:
+                if (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.role == User.WORKSPACE_MANAGER
+                    or request.user.is_superuser
+                ):
 
                     for id in reviewer_ids:
                         result = get_review_reports(pk, id, start_date, end_date)
