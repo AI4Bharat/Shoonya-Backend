@@ -414,7 +414,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove")
     # TODO: Refactor code to handle better role access
-    def remove_user(self, request, pk=None):
+    def remove_annotator(self, request, pk=None):
         user = User.objects.filter(email=request.data["email"]).first()
         if not user:
             return Response(
@@ -709,9 +709,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         detail=True,
         methods=["GET"],
         name="Get Project Users",
-        url_name="get_project_users",
+        url_name="get_project_annotators",
     )
-    def get_project_users(self, request, pk=None, *args, **kwargs):
+    def get_project_annotators(self, request, pk=None, *args, **kwargs):
         """
         Get the list of annotators in the project
         """
