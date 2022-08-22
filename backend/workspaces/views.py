@@ -261,39 +261,41 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         """
         API for assigning manager to a workspace
         """
+
+        # add list of ids to workspace managers list and save workspace
         ret_dict = {}
         ret_status = 0
         if "ids" in dict(request.data):
-            ids = request.data.get("ids")
+            ids = request.data.get("ids", "")
         else:
             return Response(
                 {"message": "key doesnot match"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        try:
-            user = User.objects.get(id=ids)
-        except User.DoesNotExist:
-            ret_dict = {"message": "User with such Username does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-            return Response(ret_dict, status=ret_status)
+        for id1 in ids:
+            try:
+                user = User.objects.get(id=id1)
+            except User.DoesNotExist:
+                return Response(
+                    {"message": "User with such id does not exist!"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            try:
+                workspace = Workspace.objects.get(pk=pk)
+            except Workspace.DoesNotExist:
+                ret_dict["message"] = "Workspace not found!"
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+            if user in workspace.managers.all():
+                ret_dict["message"] = "User already exists in workspace!"
+                ret_status = status.HTTP_400_BAD_REQUEST
+                return Response(ret_dict, status=ret_status)
+            workspace.managers.add(user)
+            workspace.members.add(user)
+            workspace.save()
+            serializer = WorkspaceManagerSerializer(workspace, many=False)
+        return Response({"done": True}, status=status.HTTP_200_OK)
 
-        try:
-            workspace = Workspace.objects.get(pk=pk)
-        except Workspace.DoesNotExist:
-            ret_dict["message"] = "Workspace not found!"
-            ret_status = status.HTTP_404_NOT_FOUND
-            return Response(ret_dict, status=ret_status)
-        if user in workspace.managers.all():
-            ret_dict["message"] = "User already exists in workspace!"
-            ret_status = status.HTTP_400_BAD_REQUEST
-            return Response(ret_dict, status=ret_status)
-        workspace.managers.add(user)
-        workspace.members.add(user)
-        workspace.save()
-        serializer = WorkspaceManagerSerializer(workspace, many=False)
-        ret_dict = {"done": True}
-        ret_status = status.HTTP_200_OK
-        return Response(ret_dict, status=ret_status)
 
     @action(
         detail=True,
@@ -306,36 +308,39 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         """
         API Endpoint for unassigning an workspace manager
         """
-        try:
-            workspace = Workspace.objects.get(pk=pk)
-        except Workspace.DoesNotExist:
-            return Response(
-                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-
+        ret_dict = {}
+        ret_status = 0
         if "ids" in dict(request.data):
-            ids = request.data.get("ids")
+            ids = request.data.get("ids", "")
         else:
             return Response(
                 {"message": "key doesnot match"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        try:
-            user = User.objects.get(id=ids)
-        except User.DoesNotExist:
-            return Response(
-                {"message": "User with such ID does not exist!"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if user not in workspace.managers.all():
-            return Response(
-                {"message": "User not found in workspace!"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        serializer = UnAssignManagerSerializer(workspace, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        for id1 in ids:
+            try:
+                user = User.objects.get(id=id1)
+            except User.DoesNotExist:
+                return Response(
+                    {"message": "User with such id does not exist!"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            try:
+                workspace = Workspace.objects.get(pk=pk)
+            except Workspace.DoesNotExist:
+                ret_dict["message"] = "Workspace not found!"
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+            if user not in workspace.managers.all():
+                ret_dict["message"] = "User doesnot exists in workspace!"
+                ret_status = status.HTTP_400_BAD_REQUEST
+                return Response(ret_dict, status=ret_status)
+            
+            workspace.managers.remove(user)
+            workspace.members.remove(user)
+            serializer = UnAssignManagerSerializer(workspace, data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
         return Response({"done": True}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
