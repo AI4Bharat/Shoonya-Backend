@@ -1157,11 +1157,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 final_reports = []
                 if (
-                    (
                         request.user.role == User.ORGANIZATION_OWNER
                         or request.user.role == User.WORKSPACE_MANAGER
-                    )
-                ) and (request.user.id not in reviewer_ids):
+                    ):
 
                     for id in reviewer_ids:
                         result = get_review_reports(pk, id, start_date, end_date)
