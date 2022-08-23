@@ -1193,7 +1193,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             or request.user.is_superuser
         ):
             users_ids = [obj.id for obj in proj_obj.annotators.all()]
-            user_mails = [annotator.get_username() for annotator in proj_obj.annotators.all()]
+            user_mails = [
+                annotator.get_username() for annotator in proj_obj.annotators.all()
+            ]
             user_names = [annotator.username for annotator in proj_obj.annotators.all()]
 
         elif request.user.role == User.ANNOTATOR:
