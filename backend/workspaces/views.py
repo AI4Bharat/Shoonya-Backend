@@ -235,9 +235,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                "username": openapi.Schema(type=openapi.TYPE_STRING, format="email")
+                "ids": openapi.Schema(type=openapi.TYPE_STRING, format="email")
             },
-            required=["username"],
+            required=["ids"],
         ),
         responses={
             200: "Done",
@@ -264,23 +264,36 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         """
         ret_dict = {}
         ret_status = 0
-        username = str(request.data["username"])
-        try:
-            user = User.objects.get(username=username)
-            workspace = Workspace.objects.get(pk=pk)
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        for id1 in ids:
+            try:
+                user = User.objects.get(id=id1)
+            except User.DoesNotExist:
+                return Response(
+                    {"message": "User with such id does not exist!"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            try:
+                workspace = Workspace.objects.get(pk=pk)
+            except Workspace.DoesNotExist:
+                ret_dict["message"] = "Workspace not found!"
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+            if user in workspace.managers.all():
+                ret_dict["message"] = "User already exists in workspace!"
+                ret_status = status.HTTP_400_BAD_REQUEST
+                return Response(ret_dict, status=ret_status)
             workspace.managers.add(user)
             workspace.members.add(user)
             workspace.save()
             serializer = WorkspaceManagerSerializer(workspace, many=False)
-            ret_dict = {"done": True}
-            ret_status = status.HTTP_200_OK
-        except User.DoesNotExist:
-            ret_dict = {"message": "User with such Username does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        except Exception as e:
-            ret_dict = {"message": str(e)}
-            ret_status = status.HTTP_400_BAD_REQUEST
-        return Response(ret_dict, status=ret_status)
+        return Response({"done": True}, status=status.HTTP_200_OK)
 
     @action(
         detail=True,
@@ -293,17 +306,40 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         """
         API Endpoint for unassigning an workspace manager
         """
-        try:
-            workspace = Workspace.objects.get(pk=pk)
-        except Workspace.DoesNotExist:
+        ret_dict = {}
+        ret_status = 0
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
             return Response(
-                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+        try:
 
-        serializer = UnAssignManagerSerializer(workspace, data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({"done": True}, status=status.HTTP_200_OK)
+            workspace = Workspace.objects.get(pk=pk)
+
+            for id1 in ids:
+                try:
+                    user = User.objects.get(id=id1)
+                except User.DoesNotExist:
+                    return Response(
+                        {"message": "User with such id does not exist!"},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+                if user not in workspace.managers.all():
+                    return Response(
+                        {"message": "user not found in workspace"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                else:
+                    workspace.managers.remove(user)
+            return Response({"done": True}, status=status.HTTP_200_OK)
+
+        except Workspace.DoesNotExist:
+            ret_dict["message"] = "Workspace not found!"
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(ret_dict, status=ret_status)
 
     @swagger_auto_schema(
         method="get",
