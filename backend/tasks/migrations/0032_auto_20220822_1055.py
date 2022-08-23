@@ -13,7 +13,10 @@ def add_word_count(apps, schema_editor):
         project_type_lower = proj_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
         if is_translation_project:
-            tas.data["word_count"] = no_of_words(tas.data["input_text"])
+            try:
+                tas.data["word_count"] = no_of_words(tas.data["input_text"])
+            except:
+                tas.data["word_count"] = 0
             tas.save()
 
 
