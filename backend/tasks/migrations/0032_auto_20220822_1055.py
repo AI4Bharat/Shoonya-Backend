@@ -15,6 +15,8 @@ def add_word_count(apps, schema_editor):
         if is_translation_project:
             try:
                 tas.data["word_count"] = no_of_words(tas.data["input_text"])
+            except TypeError:
+                pass
             except:
                 tas.data["word_count"] = 0
             tas.save()
