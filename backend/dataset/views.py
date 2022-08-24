@@ -8,25 +8,34 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
+from users.serializers import UserFetchSerializer
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from .permissions import DatasetInstancePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from users.serializers import UserFetchSerializer
+from organizations.decorators import (
+    is_organization_owner,
+    is_particular_organization_owner,
+)
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from rest_framework.permissions import IsAuthenticated
+from users.models import User
+from organizations.models import Organization
+from workspaces.models import Workspace
 
 from . import resources
 from .models import *
-from .permissions import DatasetInstancePermission
 from .serializers import *
 from .tasks import upload_data_to_data_instance
 
 
 ## Utility functions used inside the view functions
 def extract_status_date_time_from_task_queryset(task_queryset):
-
     # Sort the tasks by newest items first by date
     task_queryset = task_queryset.order_by("-date_done")
 
@@ -72,7 +81,6 @@ def get_project_export_status(pk):
 
     # If the celery TaskResults table returns
     if task_queryset:
-
         (
             task_status,
             task_date,
@@ -224,7 +232,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Add status fields to the serializer data
         for dataset_instance in serializer.data:
-
             # Get the task statuses for the dataset instance
             (
                 dataset_instance_status,
@@ -254,9 +261,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         except DatasetInstance.DoesNotExist:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if user has permissions to download
-        self.check_object_permissions(self.request, dataset_instance)
-
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
         dataset_resource = getattr(
@@ -276,8 +280,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         """
 
         # Get the dataset type using the instance ID
-        dataset_obj = get_object_or_404(DatasetInstance, pk=pk)
-        self.check_object_permissions(self.request, dataset_obj)
+        dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
 
         dataset_type = dataset_obj.dataset_type
 
@@ -325,7 +328,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         )
 
         # Get name of the dataset instance
-        dataset_name = dataset_obj.instance_name
+        dataset_name = get_object_or_404(DatasetInstance, pk=pk).instance_name
         return Response(
             {
                 "message": f"Uploading {dataset_type} data to Dataset Instance: {dataset_name}",
@@ -348,7 +351,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Add new fields to the serializer data to show project exprot status and date
         for project in serializer.data:
-
             # Get project export status details
             (
                 project_export_status,
@@ -486,9 +488,176 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
+        print(users)
         serializer = UserFetchSerializer(many=True, data=users)
+        print(serializer)
         serializer.is_valid()
         return Response(serializer.data)
+
+    # creating endpoint for adding workspacemanagers
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="String containing emails separated by commas",
+                )
+            },
+            required=["ids"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Workspace manager added Successfully",
+            403: "Not authorized",
+            400: "No valid user_ids found",
+            404: "dataset not found",
+            500: "Server error occured",
+        },
+    )
+    @is_particular_organization_owner
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="addworkspacemanagers",
+        url_name="add_managers",
+    )
+    def add_managers(self, request, pk=None):
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+
+            dataset = DatasetInstance.objects.get(pk=pk)
+            for user_id in ids:
+                user = User.objects.get(id=user_id)
+                if user.role == 2:
+                    if user in dataset.users.all():
+                        return Response(
+                            {"message": "user already exists"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    else:
+                        dataset.users.add(user)
+                        dataset.save()
+                else:
+                    return Response(
+                        {"message": "user is not a manager"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            return Response(
+                {"message": "managers added successfully"}, status=status.HTTP_200_OK
+            )
+
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except DatasetInstance.DoesNotExist:
+            return Response(
+                {"message": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    # removing managers from the dataset
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "ids": openapi.Schema(type=openapi.TYPE_STRING, format="email")
+            },
+            required=["ids"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "manager removed Successfully",
+            403: "Not authorized",
+            404: "User not in the organization/User not found",
+            500: "Server error occured",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="removemanagers",
+        url_name="remove_managers",
+    )
+    @is_particular_organization_owner
+    def remove_managers(self, request, pk=None):
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+
+            dataset = DatasetInstance.objects.get(pk=pk)
+
+            for user_id in ids:
+                user = User.objects.get(id=user_id)
+                if user.role == 2:
+                    if user not in dataset.users.all():
+                        return Response(
+                            {"message": "user doesnot exists"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    else:
+                        dataset.users.remove(user)
+
+                else:
+                    return Response(
+                        {"message": "user is not a manager"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            return Response(
+                {"message": "manager removed successfully"},
+                status=status.HTTP_200_OK,
+            )
+
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except DatasetInstance.DoesNotExist:
+            return Response(
+                {"message": "Dataset not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except ValueError:
+            return Response(
+                {"message": "Server Error occured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @action(methods=["GET"], detail=False, name="List all Dataset Instance Types")
     def dataset_types(self, request):
@@ -586,7 +755,7 @@ class DatasetTypeView(APIView):
     ViewSet for Dataset Type
     """
 
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (IsAuthenticatedOrReadOnly,)
 
     def get(self, request, dataset_type):
         model = apps.get_model("dataset", dataset_type)
