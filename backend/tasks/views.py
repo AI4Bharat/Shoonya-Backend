@@ -241,8 +241,8 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids.append(each_data["id"])
 
             if (
-                annotators.role == User.ANNOTATOR
-                and annotators
+                user.role == User.ANNOTATOR
+                and user
                 in Project.objects.get(
                     id=request.query_params["project_id"]
                 ).annotators.all()
