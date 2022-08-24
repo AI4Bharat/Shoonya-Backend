@@ -1,3 +1,4 @@
+from typing_extensions import Required
 from rest_framework import serializers
 
 from .models import *
@@ -33,24 +34,20 @@ class WorkspaceManagerSerializer(serializers.ModelSerializer):
 
 
 class UnAssignManagerSerializer(serializers.Serializer):
-    usernames = serializers.ListField(child=serializers.CharField())
 
-    def validate_emails(self, usernames):
-        users = User.objects.filter(username__in=usernames).all()
+    ids = serializers.IntegerField(required=True)
 
-        if len(users) != len(usernames):
-            raise serializers.ValidationError("Enter existing user usernames")
-
-        return usernames
+    def validate_user_id(self, value):
+        try:
+            user = User.objects.get(id=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User does not exist")
+        return user
 
     def update(self, workspace, validated_data):
-        usernames = validated_data.pop("usernames")
-        users = User.objects.filter(username__in=usernames).all()
-
-        for user in users:
-            workspace.managers.remove(user)
+        users = validated_data.get("ids")
+        workspace.managers.remove(users)
         workspace.save()
-
         return workspace
 
 

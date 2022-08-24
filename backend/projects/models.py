@@ -248,12 +248,12 @@ class Project(models.Model):
 
     def set_lock(self, annotator, context):
         """
-        Locks the project for a user
+        Locks the project for an annotator
         """
         if not self.is_locked(context):
             ProjectTaskRequestLock.objects.create(
                 project=self,
-                user=user,
+                user=annotator,
                 lock_context=context,
                 expires_at=now() + timedelta(seconds=settings.PROJECT_LOCK_TTL),
             )
