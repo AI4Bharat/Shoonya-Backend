@@ -539,7 +539,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             if (
                 request.user in project.annotation_reviewers.all()
-                or request.user in project.users.all()
+                or request.user in project.annotators.all()
             ):
                 # Filter Tasks based on whether the request is in review mode or not
                 queryset = (
@@ -712,7 +712,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["GET"],
-        name="Get Project Users",
+        name="Get Project Annotators",
         url_name="get_project_annotators",
     )
     def get_project_annotators(self, request, pk=None, *args, **kwargs):
@@ -789,11 +789,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
         serializer = ProjectUsersSerializer(project, many=False)
         annotators = serializer.data["annotators"]
-        user_ids = set()
+        annotator_ids = set()
         for annotator in annotators:
-            user_ids.add(user["id"])
+            annotator_ids.add(annotator["id"])
         # verify if user belongs in project annotators
-        if not cur_user.id in user_ids:
+        if not cur_user.id in annotator_ids:
             return Response(
                 {"message": "You are not assigned to this project"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1196,8 +1196,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             or request.user.is_superuser
         ):
             users_ids = [obj.id for obj in proj_obj.annotators.all()]
-            user_mails = [user.get_username() for user in proj_obj.annotators.all()]
-            user_names = [user.username for user in proj_obj.annotators.all()]
+            user_mails = [
+                annotator.get_username() for annotator in proj_obj.annotators.all()
+            ]
+            user_names = [annotator.username for annotator in proj_obj.annotators.all()]
 
         elif request.user.role == User.ANNOTATOR:
 
@@ -1335,7 +1337,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["POST"],
-        name="Add Project Users",
+        name="Add Project Annotators",
         url_name="add_project_annotators",
     )
     @project_is_archived
