@@ -392,7 +392,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             elif request.user.role == User.WORKSPACE_MANAGER:
                 projects = self.queryset.filter(
-                    workspace_id__in=Workspace.objects.filter(managers=request.user).values_list("id", flat=True)
+                    workspace_id__in=Workspace.objects.filter(
+                        managers=request.user
+                    ).values_list("id", flat=True)
                 )
             else:
                 projects = self.queryset.filter(
