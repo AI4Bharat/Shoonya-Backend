@@ -1,7 +1,9 @@
 """
 Module to store Django REST Framework Serializers for dataset related models
 """
+from django_celery_results.models import TaskResult
 from rest_framework import serializers
+
 from .models import *
 
 
@@ -61,6 +63,16 @@ class BlockTextSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BlockText
+        fields = "__all__"
+
+
+class TaskResultSerializer(serializers.ModelSerializer):
+    """
+    Serializer for TaskResult data
+    """
+
+    class Meta:
+        model = TaskResult
         fields = "__all__"
 
 

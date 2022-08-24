@@ -41,7 +41,7 @@ LABELED = "labeled"
 SKIPPED = "skipped"
 ACCEPTED = "accepted"
 ACCEPTED_WITH_CHANGES = "accepted_with_changes"
-REJECTED = "rejected"
+TO_BE_REVISED = "to_be_revised"
 FREEZED = "freezed"
 DRAFT = "draft"
 
@@ -52,7 +52,7 @@ TASK_STATUS = (
     (ACCEPTED, "accepted"),
     (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
     (FREEZED, "freezed"),
-    (REJECTED, "rejected"),
+    (TO_BE_REVISED, "to_be_revised"),
     (DRAFT, "draft"),
 )
 
@@ -120,18 +120,18 @@ class Task(models.Model):
         verbose_name="metadata json", null=True, blank=True
     )
 
-    def assign(self, users):
+    def assign(self, annotators):
         """
         Assign users to a task
         """
-        for user in users:
-            self.annotation_users.add(user)
+        for annotator in annotators:
+            self.annotation_users.add(annotator)
 
-    def unassign(self, user):
+    def unassign(self, annotator):
         """
-        Unassign user from a task
+        Unassign annotator from a task
         """
-        self.annotation_users.remove(user)
+        self.annotation_users.remove(annotator)
 
     def get_lock_ttl(self):
         # Lock expiry duration in seconds
@@ -147,13 +147,13 @@ class Task(models.Model):
     def num_locks(self):
         return self.locks.filter(expire_at__gt=now()).count()
 
-    def set_lock(self, user):
-        """Lock current task by specified user. Lock lifetime is set by `expire_in_secs`"""
+    def set_lock(self, annotator):
+        """Lock current task by specified annotator. Lock lifetime is set by `expire_in_secs`"""
         num_locks = self.num_locks
         if num_locks < self.project_id.required_annotators_per_task:
             lock_ttl = self.get_lock_ttl()
             expire_at = now() + timedelta(seconds=lock_ttl)
-            TaskLock.objects.create(task=self, user=user, expire_at=expire_at)
+            TaskLock.objects.create(task=self, user=annotator, expire_at=expire_at)
         else:
             raise Exception(
                 "Setting lock failed. Num locks > max annotators. Please call has_lock() before setting the lock."
@@ -163,23 +163,23 @@ class Task(models.Model):
             #     f"that's a bug because this task should not be taken in a label stream (task should be locked)")
         self.clear_expired_locks()
 
-    def release_lock(self, user=None):
+    def release_lock(self, annotator=None):
         """Release lock for the task.
-        If user specified, it checks whether lock is released by the user who previously has locked that task"""
+        If annotator specified, it checks whether lock is released by the annotator who previously has locked that task"""
 
-        if user is not None:
-            self.locks.filter(user=user).delete()
+        if annotator is not None:
+            self.locks.filter(user=annotator).delete()
         else:
             self.locks.all().delete()
         self.clear_expired_locks()
 
-    def is_locked(self, user=None):
-        """Check whether current task has been locked by some user"""
+    def is_locked(self, annotator=None):
+        """Check whether current task has been locked by some annotator"""
         self.clear_expired_locks()
         num_locks = self.num_locks
         # print("Num locks:", num_locks)
         # if self.project.skip_queue == self.project.SkipQueue.REQUEUE_FOR_ME:
-        #     num_annotations = self.annotations.filter(ground_truth=False).exclude(Q(was_cancelled=True) | ~Q(completed_by=user)).count()
+        #     num_annotations = self.annotations.filter(ground_truth=False).exclude(Q(was_cancelled=True) | ~Q(completed_by=annotator)).count()
         # else:
         num_annotations = self.annotations.count()
 
@@ -197,12 +197,12 @@ class Task(models.Model):
         #         )
         #     )
         result = bool(num >= self.project_id.required_annotators_per_task)
-        # if user:
-        #     # Check if user has already annotated a task
-        #     if len(self.annotations.filter(completed_by__exact=user.id)) > 0:
+        # if annotator:
+        #     # Check if annotator has already annotated a task
+        #     if len(self.annotations.filter(completed_by__exact=annotator.id)) > 0:
         #         return True
-        #     # Check if already locked by the same user
-        #     if self.locks.filter(user=user).count() > 0:
+        #     # Check if already locked by the same annotator
+        #     if self.locks.filter(user=annotator).count() > 0:
         #         return True
         return result
 

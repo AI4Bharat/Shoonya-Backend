@@ -43,6 +43,15 @@ LOCK_CONTEXT = (
     (REVIEW_LOCK, "review_lock"),
 )
 
+# List of async functions pertaining to the dataset models
+ALLOWED_CELERY_TASKS = [
+    "projects.tasks.add_new_data_items_into_project",
+    "projects.tasks.create_parameters_for_task_creation",
+    "projects.tasks.export_project_in_place",
+    "projects.tasks.pull_new_data_items_into_project",
+    "projects.tasks.export_project_new_record",
+]
+
 
 # Create your models here.
 class Project(models.Model):
@@ -63,7 +72,7 @@ class Project(models.Model):
         help_text=("Project Created By"),
     )
 
-    users = models.ManyToManyField(
+    annotators = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="project_users",
         help_text=("Project Users"),
@@ -101,7 +110,6 @@ class Project(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True, help_text=("Project Created At")
     )
-
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
         default=False,
@@ -112,7 +120,6 @@ class Project(models.Model):
         default=False,
         help_text=("Indicates whether a project is published or not."),
     )
-
     expert_instruction = models.TextField(
         max_length=500, null=True, blank=True, help_text=("Expert Instruction")
     )
@@ -239,14 +246,14 @@ class Project(models.Model):
             self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
         )
 
-    def set_lock(self, user, context):
+    def set_lock(self, annotator, context):
         """
-        Locks the project for a user
+        Locks the project for an annotator
         """
         if not self.is_locked(context):
             ProjectTaskRequestLock.objects.create(
                 project=self,
-                user=user,
+                user=annotator,
                 lock_context=context,
                 expires_at=now() + timedelta(seconds=settings.PROJECT_LOCK_TTL),
             )

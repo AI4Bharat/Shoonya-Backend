@@ -2,7 +2,6 @@ import requests
 from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
 from rest_framework import status
-from rest_framework.response import Response
 from organizations.models import Organization
 from users.models import User
 from users.utils import (
@@ -197,12 +196,16 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
 
 
 def get_batch_translations_using_google_translate(
-    sentence_list, target_language, checks_for_particular_languages=False
+    sentence_list,
+    source_language,
+    target_language,
+    checks_for_particular_languages=False,
 ):
     """Function to get the translation for the input sentences using the Google Translate API.
 
     Args:
         sentence_list (str): List of sentences to be translated.
+        source_language (str): Original language of the sentence.
         target_language (str): Final language of the sentence.
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
 
@@ -219,12 +222,15 @@ def get_batch_translations_using_google_translate(
 
     # Change the target language to the language code
     target_lang_code = LANG_NAME_TO_CODE_GOOGLE[target_language]
+    source_lang_code = LANG_NAME_TO_CODE_GOOGLE[source_language]
 
     translate_client = translate.Client()
 
     try:
         translations_output = translate_client.translate(
-            sentence_list, target_language=target_lang_code
+            sentence_list,
+            target_language=target_lang_code,
+            source_language=source_lang_code,
         )
 
         # Return the translated sentences
