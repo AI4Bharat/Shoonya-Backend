@@ -20,6 +20,8 @@ def add_word_count(apps, schema_editor):
             except:
                 tas.data["word_count"] = 0
             tas.save()
+            if tas.id%1000 == 0:
+                print(tas.id)
 
 
 class Migration(migrations.Migration):
