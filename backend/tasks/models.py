@@ -44,16 +44,23 @@ ACCEPTED_WITH_CHANGES = "accepted_with_changes"
 TO_BE_REVISED = "to_be_revised"
 FREEZED = "freezed"
 DRAFT = "draft"
+INCOMPLETE = "incomplete"
+COMPLETE = "complete"
 
-TASK_STATUS = (
+ANNOTATION_STATUS = (
     (UNLABELED, "unlabeled"),
     (LABELED, "labeled"),
     (SKIPPED, "skipped"),
+    (DRAFT, "draft"),
+)
+
+TASK_STATUS = (
+    (INCOMPLETE, "incomplete"),
+    (COMPLETE, "complete"),
     (ACCEPTED, "accepted"),
     (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
     (FREEZED, "freezed"),
     (TO_BE_REVISED, "to_be_revised"),
-    (DRAFT, "draft"),
 )
 
 
@@ -113,7 +120,7 @@ class Task(models.Model):
     task_status = models.CharField(
         choices=TASK_STATUS,
         max_length=100,
-        default=UNLABELED,
+        default=INCOMPLETE,
         verbose_name="task_status",
     )
     metadata_json = models.JSONField(
@@ -238,6 +245,12 @@ class Annotation(models.Model):
         on_delete=models.CASCADE,
         verbose_name="annotation_task_id",
         related_name="annotations",
+    )
+    annotation_status = models.CharField(
+        choices=ANNOTATION_STATUS,
+        max_length=100,
+        default=UNLABELED,
+        verbose_name="annotation_status",
     )
     completed_by = models.ForeignKey(
         User, on_delete=models.CASCADE, verbose_name="annotation_completed_by"

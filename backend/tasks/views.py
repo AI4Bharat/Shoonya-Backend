@@ -463,17 +463,15 @@ class AnnotationViewSet(
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
 
-            if task.project_id.required_annotators_per_task == task.annotations.count():
+            labeled_annotation_count = Annotation.objects.filter(task=task).filter(annotation_status=LABELED)
+            if task.project_id.required_annotators_per_task == labeled_annotation_count:
                 # if True:
-                task.task_status = request.data["task_status"]
+                task.task_status = COMPLETED
                 # TODO: Support accepting annotations manually
                 # if task.annotations.count() == 1:
                 if not task.project_id.enable_task_reviews:
                     task.correct_annotation = annotation
-                    if task.task_status == LABELED:
-                        task.task_status = ACCEPTED
-            else:
-                task.task_status = request.data["task_status"]
+                    task.task_status = ACCEPTED
         # Review annotation update
         else:
             if "review_status" in dict(request.data) and request.data[
@@ -514,11 +512,13 @@ class AnnotationViewSet(
         instance = self.get_object()
         annotation_id = instance.id
         annotation = Annotation.objects.get(pk=annotation_id)
+        annotation.annotation_status = UNLABELED
+        annotation.result = []
+        annotation.save()
         task = annotation.task
-        task.task_status = UNLABELED
+        if task.task_status == COMPLETE:
+            task.task_status = INCOMPLETE
         task.save()
-
-        annotation_response = super().destroy(request)
 
         return Response({"message": "Annotation Deleted"}, status=status.HTTP_200_OK)
 
