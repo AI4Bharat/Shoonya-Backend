@@ -423,7 +423,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
+            #remove annotators from the project and add them to the frozen_users list
             project = Project.objects.filter(pk=pk).first()
+            # add exception for project doesnot exist
             if not project:
                 return Response(
                     {"message": "Project does not exist"},
@@ -432,6 +434,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for user_id in ids:
                 user = User.objects.get(pk=user_id)
+            # check if the user is already frozen
                 if user in project.frozen_users.all():
                     return Response(
                         {"message": "User is already frozen"},
@@ -468,17 +471,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "key doesnot match"},
                 status=status.HTTP_400_BAD_REQUEST,
-<<<<<<< Updated upstream
-            )  
-        try:
-            project = Project.objects.filter(pk=pk).first()
-=======
             )   
         # remove reviewers from the project and add them to the frozen_users list
         try:
             project = Project.objects.filter(pk=pk).first()
             # add exception for project doesnot exist
->>>>>>> Stashed changes
             if not project:
                 return Response(
                     {"message": "Project does not exist"},
@@ -487,10 +484,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for user_id in ids:
                 user = User.objects.get(pk=user_id)
-<<<<<<< Updated upstream
-=======
             # check if the user is already frozen
->>>>>>> Stashed changes
                 if user in project.frozen_users.all():
                     return Response(
                         {"message": "User is already frozen"},
@@ -1385,6 +1379,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "key doesnot match"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+            # check the all the ids in the list are valid or not if valid then add them to the project
             annotators = User.objects.filter(id__in=ids)
             if not annotators:
                 return Response(
@@ -1393,6 +1388,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
 
             for annotator in annotators:
+                # check if annotator is already added to project
                 if annotator in project.annotators.all():
                     return Response(
                         {"message": "Annotator already exists"},
@@ -1424,6 +1420,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ret_dict = {}
         ret_status = 0
         try:
+            # add the reviewers to the project from the list of ids
             project = Project.objects.get(pk=pk)
             if not project.enable_task_reviews:
                 return Response(
