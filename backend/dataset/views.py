@@ -282,8 +282,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
 
-        dataset_type = dataset_obj.dataset_type
-
         if "dataset" not in request.FILES:
             return Response(
                 {
