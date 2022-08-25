@@ -468,9 +468,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "key doesnot match"},
                 status=status.HTTP_400_BAD_REQUEST,
+<<<<<<< Updated upstream
             )  
         try:
             project = Project.objects.filter(pk=pk).first()
+=======
+            )   
+        # remove reviewers from the project and add them to the frozen_users list
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            # add exception for project doesnot exist
+>>>>>>> Stashed changes
             if not project:
                 return Response(
                     {"message": "Project does not exist"},
@@ -479,6 +487,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for user_id in ids:
                 user = User.objects.get(pk=user_id)
+<<<<<<< Updated upstream
+=======
+            # check if the user is already frozen
+>>>>>>> Stashed changes
                 if user in project.frozen_users.all():
                     return Response(
                         {"message": "User is already frozen"},
