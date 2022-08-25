@@ -20,3 +20,5 @@ indic-nlp-library
 whitenoise
 celery
 django-celery-results
+google
+google-cloud-translate

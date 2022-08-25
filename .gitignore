@@ -1,6 +1,8 @@
 all_data
-SentenceText-2022-05-01.csv
-wiki-full-data.csv
+
+# Ignore all json and csv files
+*.json
+*.csv
 
 # Python
 *.pyc
@@ -10,8 +12,10 @@ media/
 static/
 frontend/
 
+
 # Env
 .env
+virtualenv/
 myvenv/
 venv/
 env/
@@ -39,6 +43,9 @@ $RECYCLE.BIN/
 .vscode/
 .history/
 *.code-workspace
+
+# pycharm
+.idea/
 
 # Coverage
 /coverage.data

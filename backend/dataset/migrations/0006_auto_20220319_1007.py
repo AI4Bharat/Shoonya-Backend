@@ -7,31 +7,43 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('organizations', '0003_auto_20220319_0907'),
-        ('workspaces', '0002_auto_20220319_0907'),
-        ('dataset', '0005_auto_20220319_0956'),
+        ("organizations", "0003_auto_20220319_0907"),
+        ("workspaces", "0002_auto_20220319_0907"),
+        ("dataset", "0005_auto_20220319_0956"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='datasetinstance',
-            name='instance_id',
-            field=models.AutoField(primary_key=True, serialize=False, verbose_name='dataset_instance_id'),
+            model_name="datasetinstance",
+            name="instance_id",
+            field=models.AutoField(
+                primary_key=True, serialize=False, verbose_name="dataset_instance_id"
+            ),
         ),
         migrations.AlterField(
-            model_name='datasetinstance',
-            name='organisation_id',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='organizations.organization'),
+            model_name="datasetinstance",
+            name="organisation_id",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="organizations.organization",
+            ),
         ),
         migrations.AlterField(
-            model_name='datasetinstance',
-            name='workspace_id',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='workspaces.workspace'),
+            model_name="datasetinstance",
+            name="workspace_id",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to="workspaces.workspace",
+            ),
         ),
         migrations.AlterField(
-            model_name='ocrdocument',
-            name='file_url',
-            field=models.URLField(default='google.com', max_length=500, verbose_name='bucket_url_for_file'),
+            model_name="ocrdocument",
+            name="file_url",
+            field=models.URLField(
+                default="google.com", max_length=500, verbose_name="bucket_url_for_file"
+            ),
             preserve_default=False,
         ),
     ]

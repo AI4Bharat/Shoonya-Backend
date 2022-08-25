@@ -11,36 +11,138 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('dataset', '0001_initial'),
-        ('organizations', '0001_initial'),
-        ('workspaces', '0001_initial'),
+        ("dataset", "0001_initial"),
+        ("organizations", "0001_initial"),
+        ("workspaces", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Project',
+            name="Project",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=100)),
-                ('description', models.TextField(max_length=250)),
-                ('is_archived', models.BooleanField(default=False, help_text='Designates wheather a project is archieved or not.', verbose_name='project_is_archived')),
-                ('is_published', models.BooleanField(default=False, help_text='Designates wheather a project is published or not.', verbose_name='project_is_published')),
-                ('expert_instruction', models.TextField(max_length=500, null=True)),
-                ('show_instruction', models.BooleanField(default=False, verbose_name='show_instruction_to_annotator')),
-                ('show_skip_button', models.BooleanField(default=False, verbose_name='annotator_can_skip_project')),
-                ('show_predictions_to_annotator', models.BooleanField(default=False, verbose_name='annotator_can_see_model_predictions')),
-                ('filter_string', models.CharField(max_length=1000, null=True)),
-                ('label_config', models.CharField(max_length=1000, null=True, verbose_name='XML Template Config')),
-                ('color', models.CharField(max_length=6, null=True)),
-                ('sampling_mode', models.PositiveSmallIntegerField(choices=[(1, 'Random'), (2, 'Batch'), (3, 'Full')], default=3)),
-                ('sampling_parameters_json', models.JSONField(null=True, verbose_name='sampling parameters json')),
-                ('data_type', models.JSONField(null=True, verbose_name='data type in project xml')),
-                ('project_type', models.PositiveSmallIntegerField(choices=[(1, 'MonolingualTranslation'), (2, 'TranslationEditing')], default=3)),
-                ('created_by', models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='project_creator', to=settings.AUTH_USER_MODEL, verbose_name='created_by')),
-                ('dataset_id', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='dataset.datasetinstance')),
-                ('organization_id', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='organizations.organization')),
-                ('users', models.ManyToManyField(related_name='project_users', to=settings.AUTH_USER_MODEL)),
-                ('workspace_id', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='workspaces.workspace')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=100)),
+                ("description", models.TextField(max_length=250)),
+                (
+                    "is_archived",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Designates wheather a project is archieved or not.",
+                        verbose_name="project_is_archived",
+                    ),
+                ),
+                (
+                    "is_published",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Designates wheather a project is published or not.",
+                        verbose_name="project_is_published",
+                    ),
+                ),
+                ("expert_instruction", models.TextField(max_length=500, null=True)),
+                (
+                    "show_instruction",
+                    models.BooleanField(
+                        default=False, verbose_name="show_instruction_to_annotator"
+                    ),
+                ),
+                (
+                    "show_skip_button",
+                    models.BooleanField(
+                        default=False, verbose_name="annotator_can_skip_project"
+                    ),
+                ),
+                (
+                    "show_predictions_to_annotator",
+                    models.BooleanField(
+                        default=False,
+                        verbose_name="annotator_can_see_model_predictions",
+                    ),
+                ),
+                ("filter_string", models.CharField(max_length=1000, null=True)),
+                (
+                    "label_config",
+                    models.CharField(
+                        max_length=1000, null=True, verbose_name="XML Template Config"
+                    ),
+                ),
+                ("color", models.CharField(max_length=6, null=True)),
+                (
+                    "sampling_mode",
+                    models.PositiveSmallIntegerField(
+                        choices=[(1, "Random"), (2, "Batch"), (3, "Full")], default=3
+                    ),
+                ),
+                (
+                    "sampling_parameters_json",
+                    models.JSONField(
+                        null=True, verbose_name="sampling parameters json"
+                    ),
+                ),
+                (
+                    "data_type",
+                    models.JSONField(
+                        null=True, verbose_name="data type in project xml"
+                    ),
+                ),
+                (
+                    "project_type",
+                    models.PositiveSmallIntegerField(
+                        choices=[
+                            (1, "MonolingualTranslation"),
+                            (2, "TranslationEditing"),
+                        ],
+                        default=3,
+                    ),
+                ),
+                (
+                    "created_by",
+                    models.OneToOneField(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="project_creator",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="created_by",
+                    ),
+                ),
+                (
+                    "dataset_id",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="dataset.datasetinstance",
+                    ),
+                ),
+                (
+                    "organization_id",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="organizations.organization",
+                    ),
+                ),
+                (
+                    "users",
+                    models.ManyToManyField(
+                        related_name="project_users", to=settings.AUTH_USER_MODEL
+                    ),
+                ),
+                (
+                    "workspace_id",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to="workspaces.workspace",
+                    ),
+                ),
             ],
         ),
     ]
