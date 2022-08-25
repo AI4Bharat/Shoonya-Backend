@@ -423,7 +423,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-            #remove annotators from the project and add them to the frozen_users list
+            # remove annotators from the project and add them to the frozen_users list
             project = Project.objects.filter(pk=pk).first()
             # add exception for project doesnot exist
             if not project:
@@ -434,21 +434,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for user_id in ids:
                 user = User.objects.get(pk=user_id)
-            # check if the user is already frozen
+                # check if the user is already frozen
                 if user in project.frozen_users.all():
                     return Response(
                         {"message": "User is already frozen"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-                tasks = Task.objects.filter( Q(project_id=project.id) & Q(annotation_users__in=[user])).filter(Q(task_status="unlabeled") | Q(task_status="draft"))
-                Annotation_model.objects.filter(Q(completed_by=user) & Q(task__task_status="draft")).delete()  # delete all draft annotations by the user
+                tasks = Task.objects.filter(
+                    Q(project_id=project.id) & Q(annotation_users__in=[user])
+                ).filter(Q(task_status="unlabeled") | Q(task_status="draft"))
+                Annotation_model.objects.filter(
+                    Q(completed_by=user) & Q(task__task_status="draft")
+                ).delete()  # delete all draft annotations by the user
                 for task in tasks:
                     task.annotation_users.remove(user)
                     task.save()
                 tasks.update(task_status="unlabeled")  # unassign user from tasks
                 project.annotators.remove(user)
                 project.frozen_users.add(user)
-                project.save()                
+                project.save()
             return Response(
                 {"message": "User removed from project"},
                 status=status.HTTP_201_CREATED,
@@ -471,7 +475,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "key doesnot match"},
                 status=status.HTTP_400_BAD_REQUEST,
-            )   
+            )
         # remove reviewers from the project and add them to the frozen_users list
         try:
             project = Project.objects.filter(pk=pk).first()
@@ -484,7 +488,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for user_id in ids:
                 user = User.objects.get(pk=user_id)
-            # check if the user is already frozen
+                # check if the user is already frozen
                 if user in project.frozen_users.all():
                     return Response(
                         {"message": "User is already frozen"},
@@ -1376,9 +1380,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ids = request.data.get("ids", "")
             else:
                 return Response(
-                {"message": "key doesnot match"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    {"message": "key doesnot match"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             # check the all the ids in the list are valid or not if valid then add them to the project
             annotators = User.objects.filter(id__in=ids)
             if not annotators:
@@ -1398,12 +1402,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.annotators.add(annotator)
                 project.save()
 
-            return Response({"message": "Annotator added to the project"}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
+            )
         except Project.DoesNotExist:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-
 
     @action(
         detail=True,
@@ -1431,9 +1436,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ids = request.data.get("ids", "")
             else:
                 return Response(
-                {"message": "key doesnot match"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    {"message": "key doesnot match"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             users = User.objects.filter(id__in=ids)
             if not users:
                 return Response(
