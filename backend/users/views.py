@@ -368,7 +368,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         project_objs = Project.objects.filter(
             workspace_id__in=workspace_id,
-            users=request.user.id,
+            annotators=request.user.id,
             project_type=project_type,
         )
 
@@ -428,7 +428,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 & Q(annotation_users=request.user.id)
             ).order_by("id")
             total_skipped_tasks = all_skipped_tasks_in_project.count()
-
             all_pending_tasks_in_project_objs = Task.objects.filter(
                 Q(project_id=proj.id)
                 & Q(task_status="unlabeled")

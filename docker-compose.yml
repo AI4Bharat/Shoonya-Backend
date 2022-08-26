@@ -26,10 +26,10 @@ services:
       - 6379:6379
 
   celery:
-    container_name: celery
+    container_name: celery-default
     restart: always
     build: ./backend
-    command: celery -A shoonya_backend.celery worker --concurrency=2 --loglevel=info
+    command: celery -A shoonya_backend.celery worker -Q default --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
     depends_on:
@@ -37,6 +37,18 @@ services:
       - redis
       - web 
 
+  # This is the additional queue which contains the low-priority celery tasks. We can adjust the concurrency and workers alloted to this container. 
+  celery2: 
+    container_name: celery-low-priority
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker -Q functions --concurrency=2 --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend/
+    depends_on:
+      - db
+      - redis
+      - web
 
 volumes:
   postgres_data:
