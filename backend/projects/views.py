@@ -1212,8 +1212,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for index, each_annotator in enumerate(users_ids):
             user_name = user_names[index]
             usermail = user_mails[index]
-            if usermail in managers:
-                continue
             items = []
 
             items.append(("Annotator", user_name))
