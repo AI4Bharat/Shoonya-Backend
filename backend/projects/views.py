@@ -369,7 +369,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Add a field to specify the no. of labeled tasks
         project_response.data["labeled_task_count"] = (
             Task.objects.filter(project_id=pk)
-            .filter(task_status=COMPLETED)
+            .filter(task_status=COMPLETE)
             .filter(review_user__isnull=True)
             .exclude(annotation_users=request.user.id)
             .count()
