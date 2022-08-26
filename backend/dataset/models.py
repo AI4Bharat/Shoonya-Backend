@@ -12,8 +12,8 @@ DATASET_TYPE_CHOICES = [
     ("SentenceText", "SentenceText"),
     ("TranslationPair", "TranslationPair"),
     ("OCRDocument", "OCRDocument"),
-    ("BlockText","BlockText"),
-    ("Conversation","Conversation")
+    ("BlockText", "BlockText"),
+    ("Conversation", "Conversation")
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))

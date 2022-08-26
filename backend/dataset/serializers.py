@@ -75,7 +75,6 @@ class TaskResultSerializer(serializers.ModelSerializer):
         model = TaskResult
         fields = "__all__"
 
-
 class ConversationSerializer(serializers.ModelSerializer):
     '''
     Serializer for Conversation data

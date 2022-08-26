@@ -1708,7 +1708,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # If save_type is 'new_record'
             elif output_dataset_info["save_type"] == "new_record":
-                export_dataset_instance_id = request.data["export_dataset_instance_id"]
+                export_dataset_instance_id = request.data.get("export_dataset_instance_id")
+
+                # If export_dataset_instance_id is not provided 
+                if export_dataset_instance_id is None:
+                    ret_dict = {"message": "export_dataset_instance_id is required!"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
 
                 annotation_fields = output_dataset_info["fields"]["annotations"]
                 task_annotation_fields = []
@@ -1749,7 +1755,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # FIXME: Allow export multiple times
             # project.is_archived=True
             # project.save()
-            ret_dict = {"message": "SUCCESS!"}
+            ret_dict = {"message": "Project Export Started."}
             ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
