@@ -473,7 +473,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 project_type = proj.project_type
                 all_tasks = Task.objects.filter(project_id=proj.id)
                 total_tasks = all_tasks.count()
-                annotators_list = [user_.get_username() for user_ in proj.users.all()]
+                annotators_list = [user_.get_username() for user_ in proj.annotators.all()]
                 try:
                     proj_owner = proj.created_by.get_username()
                     owners.append(proj_owner)
