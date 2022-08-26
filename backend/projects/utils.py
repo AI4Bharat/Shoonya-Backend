@@ -1,13 +1,15 @@
 from typing import Tuple
 from dateutil.parser import parse as date_parse
 import re
+import nltk
 
 
 def no_of_words(string):
-    filter1 = [word for word in string.split() if len(word) > 1]
-    filter2 = [word for word in filter1 if re.search("[a-zA-Z]", word) != None]
-    length = len(filter2)
-    return length
+
+    list_words = nltk.tokenize.word_tokenize(string)
+    list_tokens = [word for word in list_words if len(word) > 1]
+    length_of_sent = len(list_tokens)
+    return length_of_sent
 
 
 def is_valid_date(s: str) -> Tuple[bool, str]:
