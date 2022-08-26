@@ -15,6 +15,8 @@ from .utils import (
     check_translation_function_inputs,
 )
 
+from users.utils import INDIC_TRANS_SUPPORTED_LANGUAGES, LANG_TRANS_MODEL_CODES
+
 
 @api_view(["POST"])
 def copy_from_block_text_to_sentence_text(request):
