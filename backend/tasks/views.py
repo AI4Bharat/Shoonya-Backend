@@ -196,9 +196,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 data = serializer.data
                 return Response(data)
 
-        task_status = UNLABELED
+        task_status = INCOMPLETE
         if is_review_mode:
-            task_status = LABELED
+            task_status = COMPLETE
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
             task_status = request.query_params["task_status"]
@@ -232,7 +232,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         if (
             (is_translation_project)
             and (page is not None)
-            and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
+            # and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
             and (not is_review_mode)
         ):
             serializer = TaskAnnotationSerializer(page, many=True)
