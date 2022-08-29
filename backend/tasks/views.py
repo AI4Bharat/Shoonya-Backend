@@ -121,6 +121,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
+        is_review_mode = (
+                "mode" in dict(request.query_params)
+                and request.query_params["mode"] == "review"
+            )
         if "project_id" in dict(request.query_params):
             # Step 1: get the logged-in user details
             # Step 2: if - he is NOT (superuser, or manager or org owner), filter based on logged in user.
@@ -129,10 +133,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             user = request.user
             user_obj = User.objects.get(pk=user.id)
-            is_review_mode = (
-                "mode" in dict(request.query_params)
-                and request.query_params["mode"] == "review"
-            )
+
 
             if is_review_mode:
                 if (
@@ -463,10 +464,10 @@ class AnnotationViewSet(
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
 
-            labeled_annotation_count = Annotation.objects.filter(task=task).filter(annotation_status=LABELED)
+            labeled_annotation_count = Annotation.objects.filter(task=task).filter(annotation_status=LABELED).count()
             if task.project_id.required_annotators_per_task == labeled_annotation_count:
                 # if True:
-                task.task_status = COMPLETED
+                task.task_status = COMPLETE
                 # TODO: Support accepting annotations manually
                 # if task.annotations.count() == 1:
                 if not task.project_id.enable_task_reviews:
