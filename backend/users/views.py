@@ -384,7 +384,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                         "accepted",
                         "to_be_revised",
                         "accepted_with_changes",
-                        "labeled",
+                        "complete",
                     ]
                 )
             )
@@ -393,7 +393,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             annotated_labeled_tasks = Annotation.objects.filter(
                 task_id__in=annotated_task_ids,
                 parent_annotation_id=None,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=request.user.id,
             )
 
@@ -422,25 +422,29 @@ class AnalyticsViewSet(viewsets.ViewSet):
             )
             assigned_tasks_count = all_tasks_in_project.count()
 
-            all_skipped_tasks_in_project = Task.objects.filter(
-                Q(project_id=proj.id)
-                & Q(task_status="skipped")
-                & Q(annotation_users=request.user.id)
-            ).order_by("id")
-            total_skipped_tasks = all_skipped_tasks_in_project.count()
-            all_pending_tasks_in_project_objs = Task.objects.filter(
-                Q(project_id=proj.id)
-                & Q(task_status="unlabeled")
-                & Q(annotation_users=request.user.id)
-            )
-            all_pending_tasks_in_project = all_pending_tasks_in_project_objs.count()
+            total_skipped_tasks = Annotation.objects.filter(
+                task__project_id=proj.id,
+                parent_annotation_id=None,
+                completed_by=request.user.id,
+                annotation_status="skipped",
+                updated_at__range=[start_date, end_date],
+            ).count()
 
-            all_draft_tasks_in_project_objs = Task.objects.filter(
-                Q(project_id=proj.id)
-                & Q(task_status="draft")
-                & Q(annotation_users=request.user.id)
-            )
-            all_draft_tasks_in_project = all_draft_tasks_in_project_objs.count()
+            all_pending_tasks_in_project = Annotation.objects.filter(
+                task__project_id=proj.id,
+                parent_annotation_id=None,
+                completed_by=request.user.id,
+                annotation_status="unlabeled",
+                updated_at__range=[start_date, end_date],
+            ).count()
+
+            all_draft_tasks_in_project = Annotation.objects.filter(
+                task__project_id=proj.id,
+                parent_annotation_id=None,
+                completed_by=request.user.id,
+                annotation_status="draft",
+                updated_at__range=[start_date, end_date],
+            ).count()
             if is_translation_project:
                 result = {
                     "Annotator": request.user.username,
