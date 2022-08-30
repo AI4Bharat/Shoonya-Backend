@@ -255,6 +255,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         URL: /data/instances/<instance-id>/download/
         Accepted methods: GET
         """
+        export_type = request.GET.get("type", "csv")
         try:
             # Get the dataset instance for the id
             dataset_instance = DatasetInstance.objects.get(instance_id=pk)
@@ -266,9 +267,13 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         dataset_resource = getattr(
             resources, dataset_instance.dataset_type + "Resource"
         )
-        exported_items = dataset_resource().export_as_generator(data_items)
+        exported_items = dataset_resource().export_as_generator(export_type, data_items)
+        if export_type == "tsv":
+            content_type = "text/tsv"
+        else:
+            content_type = "text/csv"
         return StreamingHttpResponse(
-            exported_items, status=status.HTTP_200_OK, content_type="text/csv"
+            exported_items, status=status.HTTP_200_OK, content_type=content_type
         )
 
     @action(methods=["POST"], detail=True, name="Upload Dataset File")
