@@ -3,6 +3,8 @@ from dateutil.parser import parse as date_parse
 import re
 import nltk
 
+nltk.download("punkt")
+
 
 def no_of_words(string):
 
