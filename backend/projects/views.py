@@ -455,7 +455,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "User removed from project"},
                 status=status.HTTP_201_CREATED,
             )
-       
+
         except User.DoesNotExist:
             return Response(
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
@@ -465,8 +465,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "Project does not exist"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-
-        
 
     @action(detail=True, methods=["post"], url_name="remove_reviewer")
     def remove_reviewer(self, request, pk=None):
@@ -503,14 +501,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.save()
                 project.frozen_users.add(user)
                 project.save()
-            return Response({"message": "User removed from the project"}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "User removed from the project"}, status=status.HTTP_200_OK
+            )
         except User.DoesNotExist:
             return Response(
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-
-
-        
 
     @swagger_auto_schema(
         method="post",
@@ -1346,9 +1343,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ids = request.data.get("ids", "")
             else:
                 return Response(
-                {"message": "key doesnot match"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    {"message": "key doesnot match"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             # check the all the ids in the list are valid or not if valid then add them to the project
             annotators = User.objects.filter(id__in=ids)
             if not annotators:
@@ -1368,7 +1365,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.annotators.add(annotator)
                 project.save()
 
-            return Response({"message": "Annotator added to the project"}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
+            )
         except Project.DoesNotExist:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
@@ -1392,9 +1391,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ids = request.data.get("ids", "")
             else:
                 return Response(
-                {"message": "key doesnot match"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    {"message": "key doesnot match"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             users = User.objects.filter(id__in=ids)
             if not users:
                 return Response(
@@ -1410,12 +1409,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 project.annotation_reviewers.add(user)
                 project.save()
-                
+
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
+
     @action(
         detail=True,
         methods=["POST"],
