@@ -7,14 +7,17 @@ class ResourceMixin:
     Resource Mixin for streaming CSV file
     """
 
-    def export_as_generator(self, queryset=None, *args, **kwargs):
+    def export_as_generator(self, export_type, queryset=None, *args, **kwargs):
         self.before_export(queryset, *args, **kwargs)
         if queryset is None:
             queryset = self.get_queryset()
         headers = self.get_export_headers()
         data = tablib.Dataset(headers=headers)
         # Return headers
-        yield data.csv
+        if export_type == "tsv":
+            yield data.tsv
+        else:
+            yield data.csv
 
         if isinstance(queryset, QuerySet):
             # Iterate without the queryset cache, to avoid wasting memory when
@@ -28,7 +31,10 @@ class ResourceMixin:
             # generator
             data = tablib.Dataset()
             data.append(self.export_resource(obj))
-            yield data.csv
+            if export_type == "tsv":
+                yield data.tsv
+            else:
+                yield data.csv
 
         self.after_export(queryset, data, *args, **kwargs)
 
