@@ -549,11 +549,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 queryset = Task.objects.filter(
                     task_status=request.query_params["task_status"]
                 )
-            queryset = queryset.filter(
-                **process_search_query(
-                    request.GET, "data", list(queryset.first().data.keys())
+
+            if len(queryset) > 0:
+                queryset = queryset.filter(
+                    **process_search_query(
+                        request.GET, "data", list(queryset.first().data.keys())
+                    )
                 )
-            )
 
             queryset = queryset.order_by("id")
 
