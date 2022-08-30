@@ -335,7 +335,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 else:
                     workspace.managers.remove(user)
             return Response({"done": True}, status=status.HTTP_200_OK)
-
         except Workspace.DoesNotExist:
             ret_dict["message"] = "Workspace not found!"
             ret_status = status.HTTP_404_NOT_FOUND
@@ -389,10 +388,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
         else:
             projects = Project.objects.filter(workspace_id=workspace)
-
         if only_active == True:
             projects = projects.filter(is_archived=False)
-
         serializer = ProjectSerializer(projects, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -424,7 +421,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             org_owner = org_obj.created_by.get_username()
         except:
             org_owner = ""
-
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
@@ -438,13 +434,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             return Response(
                 {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
             )
-
         cond, invalid_message = is_valid_date(to_date)
         if not cond:
             return Response(
                 {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
             )
-
         start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
         end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
 
@@ -453,7 +447,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 {"message": "'To' Date should be after 'From' Date"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         selected_language = "-"
         if tgt_language == None:
             projects_objs = Project.objects.filter(
@@ -474,7 +467,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 all_tasks = Task.objects.filter(project_id=proj.id)
                 total_tasks = all_tasks.count()
                 annotators_list = [
-                    user_.get_username() for user_ in proj.annotators.all()
+                    annotator.get_username() for annotator in proj.annotators.all()
                 ]
                 try:
                     proj_owner = proj.created_by.get_username()
@@ -566,7 +559,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             org_owner = org_obj.created_by.get_username()
         except:
             org_owner = ""
-
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
@@ -579,13 +571,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             return Response(
                 {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
             )
-
         cond, invalid_message = is_valid_date(to_date)
         if not cond:
             return Response(
                 {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
             )
-
         start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
         end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
 
@@ -594,7 +584,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 {"message": "'To' Date should be after 'From' Date"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         user_obj = list(ws.members.all())
         user_mail = [user.get_username() for user in ws.members.all()]
         user_name = [user.username for user in ws.members.all()]
@@ -613,10 +602,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             if tgt_language != None and tgt_language not in list_of_user_languages:
                 continue
-
             if email == ws_owner or email == org_owner:
                 continue
-
             if tgt_language == None:
                 projects_objs = Project.objects.filter(
                     workspace_id=pk,
@@ -712,9 +699,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Draft Tasks": all_draft_tasks_in_project,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                 }
-
             final_result.append(result)
-
         return Response(final_result)
 
 
@@ -771,7 +756,6 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 return Response(
                     {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
                 )
-
             user_ids = user_id.split(",")
             invalid_user_ids = []
             for user_id in user_ids:
@@ -783,7 +767,6 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                         invalid_user_ids.append(user_id)
                 except User.DoesNotExist:
                     invalid_user_ids.append(user_id)
-
             workspace.save()
             if len(invalid_user_ids) == 0:
                 return Response(
@@ -794,7 +777,6 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                     {"message": "No valid user_ids found"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             return Response(
                 {
                     "message": f"users added partially! Invalid user_ids: {','.join(invalid_user_ids)}"
@@ -862,7 +844,6 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 return Response(
                     {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
                 )
-
             try:
                 user = User.objects.get(pk=user_id)
                 if user in workspace.members.all():
@@ -876,7 +857,6 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                         {"message": "User not in workspace"},
                         status=status.HTTP_404_NOT_FOUND,
                     )
-
             except User.DoesNotExist:
                 return Response(
                     {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND

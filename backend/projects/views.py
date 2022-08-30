@@ -185,13 +185,11 @@ def get_project_pull_status(pk):
 
         if '"' in task_result:
             task_result = task_result.strip('"')
-
         # Extract date and time from the datetime object
         task_date = task_datetime.date()
         task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
 
         return task_status, task_date, task_time, task_result
-
     return (
         "Success",
         "Synchronously Completed. No Date.",
@@ -266,10 +264,8 @@ def get_project_creation_status(pk) -> str:
         # Check if the task has failed
         if task_creation_status == "FAILURE":
             return "Task Creation Process Failed!"
-
         if task_creation_status != "SUCCESS":
             return "Creating Annotation Tasks."
-
     # If the background task function has already run, check the status of the project
     if project.is_archived:
         return "Archived"
@@ -426,19 +422,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-
         project = Project.objects.filter(pk=pk).first()
         if not project:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-
         if project.frozen_users.filter(id=user.id).exists():
             return Response(
                 {"message": "User is already frozen in this project"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         tasks = Task.objects.filter(
             Q(project_id=project.id) & Q(annotation_users__in=[user])
         ).filter(Q(task_status="incomplete"))
@@ -466,19 +459,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-
         project = Project.objects.filter(pk=pk).first()
         if not project:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-
         if project.frozen_users.filter(id=user.id).exists():
             return Response(
                 {"message": "User is already frozen in this project"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         tasks = (
             Task.objects.filter(project_id=project.id)
             .filter(review_user=user)
@@ -542,7 +532,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if not project.enable_task_reviews:
                 resp_dict = {"message": "Task reviews are not enabled for this project"}
                 return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
-
         # Check if task_status is passed
         if "task_status" in dict(request.query_params):
 
@@ -569,7 +558,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 queryset = Task.objects.filter(
                     task_status=request.query_params["task_status"]
                 )
-
             queryset = queryset.filter(
                 **process_search_query(
                     request.GET, "data", list(queryset.first().data.keys())
@@ -581,17 +569,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if "current_task_id" in dict(request.query_params):
                 current_task_id = request.query_params["current_task_id"]
                 queryset = queryset.filter(id__gt=current_task_id)
-
             for task in queryset:
                 if not task.is_locked(request.user):
                     task.set_lock(request.user)
                     task_dict = TaskSerializer(task, many=False).data
                     return Response(task_dict)
-
             ret_dict = {"message": "No more tasks available!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
-
         else:
             # Check if there are unattended tasks
             if user_role == 1 and not request.user.is_superuser:
@@ -623,19 +608,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         task_status__exact=INCOMPLETE,
                     )
                 )
-
             unattended_tasks = unattended_tasks.order_by("id")
 
             if "current_task_id" in dict(request.query_params):
                 current_task_id = request.query_params["current_task_id"]
                 unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
-
             for task in unattended_tasks:
                 if not task.is_locked(request.user):
                     task.set_lock(request.user)
                     task_dict = TaskSerializer(task, many=False).data
                     return Response(task_dict)
-
             ret_dict = {"message": "No more unlabeled tasks!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
@@ -655,7 +637,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # Create project object
             project_response = super().create(request, *args, **kwargs)
-
         else:
 
             # Collect the POST request parameters
@@ -681,7 +662,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 variable_parameters=variable_parameters,
                 project_id=project_id,
             )
-
         # Return the project response
         return project_response
 
@@ -807,7 +787,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "You are not assigned to this project"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         # check if user has pending tasks
         pending_tasks = (
             Task.objects.filter(project_id=pk)
@@ -837,7 +816,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task_pull_count = request.data["num_tasks"]
         else:
             task_pull_count = project.tasks_pull_count_per_batch
-
         tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
         lock_set = False
@@ -851,7 +829,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     lock_set = True
                 except Exception as e:
                     continue
-
         # check if the project contains eligible tasks to pull
         tasks = Task.objects.filter(project_id=pk)
         tasks = tasks.order_by("id")
@@ -867,7 +844,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "No tasks left for assignment in this project"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-
         # filter out tasks which meet the annotator count threshold
         # and assign the ones with least count to user, so as to maintain uniformity
         tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
@@ -1006,7 +982,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "You are not assigned to review this project"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         lock_set = False
         while lock_set == False:
             if project.is_locked(REVIEW_LOCK):
@@ -1018,7 +993,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     lock_set = True
                 except Exception as e:
                     continue
-
         # check if the project contains eligible tasks to pull
         tasks = (
             Task.objects.filter(project_id=pk)
@@ -1032,11 +1006,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "No tasks available for review in this project"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-
         task_pull_count = project.tasks_pull_count_per_batch
         if "num_tasks" in dict(request.data):
             task_pull_count = request.data["num_tasks"]
-
         tasks = tasks.order_by("id")
         tasks = tasks[:task_pull_count]
         for task in tasks:
@@ -1170,7 +1142,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
             )
-
         start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
         end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
 
@@ -1179,7 +1150,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "'To' Date should be after 'From' Date"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         project_type = proj_obj.project_type
         project_type = project_type.lower()
         is_translation_project = True if "translation" in project_type else False
@@ -1201,7 +1171,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     for id in reviewer_ids:
                         result = get_review_reports(pk, id, start_date, end_date)
                         final_reports.append(result)
-
                 elif users_id in reviewer_ids:
                     result = get_review_reports(pk, users_id, start_date, end_date)
                     final_reports.append(result)
@@ -1213,7 +1182,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 result = {"message": "disabled task reviews for this project "}
                 return Response(result)
-
         managers = [
             user1.get_username() for user1 in proj_obj.workspace_id.managers.all()
         ]
@@ -1232,18 +1200,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotator.get_username() for annotator in proj_obj.annotators.all()
             ]
             user_names = [annotator.username for annotator in proj_obj.annotators.all()]
-
         elif request.user.role == User.ANNOTATOR:
 
             users_ids = [request.user.id]
             user_names = [request.user.username]
             user_mails = [request.user.email]
-
         for index, each_annotator in enumerate(users_ids):
             user_name = user_names[index]
             usermail = user_mails[index]
-            if usermail in managers:
-                continue
             items = []
 
             items.append(("Annotator", user_name))
@@ -1283,7 +1247,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     pk, each_annotator, "to_be_revised", start_date, end_date
                 )
                 items.append(("To Be Revised Tasks", to_be_revised_tasks.count()))
-
             # get unlabeled count
             total_unlabeled_tasks_count = Annotation_model.objects.filter(
                 task__project_id=pk,
@@ -1335,7 +1298,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ]
                     total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
-
             if proj.enable_task_reviews:
                 all_annotated_tasks = (
                     list(annotated_accept_tasks)
@@ -1350,7 +1312,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 lead_time_annotated_tasks = [
                     eachtask.lead_time for eachtask in annotated_accept_tasks
                 ]
-
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0:
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(
@@ -1407,10 +1368,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"message": "Enter all valid user ids"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             for annotator in annotators:
                 project.annotators.add(annotator)
-
             return Response({"message": "Added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
             return Response(
@@ -1452,7 +1411,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             for user in users:
                 project.annotation_reviewers.add(user)
-
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
             return Response(
@@ -1479,7 +1437,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"message": "Task reviews are already enabled"},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-
             tasks = Task.objects.filter(project_id=project.id).filter(
                 task_status=ACCEPTED
             )
@@ -1514,7 +1471,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"message": "Task reviews are already disabled"},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-
             tasks = Task.objects.filter(project_id=project.id)
             # delete review annotations for review tasks
             reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, TO_BE_REVISED])
@@ -1600,7 +1556,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 except User.DoesNotExist:
                     ret_dict = {"message": "User does not exist!"}
                     ret_status = status.HTTP_404_NOT_FOUND
-
                 # Get project instance and check how many items to pull
                 project_type = project.project_type
                 ids_to_exclude = Task.objects.filter(project_id__exact=project)
@@ -1618,11 +1573,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                     ret_dict = {"message": "Adding new tasks to the project."}
                     ret_status = status.HTTP_200_OK
-
                 else:
                     ret_dict = {"message": "No items to pull into the dataset."}
                     ret_status = status.HTTP_404_NOT_FOUND
-
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
@@ -1647,7 +1600,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_dict = {"message": "No tasks in project!"}
                 ret_status = status.HTTP_200_OK
                 return Response(ret_dict, status=ret_status)
-
             tasks_list = []
             for task in tasks:
                 task_dict = model_to_dict(task)
@@ -1685,7 +1637,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             response["Content-Disposition"] = 'attachment; filename="%s"' % filename
             response["filename"] = filename
             return response
-
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
@@ -1744,7 +1695,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
-
                 # Perform task export function for inpalce functions
                 export_project_in_place.delay(
                     annotation_fields=annotation_fields,
@@ -1752,7 +1702,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project_type=project_type,
                     get_request_data=dict(request.GET),
                 )
-
             # If save_type is 'new_record'
             elif output_dataset_info["save_type"] == "new_record":
                 export_dataset_instance_id = request.data["export_dataset_instance_id"]
@@ -1770,7 +1719,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_annotation_fields += list(
                         output_dataset_info["fields"]["copy_from_input"].values()
                     )
-
                 data_items = []
                 tasks = Task.objects.filter(
                     project_id__exact=project,
@@ -1780,7 +1728,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
-
                 export_project_new_record.delay(
                     annotation_fields=annotation_fields,
                     project_id=pk,
@@ -1796,7 +1743,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 # dataset_model.objects.bulk_create(data_items)
                 # Saving data items to dataset in a loop
                 # for item in data_items:
-
             # FIXME: Allow export multiple times
             # project.is_archived=True
             # project.save()
@@ -1823,7 +1769,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             if project.is_published:
                 return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
-
             serializer = ProjectUsersSerializer(project, many=False)
             # ret_dict = serializer.data
             annotators = serializer.data["annotators"]
@@ -1834,7 +1779,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 }
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
-
             # get all tasks of a project
             # tasks = Task.objects.filter(project_id=pk)
 
@@ -1891,17 +1835,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         # Handle 'create_parameter' task separately
         if task_name == "projects.tasks.create_parameters_for_task_creation":
 
             # Create the keyword argument for dataset instance ID
             project_id_keyword_arg = "'project_id': " + str(pk) + "}"
-
         else:
             # Create the keyword argument for dataset instance ID
             project_id_keyword_arg = "'project_id': " + "'" + str(pk) + "'"
-
         # Check the celery project export status
         task_queryset = TaskResult.objects.filter(
             task_name=task_name,
@@ -1913,7 +1854,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "No results found"}, status=status.HTTP_204_NO_CONTENT
             )
-
         # Sort the task queryset by date and time
         task_queryset = task_queryset.order_by("-date_done")
 
@@ -1936,5 +1876,4 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer.data[i]["date"] = all_dates[i]
             serializer.data[i]["time"] = all_times[i]
             serializer.data[i]["status"] = status_list[i]
-
         return Response(serializer.data)
