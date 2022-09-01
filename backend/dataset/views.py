@@ -255,6 +255,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         URL: /data/instances/<instance-id>/download/
         Accepted methods: GET
         """
+        export_type = request.GET.get("type", "csv")
         try:
             # Get the dataset instance for the id
             dataset_instance = DatasetInstance.objects.get(instance_id=pk)
@@ -266,9 +267,13 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         dataset_resource = getattr(
             resources, dataset_instance.dataset_type + "Resource"
         )
-        exported_items = dataset_resource().export_as_generator(data_items)
+        exported_items = dataset_resource().export_as_generator(export_type, data_items)
+        if export_type == "tsv":
+            content_type = "text/tsv"
+        else:
+            content_type = "text/csv"
         return StreamingHttpResponse(
-            exported_items, status=status.HTTP_200_OK, content_type="text/csv"
+            exported_items, status=status.HTTP_200_OK, content_type=content_type
         )
 
     @action(methods=["POST"], detail=True, name="Upload Dataset File")
@@ -363,8 +368,26 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "task_name",
+                openapi.IN_QUERY,
+                description=(
+                    f"A task name to filter the tasks by. Allowed Tasks: {ALLOWED_CELERY_TASKS}"
+                ),
+                type=openapi.TYPE_STRING,
+                required=True,
+            ),
+        ],
+        responses={
+            200: "Returns the past task run history for a particular dataset instance and task name"
+        },
+    )
     @action(methods=["GET"], detail=True, name="Get all past instances of celery tasks")
     def get_async_task_results(self, request, pk):
+        # sourcery skip: do-not-use-bare-except
         """
         View to get all past instances of celery tasks
         URL: /data/instances/<instance-id>/get_async_task_results?task_name=<task-name>
