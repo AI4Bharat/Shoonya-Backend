@@ -111,7 +111,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             and annotator in project.annotation_reviewers.all()
         ):
             if (
-                annotator.id in task.annotation_users 
+                annotator.id in task.annotation_users.all()
                 and annotator in project.annotators.all()
             ):
                 annotations = annotations.filter(completed_by=annotator)
