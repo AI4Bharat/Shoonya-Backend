@@ -1808,6 +1808,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def language_choices(self, request):
         return Response(LANG_CHOICES)
 
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "task_name",
+                openapi.IN_QUERY,
+                description=(
+                    f"A task name to filter the tasks by. Allowed Tasks: {ALLOWED_CELERY_TASKS}"
+                ),
+                type=openapi.TYPE_STRING,
+                required=True,
+            ),
+        ],
+        responses={
+            200: "Returns the past task run history for a particular dataset instance and task name"
+        },
+    )
     @action(methods=["GET"], detail=True, name="Get all past instances of celery tasks")
     def get_async_task_results(self, request, pk):
         """
