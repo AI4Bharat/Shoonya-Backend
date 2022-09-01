@@ -43,6 +43,8 @@ def create_tasks_from_dataitems(items, project):
             for input_field, output_field in output_dataset_info["fields"][
                 "copy_from_input"
             ].items():
+                if output_field == input_field: 
+                    continue 
                 item[output_field] = item[input_field]
                 del item[input_field]
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
