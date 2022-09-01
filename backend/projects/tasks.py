@@ -403,7 +403,7 @@ def export_project_new_record(
 
         tasks_df = DataExport.export_csv_file(
             project, tasks_list, download_resources, get_request_data
-        ) 
+        )
         tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
 
         for (ta, task) in zip(tasks_annotations, annotated_tasks):
