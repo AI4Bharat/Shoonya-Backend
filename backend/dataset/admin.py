@@ -29,8 +29,10 @@ class OCRDocumentAdmin(ImportExportActionModelAdmin):
 class BlockTextAdmin(ImportExportActionModelAdmin):
     resource_class = BlockTextResource
 
+
 class ConversationAdmin(ImportExportActionModelAdmin):
-    resource_class=ConversationResource
+    resource_class = ConversationResource
+
 
 admin.site.register(SentenceText, SentenceTextAdmin)
 admin.site.register(TranslationPair, TranslationPairAdmin)

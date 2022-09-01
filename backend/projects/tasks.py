@@ -43,8 +43,8 @@ def create_tasks_from_dataitems(items, project):
             for input_field, output_field in output_dataset_info["fields"][
                 "copy_from_input"
             ].items():
-                if output_field == input_field: 
-                    continue 
+                if output_field == input_field:
+                    continue
                 item[output_field] = item[input_field]
                 del item[input_field]
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
@@ -238,6 +238,7 @@ def create_parameters_for_task_creation(
     # Create Tasks from Parameters
     create_tasks_from_dataitems(sampled_items, project)
 
+
 @shared_task
 def export_project_in_place(
     annotation_fields, project_id, project_type, get_request_data
@@ -290,9 +291,7 @@ def export_project_in_place(
     tasks_df = DataExport.export_csv_file(
         project, tasks_list, download_resources, get_request_data
     )
-    print("DATAFRAME", tasks_df)
     tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
-    print("TASKS ANNOTATIONS", tasks_annotations)
 
     for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
 
@@ -312,6 +311,7 @@ def export_project_in_place(
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
     return f"Exported {len(data_items)} items."
+
 
 @shared_task
 def export_project_new_record(
@@ -399,14 +399,12 @@ def export_project_new_record(
 
         # Handle the case of ConversationTranslation project type separately
         # if project_type == "ConversationTranslation":
-        #     pass 
+        #     pass
 
         tasks_df = DataExport.export_csv_file(
             project, tasks_list, download_resources, get_request_data
-        )
-        print("DATAFRAME", tasks_df)
+        ) 
         tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
-        print("TASKS ANNOTATIONS1", tasks_annotations)
 
         for (ta, task) in zip(tasks_annotations, annotated_tasks):
             # data_item = dataset_model.objects.get(id__exact=task.id.id)

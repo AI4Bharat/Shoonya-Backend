@@ -492,13 +492,13 @@ class DataExport(object):
             if len(os.listdir(tmp_dir)) != 1:
                 raise NotImplementedError
             output_file = files[0]
-                # tasks_annotations = json.load(output_file)
-                # ext = os.path.splitext(output_file)[-1]
-                # content_type = f'application/{ext}'
-                # out = read_bytes_stream(output_file)
+            # tasks_annotations = json.load(output_file)
+            # ext = os.path.splitext(output_file)[-1]
+            # content_type = f'application/{ext}'
+            # out = read_bytes_stream(output_file)
 
-                # filename = name + os.path.splitext(output_file)[-1]
-                # return out, content_type, filename
+            # filename = name + os.path.splitext(output_file)[-1]
+            # return out, content_type, filename
             return pd.read_csv(output_file)
 
             # otherwise pack output directory into archive

@@ -769,7 +769,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
-        except AttributeError: 
+        except AttributeError:
             ret_dict = {"message": "No tasks found!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
@@ -1708,9 +1708,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # If save_type is 'new_record'
             elif output_dataset_info["save_type"] == "new_record":
-                export_dataset_instance_id = request.data.get("export_dataset_instance_id")
+                export_dataset_instance_id = request.data.get(
+                    "export_dataset_instance_id"
+                )
 
-                # If export_dataset_instance_id is not provided 
+                # If export_dataset_instance_id is not provided
                 if export_dataset_instance_id is None:
                     ret_dict = {"message": "export_dataset_instance_id is required!"}
                     ret_status = status.HTTP_400_BAD_REQUEST
