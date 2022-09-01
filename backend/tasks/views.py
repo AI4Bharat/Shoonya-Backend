@@ -106,6 +106,15 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     {"message": "You are not a part of this project"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+        elif (
+            annotator.role == User.ANNOTATOR
+            and annotator in project.annotation_reviewers.all()
+        ):
+            if (
+                annotator.id in task.annotation_users 
+                and annotator in project.annotators.all()
+            ):
+                annotations = annotations.filter(completed_by=annotator)
 
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
