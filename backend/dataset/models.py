@@ -308,8 +308,6 @@ class Conversation(DatasetBase):
     )
     speaker_count = models.IntegerField(
         verbose_name="speaker_count",
-        null=True,
-        blank=True,
         help_text=("Number of speakers involved in conversation"),
     )
     speakers_json = models.JSONField(
@@ -323,8 +321,6 @@ class Conversation(DatasetBase):
     )
     conversation_json = models.JSONField(
         verbose_name="conversation_details",
-        null=True,
-        blank=True,
         help_text=("Details of the conversation"),
     )
 
