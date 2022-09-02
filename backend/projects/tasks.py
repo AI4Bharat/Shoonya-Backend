@@ -19,6 +19,7 @@ from utils.monolingual.sentence_splitter import split_sentences
 from .models import *
 from .registry_helper import ProjectRegistry
 from .serializers import ProjectUsersSerializer
+from .utils import no_of_words
 
 # Celery logger settings
 logger = get_task_logger(__name__)
@@ -31,6 +32,8 @@ def create_tasks_from_dataitems(items, project):
     input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
     output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
     variable_parameters = project.variable_parameters
+    project_type_lower = project_type.lower()
+    is_translation_project = True if "translation" in project_type_lower else False
 
     # Create task objects
     tasks = []
@@ -52,6 +55,8 @@ def create_tasks_from_dataitems(items, project):
         # Remove data id because it's not needed in task.data
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
+        if is_translation_project:
+            task.data["word_count"] = no_of_words(task.data["input_text"])
         tasks.append(task)
 
     # Bulk create the tasks
