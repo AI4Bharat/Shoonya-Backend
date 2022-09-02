@@ -17,6 +17,9 @@ from django.db.models.functions import Cast, Coalesce
 from regex import R
 from tasks.models import Annotation
 from projects.utils import is_valid_date, no_of_words
+from datetime import datetime, timezone, timedelta
+import pandas as pd
+from dateutil import relativedelta
 
 
 def get_task_count(
@@ -526,4 +529,168 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Project Progress": round(project_progress, 3),
                 }
                 final_result.append(result)
+        return Response(final_result)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get Cumulative tasks completed ",
+        url_name="cumulative_tasks_count",
+    )
+    def cumulative_tasks_count(self, request, pk=None):
+        try:
+            organization = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        project_type = request.data.get("project_type")
+        proj_objs = Project.objects.filter(
+            organization_id=pk, project_type=project_type
+        )
+
+        languages = list(set([proj.tgt_language for proj in proj_objs]))
+        final_result = []
+        for lang in languages:
+            tasks_count = Task.objects.filter(
+                project_id__in=proj_objs,
+                project_id__tgt_language=lang,
+                task_status__in=[
+                    "labeled",
+                    "accepted",
+                    "accepted_with_changes",
+                    "to_be_revised",
+                    "complete",
+                ],
+            ).count()
+
+            result = {"language": lang, "cumulative_tasks_count": tasks_count}
+            final_result.append(result)
+
+        return Response(final_result)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get  tasks completed based on Periodically ",
+        url_name="periodical_tasks_count",
+    )
+    def periodical_tasks_count(self, request, pk=None):
+
+        try:
+            organization = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        project_type = request.data.get("project_type")
+        periodical_type = request.data.get("periodical_type")
+        org_created_date = organization.created_at
+        present_date = datetime.now(timezone.utc)
+
+        periodical_list = []
+        if periodical_type == "weekly":
+            count = 1
+            next_monday = org_created_date
+            periodical_list.append(org_created_date)
+            while next_monday <= present_date:
+                next_monday = org_created_date + timedelta(
+                    days=-org_created_date.weekday(), weeks=count
+                )
+                periodical_list.append(next_monday)
+                count += 1
+
+        elif periodical_type == "monthly":
+
+            start_date = org_created_date
+            end_date = present_date
+            end_date_nextmonth = end_date + relativedelta.relativedelta(months=1)
+            if start_date.day != 1:
+                periodical_list.append(start_date)
+            date_range = pd.date_range(start_date, end_date_nextmonth)
+            date_range = date_range[date_range.day == 1]
+            start_of_month = [
+                datetime(dat.year, dat.month, dat.day) for dat in date_range
+            ]
+
+            periodical_list.extend(start_of_month)
+
+        elif periodical_type == "yearly":
+            start_date = org_created_date
+            end_date = present_date
+
+            years_list = []
+            years_list.append(start_date.year)
+            start_year = start_date.year
+
+            while start_year < end_date.year:
+                start_year += 1
+                years_list.append(start_year)
+
+            years_list.append(start_year + 1)
+            periodical_list.append(start_date)
+            for year1 in years_list[1:]:
+                periodical_list.append(datetime(year1, 1, 1))
+
+        proj_objs = Project.objects.filter(
+            organization_id=pk, project_type=project_type
+        )
+
+        languages = list(set([proj.tgt_language for proj in proj_objs]))
+
+        final_result = []
+
+        for period in range(len(periodical_list) - 1):
+            start_end_date = (
+                str(periodical_list[period].date())
+                + "  To "
+                + str(
+                    (periodical_list[period + 1].date() - pd.DateOffset(hours=1)).date()
+                )
+            )
+            period_name = ""
+            if periodical_type == "weekly":
+                period_name = "week_number"
+            elif periodical_type == "monthly":
+                period_name = "month_number"
+            elif periodical_type == "yearly":
+                period_name = "year_number"
+
+            data = []
+            for lang in languages:
+
+                tasks_objs = Task.objects.filter(
+                    project_id__in=proj_objs,
+                    project_id__tgt_language=lang,
+                    task_status__in=[
+                        "labeled",
+                        "accepted",
+                        "accepted_with_changes",
+                        "to_be_revised",
+                        "complete",
+                    ],
+                )
+
+                labeled_count_tasks_ids = list(tasks_objs.values_list("id", flat=True))
+                annotated_labeled_tasks_count = Annotation.objects.filter(
+                    task_id__in=labeled_count_tasks_ids,
+                    parent_annotation_id=None,
+                    created_at__gte=periodical_list[period],
+                    created_at__lt=periodical_list[period + 1],
+                ).count()
+
+                summary_lang = {
+                    "language": lang,
+                    "annotations_completed": annotated_labeled_tasks_count,
+                }
+
+                data.append(summary_lang)
+
+            summary_period = {
+                period_name: period + 1,
+                "date_range": start_end_date,
+                "data": data,
+            }
+            final_result.append(summary_period)
+
         return Response(final_result)
