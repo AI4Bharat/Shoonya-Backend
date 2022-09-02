@@ -417,66 +417,97 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_name="remove")
     # TODO: Refactor code to handle better role access
     def remove_annotator(self, request, pk=None):
-        user = User.objects.filter(email=request.data["email"]).first()
-        if not user:
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            if not project:
+                return Response(
+                    {"message": "Project does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            for user_id in ids:
+                user = User.objects.get(pk=user_id)
+                if user in project.frozen_users.all():
+                    return Response(
+                        {"message": "User is already frozen"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                tasks = Task.objects.filter(
+                    Q(project_id=project.id) & Q(annotation_users__in=[user])
+                ).filter(Q(task_status="unlabeled") | Q(task_status="draft"))
+                Annotation_model.objects.filter(
+                    Q(completed_by=user) & Q(task__task_status="draft")
+                ).delete()  # delete all draft annotations by the user
+                for task in tasks:
+                    task.annotation_users.remove(user)
+                    task.save()
+                tasks.update(task_status="unlabeled")  # unassign user from tasks
+                project.annotators.remove(user)
+                project.frozen_users.add(user)
+                project.save()
+            return Response(
+                {"message": "User removed from project"},
+                status=status.HTTP_201_CREATED,
+            )
+
+        except User.DoesNotExist:
             return Response(
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-        project = Project.objects.filter(pk=pk).first()
-        if not project:
+        except Project.DoesNotExist:
             return Response(
-                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
+                {"message": "Project does not exist"},
+                status=status.HTTP_404_NOT_FOUND,
             )
-        if project.frozen_users.filter(id=user.id).exists():
-            return Response(
-                {"message": "User is already frozen in this project"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        tasks = Task.objects.filter(
-            Q(project_id=project.id) & Q(annotation_users__in=[user])
-        ).filter(Q(task_status="unlabeled") | Q(task_status="draft"))
-
-        Annotation_model.objects.filter(
-            Q(completed_by=user) & Q(task__task_status="draft")
-        ).delete()  # delete all draft annotations by the user
-
-        for task in tasks:
-            task.annotation_users.remove(user)
-        tasks.update(task_status="unlabeled")  # unassign user from tasks
-
-        project.frozen_users.add(user)
-
-        return Response({"message": "User removed"}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_name="remove_reviewer")
     def remove_reviewer(self, request, pk=None):
-        user_id = request.data.get("id")
-        user = User.objects.filter(id=user_id).first()
-        if not user:
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            if not project:
+                return Response(
+                    {"message": "Project does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            for user_id in ids:
+                user = User.objects.get(pk=user_id)
+                # check if the user is already frozen
+                if user in project.frozen_users.all():
+                    return Response(
+                        {"message": "User is already frozen"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                tasks = (
+                    Task.objects.filter(project_id=project.id)
+                    .filter(review_user=user)
+                    .exclude(task_status__in=[ACCEPTED, TO_BE_REVISED])
+                )
+                for task in tasks:
+                    task.review_user = None
+                    task.save()
+                project.frozen_users.add(user)
+                project.save()
+            return Response(
+                {"message": "User removed from the project"}, status=status.HTTP_200_OK
+            )
+        except User.DoesNotExist:
             return Response(
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
-        project = Project.objects.filter(pk=pk).first()
-        if not project:
-            return Response(
-                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
-        if project.frozen_users.filter(id=user.id).exists():
-            return Response(
-                {"message": "User is already frozen in this project"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        tasks = (
-            Task.objects.filter(project_id=project.id)
-            .filter(review_user=user)
-            .exclude(task_status__in=[ACCEPTED, TO_BE_REVISED])
-        )
-        for task in tasks:
-            task.review_user = None
-            task.save()
-        project.frozen_users.add(user)
-        project.save()
-        return Response({"message": "User removed"}, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         method="post",
@@ -549,11 +580,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 queryset = Task.objects.filter(
                     task_status=request.query_params["task_status"]
                 )
-            queryset = queryset.filter(
-                **process_search_query(
-                    request.GET, "data", list(queryset.first().data.keys())
+
+            if len(queryset) > 0:
+                queryset = queryset.filter(
+                    **process_search_query(
+                        request.GET, "data", list(queryset.first().data.keys())
+                    )
                 )
-            )
 
             queryset = queryset.order_by("id")
 
@@ -1308,26 +1341,38 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         try:
             project = Project.objects.get(pk=pk)
-
-            ids = request.data.get("ids")
-            annotators = User.objects.filter(id__in=ids)
-
-            if annotators.count() != len(ids):
+            if "ids" in dict(request.data):
+                ids = request.data.get("ids", "")
+            else:
                 return Response(
-                    {"message": "Enter all valid user ids"},
+                    {"message": "key doesnot match"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            # check the all the ids in the list are valid or not if valid then add them to the project
+            annotators = User.objects.filter(id__in=ids)
+            if not annotators:
+                return Response(
+                    {"message": "annotator does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             for annotator in annotators:
+                # check if annotator is already added to project
+                if annotator in project.annotators.all():
+                    return Response(
+                        {"message": "Annotator already added to project"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 project.annotators.add(annotator)
-            return Response({"message": "Added"}, status=status.HTTP_200_OK)
+                project.save()
+
+            return Response(
+                {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
+            )
         except Project.DoesNotExist:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
-        except:
-            return Response(
-                {"message": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     @action(
@@ -1342,33 +1387,35 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Adds annotation reviewers to the project
         """
-        ret_dict = {}
-        ret_status = 0
         try:
             project = Project.objects.get(pk=pk)
-            if not project.enable_task_reviews:
+            if "ids" in dict(request.data):
+                ids = request.data.get("ids", "")
+            else:
                 return Response(
-                    {"message": "Task reviews are disabled for this project"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            ids = request.data.get("ids")
-            users = User.objects.filter(id__in=ids)
-            if users.count() != len(ids):
-                return Response(
-                    {"message": "Enter all valid user ids"},
+                    {"message": "key doesnot match"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            users = User.objects.filter(id__in=ids)
+            if not users:
+                return Response(
+                    {"message": "user does not exist"}, status=status.HTTP_404_NOT_FOUND
+                )
             for user in users:
+                # check if user is already added to project
+                if user in project.annotation_reviewers.all():
+                    return Response(
+                        {"message": "User already added to project"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 project.annotation_reviewers.add(user)
+                project.save()
+
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
-        except:
-            return Response(
-                {"message": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     @action(
@@ -1761,6 +1808,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def language_choices(self, request):
         return Response(LANG_CHOICES)
 
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "task_name",
+                openapi.IN_QUERY,
+                description=(
+                    f"A task name to filter the tasks by. Allowed Tasks: {ALLOWED_CELERY_TASKS}"
+                ),
+                type=openapi.TYPE_STRING,
+                required=True,
+            ),
+        ],
+        responses={
+            200: "Returns the past task run history for a particular dataset instance and task name"
+        },
+    )
     @action(methods=["GET"], detail=True, name="Get all past instances of celery tasks")
     def get_async_task_results(self, request, pk):
         """
