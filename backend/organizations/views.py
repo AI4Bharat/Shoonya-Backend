@@ -586,8 +586,29 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             )
         project_type = request.data.get("project_type")
         periodical_type = request.data.get("periodical_type")
+
+        start_date = request.data.get("start_date")
+        end_date = request.data.get("end_date")
+
         org_created_date = organization.created_at
         present_date = datetime.now(timezone.utc)
+
+        if start_date != None:
+            date1 = start_date
+            org_created_date = datetime(
+                int(date1.split("-")[0]),
+                int(date1.split("-")[1]),
+                int(date1.split("-")[2]),
+                tzinfo=timezone(offset=timedelta()),
+            )
+        if end_date != None:
+            date2 = end_date
+            present_date = datetime(
+                int(date2.split("-")[0]),
+                int(date2.split("-")[1]),
+                int(date2.split("-")[2]),
+                tzinfo=timezone(offset=timedelta()),
+            )
 
         periodical_list = []
         if periodical_type == "weekly":
