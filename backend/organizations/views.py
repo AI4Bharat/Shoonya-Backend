@@ -552,8 +552,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         languages = list(set([proj.tgt_language for proj in proj_objs]))
         final_result = []
         for lang in languages:
+            proj_lang_filter = proj_objs.filter(tgt_language=lang)
             tasks_count = Task.objects.filter(
-                project_id__in=proj_objs,
+                project_id__in=proj_lang_filter,
                 project_id__tgt_language=lang,
                 task_status__in=[
                     "labeled",
@@ -658,10 +659,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
             data = []
             for lang in languages:
-
+                proj_lang_filter = proj_objs.filter(tgt_language=lang)
                 tasks_objs = Task.objects.filter(
-                    project_id__in=proj_objs,
-                    project_id__tgt_language=lang,
+                    project_id__in=proj_lang_filter,
                     task_status__in=[
                         "labeled",
                         "accepted",
