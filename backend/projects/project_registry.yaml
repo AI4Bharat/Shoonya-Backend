@@ -150,5 +150,35 @@ Monolingual:
           annotations:
             - corrected_text
             - quality_status
-
+Conversation:
+  description: "Translation of Conversation data"
+  project_types:
+    ConversationTranslation:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "conversation/conversation_translation.jsx"
+      input_dataset:
+        class: Conversation
+        fields:
+          - domain
+          - topic
+          - scenario
+          - prompt
+          - speaker_count
+          - speakers_json
+          - conversation_json
+      output_dataset:
+        class: Conversation
+        save_type: new_record
+        fields:
+          variable_parameters:
+            - language
+          copy_from_input:
+            domain: domain
+            topic: topic
+            scenario: scenario
+            prompt: prompt
+            speaker_count: speaker_count
+            speakers_json: speakers_json
+          annotations:
+            - conversation_json  
         

@@ -287,8 +287,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Get the dataset type using the instance ID
         dataset_type = get_object_or_404(DatasetInstance, pk=pk).dataset_type
 
-        dataset_type = dataset_obj.dataset_type
-
         if "dataset" not in request.FILES:
             return Response(
                 {
@@ -715,20 +713,26 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
         try:
+            print("Started")
             dataset_instance_ids = request.data.get("instance_ids")
+            print(dataset_instance_ids)
             dataset_type = request.data.get("dataset_type", "")
             if type(dataset_instance_ids) != list:
                 dataset_instance_ids = [dataset_instance_ids]
             filter_string = request.data.get("filter_string")
+            print("Got till here 1")
             #  Get dataset type from first dataset instance if dataset_type not passed in json data from frontend
             if dataset_type == "":
+                print("Got inside if")
                 dataset_type = DatasetInstance.objects.get(
                     instance_id=dataset_instance_ids[0]
                 ).dataset_type
             dataset_model = apps.get_model("dataset", dataset_type)
+            print("Got till here 2")
             data_items = dataset_model.objects.filter(
                 instance_id__in=dataset_instance_ids
             )
+            print("Got till here 3")
             query_params = dict(parse_qsl(filter_string))
             query_params = filter.fix_booleans_in_dict(query_params)
             filtered_set = filter.filter_using_dict_and_queryset(
@@ -737,6 +741,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             # filtered_data = filtered_set.values()
             # serializer = DatasetItemsSerializer(filtered_set, many=True)
             page = request.GET.get("page")
+            print("Got till the first try")
             try:
                 page = self.paginate_queryset(filtered_set)
             except Exception as e:

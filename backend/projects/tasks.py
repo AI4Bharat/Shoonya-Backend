@@ -46,6 +46,8 @@ def create_tasks_from_dataitems(items, project):
             for input_field, output_field in output_dataset_info["fields"][
                 "copy_from_input"
             ].items():
+                if output_field == input_field:
+                    continue
                 item[output_field] = item[input_field]
                 del item[input_field]
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
@@ -313,6 +315,8 @@ def export_project_in_place(
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
+    return f"Exported {len(data_items)} items."
+
 
 @shared_task
 def export_project_new_record(
@@ -397,6 +401,11 @@ def export_project_new_record(
         # export_stream, content_type, filename = DataExport.generate_export_file(
         #     project, tasks_list, 'CSV', download_resources, request.GET
         # )
+
+        # Handle the case of ConversationTranslation project type separately
+        # if project_type == "ConversationTranslation":
+        #     pass
+
         tasks_df = DataExport.export_csv_file(
             project, tasks_list, download_resources, get_request_data
         )
