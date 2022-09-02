@@ -11,7 +11,9 @@ from .resources import RESOURCE_MAP
 @shared_task(
     bind=True,
 )
-def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content_type, deduplicate=False):
+def upload_data_to_data_instance(
+    self, dataset_string, pk, dataset_type, content_type, deduplicate=False
+):
     # sourcery skip: raise-specific-error
     """Celery background task to upload the data to the dataset instance through file upload.
     First perform a batch upload and if that fails then move on to an iterative format to find rows with errors.
