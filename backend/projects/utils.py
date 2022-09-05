@@ -40,3 +40,10 @@ def conversation_wordcount(conversations: list) -> int:
         for sentence in conversation["sentences"]:
             word_count += no_of_words(sentence)
     return word_count
+
+
+def conversation_sentence_count(conversations: list) -> int:
+    """
+    Returns the total sentence count of the Conversation DatasetInstance type
+    """
+    return sum(len(conversation["sentences"]) for conversation in conversations)

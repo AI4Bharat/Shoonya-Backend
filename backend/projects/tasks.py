@@ -16,7 +16,7 @@ from utils.monolingual.sentence_splitter import split_sentences
 
 from .models import *
 from .registry_helper import ProjectRegistry
-from .utils import conversation_wordcount, no_of_words
+from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
 
 # Celery logger settings
 logger = get_task_logger(__name__)
@@ -58,6 +58,9 @@ def create_tasks_from_dataitems(items, project):
                 task.data["word_count"] = no_of_words(task.data["input_text"])
             else:
                 task.data["word_count"] = conversation_wordcount(
+                    task.data["conversation_json"]
+                )
+                task.data["sentence_count"] = conversation_sentence_count(
                     task.data["conversation_json"]
                 )
 
