@@ -773,37 +773,44 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             )
         # return Response(filtered_data)
 
-    @action(detail=True,methods=["POST"],url_path="delete_data_items",url_name="delete_data_items")
-    def delete_data_items(self,request,pk=None):
-        dataset_instance_id=request.data.get("dataset_instance_id")
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="delete_data_items",
+        url_name="delete_data_items",
+    )
+    def delete_data_items(self, request, pk=None):
+        dataset_instance_id = request.data.get("dataset_instance_id")
 
-        dataset_instance=DatasetInstance.objects.get(pk=dataset_instance_id)
-        
-        if((request.user.role==User.ORGANIZATION_OWNER or request.user.is_superuser) and (request.user.organization==dataset_instance.organisation_id))==False:
+        dataset_instance = DatasetInstance.objects.get(pk=dataset_instance_id)
+
+        if (
+            (request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser)
+            and (request.user.organization == dataset_instance.organisation_id)
+        ) == False:
             return Response(
                 {
-                    "status":status.HTTP_403_FORBIDDEN,
-                    "message":"You are not authorized to access the endpoint."
+                    "status": status.HTTP_403_FORBIDDEN,
+                    "message": "You are not authorized to access the endpoint.",
                 }
-                )
+            )
 
-
-        dataset_type=dataset_instance.dataset_type
+        dataset_type = dataset_instance.dataset_type
         dataset_model = apps.get_model("dataset", dataset_type)
 
-        data_item_start_id=request.data.get("data_item_start_id")
-        data_item_end_id=request.data.get("data_item_end_id")
-        data_item_ids=[id for id in range(data_item_start_id,data_item_end_id+1)]
+        data_item_start_id = request.data.get("data_item_start_id")
+        data_item_end_id = request.data.get("data_item_end_id")
+        data_item_ids = [id for id in range(data_item_start_id, data_item_end_id + 1)]
 
-        data_items = dataset_model.objects.filter(
-                instance_id=dataset_instance
-            ).filter(id__in=data_item_ids)
+        data_items = dataset_model.objects.filter(instance_id=dataset_instance).filter(
+            id__in=data_item_ids
+        )
 
         data_items.delete()
         return Response(
             {
                 "status": status.HTTP_200_OK,
-                "message":"Deleted successfully!",
+                "message": "Deleted successfully!",
             }
         )
 
