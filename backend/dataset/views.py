@@ -773,6 +773,30 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             )
         # return Response(filtered_data)
 
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "data_item_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "data_item_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+            },
+            required=["data_item_start_id", "data_item_end_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the dataset instance"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Deleted successfully!",
+            403: "Not authorized!",
+        },
+    )
     @action(
         detail=True,
         methods=["POST"],
@@ -780,9 +804,8 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         url_name="delete_data_items",
     )
     def delete_data_items(self, request, pk=None):
-        dataset_instance_id = request.data.get("dataset_instance_id")
 
-        dataset_instance = DatasetInstance.objects.get(pk=dataset_instance_id)
+        dataset_instance = DatasetInstance.objects.get(pk=pk)
 
         if (
             (request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser)
