@@ -28,13 +28,14 @@ def is_valid_date(s: str) -> Tuple[bool, str]:
 
     return (True, "")
 
+
 def conversation_wordcount(conversations: list) -> int:
     """
     Returns the total word count of the Conversation DatasetInstance type
     """
     word_count = 0
 
-    # Iterate through the list of dictionaries 
+    # Iterate through the list of dictionaries
     for conversation in conversations:
         for sentence in conversation["sentences"]:
             word_count += no_of_words(sentence)
