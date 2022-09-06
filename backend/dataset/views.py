@@ -795,6 +795,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         responses={
             200: "Deleted successfully! or No rows to delete",
             403: "Not authorized!",
+            400: "Invalid parameters in the request body!",
         },
     )
     @action(
@@ -804,46 +805,58 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         url_name="delete_data_items",
     )
     def delete_data_items(self, request, pk=None):
+        try:
+            dataset_instance = DatasetInstance.objects.get(pk=pk)
 
-        dataset_instance = DatasetInstance.objects.get(pk=pk)
+            if (
+                (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.is_superuser
+                )
+                and (request.user.organization == dataset_instance.organisation_id)
+            ) == False:
+                return Response(
+                    {
+                        "status": status.HTTP_403_FORBIDDEN,
+                        "message": "You are not authorized to access the endpoint.",
+                    }
+                )
 
-        if (
-            (request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser)
-            and (request.user.organization == dataset_instance.organisation_id)
-        ) == False:
-            return Response(
-                {
-                    "status": status.HTTP_403_FORBIDDEN,
-                    "message": "You are not authorized to access the endpoint.",
-                }
-            )
+            dataset_type = dataset_instance.dataset_type
+            dataset_model = apps.get_model("dataset", dataset_type)
 
-        dataset_type = dataset_instance.dataset_type
-        dataset_model = apps.get_model("dataset", dataset_type)
+            data_item_start_id = request.data.get("data_item_start_id")
+            data_item_end_id = request.data.get("data_item_end_id")
+            data_item_ids = [
+                id for id in range(data_item_start_id, data_item_end_id + 1)
+            ]
 
-        data_item_start_id = request.data.get("data_item_start_id")
-        data_item_end_id = request.data.get("data_item_end_id")
-        data_item_ids = [id for id in range(data_item_start_id, data_item_end_id + 1)]
+            data_items = dataset_model.objects.filter(
+                instance_id=dataset_instance
+            ).filter(id__in=data_item_ids)
 
-        data_items = dataset_model.objects.filter(instance_id=dataset_instance).filter(
-            id__in=data_item_ids
-        )
+            if len(data_items) == 0:
+                return Response(
+                    {
+                        "status": status.HTTP_200_OK,
+                        "message": "No rows to delete",
+                    }
+                )
 
-        if len(data_items) == 0:
+            data_items.delete()
             return Response(
                 {
                     "status": status.HTTP_200_OK,
-                    "message": "No rows to delete",
+                    "message": "Deleted successfully!",
                 }
             )
-
-        data_items.delete()
-        return Response(
-            {
-                "status": status.HTTP_200_OK,
-                "message": "Deleted successfully!",
-            }
-        )
+        except:
+            return Response(
+                {
+                    "status": status.HTTP_400_BAD_REQUEST,
+                    "message": "Invalid Parameters in the request body!",
+                }
+            )
 
 
 class DatasetTypeView(APIView):
