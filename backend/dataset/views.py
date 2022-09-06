@@ -793,7 +793,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             )
         ],
         responses={
-            200: "Deleted successfully!",
+            200: "Deleted successfully! or No rows to delete",
             403: "Not authorized!",
         },
     )
@@ -828,6 +828,14 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         data_items = dataset_model.objects.filter(instance_id=dataset_instance).filter(
             id__in=data_item_ids
         )
+
+        if len(data_items) == 0:
+            return Response(
+                {
+                    "status": status.HTTP_200_OK,
+                    "message": "No rows to delete",
+                }
+            )
 
         data_items.delete()
         return Response(
