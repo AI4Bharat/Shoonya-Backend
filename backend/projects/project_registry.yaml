@@ -166,6 +166,7 @@ Conversation:
           - speaker_count
           - speakers_json
           - conversation_json
+          - translated_conversation_json
       output_dataset:
         class: Conversation
         save_type: new_record
