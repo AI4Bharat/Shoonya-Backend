@@ -181,22 +181,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             queryset = Task.objects.all()
             if "data" in dict(request.query_params):
                 queryset = queryset.filter(
-                annotation_users=request.query_params["data"]
-            )
-        
+                    annotation_users=request.query_params["data"]
+                )
 
         serializer = TaskSerializer(queryset, many=True)
         return Response(serializer.data)
 
-            
-
-     # get the task list without using keys
+        # get the task list without using keys
         # queryset = queryset.filter(
         #     **process_search_query(
         #         request.GET, "data", list(queryset.first().data.keys())
         #     )
         # )
-        
 
         if "page" in dict(request.query_params):
             page = request.query_params["page"]
