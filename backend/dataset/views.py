@@ -809,7 +809,10 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             dataset_instance = DatasetInstance.objects.get(pk=pk)
 
             if (
-                (request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser)
+                (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.is_superuser
+                )
                 and (request.user.organization == dataset_instance.organisation_id)
             ) == False:
                 return Response(
@@ -823,11 +826,13 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
             data_item_start_id = request.data.get("data_item_start_id")
             data_item_end_id = request.data.get("data_item_end_id")
-            data_item_ids = [id for id in range(data_item_start_id, data_item_end_id + 1)]
+            data_item_ids = [
+                id for id in range(data_item_start_id, data_item_end_id + 1)
+            ]
 
-            data_items = dataset_model.objects.filter(instance_id=dataset_instance).filter(
-                id__in=data_item_ids
-            )
+            data_items = dataset_model.objects.filter(
+                instance_id=dataset_instance
+            ).filter(id__in=data_item_ids)
             num_data_items = len(data_items)
 
             if num_data_items == 0:
