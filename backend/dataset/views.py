@@ -834,8 +834,9 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             data_items = dataset_model.objects.filter(
                 instance_id=dataset_instance
             ).filter(id__in=data_item_ids)
-
-            if len(data_items) == 0:
+            num_data_items = len(data_items)
+            
+            if num_data_items == 0:
                 return Response(
                     {
                         "status": status.HTTP_200_OK,
@@ -847,7 +848,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             return Response(
                 {
                     "status": status.HTTP_200_OK,
-                    "message": f"Deleted {len(data_items)} data items successfully!",
+                    "message": f"Deleted {num_data_items} data items successfully!",
                 }
             )
         except:
