@@ -847,7 +847,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             return Response(
                 {
                     "status": status.HTTP_200_OK,
-                    "message": "Deleted successfully!",
+                    "message": f"Deleted {len(data_items} data items successfully!",
                 }
             )
         except:
