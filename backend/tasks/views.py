@@ -95,7 +95,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project = Project.objects.get(id=task.project_id.id)
         annotator = request.user
 
-        if annotator.role == User.ANNOTATOR and annotator != task.review_user:
+        if (
+            annotator.role == User.ANNOTATOR
+            and annotator not in project.annotation_reviewers.all()
+        ):
             if annotator in project.annotators.all():
                 annotations = annotations.filter(completed_by=annotator)
             else:
@@ -103,6 +106,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     {"message": "You are not a part of this project"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
@@ -174,19 +178,25 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         )
 
         else:
-            is_review_mode = (
-                "mode" in dict(request.query_params)
-                and request.query_params["mode"] == "review"
-            )
             queryset = Task.objects.all()
-
-        # Handle search query (if any)
-        if len(queryset):
-            queryset = queryset.filter(
-                **process_search_query(
-                    request.GET, "data", list(queryset.first().data.keys())
-                )
+            if "data" in dict(request.query_params):
+                queryset = queryset.filter(
+                annotation_users=request.query_params["data"]
             )
+        
+
+        serializer = TaskSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+            
+
+     # get the task list without using keys
+        # queryset = queryset.filter(
+        #     **process_search_query(
+        #         request.GET, "data", list(queryset.first().data.keys())
+        #     )
+        # )
+        
 
         if "page" in dict(request.query_params):
             page = request.query_params["page"]
@@ -221,18 +231,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "data": data,
                 }
             )
-        if "project_id" in dict(request.query_params):
-            project_details = Project.objects.filter(
-                id=request.query_params["project_id"]
-            )
-            project_type = project_details[0].project_type
-            project_type = project_type.lower()
-            is_translation_project = True if "translation" in project_type else False
-        else:
-            page = self.paginate_queryset(queryset)
-            serializer = TaskAnnotationSerializer(page, many=True)
-            data = serializer.data
-            return self.get_paginated_response(data)
+
+        project_details = Project.objects.filter(id=request.query_params["project_id"])
+        project_type = project_details[0].project_type
+        project_type = project_type.lower()
+        is_translation_project = True if "translation" in project_type else False
 
         user = request.user
 
@@ -297,7 +300,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             data = serializer.data
             return self.get_paginated_response(data)
 
-        # serializer = TaskSerializer(queryset, many=True)
+        serializer = TaskSerializer(queryset, many=True)
         return Response(status=status.HTTP_400_BAD_REQUEST)
 
     def partial_update(self, request, pk=None):
