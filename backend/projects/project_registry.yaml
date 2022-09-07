@@ -179,6 +179,7 @@ Conversation:
             prompt: prompt
             speaker_count: speaker_count
             speakers_json: speakers_json
+            translated_conversation_json: translated_conversation_json
           annotations:
             - conversation_json  
         
