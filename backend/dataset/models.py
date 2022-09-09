@@ -323,6 +323,12 @@ class Conversation(DatasetBase):
         verbose_name="conversation_details",
         help_text=("Details of the conversation"),
     )
+    translated_conversation_json = models.JSONField(
+        verbose_name="translated_conversation",
+        help_text=("Translated Conversation"),
+        null=True,
+        blank=True,
+    )
 
     def __str__(self):
         return str(self.id)

@@ -7,8 +7,6 @@ from celery.utils.log import get_task_logger
 from dataset import models as dataset_models
 from django.forms.models import model_to_dict
 from filters import filter
-from rest_framework import status
-from rest_framework.response import Response
 from users.models import User
 
 from tasks.models import Annotation as Annotation_model
@@ -18,8 +16,7 @@ from utils.monolingual.sentence_splitter import split_sentences
 
 from .models import *
 from .registry_helper import ProjectRegistry
-from .serializers import ProjectUsersSerializer
-from .utils import no_of_words
+from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
 
 # Celery logger settings
 logger = get_task_logger(__name__)
@@ -34,6 +31,7 @@ def create_tasks_from_dataitems(items, project):
     variable_parameters = project.variable_parameters
     project_type_lower = project_type.lower()
     is_translation_project = True if "translation" in project_type_lower else False
+    is_conversation_translation_project = project_type == "ConversationTranslation"
 
     # Create task objects
     tasks = []
@@ -56,7 +54,16 @@ def create_tasks_from_dataitems(items, project):
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
         if is_translation_project:
-            task.data["word_count"] = no_of_words(task.data["input_text"])
+            if not is_conversation_translation_project:
+                task.data["word_count"] = no_of_words(task.data["input_text"])
+            else:
+                task.data["word_count"] = conversation_wordcount(
+                    task.data["conversation_json"]
+                )
+                task.data["sentence_count"] = conversation_sentence_count(
+                    task.data["conversation_json"]
+                )
+
         tasks.append(task)
 
     # Bulk create the tasks
