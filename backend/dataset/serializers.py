@@ -76,12 +76,23 @@ class TaskResultSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class ConversationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Conversation data
+    """
+
+    class Meta:
+        model = Conversation
+        fields = "__all__"
+
+
 # Define a mapping between dataset instance type and serializer
 SERIALIZER_MAP = {
     "SentenceText": SentenceTextSerializer,
     "TranslationPair": TranslationPairSerializer,
     "OCRDocument": OCRDocumentSerializer,
     "BlockText": BlockTextSerializer,
+    "Conversation": ConversationSerializer,
 }
 
 # class CollectionDatasetSerializer(serializers.ModelSerializer):
