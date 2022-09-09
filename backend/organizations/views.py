@@ -20,6 +20,7 @@ from projects.utils import is_valid_date, no_of_words
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 from dateutil import relativedelta
+import calendar
 
 
 def get_task_count(
@@ -550,7 +551,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         )
 
         languages = list(set([proj.tgt_language for proj in proj_objs]))
-        final_result = []
+        general_lang = []
+        other_lang = []
         for lang in languages:
             proj_lang_filter = proj_objs.filter(tgt_language=lang)
             tasks_count = Task.objects.filter(
@@ -566,8 +568,23 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             ).count()
 
             result = {"language": lang, "cumulative_tasks_count": tasks_count}
-            final_result.append(result)
 
+            if lang == None or lang == "":
+                other_lang.append(result)
+            else:
+                general_lang.append(result)
+
+        other_count = 0
+        for dat in other_lang:
+            other_count += dat["cumulative_tasks_count"]
+        if len(other_lang) > 0:
+            other_language = {
+                "language": "Others",
+                "cumulative_tasks_count": other_count,
+            }
+            general_lang.append(other_language)
+
+        final_result = sorted(general_lang, key=lambda x: x["language"], reverse=False)
         return Response(final_result)
 
     @action(
@@ -612,47 +629,64 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         periodical_list = []
         if periodical_type == "weekly":
-            count = 1
-            next_monday = org_created_date
             periodical_list.append(org_created_date)
-            while next_monday <= present_date:
-                next_monday = org_created_date + timedelta(
-                    days=-org_created_date.weekday(), weeks=count
-                )
-                periodical_list.append(next_monday)
-                count += 1
+            while org_created_date <= present_date:
+
+                org_created_date = org_created_date + timedelta(days=7)
+                if org_created_date <= present_date:
+                    periodical_list.append(org_created_date)
+                else:
+                    periodical_list.append(present_date + timedelta(days=1))
 
         elif periodical_type == "monthly":
 
             start_date = org_created_date
             end_date = present_date
-            end_date_nextmonth = end_date + relativedelta.relativedelta(months=1)
-            if start_date.day != 1:
-                periodical_list.append(start_date)
-            date_range = pd.date_range(start_date, end_date_nextmonth)
-            date_range = date_range[date_range.day == 1]
-            start_of_month = [
-                datetime(dat.year, dat.month, dat.day) for dat in date_range
-            ]
 
-            periodical_list.extend(start_of_month)
+            periodical_list.append(start_date)
+            count = 1
+            start = start_date
+            while start <= end_date:
+
+                start = start_date + relativedelta.relativedelta(months=count)
+                if (
+                    start_date.day == 29
+                    and start.month == 2
+                    and (not calendar.isleap(start.year))
+                ):
+                    start = start + timedelta(days=1)
+                if start_date.day == 30 and start.month == 2:
+                    start = start + timedelta(days=1)
+                if start_date.day == 31 and start.month in [2, 4, 6, 9, 11]:
+                    start = start + timedelta(days=1)
+                count += 1
+                if start <= end_date:
+                    periodical_list.append(start)
+                else:
+                    periodical_list.append(end_date + timedelta(days=1))
 
         elif periodical_type == "yearly":
             start_date = org_created_date
             end_date = present_date
 
-            years_list = []
-            years_list.append(start_date.year)
-            start_year = start_date.year
-
-            while start_year < end_date.year:
-                start_year += 1
-                years_list.append(start_year)
-
-            years_list.append(start_year + 1)
             periodical_list.append(start_date)
-            for year1 in years_list[1:]:
-                periodical_list.append(datetime(year1, 1, 1))
+            count = 1
+            start = start_date
+            while start <= end_date:
+
+                start = start_date + relativedelta.relativedelta(years=count)
+                if (
+                    start_date.day == 29
+                    and start.month == 2
+                    and (not calendar.isleap(start.year))
+                ):
+                    start = start + timedelta(days=1)
+
+                count += 1
+                if start <= end_date:
+                    periodical_list.append(start)
+                else:
+                    periodical_list.append(end_date + timedelta(days=1))
 
         proj_objs = Project.objects.filter(
             organization_id=pk, project_type=project_type
@@ -679,6 +713,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 period_name = "year_number"
 
             data = []
+            other_lang = []
             for lang in languages:
                 proj_lang_filter = proj_objs.filter(tgt_language=lang)
                 tasks_objs = Task.objects.filter(
@@ -704,14 +739,27 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "language": lang,
                     "annotations_completed": annotated_labeled_tasks_count,
                 }
+                if lang == None or lang == "":
+                    other_lang.append(summary_lang)
+                else:
+                    data.append(summary_lang)
 
-                data.append(summary_lang)
-
+            other_count = 0
+            for dat in other_lang:
+                other_count += dat["annotations_completed"]
+            if len(other_lang) > 0:
+                other_language = {
+                    "language": "Others",
+                    "annotations_completed": other_count,
+                }
+                data.append(other_language)
+            data1 = sorted(data, key=lambda x: x["language"], reverse=False)
             summary_period = {
                 period_name: period + 1,
                 "date_range": start_end_date,
-                "data": data,
+                "data": data1,
             }
+
             final_result.append(summary_period)
 
         return Response(final_result)
