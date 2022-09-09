@@ -780,6 +780,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
+        except AttributeError:
+            ret_dict = {"message": "No tasks found!"}
+            ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
     @action(
@@ -1676,13 +1679,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type
             )
 
-            dataset_model = getattr(dataset_models, output_dataset_info["dataset_type"])
-
             # If save_type is 'in_place'
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
 
-                data_items = []
                 tasks = Task.objects.filter(
                     project_id__exact=project,
                     task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES],
@@ -1691,7 +1691,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
-                # Perform task export function for inpalce functions
+
+                # Call the async task export function for inplace functions
                 export_project_in_place.delay(
                     annotation_fields=annotation_fields,
                     project_id=pk,
@@ -1700,10 +1701,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             # If save_type is 'new_record'
             elif output_dataset_info["save_type"] == "new_record":
-                export_dataset_instance_id = request.data["export_dataset_instance_id"]
-                export_dataset_instance = dataset_models.DatasetInstance.objects.get(
-                    instance_id__exact=export_dataset_instance_id
+                export_dataset_instance_id = request.data.get(
+                    "export_dataset_instance_id"
                 )
+
+                # If export_dataset_instance_id is not provided
+                if export_dataset_instance_id is None:
+                    ret_dict = {"message": "export_dataset_instance_id is required!"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
 
                 annotation_fields = output_dataset_info["fields"]["annotations"]
                 task_annotation_fields = []
@@ -1715,7 +1721,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_annotation_fields += list(
                         output_dataset_info["fields"]["copy_from_input"].values()
                     )
-                data_items = []
+
                 tasks = Task.objects.filter(
                     project_id__exact=project,
                     task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES],
@@ -1742,7 +1748,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # FIXME: Allow export multiple times
             # project.is_archived=True
             # project.save()
-            ret_dict = {"message": "SUCCESS!"}
+            ret_dict = {"message": "Project Export Started."}
             ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
