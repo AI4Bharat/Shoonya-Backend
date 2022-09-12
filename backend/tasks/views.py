@@ -307,6 +307,90 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         task.release_lock(request.user)
         return task_response
 
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "project_task_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_task_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+            },
+            required=["project_task_start_id", "project_task_end_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the project"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Deleted successfully! or No rows to delete",
+            403: "Not authorized!",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="delete_project_tasks",
+        url_name="delete_project_tasks",
+    )
+    def delete_project_tasks(self, request, pk=None):
+        project = Project.objects.get(pk=pk)
+        try:
+            if (
+                (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.is_superuser
+                )
+                and (request.user.organization == project.organization_id)
+            ) == False:
+                return Response(
+                    {
+                        "status": status.HTTP_403_FORBIDDEN,
+                        "message": "You are not authorized to access the endpoint.",
+                    }
+                )
+
+            project_task_start_id = request.data.get("project_task_start_id")
+            project_task_end_id = request.data.get("project_task_end_id")
+
+            project_task_ids = [
+                id for id in range(project_task_start_id, project_task_end_id + 1)
+            ]
+
+            project_tasks = Task.objects.filter(project_id=project).filter(
+                id__in=project_task_ids
+            )
+
+            num_project_tasks = len(project_tasks)
+
+            if num_project_tasks == 0:
+                return Response(
+                    {
+                        "status": status.HTTP_200_OK,
+                        "message": "No rows to delete",
+                    }
+                )
+
+            project_tasks.delete()
+            return Response(
+                {
+                    "status": status.HTTP_200_OK,
+                    "message": f"Deleted {num_project_tasks} data items successfully!",
+                }
+            )
+        except:
+            return Response(
+                {
+                    "status": status.HTTP_400_BAD_REQUEST,
+                    "message": "Invalid Parameters in the request body!",
+                }
+            )
+
 
 class AnnotationViewSet(
     mixins.CreateModelMixin,

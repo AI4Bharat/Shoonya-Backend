@@ -121,16 +121,9 @@ celery -A shoonya_backend.celery worker --autoscale=10,3 --loglevel=info
 
 ### Running Linters
 
-Installing the dev requirements file would have also installed linters. We have `flake8` and `pylint`, available.
-
-To run `flask8` do:
-
-```bash
-flake8 ./backend/shoonya_backend/
-```
-
-To run `pylint` do:
+Installing the dev requirements file would have also installed the linter. For project Shoonya, we use `black` 
+To run `black` do:
 
 ```bash
-pylint ./backend/shoonya_backend/
+black ./backend/shoonya_backend/
 ```
