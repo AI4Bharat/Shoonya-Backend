@@ -13,3 +13,6 @@ class CustomPagination(PageNumberPagination):
     page_size = DEFAULT_PAGE_SIZE
     page_query_param = "page"
     page_size_query_param = "records"
+
+    # def get_next_link(): 
+    #     pass 
