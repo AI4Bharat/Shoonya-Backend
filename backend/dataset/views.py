@@ -298,6 +298,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         dataset = request.FILES["dataset"]
         content_type = dataset.name.split(".")[-1]
 
+        # Get the deduplicate option and convert to bool
+        deduplicate = request.POST.get("deduplicate", "false")
+        if_deduplicate = deduplicate.lower() == "true"
+
         # Ensure that the content type is accepted, return error otherwise
         if content_type not in DatasetInstanceViewSet.ACCEPTED_FILETYPES:
             return Response(
@@ -329,6 +333,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             dataset_type=dataset_type,
             dataset_string=dataset_string,
             content_type=content_type,
+            deduplicate=if_deduplicate,
         )
 
         # Get name of the dataset instance
