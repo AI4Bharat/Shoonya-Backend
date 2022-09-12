@@ -166,7 +166,7 @@ Conversation:
           - speaker_count
           - speakers_json
           - conversation_json
-          - translated_conversation_json
+          - machine_translated_conversation_json
       output_dataset:
         class: Conversation
         save_type: new_record
@@ -180,7 +180,7 @@ Conversation:
             prompt: prompt
             speaker_count: speaker_count
             speakers_json: speakers_json
-            translated_conversation_json: translated_conversation_json
+            machine_translated_conversation_json: machine_translated_conversation_json
           annotations:
             - conversation_json  
         
