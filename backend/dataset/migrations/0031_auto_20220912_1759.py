@@ -6,18 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataset', '0030_auto_20220902_0808'),
+        ("dataset", "0030_auto_20220902_0808"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='conversation',
-            name='machine_translated_conversation_json',
-            field=models.JSONField(blank=True, help_text='Machine Translated Conversation', null=True, verbose_name='machine_translated_conversation'),
+            model_name="conversation",
+            name="machine_translated_conversation_json",
+            field=models.JSONField(
+                blank=True,
+                help_text="Machine Translated Conversation",
+                null=True,
+                verbose_name="machine_translated_conversation",
+            ),
         ),
         migrations.AlterField(
-            model_name='conversation',
-            name='conversation_json',
-            field=models.JSONField(blank=True, help_text='Details of the conversation', null=True, verbose_name='conversation_details'),
+            model_name="conversation",
+            name="conversation_json",
+            field=models.JSONField(
+                blank=True,
+                help_text="Details of the conversation",
+                null=True,
+                verbose_name="conversation_details",
+            ),
         ),
     ]

@@ -9,11 +9,14 @@ from rest_framework.response import Response
 
 from tasks.models import *
 
-from .tasks import sentence_text_translate_and_save_translation_pairs, conversation_data_machine_translation
+from .tasks import (
+    sentence_text_translate_and_save_translation_pairs,
+    conversation_data_machine_translation,
+)
 from .utils import (
     check_if_particular_organization_owner,
     check_translation_function_inputs,
-    check_conversation_translation_function_inputs, 
+    check_conversation_translation_function_inputs,
 )
 
 from users.utils import INDIC_TRANS_SUPPORTED_LANGUAGES, LANG_TRANS_MODEL_CODES
@@ -303,8 +306,9 @@ def get_indic_trans_supported_langs_model_codes(request):
         status=status.HTTP_200_OK,
     )
 
+
 @api_view(["POST"])
-def schedule_conversation_translation_job(request): 
+def schedule_conversation_translation_job(request):
     """
     Schedules a Google Translate job for a given dataset instance
 
@@ -370,4 +374,4 @@ def schedule_conversation_translation_job(request):
     )
     ret_dict = {"message": "Translating Conversation Dataitems"}
     ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status) 
+    return Response(ret_dict, status=ret_status)

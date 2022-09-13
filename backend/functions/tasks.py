@@ -208,15 +208,15 @@ def sentence_text_translate_and_save_translation_pairs(
 
 @shared_task(bind=True)
 def conversation_data_machine_translation(
-    self, 
-    languages, 
-    input_dataset_instance_id, 
-    output_dataset_instance_id, 
-    batch_size, 
-    api_type, 
-    checks_for_particular_languages, 
+    self,
+    languages,
+    input_dataset_instance_id,
+    output_dataset_instance_id,
+    batch_size,
+    api_type,
+    checks_for_particular_languages,
 ):
-    """Function to translate Conversation data item and to save the translations in another Conversation dataitem. 
+    """Function to translate Conversation data item and to save the translations in another Conversation dataitem.
 
     Args:
         languages (list): List of output languages for the translations.
@@ -226,18 +226,22 @@ def conversation_data_machine_translation(
         api_type (str): Type of API to be used for translation. (default: indic-trans)
             Allowed - [indic-trans, google]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
-    """ 
+    """
 
     # Get the output dataset instance
     output_dataset_instance = dataset_models.DatasetInstance.objects.get(
-        instance_id=output_dataset_instance_id) 
+        instance_id=output_dataset_instance_id
+    )
 
     # Collect all the Conversation dataitems for the input DatasetInstance and convert to dataframe
     conversation_dataitems = dataset_models.Conversation.objects.filter(
         instance_id=input_dataset_instance_id
     ).values_list("id", "scenario", "prompt", "conversation_json", "language")
 
-    conversation_dataitems_df = pd.DataFrame(conversation_dataitems, columns=["id", "scenario", "prompt", "conversation_json", "language"])
+    conversation_dataitems_df = pd.DataFrame(
+        conversation_dataitems,
+        columns=["id", "scenario", "prompt", "conversation_json", "language"],
+    )
 
     # Check if the dataframe is empty
     if conversation_dataitems_df.shape[0] == 0:
@@ -260,14 +264,16 @@ def conversation_data_machine_translation(
         for index, row in conversation_dataitems_df.iterrows():
 
             # Get the instance of the Conversation dataitem
-            conversation_dataitem = dataset_models.Conversation.objects.get(id=row["id"])
+            conversation_dataitem = dataset_models.Conversation.objects.get(
+                id=row["id"]
+            )
 
             # Get the conversation JSON and iterate through it
             conversation_json = row["conversation_json"]
             translated_conversation_json = []
             for conversation in conversation_json:
 
-                # Get the sentence list, scenario and prompt 
+                # Get the sentence list, scenario and prompt
                 sentences_to_translate = dict(conversation).get("sentences", [])
                 speaker_id = dict(conversation).get("speaker_id")
                 sentence_count = len(sentences_to_translate)
@@ -316,7 +322,7 @@ def conversation_data_machine_translation(
                         )
                         raise Exception("Google API Error")
 
-                else: 
+                else:
                     # Update the task status and raise an exception
                     self.update_state(
                         state="FAILURE",
@@ -327,7 +333,12 @@ def conversation_data_machine_translation(
                     raise Exception("Invalid API type")
 
                 # Append the translations to the translated conversation JSON
-                translated_conversation_json.append({"sentences": translations_output[:sentence_count], "speaker_id": speaker_id})
+                translated_conversation_json.append(
+                    {
+                        "sentences": translations_output[:sentence_count],
+                        "speaker_id": speaker_id,
+                    }
+                )
 
             # Create the Conversation object
             conversation_object = dataset_models.Conversation(

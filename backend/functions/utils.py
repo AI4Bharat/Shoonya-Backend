@@ -35,11 +35,12 @@ def check_if_particular_organization_owner(request):
 
     return {"status": status.HTTP_200_OK}
 
+
 def check_conversation_translation_function_inputs(
     input_dataset_instance_id, output_dataset_instance_id
-): 
-    """_summary_: Function to check the input parameters for the conversation translation function. 
-    This performs checks on input dataset instance and output dataset instance to see if their Conversation type or not. 
+):
+    """_summary_: Function to check the input parameters for the conversation translation function.
+    This performs checks on input dataset instance and output dataset instance to see if their Conversation type or not.
 
     Returns:
         input_dataset_instance_id: ID of the input dataset which has to be a Conversation DatasetInstance.
@@ -75,11 +76,12 @@ def check_conversation_translation_function_inputs(
 
     return {"message": "Success!", "status": status.HTTP_200_OK}
 
+
 def check_translation_function_inputs(
     input_dataset_instance_id, output_dataset_instance_id
 ):
 
-    """Function to check the input parameters for the translation function. 
+    """Function to check the input parameters for the translation function.
     This performs checks on input dataset instance and output dataset instance.
 
     Returns:
