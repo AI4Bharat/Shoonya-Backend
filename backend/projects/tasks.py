@@ -48,6 +48,20 @@ def create_tasks_from_dataitems(items, project):
                     continue
                 item[output_field] = item[input_field]
                 del item[input_field]
+        if input_dataset_info.get("copy_from_parent"):
+            # Check if item has a parent
+            if item.get("parent_data"):
+                parent_data = dataset_models.Data.objects.get(
+                    id=item["parent_data"]
+                )
+                for input_field, output_field in input_dataset_info[
+                    "copy_from_parent"
+                ].items():
+                    item[output_field] = parent_data.data[input_field]
+                    del item[input_field]
+            else: # If item does not have a parent, raise exception 
+                raise Exception("Item does not have a parent")
+
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
 
         # Remove data id because it's not needed in task.data

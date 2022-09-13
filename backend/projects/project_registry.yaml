@@ -183,4 +183,32 @@ Conversation:
             machine_translated_conversation_json: machine_translated_conversation_json
           annotations:
             - conversation_json  
-        
+    ConversationTranslationEditing:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "conversation/conversation_translation.jsx"
+      input_dataset:
+        class: Conversation
+        fields:
+          - domain
+          - topic
+          - scenario
+          - prompt
+          - speaker_count
+          - speakers_json
+          - machine_translated_conversation_json
+        copy_from_parent: 
+          source_conversation_json: conversation_json
+      output_dataset:
+        class: Conversation
+        save_type: in_place
+        fields:
+          variable_parameters:
+            - language
+          copy_from_input:
+            domain: domain
+            topic: topic
+            scenario: scenario
+            prompt: prompt
+            speaker_count: speaker_count
+            speakers_json: speakers_json
+            machine_translated_conversation_json: machine_translated_conversation_json
