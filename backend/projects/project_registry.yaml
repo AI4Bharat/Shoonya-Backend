@@ -212,3 +212,5 @@ Conversation:
             speaker_count: speaker_count
             speakers_json: speakers_json
             machine_translated_conversation_json: machine_translated_conversation_json
+          annotations:
+            - conversation_json
