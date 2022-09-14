@@ -85,6 +85,9 @@ def sentence_text_translate_and_save_translation_pairs(
         instance_id=output_dataset_instance_id
     )
 
+    # Keep count of the number of sentences translated
+    translated_sentences_count = 0
+
     # Iterate through the languages
     for output_language in languages:
 
@@ -203,5 +206,6 @@ def sentence_text_translate_and_save_translation_pairs(
 
             # Bulk create the TranslationPair objects for the particular language
             multi_inheritance_table_bulk_insert(translation_pair_objects)
+            translated_sentences_count += len(translation_pair_objects)
 
-    return f"{len(translation_pair_objects)} translation pairs created for languages: {str(languages)}"
+    return f"{translated_sentences_count} translation pairs created for languages: {str(languages)}"
