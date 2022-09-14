@@ -84,14 +84,17 @@ def sentence_text_translate_and_save_translation_pairs(
         instance_id=output_dataset_instance_id
     )
 
+    # Keep count of the number of sentences translated
+    translated_sentences_count = 0
+
     # Iterate through the languages
     for output_language in languages:
 
-        # Create a TranslationPair object list
-        translation_pair_objects = []
-
         # Loop through all the sentences to be translated in batch format
         for i in range(0, len(all_sentences_to_be_translated), batch_size):
+
+            # Create a TranslationPair object list
+            translation_pair_objects = []
 
             batch_of_input_sentences = all_sentences_to_be_translated[
                 i : i + batch_size
@@ -202,162 +205,6 @@ def sentence_text_translate_and_save_translation_pairs(
 
             # Bulk create the TranslationPair objects for the particular language
             multi_inheritance_table_bulk_insert(translation_pair_objects)
+            translated_sentences_count += len(translation_pair_objects)
 
-    return f"{len(translation_pair_objects)} translation pairs created for each of languages: {str(languages)}"
-
-
-@shared_task(bind=True)
-def conversation_data_machine_translation(
-    self,
-    languages,
-    input_dataset_instance_id,
-    output_dataset_instance_id,
-    batch_size,
-    api_type,
-    checks_for_particular_languages,
-):
-    """Function to translate Conversation data item and to save the translations in another Conversation dataitem.
-
-    Args:
-        languages (list): List of output languages for the translations.
-        input_dataset_instance_id (int): ID of the input dataset instance.
-        output_dataset_instance_id (int): ID of the output dataset instance.
-        batch_size (int): Number of sentences to be translated in a single batch.
-        api_type (str): Type of API to be used for translation. (default: indic-trans)
-            Allowed - [indic-trans, google]
-        checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
-    """
-
-    # Get the output dataset instance
-    output_dataset_instance = dataset_models.DatasetInstance.objects.get(
-        instance_id=output_dataset_instance_id
-    )
-
-    # Collect all the Conversation dataitems for the input DatasetInstance and convert to dataframe
-    conversation_dataitems = dataset_models.Conversation.objects.filter(
-        instance_id=input_dataset_instance_id
-    ).values_list("id", "scenario", "prompt", "conversation_json", "language")
-
-    conversation_dataitems_df = pd.DataFrame(
-        conversation_dataitems,
-        columns=["id", "scenario", "prompt", "conversation_json", "language"],
-    )
-
-    # Check if the dataframe is empty
-    if conversation_dataitems_df.shape[0] == 0:
-
-        # Update the task status
-        self.update_state(
-            state="FAILURE",
-            meta={
-                "No sentences to upload.",
-            },
-        )
-
-        raise Exception("The conversation data is empty.")
-
-    # Iterate through the languages
-    for output_language in languages:
-
-        all_translated_conversation_objects = []
-        # Iterate through the conversation dataitems
-        for index, row in conversation_dataitems_df.iterrows():
-
-            # Get the instance of the Conversation dataitem
-            conversation_dataitem = dataset_models.Conversation.objects.get(
-                id=row["id"]
-            )
-
-            # Get the conversation JSON and iterate through it
-            conversation_json = row["conversation_json"]
-            translated_conversation_json = []
-            for conversation in conversation_json:
-
-                # Get the sentence list, scenario and prompt
-                sentences_to_translate = dict(conversation).get("sentences", [])
-                speaker_id = dict(conversation).get("speaker_id")
-                sentence_count = len(sentences_to_translate)
-                sentences_to_translate.append(row["scenario"])
-                sentences_to_translate.append(row["prompt"])
-
-                # Check the API type
-                if api_type == "indic-trans":
-
-                    # Get the translation using the Indictrans NMT API
-                    translations_output = get_batch_translations_using_indictrans_nmt_api(
-                        sentence_list=sentences_to_translate,
-                        source_language=row["language"],
-                        target_language=output_language,
-                        checks_for_particular_languages=checks_for_particular_languages,
-                    )
-
-                    # Check if the translations output is a string or a list
-                    if isinstance(translations_output, str):
-
-                        # Update the task status and raise an exception
-                        self.update_state(
-                            state="FAILURE",
-                            meta={
-                                "Error: {}".format(translations_output),
-                            },
-                        )
-                        raise Exception(translations_output)
-
-                elif api_type == "google":
-                    # Get the translation using the Indictrans NMT API
-                    translations_output = get_batch_translations_using_google_translate(
-                        sentence_list=sentences_to_translate,
-                        source_language=row["language"],
-                        target_language=output_language,
-                        checks_for_particular_languages=checks_for_particular_languages,
-                    )
-                    # Check if translation output returned a list or a string
-                    if type(translations_output) != list:
-                        # Update the task status and raise an exception
-                        self.update_state(
-                            state="FAILURE",
-                            meta={
-                                "Google API Error",
-                            },
-                        )
-                        raise Exception("Google API Error")
-
-                else:
-                    # Update the task status and raise an exception
-                    self.update_state(
-                        state="FAILURE",
-                        meta={
-                            "Error: Invalid API type",
-                        },
-                    )
-                    raise Exception("Invalid API type")
-
-                # Append the translations to the translated conversation JSON
-                translated_conversation_json.append(
-                    {
-                        "sentences": translations_output[:sentence_count],
-                        "speaker_id": speaker_id,
-                    }
-                )
-
-            # Create the Conversation object
-            conversation_object = dataset_models.Conversation(
-                instance_id=output_dataset_instance,
-                parent_data=conversation_dataitem,
-                domain=conversation_dataitem.domain,
-                topic=conversation_dataitem.topic,
-                speaker_count=conversation_dataitem.speaker_count,
-                speakers_json=conversation_dataitem.speakers_json,
-                scenario=translations_output[-2],
-                prompt=translations_output[-1],
-                machine_translated_conversation_json=translated_conversation_json,
-                language=output_language,
-            )
-
-            # Append the conversation object to the list
-            all_translated_conversation_objects.append(conversation_object)
-
-        # Save the Conversation objects in bulk
-        multi_inheritance_table_bulk_insert(all_translated_conversation_objects)
-
-    return f"{len(all_translated_conversation_objects)} translation pairs created for each of languages: {str(languages)}"
+    return f"{translated_sentences_count} translation pairs created for languages: {str(languages)}"
