@@ -175,7 +175,7 @@ def sentence_text_translate_and_save_translation_pairs(
 
             # Bulk create the TranslationPair objects for the particular language
             multi_inheritance_table_bulk_insert(translation_pair_objects)
-            translated_sentences_count += len(translation_pair_objects) 
+            translated_sentences_count += len(translation_pair_objects)
 
     return f"{translated_sentences_count} translation pairs created for languages: {str(languages)}"
 
