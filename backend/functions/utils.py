@@ -280,3 +280,41 @@ def get_batch_translations_using_google_translate(
 
     except Exception as e:
         return str(e)
+
+
+def get_batch_translations(
+    sentences_to_translate,
+    source_lang,
+    target_lang,
+    api_type,
+    checks_for_particular_languages,
+):
+
+    # Check the API type
+    if api_type == "indic-trans":
+
+        # Get the translation using the Indictrans NMT API
+        translations_output = get_batch_translations_using_indictrans_nmt_api(
+            sentence_list=sentences_to_translate,
+            source_language=source_lang,
+            target_language=target_lang,
+            checks_for_particular_languages=checks_for_particular_languages,
+        )
+
+    elif api_type == "google":
+        # Get the translation using the Indictrans NMT API
+        translations_output = get_batch_translations_using_google_translate(
+            sentence_list=sentences_to_translate,
+            source_language=source_lang,
+            target_language=target_lang,
+            checks_for_particular_languages=checks_for_particular_languages,
+        )
+
+    else:
+        translations_output = "Invalid API type"
+
+    # Check if the translations output is a string or a list
+    if isinstance(translations_output, str):
+        return {"status": "failure", "output": f"API Error: {translations_output}"}
+    else:
+        return {"status": "success", "output": translations_output}
