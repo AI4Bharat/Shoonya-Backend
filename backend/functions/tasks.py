@@ -85,14 +85,17 @@ def sentence_text_translate_and_save_translation_pairs(
         instance_id=output_dataset_instance_id
     )
 
+    # Keep count of the number of sentences translated
+    translated_sentences_count = 0
+
     # Iterate through the languages
     for output_language in languages:
 
-        # Create a TranslationPair object list
-        translation_pair_objects = []
-
         # Loop through all the sentences to be translated in batch format
         for i in range(0, len(all_sentences_to_be_translated), batch_size):
+
+            # Create a TranslationPair object list
+            translation_pair_objects = []
 
             batch_of_input_sentences = all_sentences_to_be_translated[
                 i : i + batch_size
@@ -203,5 +206,6 @@ def sentence_text_translate_and_save_translation_pairs(
 
             # Bulk create the TranslationPair objects for the particular language
             multi_inheritance_table_bulk_insert(translation_pair_objects)
+            translated_sentences_count += len(translation_pair_objects)
 
-    return f"{len(translation_pair_objects)} translation pairs created for languages: {str(languages)}"
+    return f"{translated_sentences_count} translation pairs created for languages: {str(languages)}"
