@@ -88,11 +88,11 @@ def sentence_text_translate_and_save_translation_pairs(
     # Iterate through the languages
     for output_language in languages:
 
-        # Create a TranslationPair object list
-        translation_pair_objects = []
-
         # Loop through all the sentences to be translated in batch format
         for i in range(0, len(all_sentences_to_be_translated), batch_size):
+
+            # Create a TranslationPair object list
+            translation_pair_objects = []
 
             batch_of_input_sentences = all_sentences_to_be_translated[
                 i : i + batch_size
