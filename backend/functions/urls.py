@@ -14,6 +14,9 @@ urlpatterns = [
         "get_indic_trans_supported_languages",
         get_indic_trans_supported_langs_model_codes,
     ),
+    path(
+        "schedule_conversation_translation_job", schedule_conversation_translation_job
+    ),
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)

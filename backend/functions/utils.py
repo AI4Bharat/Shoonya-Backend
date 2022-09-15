@@ -36,11 +36,53 @@ def check_if_particular_organization_owner(request):
     return {"status": status.HTTP_200_OK}
 
 
+def check_conversation_translation_function_inputs(
+    input_dataset_instance_id, output_dataset_instance_id
+):
+    """_summary_: Function to check the input parameters for the conversation translation function.
+    This performs checks on input dataset instance and output dataset instance to see if their Conversation type or not.
+
+    Returns:
+        input_dataset_instance_id: ID of the input dataset which has to be a Conversation DatasetInstance.
+        output_dataset_instance_id: ID of the output dataset which has to be a Conversation DatasetInstance.
+    """
+
+    # Check if the input and output dataset instances are Conversation DatasetInstance type
+    try:
+        input_or_output = "Input"
+        input_dataset_instance = dataset_models.DatasetInstance.objects.get(
+            instance_id=input_dataset_instance_id
+        )
+
+        input_or_output = "Output"
+        output_dataset_instance = dataset_models.DatasetInstance.objects.get(
+            instance_id=output_dataset_instance_id
+        )
+
+        if (
+            input_dataset_instance.dataset_type != "Conversation"
+            or output_dataset_instance.dataset_type != "Conversation"
+        ):
+            return {
+                "message": "Input and output dataset instances should be of Conversation type",
+                "status": status.HTTP_400_BAD_REQUEST,
+            }
+
+    except dataset_models.DatasetInstance.DoesNotExist:
+        return {
+            "message": f"{input_or_output} DatasetInstance does not exist!",
+            "status": status.HTTP_404_NOT_FOUND,
+        }
+
+    return {"message": "Success!", "status": status.HTTP_200_OK}
+
+
 def check_translation_function_inputs(
     input_dataset_instance_id, output_dataset_instance_id
 ):
 
-    """Function to check the input parameters for the translation function. This performs checks on input dataset instance and output dataset instance.
+    """Function to check the input parameters for the translation function.
+    This performs checks on input dataset instance and output dataset instance.
 
     Returns:
         input_dataset_instance_id: ID of the input dataset which has to be a SentenceText DatasetInstance.
@@ -238,3 +280,41 @@ def get_batch_translations_using_google_translate(
 
     except Exception as e:
         return str(e)
+
+
+def get_batch_translations(
+    sentences_to_translate,
+    source_lang,
+    target_lang,
+    api_type,
+    checks_for_particular_languages,
+):
+
+    # Check the API type
+    if api_type == "indic-trans":
+
+        # Get the translation using the Indictrans NMT API
+        translations_output = get_batch_translations_using_indictrans_nmt_api(
+            sentence_list=sentences_to_translate,
+            source_language=source_lang,
+            target_language=target_lang,
+            checks_for_particular_languages=checks_for_particular_languages,
+        )
+
+    elif api_type == "google":
+        # Get the translation using the Indictrans NMT API
+        translations_output = get_batch_translations_using_google_translate(
+            sentence_list=sentences_to_translate,
+            source_language=source_lang,
+            target_language=target_lang,
+            checks_for_particular_languages=checks_for_particular_languages,
+        )
+
+    else:
+        translations_output = "Invalid API type"
+
+    # Check if the translations output is a string or a list
+    if isinstance(translations_output, str):
+        return {"status": "failure", "output": f"API Error: {translations_output}"}
+    else:
+        return {"status": "success", "output": translations_output}
