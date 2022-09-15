@@ -147,7 +147,7 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
         "Assigned Tasks": total_task_count,
         "Accepted Tasks": accepted_objs_count,
         "Accepted With Changes Tasks": acceptedwtchange_objs_count,
-        "Labeled Tasks": labeled_tasks_count,
+        "Unreviewed Tasks": labeled_tasks_count,
         "To Be Revised Tasks": to_be_revised_tasks_count,
     }
     return result
