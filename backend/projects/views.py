@@ -17,7 +17,6 @@ from dataset.serializers import TaskResultSerializer
 
 from utils.search import process_search_query
 
-from dataset import models as dataset_models
 from django_celery_results.models import TaskResult
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema

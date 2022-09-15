@@ -18,21 +18,17 @@ from .permissions import DatasetInstancePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from organizations.decorators import (
-    is_organization_owner,
     is_particular_organization_owner,
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
 from users.models import User
-from organizations.models import Organization
-from workspaces.models import Workspace
 
 from . import resources
 from .models import *
 from .serializers import *
 from .tasks import upload_data_to_data_instance
-import dataset
 
 
 ## Utility functions used inside the view functions
