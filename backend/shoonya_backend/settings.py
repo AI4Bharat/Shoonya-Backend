@@ -35,9 +35,15 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv("ENV") == "dev"
 
 if DEBUG:
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
+    ALLOWED_HOSTS = [
+        "127.0.0.1",
+        "localhost",
+        "*",
+        "shoonya.ai4bharat.org",
+        "dev.shoonya.ai4bharat.org",
+    ]
 else:
-    ALLOWED_HOSTS = ["shoonya.ai4bharat.org", "0.0.0.0"]
+    ALLOWED_HOSTS = ["shoonya.ai4bharat.org"]
 
 # Application definition
 
@@ -289,3 +295,7 @@ CELERY_BROKER_URL = "redis://redis:6379/0"
 # Project lock TTL for task pulling(in seconds)
 PROJECT_LOCK_TTL = 5
 PROJECT_LOCK_RETRY_INTERVAL = 1
+
+# Pagination settings
+USE_X_FORWARDED_HOST = True
+HTTP_X_FORWARDED_HOST = "shoonya.ai4bharat.org"
