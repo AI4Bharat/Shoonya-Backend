@@ -33,6 +33,7 @@ from .models import *
 from .serializers import *
 from .tasks import upload_data_to_data_instance
 import dataset
+from tasks.models import Task
 
 
 ## Utility functions used inside the view functions
@@ -850,6 +851,99 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                 {
                     "status": status.HTTP_200_OK,
                     "message": f"Deleted {num_data_items} data items successfully!",
+                }
+            )
+        except:
+            return Response(
+                {
+                    "status": status.HTTP_400_BAD_REQUEST,
+                    "message": "Invalid Parameters in the request body!",
+                }
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "data_item_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "data_item_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+            },
+            required=["data_item_start_id", "data_item_end_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the dataset instance"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Deleted successfully! or No rows to delete",
+            403: "Not authorized!",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="delete_data_items_and_related_tasks",
+        url_name="delete_data_items_and_related_tasks",
+    )
+    def delete_data_items_and_related_tasks(self, request, pk=None):
+        try:
+            dataset_instance = DatasetInstance.objects.get(pk=pk)
+
+            if (
+                (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.is_superuser
+                )
+                and (request.user.organization == dataset_instance.organisation_id)
+            ) == False:
+                return Response(
+                    {
+                        "status": status.HTTP_403_FORBIDDEN,
+                        "message": "You are not authorized to access the endpoint.",
+                    }
+                )
+            dataset_type = dataset_instance.dataset_type
+            dataset_model = apps.get_model("dataset", dataset_type)
+
+            data_item_start_id = request.data.get("data_item_start_id")
+            data_item_end_id = request.data.get("data_item_end_id")
+            data_item_ids = [
+                id for id in range(data_item_start_id, data_item_end_id + 1)
+            ]
+
+            data_items = dataset_model.objects.filter(
+                instance_id=dataset_instance
+            ).filter(id__in=data_item_ids)
+            num_data_items = len(data_items)
+
+            related_tasks_input_data_ids = [data_item.id for data_item in data_items]
+
+            related_tasks = Task.objects.filter(
+                input_data__id__in=related_tasks_input_data_ids
+            )
+            num_related_tasks = len(related_tasks)
+            if num_data_items == 0:
+                return Response(
+                    {
+                        "status": status.HTTP_200_OK,
+                        "message": "No rows to delete",
+                    }
+                )
+
+            related_tasks.delete()
+            data_items.delete()
+
+            return Response(
+                {
+                    "status": status.HTTP_200_OK,
+                    "message": f"Deleted {num_data_items} data items and {num_related_tasks} related tasks successfully!",
                 }
             )
         except:
