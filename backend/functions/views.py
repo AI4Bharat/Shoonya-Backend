@@ -9,10 +9,14 @@ from rest_framework.response import Response
 
 from tasks.models import *
 
-from .tasks import sentence_text_translate_and_save_translation_pairs
+from .tasks import (
+    sentence_text_translate_and_save_translation_pairs,
+    conversation_data_machine_translation,
+)
 from .utils import (
     check_if_particular_organization_owner,
     check_translation_function_inputs,
+    check_conversation_translation_function_inputs,
 )
 
 from users.utils import INDIC_TRANS_SUPPORTED_LANGUAGES, LANG_TRANS_MODEL_CODES
@@ -301,3 +305,73 @@ def get_indic_trans_supported_langs_model_codes(request):
         },
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+def schedule_conversation_translation_job(request):
+    """
+    Schedules a Google Translate job for a given dataset instance
+
+    Request Body
+    {
+        "input_dataset_instance_id": <int>,
+        "languages": <list>
+        "output_dataset_instance_id": <int>
+        "organization_id": <int>
+        "checks_for_particular_languages" : <bool>
+        "api_type": <str>
+    }
+
+    Response Body
+    {
+        "message": <str>
+        "result": <str>
+        "status": DjangoStatusCode
+    }
+    """
+
+    # Check if the user is the organization owner
+    result = check_if_particular_organization_owner(request)
+    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
+
+        return Response({"error": result["error"]}, status=result["status"])
+
+    # Get the post request data
+    input_dataset_instance_id = request.data["input_dataset_instance_id"]
+    languages = request.data["languages"]
+    output_dataset_instance_id = request.data["output_dataset_instance_id"]
+    checks_for_particular_languages = request.data["checks_for_particular_languages"]
+    api_type = request.data["api_type"]
+
+    # Convert string list to a list
+    languages = ast.literal_eval(languages)
+
+    # Set the batch size based on the api_type
+    batch_size = 128 if api_type == "google" else 75
+
+    # Perform checks on the input and output dataset instances
+    dataset_instance_check_status = check_conversation_translation_function_inputs(
+        input_dataset_instance_id, output_dataset_instance_id
+    )
+
+    if dataset_instance_check_status["status"] in [
+        status.HTTP_400_BAD_REQUEST,
+        status.HTTP_404_NOT_FOUND,
+    ]:
+        return Response(
+            {"message": dataset_instance_check_status["message"]},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Call the function to save the TranslationPair dataset
+    conversation_data_machine_translation.delay(
+        languages=languages,
+        input_dataset_instance_id=input_dataset_instance_id,
+        output_dataset_instance_id=output_dataset_instance_id,
+        batch_size=batch_size,
+        api_type=api_type,
+        checks_for_particular_languages=checks_for_particular_languages,
+    )
+    ret_dict = {"message": "Translating Conversation Dataitems"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)

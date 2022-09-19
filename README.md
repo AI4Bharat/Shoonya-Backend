@@ -125,5 +125,5 @@ Installing the dev requirements file would have also installed the linter. For p
 To run `black` do:
 
 ```bash
-black ./backend/shoonya_backend/
+black ./backend/
 ```

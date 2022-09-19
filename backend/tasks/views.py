@@ -297,7 +297,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         task_response = super().partial_update(request)
         task_id = task_response.data["id"]
         task = Task.objects.get(pk=task_id)
-        task.release_lock(request.user)
         return task_response
 
 
@@ -358,7 +357,6 @@ class AnnotationViewSet(
         annotation_response = super().create(request)
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        task.release_lock(request.user)
         # project = Project.objects.get(pk=task.project_id.id)
         if task.project_id.required_annotators_per_task == task.annotations.count():
             # if True:
