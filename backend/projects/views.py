@@ -1607,19 +1607,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 # Rename keys to match label studio converter
                 # task_dict['id'] = task_dict['task_id']
                 # del task_dict['task_id']
-                if task.correct_annotation is not None:
-                    annotation_dict = model_to_dict(task.correct_annotation)
-                    print(task.correct_annotation)
-                    print(task.correct_annotation.created_at)
-                    print(task.correct_annotation.updated_at)
+                correct_annotation = task.correct_annotation
+                if correct_annotation is None and task.task_status == LABELED:
+                    correct_annotation = task.annotations.all().filter(parent_annotation__isnull=True)[0]
+                if correct_annotation is not None:
+                    annotation_dict = model_to_dict(correct_annotation)
                     # annotation_dict['result'] = annotation_dict['result_json']
                     # del annotation_dict['result_json']
                     # print(annotation_dict)
                     annotation_dict["created_at"] = str(
-                        task.correct_annotation.created_at
+                        correct_annotation.created_at
                     )
                     annotation_dict["updated_at"] = str(
-                        task.correct_annotation.updated_at
+                        correct_annotation.updated_at
                     )
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
