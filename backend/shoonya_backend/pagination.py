@@ -46,3 +46,5 @@ def get_previous_link(self):
         if page_number == 1:
             return remove_query_param(url, self.page_query_param)
         return replace_query_param(url, self.page_query_param, page_number)
+
+

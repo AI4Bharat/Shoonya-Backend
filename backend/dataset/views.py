@@ -516,9 +516,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
-        print(users)
         serializer = UserFetchSerializer(many=True, data=users)
-        print(serializer)
         serializer.is_valid()
         return Response(serializer.data)
 

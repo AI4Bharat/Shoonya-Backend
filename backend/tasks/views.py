@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from shoonya_backend.pagination import CustomPagination
 
 
 from tasks.models import *
@@ -181,9 +182,8 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             queryset = Task.objects.all()
             if "data" in dict(request.query_params):
                 queryset = queryset.filter(
-                annotation_users=request.query_params["data"]
-            )
-        
+                    annotation_users=request.query_params["data"]
+                )
 
         serializer = TaskSerializer(queryset, many=True)
         return Response(serializer.data)

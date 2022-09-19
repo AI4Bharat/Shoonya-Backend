@@ -594,8 +594,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 current_task_id = request.query_params["current_task_id"]
                 queryset = queryset.filter(id__gt=current_task_id)
             for task in queryset:
-                task_dict = TaskSerializer(task, many=False).data
-                return Response(task_dict)
+                if not task.is_locked(request.user):
+                    task.set_lock(request.user)
+                    task_dict = TaskSerializer(task, many=False).data
+                    return Response(task_dict)
             ret_dict = {"message": "No more tasks available!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
@@ -636,8 +638,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 current_task_id = request.query_params["current_task_id"]
                 unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
             for task in unattended_tasks:
-                task_dict = TaskSerializer(task, many=False).data
-                return Response(task_dict)
+                if not task.is_locked(request.user):
+                    task.set_lock(request.user)
+                    task_dict = TaskSerializer(task, many=False).data
+                    return Response(task_dict)
             ret_dict = {"message": "No more unlabeled tasks!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)

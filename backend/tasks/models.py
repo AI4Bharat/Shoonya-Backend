@@ -403,17 +403,20 @@ class DataExport(object):
         with get_temp_dir() as tmp_dir:
             converter.convert(input_json, tmp_dir, "CSV", is_dir=False)
             files = get_all_files_from_dir(tmp_dir)
-            if len(os.listdir(tmp_dir)) != 1:
-                raise NotImplementedError
-            output_file = files[0]
-            # tasks_annotations = json.load(output_file)
-            # ext = os.path.splitext(output_file)[-1]
-            # content_type = f'application/{ext}'
-            # out = read_bytes_stream(output_file)
+            # if only one file is exported - no need to create archive
+            if len(os.listdir(tmp_dir)) == 1:
+                output_file = files[0]
+                df = pd.read_csv(output_file)
+                # tasks_annotations = json.load(output_file)
+                # ext = os.path.splitext(output_file)[-1]
+                # content_type = f'application/{ext}'
+                # out = read_bytes_stream(output_file)
 
-            # filename = name + os.path.splitext(output_file)[-1]
-            # return out, content_type, filename
-            return pd.read_csv(output_file)
+                # filename = name + os.path.splitext(output_file)[-1]
+                # return out, content_type, filename
+                return df
+            else:
+                raise NotImplementedError
 
             # otherwise pack output directory into archive
             # shutil.make_archive(tmp_dir, 'zip', tmp_dir)
