@@ -21,6 +21,10 @@ from datetime import datetime, timezone, timedelta
 import pandas as pd
 from dateutil import relativedelta
 import calendar
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+import csv
+from django.http import StreamingHttpResponse
 
 
 def get_task_count(
@@ -187,8 +191,7 @@ def get_counts(
     total_word_count = "not applicable"
     if is_translation_project:
         total_word_count_list = [
-            no_of_words(each_task.task.data["input_text"])
-            for each_task in annotated_labeled_tasks
+            each_task.task.data["word_count"] for each_task in annotated_labeled_tasks
         ]
         total_word_count = sum(total_word_count_list)
 
@@ -247,6 +250,36 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     @is_organization_owner
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "from_date": openapi.Schema(type=openapi.TYPE_STRING),
+                "to_date": openapi.Schema(type=openapi.TYPE_STRING),
+                "tgt_language": openapi.Schema(type=openapi.TYPE_STRING),
+                "project_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "sort_by_column_name": openapi.Schema(type=openapi.TYPE_STRING),
+                "descending_order": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                "download_csv": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            },
+            required=["from_date", "to_date", "project_type"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the Organization"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Downloaded csv successfully or User analytics Json data successfully returned.",
+            400: "Invalid request body parameters.",
+            404: "Organization not found.",
+        },
+    )
     @action(
         detail=True,
         methods=["POST"],
@@ -387,6 +420,35 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         final_result = sorted(
             result, key=lambda x: x[sort_by_column_name], reverse=descending_order
         )
+
+        download_csv = request.data.get("download_csv", False)
+
+        if download_csv:
+
+            class Echo(object):
+                def write(self, value):
+                    return value
+
+            def iter_items(items, pseudo_buffer):
+                writer = csv.DictWriter(pseudo_buffer, fieldnames=list(items[0].keys()))
+                headers = {}
+                for key in list(items[0].keys()):
+                    headers[key] = key
+                yield writer.writerow(headers)
+                print(list(items[0].keys()))
+                for item in items:
+                    yield writer.writerow(item)
+
+            response = StreamingHttpResponse(
+                iter_items(final_result, Echo()),
+                status=status.HTTP_200_OK,
+                content_type="text/csv",
+            )
+            response[
+                "Content-Disposition"
+            ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
+            return response
+
         return Response(data=final_result, status=status.HTTP_200_OK)
 
     @is_organization_owner
