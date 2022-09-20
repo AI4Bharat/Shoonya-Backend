@@ -334,10 +334,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         result = []
         for annotator in annotators:
+            user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
             if tgt_language == None:
-                selected_language = "-"
+                user_lang_filter = User.objects.get(id=user_id)
+                user_lang = user_lang_filter.languages
+                selected_language = user_lang
+                if "English" in selected_language:
+                    selected_language.remove("English")
                 (
                     total_no_of_tasks_count,
                     annotated_tasks_count,
