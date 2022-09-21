@@ -1268,13 +1268,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         + list(to_be_revised_tasks)
                     )
                     total_word_count_list = [
-                        no_of_words(each_task.task.data["input_text"])
+                        each_task.task.data["word_count"]
                         for each_task in all_annotated_tasks
                     ]
                     total_word_count = sum(total_word_count_list)
                 else:
                     total_word_count_list = [
-                        no_of_words(each_task.task.data["input_text"])
+                        each_task.task.data["word_count"]
                         for each_task in annotated_accept_tasks
                     ]
                     total_word_count = sum(total_word_count_list)
