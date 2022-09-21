@@ -826,12 +826,21 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             other_lang = []
             for lang in languages:
                 proj_lang_filter = proj_objs.filter(tgt_language=lang)
-                tasks_objs = []
+                annotated_labeled_tasks_count = 0
                 if reviewer_reports == True:
                     tasks_objs = Task.objects.filter(
                         project_id__in=proj_lang_filter,
                         task_status__in=["accepted", "accepted_with_changes"],
                     )
+                    labeled_count_tasks_ids = list(
+                        tasks_objs.values_list("id", flat=True)
+                    )
+                    annotated_labeled_tasks_count = Annotation.objects.filter(
+                        task_id__in=labeled_count_tasks_ids,
+                        parent_annotation_id__isnull=False,
+                        created_at__gte=periodical_list[period],
+                        created_at__lt=periodical_list[period + 1],
+                    ).count()
                 else:
                     tasks_objs = Task.objects.filter(
                         project_id__in=proj_lang_filter,
@@ -844,13 +853,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         ],
                     )
 
-                labeled_count_tasks_ids = list(tasks_objs.values_list("id", flat=True))
-                annotated_labeled_tasks_count = Annotation.objects.filter(
-                    task_id__in=labeled_count_tasks_ids,
-                    parent_annotation_id=None,
-                    created_at__gte=periodical_list[period],
-                    created_at__lt=periodical_list[period + 1],
-                ).count()
+                    labeled_count_tasks_ids = list(
+                        tasks_objs.values_list("id", flat=True)
+                    )
+                    annotated_labeled_tasks_count = Annotation.objects.filter(
+                        task_id__in=labeled_count_tasks_ids,
+                        parent_annotation_id=None,
+                        created_at__gte=periodical_list[period],
+                        created_at__lt=periodical_list[period + 1],
+                    ).count()
 
                 summary_lang = {
                     "language": lang,
