@@ -28,7 +28,6 @@ import csv
 from django.http import StreamingHttpResponse
 
 
-
 def get_task_count(
     annotator, tgt_language, project_type, status_list, organization, return_count=True
 ):
@@ -53,33 +52,6 @@ def get_task_count(
         return labled_task_count
     else:
         return labeled_task
-
-
-def get_annotated_tasks(
-    annotator,
-    tgt_language,
-    project_type,
-    status_list,
-    organization,
-    start_date,
-    end_date,
-):
-    annotated_tasks = get_task_count(
-        annotator,
-        tgt_language,
-        project_type,
-        status_list,
-        organization,
-        return_count=False,
-    )
-    annotated_task_ids = list(annotated_tasks.values_list("id", flat=True))
-    annotated_labeled_tasks = Annotation.objects.filter(
-        task_id__in=annotated_task_ids,
-        parent_annotation_id=None,
-        created_at__range=[start_date, end_date],
-        completed_by=annotator,
-    )
-    return annotated_labeled_tasks
 
 
 def get_counts(
