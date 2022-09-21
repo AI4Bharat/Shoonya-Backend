@@ -160,77 +160,10 @@ def copy_from_ocr_document_to_block_text(request):
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
 
-
 @api_view(["POST"])
-def schedule_google_translate_job(request):
+def schedule_sentence_text_translate_job(request):
     """
-    Schedules a Google Translate job for a given dataset instance
-
-    Request Body
-    {
-        "input_dataset_instance_id": <int>,
-        "languages": <list>
-        "output_dataset_instance_id": <int>
-        "organization_id": <int>
-        "checks_for_particular_languages": <bool>
-    }
-
-    Response Body
-    {
-        "message": <str>
-        "result": <str>
-        "status": DjangoStatusCode
-    }
-    """
-
-    # Check if the user is the organization owner
-    result = check_if_particular_organization_owner(request)
-    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
-
-        return Response({"error": result["error"]}, status=result["status"])
-
-    # Get the post request data
-    input_dataset_instance_id = request.data["input_dataset_instance_id"]
-    languages = request.data["languages"]
-    output_dataset_instance_id = request.data["output_dataset_instance_id"]
-    checks_for_particular_languages = request.data["checks_for_particular_languages"]
-
-    # Convert string list to a list
-    languages = ast.literal_eval(languages)
-
-    # Perform checks on the input and output dataset instances
-    dataset_instance_check_status = check_translation_function_inputs(
-        input_dataset_instance_id, output_dataset_instance_id
-    )
-
-    if dataset_instance_check_status["status"] in [
-        status.HTTP_400_BAD_REQUEST,
-        status.HTTP_404_NOT_FOUND,
-    ]:
-        return Response(
-            {"message": dataset_instance_check_status["message"]},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    # Call the function to save the TranslationPair dataset
-    sentence_text_translate_and_save_translation_pairs.delay(
-        languages=languages,
-        input_dataset_instance_id=input_dataset_instance_id,
-        output_dataset_instance_id=output_dataset_instance_id,
-        batch_size=128,
-        api_type="google",
-        checks_for_particular_languages=checks_for_particular_languages,
-    )
-
-    ret_dict = {"message": "Creating translation pairs from the input dataset."}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
-
-
-@api_view(["POST"])
-def schedule_ai4b_translate_job(request):
-    """
-    Schedules a Google Translate job for a given dataset instance
+    Schedules a job for to convert SentenceText inputs to TranslationPair outputs using a particular API  
 
     Request Body
     {
@@ -239,6 +172,7 @@ def schedule_ai4b_translate_job(request):
         "output_dataset_instance_id": <int>
         "organization_id": <int>
         "checks_for_particular_languages" : <bool>
+        "api_type": <str>
     }
 
     Response Body
@@ -260,6 +194,7 @@ def schedule_ai4b_translate_job(request):
     languages = request.data["languages"]
     output_dataset_instance_id = request.data["output_dataset_instance_id"]
     checks_for_particular_languages = request.data["checks_for_particular_languages"]
+    api_type = request.data.get("api_type", "indic-trans")
 
     # Convert string list to a list
     languages = ast.literal_eval(languages)
@@ -278,20 +213,25 @@ def schedule_ai4b_translate_job(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # Set the batch-size based on api_type 
+    if api_type == "google":
+        batch_size = 128
+    elif api_type == "indic-trans":
+        batch_size = 75
+
     # Call the function to save the TranslationPair dataset
     sentence_text_translate_and_save_translation_pairs.delay(
         languages=languages,
         input_dataset_instance_id=input_dataset_instance_id,
         output_dataset_instance_id=output_dataset_instance_id,
-        batch_size=75,
-        api_type="indic-trans",
+        batch_size=batch_size,
+        api_type=api_type,
         checks_for_particular_languages=checks_for_particular_languages,
     )
 
     ret_dict = {"message": "Creating translation pairs from the input dataset."}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
-
 
 @api_view(["GET"])
 def get_indic_trans_supported_langs_model_codes(request):
