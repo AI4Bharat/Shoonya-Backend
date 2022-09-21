@@ -35,6 +35,13 @@ from .serializers import *
 from .tasks import upload_data_to_data_instance
 import dataset
 
+DATASET_TYPE_MAP = {
+    "TranslationPair": TranslationPair,
+    "SentenceText": SentenceText,
+    "OCRDocument": OCRDocument,
+    "BlockText": BlockText,
+    "Conversation": Conversation,
+}
 
 # Utility functions used inside the view functions
 def extract_status_date_time_from_task_queryset(task_queryset):
@@ -220,44 +227,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             queryset = DatasetInstance.objects.filter(
                 Q(public_to_managers=True) | Q(users__id=request.user.id)
             )
-
-        # Filter the queryset based on the query params
-        if "dataset_type" in dict(request.query_params):
-            queryset = queryset.filter(
-                dataset_type__exact=request.query_params["dataset_type"]
-            )
-
-        # Filter the queryset based on the query params id, input_language and output_language,input_text and output_text
-        if "id" in dict(request.query_params):
-            queryset = queryset.filter(id__exact=request.query_params["id"])
-
-        if "input_language" in dict(request.query_params):
-            queryset = queryset.filter(
-                input_language__exact=request.query_params["input_language"]
-            )
-
-        if "output_language" in dict(request.query_params):
-            queryset = queryset.filter(
-                output_language__exact=request.query_params["output_language"]
-            )
-
-        if "input_text" in dict(request.query_params):
-            queryset = queryset.filter(
-                input_text__icontains=request.query_params["input_text"]
-            )
-
-        if "output_text" in dict(request.query_params):
-            queryset = queryset.filter(
-                output_text__icontains=request.query_params["output_text"]
-            )
-        # add pagination to the queryset and return the paginated response
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = DatasetInstanceSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-
-        serializer = DatasetInstanceSerializer(queryset, many=True)
-        return Response(serializer.data)
 
         # Serialize the distinct items and sort by instance ID
         serializer = DatasetInstanceSerializer(
@@ -753,10 +722,15 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         try:
             dataset_instance_ids = request.data.get("instance_ids")
             dataset_type = request.data.get("dataset_type", "")
+            id = request.data.get("id", "")
             input_text = request.data.get("input_text", "")
             output_text = request.data.get("output_text", "")
             input_language = request.data.get("input_language", "")
             output_language = request.data.get("output_language", "")
+            machine_translation = request.data.get("machine_translation", "")
+            context = request.data.get("context", "")
+            labse_score = request.data.get("labse_score", "")
+            rating = request.data.get("rating", "")
 
             # inout_text = request.data.get("input_text", "")
 
@@ -778,16 +752,11 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                 query_params, data_items
             )
 
-            DATASET_TYPE_MAP = {
-                "TranslationPair": TranslationPair,
-                "SentenceText": SentenceText,
-                "OCRDocument": OCRDocument,
-                "BlockText": BlockText,
-                "Conversation": Conversation,
-            }
+            if id != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(dict(request.data), "id", ["id"])
+                )
 
-            # ADD searchfield_name for output_text,input_language and output_language in process_search_query
-            # add this filtered_set in if condition below for input_text,output_text,input_language and output_language
             if input_text != "":
                 filtered_set = filtered_set.filter(
                     **process_search_query(
@@ -812,6 +781,29 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                         dict(request.data), "output_language", ["output_language"]
                     )
                 )
+            if machine_translation != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data),
+                        "machine_translation",
+                        ["machine_translation"],
+                    )
+                )
+            if context != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(dict(request.data), "context", ["context"])
+                )
+            if labse_score != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "labse_score", ["labse_score"]
+                    )
+                )
+            if rating != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(dict(request.data), "rating", ["rating"])
+                )
+
             if (
                 dataset_type == "TranslationPair"
                 or dataset_type == "SentenceText"
@@ -826,14 +818,6 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                 data=TranslationPairSerializer(filtered_set, many=True).data,
                 status=status.HTTP_200_OK,
             )
-
-            # filtered_set = filtered_set.filter(
-            #     **process_search_query(
-            #         dict(request.data),
-            #         "input_text",
-            #         ["input_text", "output_text", "input_language", "output_language"],
-            #     )
-            # )
 
             page = request.GET.get("page")
             try:
@@ -870,7 +854,6 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": "Error fetching data items!",
                 }
             )
-        # return Response(filtered_data)
 
     @swagger_auto_schema(
         method="post",
