@@ -190,7 +190,7 @@ def conversation_data_machine_translation(
     batch_size,
     api_type,
     checks_for_particular_languages,
-):
+):  # sourcery skip: raise-specific-error
     """Function to translate Conversation data item and to save the translations in another Conversation dataitem.
     Args:
         languages (list): List of output languages for the translations.

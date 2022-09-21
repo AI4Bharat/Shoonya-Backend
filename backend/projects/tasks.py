@@ -31,7 +31,7 @@ def create_tasks_from_dataitems(items, project):
     variable_parameters = project.variable_parameters
     project_type_lower = project_type.lower()
     is_translation_project = True if "translation" in project_type_lower else False
-    is_conversation_translation_project = project_type == "ConversationTranslation"
+    is_conversation_project = True if "conversation" in project_type_lower else False
 
     # Create task objects
     tasks = []
@@ -70,7 +70,7 @@ def create_tasks_from_dataitems(items, project):
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
         if is_translation_project:
-            if not is_conversation_translation_project:
+            if not is_conversation_project:
                 task.data["word_count"] = no_of_words(task.data["input_text"])
             else:
                 task.data["word_count"] = conversation_wordcount(
