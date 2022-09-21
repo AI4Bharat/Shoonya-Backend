@@ -7,6 +7,7 @@ from django.apps import apps
 from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
+from utils.search import process_search_query
 from django_celery_results.models import TaskResult
 from users.serializers import UserFetchSerializer
 from filters import filter
@@ -33,10 +34,9 @@ from .models import *
 from .serializers import *
 from .tasks import upload_data_to_data_instance
 import dataset
-from tasks.models import Task
 
 
-## Utility functions used inside the view functions
+# Utility functions used inside the view functions
 def extract_status_date_time_from_task_queryset(task_queryset):
     # Sort the tasks by newest items first by date
     task_queryset = task_queryset.order_by("-date_done")
@@ -226,6 +226,38 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 dataset_type__exact=request.query_params["dataset_type"]
             )
+
+        # Filter the queryset based on the query params id, input_language and output_language,input_text and output_text
+        if "id" in dict(request.query_params):
+            queryset = queryset.filter(id__exact=request.query_params["id"])
+
+        if "input_language" in dict(request.query_params):
+            queryset = queryset.filter(
+                input_language__exact=request.query_params["input_language"]
+            )
+
+        if "output_language" in dict(request.query_params):
+            queryset = queryset.filter(
+                output_language__exact=request.query_params["output_language"]
+            )
+
+        if "input_text" in dict(request.query_params):
+            queryset = queryset.filter(
+                input_text__icontains=request.query_params["input_text"]
+            )
+
+        if "output_text" in dict(request.query_params):
+            queryset = queryset.filter(
+                output_text__icontains=request.query_params["output_text"]
+            )
+        # add pagination to the queryset and return the paginated response
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = DatasetInstanceSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = DatasetInstanceSerializer(queryset, many=True)
+        return Response(serializer.data)
 
         # Serialize the distinct items and sort by instance ID
         serializer = DatasetInstanceSerializer(
@@ -516,9 +548,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
-        print(users)
         serializer = UserFetchSerializer(many=True, data=users)
-        print(serializer)
         serializer.is_valid()
         return Response(serializer.data)
 
@@ -710,6 +740,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
     )
 
     def list(self, request):
+        #  if instance_id in dict() get the logged-in user details
         dataset_instances = DatasetInstance.objects.filter(
             instance_id__in=self.queryset.distinct("instance_id").values_list(
                 "instance_id"
@@ -722,6 +753,13 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         try:
             dataset_instance_ids = request.data.get("instance_ids")
             dataset_type = request.data.get("dataset_type", "")
+            input_text = request.data.get("input_text", "")
+            output_text = request.data.get("output_text", "")
+            input_language = request.data.get("input_language", "")
+            output_language = request.data.get("output_language", "")
+
+            # inout_text = request.data.get("input_text", "")
+
             if type(dataset_instance_ids) != list:
                 dataset_instance_ids = [dataset_instance_ids]
             filter_string = request.data.get("filter_string")
@@ -739,8 +777,64 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             filtered_set = filter.filter_using_dict_and_queryset(
                 query_params, data_items
             )
-            # filtered_data = filtered_set.values()
-            # serializer = DatasetItemsSerializer(filtered_set, many=True)
+
+            DATASET_TYPE_MAP = {
+                "TranslationPair": TranslationPair,
+                "SentenceText": SentenceText,
+                "OCRDocument": OCRDocument,
+                "BlockText": BlockText,
+                "Conversation": Conversation,
+            }
+
+            # ADD searchfield_name for output_text,input_language and output_language in process_search_query
+            # add this filtered_set in if condition below for input_text,output_text,input_language and output_language
+            if input_text != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "input_text", ["input_text"]
+                    )
+                )
+            if output_text != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "output_text", ["output_text"]
+                    )
+                )
+            if input_language != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "input_language", ["input_language"]
+                    )
+                )
+            if output_language != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "output_language", ["output_language"]
+                    )
+                )
+            if (
+                dataset_type == "TranslationPair"
+                or dataset_type == "SentenceText"
+                or dataset_type == "OCRDocument"
+                or dataset_type == "BlockText"
+                or dataset_type == "Conversation"
+            ):
+                filtered_set = DATASET_TYPE_MAP[dataset_type].objects.filter(
+                    id__in=filtered_set.values_list("id", flat=True)
+                )
+            return Response(
+                data=TranslationPairSerializer(filtered_set, many=True).data,
+                status=status.HTTP_200_OK,
+            )
+
+            # filtered_set = filtered_set.filter(
+            #     **process_search_query(
+            #         dict(request.data),
+            #         "input_text",
+            #         ["input_text", "output_text", "input_language", "output_language"],
+            #     )
+            # )
+
             page = request.GET.get("page")
             try:
                 page = self.paginate_queryset(filtered_set)
@@ -768,7 +862,8 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": "Error fetching data items!",
                 }
             )
-        except:
+        except Exception as e:
+            print(e)
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
@@ -851,99 +946,6 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                 {
                     "status": status.HTTP_200_OK,
                     "message": f"Deleted {num_data_items} data items successfully!",
-                }
-            )
-        except:
-            return Response(
-                {
-                    "status": status.HTTP_400_BAD_REQUEST,
-                    "message": "Invalid Parameters in the request body!",
-                }
-            )
-
-    @swagger_auto_schema(
-        method="post",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "data_item_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
-                "data_item_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
-            },
-            required=["data_item_start_id", "data_item_end_id"],
-        ),
-        manual_parameters=[
-            openapi.Parameter(
-                "id",
-                openapi.IN_PATH,
-                description=("A unique integer identifying the dataset instance"),
-                type=openapi.TYPE_INTEGER,
-                required=True,
-            )
-        ],
-        responses={
-            200: "Deleted successfully! or No rows to delete",
-            403: "Not authorized!",
-            400: "Invalid parameters in the request body!",
-        },
-    )
-    @action(
-        detail=True,
-        methods=["POST"],
-        url_path="delete_data_items_and_related_tasks",
-        url_name="delete_data_items_and_related_tasks",
-    )
-    def delete_data_items_and_related_tasks(self, request, pk=None):
-        try:
-            dataset_instance = DatasetInstance.objects.get(pk=pk)
-
-            if (
-                (
-                    request.user.role == User.ORGANIZATION_OWNER
-                    or request.user.is_superuser
-                )
-                and (request.user.organization == dataset_instance.organisation_id)
-            ) == False:
-                return Response(
-                    {
-                        "status": status.HTTP_403_FORBIDDEN,
-                        "message": "You are not authorized to access the endpoint.",
-                    }
-                )
-            dataset_type = dataset_instance.dataset_type
-            dataset_model = apps.get_model("dataset", dataset_type)
-
-            data_item_start_id = request.data.get("data_item_start_id")
-            data_item_end_id = request.data.get("data_item_end_id")
-            data_item_ids = [
-                id for id in range(data_item_start_id, data_item_end_id + 1)
-            ]
-
-            data_items = dataset_model.objects.filter(
-                instance_id=dataset_instance
-            ).filter(id__in=data_item_ids)
-            num_data_items = len(data_items)
-
-            related_tasks_input_data_ids = [data_item.id for data_item in data_items]
-
-            related_tasks = Task.objects.filter(
-                input_data__id__in=related_tasks_input_data_ids
-            )
-            num_related_tasks = len(related_tasks)
-            if num_data_items == 0:
-                return Response(
-                    {
-                        "status": status.HTTP_200_OK,
-                        "message": "No rows to delete",
-                    }
-                )
-
-            related_tasks.delete()
-            data_items.delete()
-
-            return Response(
-                {
-                    "status": status.HTTP_200_OK,
-                    "message": f"Deleted {num_data_items} data items and {num_related_tasks} related tasks successfully!",
                 }
             )
         except:
