@@ -1613,21 +1613,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ACCEPTED,
                     ACCEPTED_WITH_CHANGES,
                 ]:
-                    correct_annotation = task.annotations.all().filter(parent_annotation__isnull=True)[
-                        0
-                    ]
+                    correct_annotation = task.annotations.all().filter(
+                        parent_annotation__isnull=True
+                    )[0]
                 if correct_annotation is not None:
                     annotation_dict = model_to_dict(correct_annotation)
                     # annotation_dict['result'] = annotation_dict['result_json']
 
                     # del annotation_dict['result_json']
                     # print(annotation_dict)
-                    annotation_dict["created_at"] = str(
-                        correct_annotation.created_at
-                    )
-                    annotation_dict["updated_at"] = str(
-                        correct_annotation.updated_at
-                    )
+                    annotation_dict["created_at"] = str(correct_annotation.created_at)
+                    annotation_dict["updated_at"] = str(correct_annotation.updated_at)
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
                     task_dict["annotations"] = [OrderedDict({"result": {}})]
