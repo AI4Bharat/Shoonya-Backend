@@ -138,7 +138,6 @@ def get_counts(
             organization_id=organization,
         )
         no_of_projects = projects_objs.count()
-
     else:
 
         total_no_of_tasks_assigned = Task.objects.filter(
@@ -179,13 +178,11 @@ def get_counts(
             organization_id=organization,
         )
         no_of_projects = projects_objs.count()
-
     lead_time_annotated_tasks = [
         eachtask.lead_time for eachtask in annotated_labeled_tasks
     ]
     if len(lead_time_annotated_tasks) > 0:
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
-
     no_of_workspaces_objs = len(
         set([each_proj.workspace_id.id for each_proj in projects_objs])
     )
@@ -195,7 +192,6 @@ def get_counts(
             each_task.task.data["word_count"] for each_task in annotated_labeled_tasks
         ]
         total_word_count = sum(total_word_count_list)
-
     return (
         total_no_of_tasks_count,
         annotated_tasks_count,
@@ -207,6 +203,7 @@ def get_counts(
         no_of_workspaces_objs,
         total_word_count,
     )
+
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     """
