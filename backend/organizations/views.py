@@ -53,6 +53,7 @@ def get_task_count(
     else:
         return labeled_task
 
+
 def get_annotated_tasks(
     annotator,
     tgt_language,
@@ -78,6 +79,7 @@ def get_annotated_tasks(
         completed_by=annotator,
     )
     return annotated_labeled_tasks
+
 
 def get_counts(
     annotator,
@@ -205,7 +207,6 @@ def get_counts(
         no_of_workspaces_objs,
         total_word_count,
     )
-
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     """
