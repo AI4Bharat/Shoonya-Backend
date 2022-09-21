@@ -248,7 +248,7 @@ def conversation_data_machine_translation(
             for conversation in conversation_json:
 
                 # Get the sentence list, scenario and prompt
-                sentences_to_translate = conversation.get("sentences", [])
+                sentences_to_translate = dict(conversation).get("sentences", [])
                 speaker_id = dict(conversation).get("speaker_id")
 
                 # Get the translations for the sentences
