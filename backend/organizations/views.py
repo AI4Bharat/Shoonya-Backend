@@ -188,8 +188,7 @@ def get_counts(
     total_word_count = "not applicable"
     if is_translation_project:
         total_word_count_list = [
-            no_of_words(each_task.task.data["input_text"])
-            for each_task in annotated_labeled_tasks
+            each_task.task.data["word_count"] for each_task in annotated_labeled_tasks
         ]
         total_word_count = sum(total_word_count_list)
 

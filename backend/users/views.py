@@ -412,7 +412,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             total_word_count = 0
             if is_translation_project:
                 total_word_count_list = [
-                    no_of_words(each_task.task.data["input_text"])
+                    each_task.task.data["word_count"]
                     for each_task in annotated_labeled_tasks
                 ]
                 total_word_count = sum(total_word_count_list)
