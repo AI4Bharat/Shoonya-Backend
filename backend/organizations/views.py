@@ -646,7 +646,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 organization_id=pk, project_type=project_type
             )
 
-        languages = list(set([proj.tgt_language for proj in proj_objs]))
+        proj_objs_languages = Project.objects.filter(
+            organization_id=pk, project_type=project_type
+        )
+
+        languages = list(set([proj.tgt_language for proj in proj_objs_languages]))
         general_lang = []
         other_lang = []
         for lang in languages:
@@ -801,8 +805,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             proj_objs = Project.objects.filter(
                 organization_id=pk, project_type=project_type
             )
+        proj_objs_languages = Project.objects.filter(
+            organization_id=pk, project_type=project_type
+        )
 
-        languages = list(set([proj.tgt_language for proj in proj_objs]))
+        languages = list(set([proj.tgt_language for proj in proj_objs_languages]))
 
         final_result = []
 
