@@ -1,3 +1,4 @@
+from ast import literal_eval
 import pandas as pd
 from celery import shared_task
 from dataset import models as dataset_models
@@ -247,7 +248,10 @@ def conversation_data_machine_translation(
             for conversation in conversation_json:
 
                 # Get the sentence list, scenario and prompt
-                sentences_to_translate = dict(conversation).get("sentences", [])
+                try: 
+                    sentences_to_translate = dict(conversation).get("sentences", [])
+                except ValueError: 
+                    sentences_to_translate = literal_eval(conversation).get("sentences", [])
                 speaker_id = dict(conversation).get("speaker_id")
 
                 # Get the translations for the sentences

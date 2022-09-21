@@ -51,8 +51,10 @@ def create_tasks_from_dataitems(items, project):
         if input_dataset_info.get("copy_from_parent"):
             # Check if item has a parent
             if item.get("parent_data"):
-                try: 
-                    parent_data = dataset_models.DatasetBase.objects.get(id=item["parent_data"])
+                try:
+                    parent_data = dataset_models.DatasetBase.objects.get(
+                        id=item["parent_data"]
+                    )
                     for input_field, output_field in input_dataset_info[
                         "copy_from_parent"
                     ].items():
