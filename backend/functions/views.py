@@ -19,7 +19,11 @@ from .utils import (
     check_conversation_translation_function_inputs,
 )
 
-from users.utils import INDIC_TRANS_SUPPORTED_LANGUAGES, LANG_TRANS_MODEL_CODES
+from users.utils import (
+    INDIC_TRANS_SUPPORTED_LANGUAGES,
+    LANG_TRANS_MODEL_CODES,
+    TRANSLATOR_BATCH_SIZES,
+)
 
 
 @api_view(["POST"])
@@ -160,10 +164,11 @@ def copy_from_ocr_document_to_block_text(request):
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
 
+
 @api_view(["POST"])
 def schedule_sentence_text_translate_job(request):
     """
-    Schedules a job for to convert SentenceText inputs to TranslationPair outputs using a particular API  
+    Schedules a job for to convert SentenceText inputs to TranslationPair outputs using a particular API
 
     Request Body
     {
@@ -213,11 +218,8 @@ def schedule_sentence_text_translate_job(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Set the batch-size based on api_type 
-    if api_type == "google":
-        batch_size = 128
-    elif api_type == "indic-trans":
-        batch_size = 75
+    # Set the batch-size based on api_type
+    batch_size = TRANSLATOR_BATCH_SIZES.get(api_type, 75)
 
     # Call the function to save the TranslationPair dataset
     sentence_text_translate_and_save_translation_pairs.delay(
@@ -232,6 +234,7 @@ def schedule_sentence_text_translate_job(request):
     ret_dict = {"message": "Creating translation pairs from the input dataset."}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
+
 
 @api_view(["GET"])
 def get_indic_trans_supported_langs_model_codes(request):
@@ -287,7 +290,7 @@ def schedule_conversation_translation_job(request):
     languages = ast.literal_eval(languages)
 
     # Set the batch size based on the api_type
-    batch_size = 128 if api_type == "google" else 75
+    batch_size = TRANSLATOR_BATCH_SIZES.get(api_type, 75)
 
     # Perform checks on the input and output dataset instances
     dataset_instance_check_status = check_conversation_translation_function_inputs(

@@ -17,6 +17,25 @@ INDIC_TRANS_SUPPORTED_LANGUAGES = [
     "Telugu",
 ]
 
+# List of languages supported by Azure Text Translation API
+LANG_NAME_TO_CODE_AZURE = {
+    "English": "en",
+    "Assamese": "as",
+    "Bengali": "bn",
+    "Dhivehi": "dv",
+    "Gujarati": "gu",
+    "Hindi": "hi",
+    "Kannada": "kn",
+    "Malayalam": "ml",
+    "Marathi": "mr",
+    "Nepali": "ne",
+    "Odia": "or",
+    "Punjabi": "pa",
+    "Tamil": "ta",
+    "Telugu": "te",
+    "Urdu": "ur",
+}
+
 # Language names to language codes
 LANG_NAME_TO_CODE_GOOGLE = {
     "English": "en",
@@ -113,6 +132,12 @@ LANG_TRANS_MODEL_CODES = {
 }  # 144 for all the other indic-indic translations
 
 DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID = 144
+
+TRANSLATOR_BATCH_SIZES = {
+    "indic-trans": 75,
+    "google": 128,
+    "azure": 256,
+}
 
 
 def hash_upload(instance, filename):
