@@ -71,11 +71,19 @@ class ProjectRegistry:
             if "prediction" in project["input_dataset"]
             else None
         )
-        return {
+
+        fields_to_return = {
             "dataset_type": project["input_dataset"]["class"],
             "fields": project["input_dataset"]["fields"],
             "prediction": prediction,
         }
+
+        # Check if copy from parent is in the fields
+        if "copy_from_parent" in project["input_dataset"]:
+            fields_to_return["copy_from_parent"] = project[
+                "input_dataset"
+            ]["copy_from_parent"]
+        return fields_to_return
 
     def get_output_dataset_and_fields(self, project_type):
         """
