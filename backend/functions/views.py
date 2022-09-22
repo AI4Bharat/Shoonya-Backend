@@ -1,29 +1,24 @@
 import ast
 import json
+from urllib import request
 
 from dataset import models as dataset_models
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from projects.models import *
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from users.utils import (INDIC_TRANS_SUPPORTED_LANGUAGES,
+                         LANG_TRANS_MODEL_CODES, TRANSLATOR_BATCH_SIZES)
 
 from tasks.models import *
 
-from .tasks import (
-    sentence_text_translate_and_save_translation_pairs,
-    conversation_data_machine_translation,
-)
-from .utils import (
-    check_if_particular_organization_owner,
-    check_translation_function_inputs,
-    check_conversation_translation_function_inputs,
-)
-
-from users.utils import (
-    INDIC_TRANS_SUPPORTED_LANGUAGES,
-    LANG_TRANS_MODEL_CODES,
-    TRANSLATOR_BATCH_SIZES,
-)
+from .tasks import (conversation_data_machine_translation,
+                    sentence_text_translate_and_save_translation_pairs)
+from .utils import (check_conversation_translation_function_inputs,
+                    check_if_particular_organization_owner,
+                    check_translation_function_inputs)
 
 
 @api_view(["POST"])
@@ -165,6 +160,57 @@ def copy_from_ocr_document_to_block_text(request):
     return Response(ret_dict, status=ret_status)
 
 
+@swagger_auto_schema(
+    method="post",
+    manual_parameters=[
+        openapi.Parameter(
+            "input_dataset_instance_id",
+            openapi.IN_QUERY,
+            description=("Input Dataset Instance ID"),
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "languages",
+            openapi.IN_QUERY,
+            description=("List of output languages"),
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Items(type=openapi.TYPE_STRING),  
+            required=True,
+        ),
+        openapi.Parameter(
+            "output_dataset_instance_id",
+            openapi.IN_QUERY,
+            description=("Output Dataset Instance ID"),
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "organization_id",
+            openapi.IN_QUERY,
+            description=("Organization ID"),
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "checks_for_particular_languages",
+            openapi.IN_QUERY,
+            description=("Boolean to run checks for particular languages"),
+            type=openapi.TYPE_BOOLEAN,
+            required=False,
+        ),
+        openapi.Parameter(
+            "api_type",
+            openapi.IN_QUERY,
+            description=("Type of API to use for translation"),
+            type=openapi.TYPE_STRING,
+            required=False,
+        ),
+    ],
+    responses={
+        200: "Starting the process of creating a machine translations." 
+    },
+)
 @api_view(["POST"])
 def schedule_sentence_text_translate_job(request):
     """
@@ -195,12 +241,21 @@ def schedule_sentence_text_translate_job(request):
         return Response({"error": result["error"]}, status=result["status"])
 
     # Get the post request data
-    input_dataset_instance_id = request.data["input_dataset_instance_id"]
-    languages = request.data["languages"]
-    output_dataset_instance_id = request.data["output_dataset_instance_id"]
-    checks_for_particular_languages = request.data["checks_for_particular_languages"]
+    try: 
+        input_dataset_instance_id = request.data["input_dataset_instance_id"]
+        languages = request.data["languages"]
+        output_dataset_instance_id = request.data["output_dataset_instance_id"]
+    except KeyError:
+        return Response(
+            {"error": "Missing required fields in request body"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    checks_for_particular_languages = request.data.get("checks_for_particular_languages", "false")
     api_type = request.data.get("api_type", "indic-trans")
 
+    # Convert checks for languages into boolean 
+    checks_for_particular_languages = checks_for_particular_languages.lower() == "true"
+    
     # Convert string list to a list
     languages = ast.literal_eval(languages)
 
@@ -249,7 +304,57 @@ def get_indic_trans_supported_langs_model_codes(request):
         status=status.HTTP_200_OK,
     )
 
-
+@swagger_auto_schema(
+    method="post",
+    manual_parameters=[
+        openapi.Parameter(
+            "input_dataset_instance_id",
+            openapi.IN_QUERY,
+            description=("Input Dataset Instance ID"),
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "languages",
+            openapi.IN_QUERY,
+            description=("List of output languages"),
+            type=openapi.TYPE_ARRAY,
+            items=openapi.Items(type=openapi.TYPE_STRING),  
+            required=True,
+        ),
+        openapi.Parameter(
+            "output_dataset_instance_id",
+            openapi.IN_QUERY,
+            description=("Output Dataset Instance ID"),
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "organization_id",
+            openapi.IN_QUERY,
+            description=("Organization ID"),
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "checks_for_particular_languages",
+            openapi.IN_QUERY,
+            description=("Boolean to run checks for particular languages"),
+            type=openapi.TYPE_BOOLEAN,
+            required=False,
+        ),
+        openapi.Parameter(
+            "api_type",
+            openapi.IN_QUERY,
+            description=("Type of API to use for translation"),
+            type=openapi.TYPE_STRING,
+            required=False,
+        ),
+    ],
+    responses={
+        200: "Starting the process of creating a machine translations for conversation dataset." 
+    },
+)
 @api_view(["POST"])
 def schedule_conversation_translation_job(request):
     """
