@@ -55,7 +55,7 @@ def create_tasks_from_dataitems(items, project):
                 del item[input_field]
 
         print("\nInput data", input_dataset_info)
-        if input_dataset_info.get("copy_from_parent"):
+        if "copy_from_parent" in output_dataset_info["fields"]:
             print("\nTHIS IS INSIDE\n")
             if not item.get("parent_data"):
                 raise Exception("Item does not have a parent")
@@ -64,7 +64,7 @@ def create_tasks_from_dataitems(items, project):
                 parent_data = dataset_models.DatasetBase.objects.get(
                     id=item["parent_data"]
                 )
-                for input_field, output_field in input_dataset_info[
+                for input_field, output_field in input_dataset_info["fields"][
                     "copy_from_parent"
                 ].items():
                     print("\nINPUT FIELD", input_field)
