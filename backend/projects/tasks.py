@@ -424,16 +424,8 @@ def export_project_new_record(
             task.save()
 
 
-# @shared_task(
-#     bind=True,
-#     autoretry_for=(Exception,),
-#     exponential_backoff=2,
-#     retry_kwargs={
-#         "max_retries": 5,
-#         "countdown": 2,
-#     },
-# )
-def add_new_data_items_into_project(self, project_id, items):
+# @shared_task
+def add_new_data_items_into_project(project_id, items):
     """Function to pull the dataitems into the project
 
     Args:
