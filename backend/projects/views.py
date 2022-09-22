@@ -1562,8 +1562,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if items:
 
                     # Pull new data items in to the project asynchronously
-                    temp_out = add_new_data_items_into_project(project_id=pk, items=items)
-                    print(temp_out)
+                    add_new_data_items_into_project.delay(project_id=pk, items=items)
                     ret_dict = {"message": "Adding new tasks to the project."}
                     ret_status = status.HTTP_200_OK
                 else:

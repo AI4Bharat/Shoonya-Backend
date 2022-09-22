@@ -33,14 +33,12 @@ def create_tasks_from_dataitems(items, project):
     is_translation_project = "translation" in project_type_lower
     is_conversation_project = "conversation" in project_type_lower
 
-    print("\nCREATE ITEMS", items)    
-
     # Create task objects
     tasks = []
     for item in items:
         # Get the item data and handle exceptions
-        # Note: We have added an except-continue here because of a weird issue we were facing where the first item 
-        # doesn't have the id field and hence the code breaks. This is a TEMPORARY fix and we need to investigate this further.  
+        # Note: We have added an except-continue here because of a weird issue we were facing where the first item
+        # doesn't have the id field and hence the code breaks. This is a TEMPORARY fix and we need to investigate this further.
         data_id = item["id"]
         if "variable_parameters" in output_dataset_info["fields"]:
             for var_param in output_dataset_info["fields"]["variable_parameters"]:
@@ -54,24 +52,17 @@ def create_tasks_from_dataitems(items, project):
                 item[output_field] = item[input_field]
                 del item[input_field]
 
-        print("\nInput data", input_dataset_info)
         if "copy_from_parent" in input_dataset_info:
-            print("\nTHIS IS INSIDE\n")
             if not item.get("parent_data"):
                 raise Exception("Item does not have a parent")
 
             try:
-                parent_data = model_to_dict(dataset_models.Conversation.objects.get(
-                    id=item["parent_data"]
-                ))
+                parent_data = model_to_dict(
+                    dataset_models.Conversation.objects.get(id=item["parent_data"])
+                )
                 for input_field, output_field in input_dataset_info[
                     "copy_from_parent"
                 ].items():
-                    print("\nINPUT FIELD", input_field)
-                    print("\nOUTPUT FIELD", output_field)
-                    print(parent_data)
-                    # parent_data_dict = parent_data.__dict__
-                    # print(parent_data_dict)
                     item[output_field] = parent_data[input_field]
             except dataset_models.DatasetBase.DoesNotExist:
                 raise Exception("Parent data not found")
@@ -80,7 +71,6 @@ def create_tasks_from_dataitems(items, project):
         # Remove data id because it's not needed in task.data
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
-        print(task)
         if is_translation_project:
             if is_conversation_project:
                 task.data["word_count"] = conversation_wordcount(
@@ -403,10 +393,6 @@ def export_project_new_record(
         #     project, tasks_list, 'CSV', download_resources, request.GET
         # )
 
-        # Handle the case of ConversationTranslation project type separately
-        # if project_type == "ConversationTranslation":
-        #     pass
-
         tasks_df = DataExport.export_csv_file(
             project, tasks_list, download_resources, get_request_data
         )
@@ -431,7 +417,7 @@ def export_project_new_record(
             task.save()
 
 
-# @shared_task
+@shared_task
 def add_new_data_items_into_project(project_id, items):
     """Function to pull the dataitems into the project
 

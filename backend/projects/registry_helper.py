@@ -80,9 +80,9 @@ class ProjectRegistry:
 
         # Check if copy from parent is in the fields
         if "copy_from_parent" in project["input_dataset"]:
-            fields_to_return["copy_from_parent"] = project[
-                "input_dataset"
-            ]["copy_from_parent"]
+            fields_to_return["copy_from_parent"] = project["input_dataset"][
+                "copy_from_parent"
+            ]
         return fields_to_return
 
     def get_output_dataset_and_fields(self, project_type):
