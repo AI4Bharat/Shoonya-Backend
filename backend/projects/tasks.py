@@ -36,6 +36,9 @@ def create_tasks_from_dataitems(items, project):
     # Create task objects
     tasks = []
     for item in items:
+        # Get the item data and handle exceptions
+        # Note: We have added an except-continue here because of a weird issue we were facing where the first item 
+        # doesn't have the id field and hence the code breaks. This is a TEMPORARY fix and we need to investigate this further.  
         data_id = item["id"]
         if "variable_parameters" in output_dataset_info["fields"]:
             for var_param in output_dataset_info["fields"]["variable_parameters"]:
@@ -74,10 +77,10 @@ def create_tasks_from_dataitems(items, project):
                 task.data["word_count"] = no_of_words(task.data["input_text"])
             else:
                 task.data["word_count"] = conversation_wordcount(
-                    task.data["conversation_json"]
+                    task.data["source_conversation_json"]
                 )
                 task.data["sentence_count"] = conversation_sentence_count(
-                    task.data["conversation_json"]
+                    task.data["source_conversation_json"]
                 )
 
         tasks.append(task)
@@ -453,15 +456,15 @@ def export_project_new_record(
             task.save()
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    exponential_backoff=2,
-    retry_kwargs={
-        "max_retries": 5,
-        "countdown": 2,
-    },
-)
+# @shared_task(
+#     bind=True,
+#     autoretry_for=(Exception,),
+#     exponential_backoff=2,
+#     retry_kwargs={
+#         "max_retries": 5,
+#         "countdown": 2,
+#     },
+# )
 def add_new_data_items_into_project(self, project_id, items):
     """Function to pull the dataitems into the project
 
