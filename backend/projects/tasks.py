@@ -72,7 +72,7 @@ def create_tasks_from_dataitems(items, project):
                     print(parent_data)
                     # parent_data_dict = parent_data.__dict__
                     # print(parent_data_dict)
-                    item.data[output_field] = parent_data[input_field]
+                    item[output_field] = parent_data[input_field]
             except dataset_models.DatasetBase.DoesNotExist:
                 raise Exception("Parent data not found")
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
