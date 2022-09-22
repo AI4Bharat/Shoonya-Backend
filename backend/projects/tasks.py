@@ -440,7 +440,6 @@ def add_new_data_items_into_project(project_id, items):
 
     # Get project instance
     project = Project.objects.get(pk=project_id)
-    print("Items in add_new_data_items_into_project\n", items)
     new_tasks = create_tasks_from_dataitems(items, project)
 
     return f"Pulled {len(new_tasks)} new data items into project {project.title}"

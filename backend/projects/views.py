@@ -1559,7 +1559,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.filter_string,
                     ids_to_exclude,
                 )
-                print("First items: ", items)
                 if items:
 
                     # Pull new data items in to the project asynchronously
