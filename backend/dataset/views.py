@@ -12,6 +12,7 @@ from users.serializers import UserFetchSerializer
 from filters import filter
 from projects.serializers import ProjectSerializer
 from rest_framework import status, viewsets
+from utils.search import process_search_query
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from .permissions import DatasetInstancePermission
@@ -35,6 +36,13 @@ from .tasks import upload_data_to_data_instance
 import dataset
 from tasks.models import Task
 
+DATASET_TYPE_MAP = {
+    "TranslationPair": TranslationPair,
+    "SentenceText": SentenceText,
+    "OCRDocument": OCRDocument,
+    "BlockText": BlockText,
+    "Conversation": Conversation,
+}
 
 ## Utility functions used inside the view functions
 def extract_status_date_time_from_task_queryset(task_queryset):
@@ -516,9 +524,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
-        print(users)
         serializer = UserFetchSerializer(many=True, data=users)
-        print(serializer)
         serializer.is_valid()
         return Response(serializer.data)
 
@@ -722,6 +728,18 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         try:
             dataset_instance_ids = request.data.get("instance_ids")
             dataset_type = request.data.get("dataset_type", "")
+            id = request.data.get("id", "")
+            input_text = request.data.get("input_text", "")
+            output_text = request.data.get("output_text", "")
+            input_language = request.data.get("input_language", "")
+            output_language = request.data.get("output_language", "")
+            machine_translation = request.data.get("machine_translation", "")
+            context = request.data.get("context", "")
+            labse_score = request.data.get("labse_score", "")
+            rating = request.data.get("rating", "")
+
+            # inout_text = request.data.get("input_text", "")
+
             if type(dataset_instance_ids) != list:
                 dataset_instance_ids = [dataset_instance_ids]
             filter_string = request.data.get("filter_string")
@@ -739,8 +757,74 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             filtered_set = filter.filter_using_dict_and_queryset(
                 query_params, data_items
             )
-            # filtered_data = filtered_set.values()
-            # serializer = DatasetItemsSerializer(filtered_set, many=True)
+
+            if id != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(dict(request.data), "id", ["id"])
+                )
+
+            if input_text != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "input_text", ["input_text"]
+                    )
+                )
+            if output_text != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "output_text", ["output_text"]
+                    )
+                )
+            if input_language != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "input_language", ["input_language"]
+                    )
+                )
+            if output_language != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "output_language", ["output_language"]
+                    )
+                )
+            if machine_translation != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data),
+                        "machine_translation",
+                        ["machine_translation"],
+                    )
+                )
+            if context != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(dict(request.data), "context", ["context"])
+                )
+            if labse_score != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(
+                        dict(request.data), "labse_score", ["labse_score"]
+                    )
+                )
+            if rating != "":
+                filtered_set = filtered_set.filter(
+                    **process_search_query(dict(request.data), "rating", ["rating"])
+                )
+
+            if (
+                dataset_type == "TranslationPair"
+                or dataset_type == "SentenceText"
+                or dataset_type == "OCRDocument"
+                or dataset_type == "BlockText"
+                or dataset_type == "Conversation"
+            ):
+                filtered_set = DATASET_TYPE_MAP[dataset_type].objects.filter(
+                    id__in=filtered_set.values_list("id", flat=True)
+                )
+            return Response(
+                data=TranslationPairSerializer(filtered_set, many=True).data,
+                status=status.HTTP_200_OK,
+            )
+
             page = request.GET.get("page")
             try:
                 page = self.paginate_queryset(filtered_set)
@@ -768,14 +852,13 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": "Error fetching data items!",
                 }
             )
-        except:
+        except Exception as e:
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
                     "message": "Error fetching data items!",
                 }
             )
-        # return Response(filtered_data)
 
     @swagger_auto_schema(
         method="post",
