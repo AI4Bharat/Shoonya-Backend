@@ -196,6 +196,7 @@ Conversation:
           - speaker_count
           - speakers_json
           - machine_translated_conversation_json  
+          - parent_data
         copy_from_parent: 
           source_conversation_json: conversation_json          
       output_dataset:
