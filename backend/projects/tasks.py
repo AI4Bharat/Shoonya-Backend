@@ -30,10 +30,10 @@ def create_tasks_from_dataitems(items, project):
     output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
     variable_parameters = project.variable_parameters
     project_type_lower = project_type.lower()
-    is_translation_project = True if "translation" in project_type_lower else False
-    is_conversation_project = True if "conversation" in project_type_lower else False
+    is_translation_project = "translation" in project_type_lower
+    is_conversation_project = "conversation" in project_type_lower
 
-    print("CREATE ITEMS", items)
+    print("\nCREATE ITEMS", items)    
 
     # Create task objects
     tasks = []
@@ -53,25 +53,26 @@ def create_tasks_from_dataitems(items, project):
                     continue
                 item[output_field] = item[input_field]
                 del item[input_field]
+
+        print("\nInput data", input_dataset_info)
         if input_dataset_info.get("copy_from_parent"):
-            # Check if item has a parent
-            if item.get("parent_data"):
-                try:
-                    parent_data = dataset_models.DatasetBase.objects.get(
-                        id=item["parent_data"]
-                    )
-                    for input_field, output_field in input_dataset_info[
-                        "copy_from_parent"
-                    ].items():
-                        print("INPUT FIELD", input_field)
-                        print("OUTPUT FIELD", output_field)
-                        print(parent_data.data)
-                        item[output_field] = parent_data.data[input_field]
-                except dataset_models.DatasetBase.DoesNotExist:
-                    raise Exception("Parent data not found")
-            else:  # If item does not have a parent, raise exception
+            print("\nTHIS IS INSIDE\n")
+            if not item.get("parent_data"):
                 raise Exception("Item does not have a parent")
 
+            try:
+                parent_data = dataset_models.DatasetBase.objects.get(
+                    id=item["parent_data"]
+                )
+                for input_field, output_field in input_dataset_info[
+                    "copy_from_parent"
+                ].items():
+                    print("\nINPUT FIELD", input_field)
+                    print("\nOUTPUT FIELD", output_field)
+                    print(parent_data.data)
+                    item[output_field] = parent_data.data[input_field]
+            except dataset_models.DatasetBase.DoesNotExist:
+                raise Exception("Parent data not found")
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
 
         # Remove data id because it's not needed in task.data
@@ -79,9 +80,7 @@ def create_tasks_from_dataitems(items, project):
         task = Task(data=item, project_id=project, input_data=data)
         print(task)
         if is_translation_project:
-            if not is_conversation_project:
-                task.data["word_count"] = no_of_words(task.data["input_text"])
-            else:
+            if is_conversation_project:
                 task.data["word_count"] = conversation_wordcount(
                     task.data["source_conversation_json"]
                 )
@@ -89,6 +88,8 @@ def create_tasks_from_dataitems(items, project):
                     task.data["source_conversation_json"]
                 )
 
+            else:
+                task.data["word_count"] = no_of_words(task.data["input_text"])
         tasks.append(task)
 
     # Bulk create the tasks
