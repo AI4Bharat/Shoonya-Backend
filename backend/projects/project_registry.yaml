@@ -198,7 +198,7 @@ Conversation:
           - machine_translated_conversation_json  
           - parent_data
         copy_from_parent: 
-          source_conversation_json: conversation_json          
+          conversation_json: source_conversation_json          
       output_dataset:
         class: Conversation
         save_type: in_place
