@@ -63,6 +63,9 @@ def create_tasks_from_dataitems(items, project):
                     for input_field, output_field in input_dataset_info[
                         "copy_from_parent"
                     ].items():
+                        print("INPUT FIELD", input_field)
+                        print("OUTPUT FIELD", output_field)
+                        print(parent_data.data)
                         item[output_field] = parent_data.data[input_field]
                 except dataset_models.DatasetBase.DoesNotExist:
                     raise Exception("Parent data not found")
@@ -74,6 +77,7 @@ def create_tasks_from_dataitems(items, project):
         # Remove data id because it's not needed in task.data
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
+        print(task)
         if is_translation_project:
             if not is_conversation_project:
                 task.data["word_count"] = no_of_words(task.data["input_text"])
