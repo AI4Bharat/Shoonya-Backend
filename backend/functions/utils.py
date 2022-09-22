@@ -1,5 +1,4 @@
 import requests
-import os
 from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
 from rest_framework import status
@@ -13,7 +12,7 @@ from users.utils import (
     LANG_NAME_TO_CODE_AZURE,
 )
 
-from utils.azure_translate import AzureTranslator
+from utils.azure_translate import translator_object
 
 ### Utility Functions
 def check_if_particular_organization_owner(request):
@@ -290,6 +289,17 @@ def get_batch_translations_using_azure_translate(
     target_language,
     checks_for_particular_languages=False,
 ):
+    """Function to get the translation for the input sentences using the Azure Translate API.
+
+    Args:
+        sentence_list (list): List of sentences to be translated.
+        source_language (str): Original language of the sentence.
+        target_language (str): Target language of the sentence.
+        checks_for_particular_languages (bool, optional):  If True, checks for the particular languages in the translations. .Defaults to False.
+
+    Returns:
+        list/str: List of translated sentences or error message.
+    """
 
     if checks_for_particular_languages:
         # Checks for particular languages
@@ -302,15 +312,8 @@ def get_batch_translations_using_azure_translate(
     target_lang_code = LANG_NAME_TO_CODE_AZURE[target_language]
     source_lang_code = LANG_NAME_TO_CODE_AZURE[source_language]
 
-    # Create a translator instance
-    translator = AzureTranslator(
-        os.environ["AZURE_TRANSLATOR_TEXT_SUBSCRIPTION_KEY"],
-        os.environ["AZURE_TRANSLATOR_TEXT_REGION"],
-        os.environ["AZURE_TRANSLATOR_TEXT_ENDPOINT"],
-    )
-
     try:
-        return translator.batch_translate(
+        return translator_object.batch_translate(
             sentence_list, source_lang_code, target_lang_code
         )
     except Exception as e:
@@ -359,7 +362,7 @@ def get_batch_translations(
 
     elif api_type == "azure":
 
-        # Get the translation using the Google Translate API
+        # Get the translation using the Azure Translate API
         translations_output = get_batch_translations_using_azure_translate(
             sentence_list=sentences_to_translate,
             source_language=source_lang,

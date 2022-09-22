@@ -1,6 +1,7 @@
 import requests
 from urllib.parse import urlencode
 import traceback
+import os
 
 
 class AzureTranslator:
@@ -16,8 +17,6 @@ class AzureTranslator:
         }
         self.translate_endpoint = endpoint + "/translate?api-version=3.0&"
         self.languages_endpoint = endpoint + "/languages?api-version=3.0"
-
-        self.supported_languages = self.get_supported_languages()
 
     def get_supported_languages(self) -> dict:
         return requests.get(self.languages_endpoint).json()["translation"]
@@ -65,3 +64,11 @@ class AzureTranslator:
 
     def text_translate(self, text: str, src_lang: str, tgt_lang: str) -> str:
         return self.batch_translate([text], src_lang, tgt_lang)[0]
+
+
+# Create a translator instance
+translator_object = AzureTranslator(
+    os.environ["AZURE_TRANSLATOR_TEXT_SUBSCRIPTION_KEY"],
+    os.environ["AZURE_TRANSLATOR_TEXT_REGION"],
+    os.environ["AZURE_TRANSLATOR_TEXT_ENDPOINT"],
+)
