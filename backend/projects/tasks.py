@@ -33,6 +33,8 @@ def create_tasks_from_dataitems(items, project):
     is_translation_project = True if "translation" in project_type_lower else False
     is_conversation_project = True if "conversation" in project_type_lower else False
 
+    print("CREATE ITEMS", items)
+
     # Create task objects
     tasks = []
     for item in items:
@@ -169,40 +171,6 @@ def filter_data_items(
         )
 
     return filtered_items
-
-
-# def assign_users_to_tasks(tasks, users):
-#     annotatorList = []
-#     for user in users:
-#         userRole = user["role"]
-#         user_obj = User.objects.get(pk=user["id"])
-#         if userRole == 1 and not user_obj.is_superuser:
-#             annotatorList.append(user)
-
-#     total_tasks = len(tasks)
-#     total_users = len(annotatorList)
-#     # print("Total Users: ",total_users)
-#     # print("Total Tasks: ",total_tasks)
-
-#     tasks_per_user = total_tasks // total_users
-#     chunk = tasks_per_user if total_tasks % total_users == 0 else tasks_per_user + 1
-#     # print(chunk)
-
-#     # updated_tasks = []
-#     for c in range(total_users):
-#         st_idx = c * chunk
-#         # if c == chunk - 1:
-#         #     en_idx = total_tasks
-#         # else:
-#         #     en_idx = (c+1) * chunk
-
-#         en_idx = min((c + 1) * chunk, total_tasks)
-
-#         user_obj = User.objects.get(pk=annotatorList[c]["id"])
-#         for task in tasks[st_idx:en_idx]:
-#             task.annotation_users.add(user_obj)
-#             # updated_tasks.append(task)
-#             task.save()
 
 
 #### CELERY SHARED TASKS
@@ -475,7 +443,7 @@ def add_new_data_items_into_project(self, project_id, items):
 
     # Get project instance
     project = Project.objects.get(pk=project_id)
-
+    print("Items in add_new_data_items_into_project\n", items)
     new_tasks = create_tasks_from_dataitems(items, project)
 
     return f"Pulled {len(new_tasks)} new data items into project {project.title}"
