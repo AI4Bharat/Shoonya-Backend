@@ -25,16 +25,6 @@ class AzureTranslator:
         if not texts:
             return texts
 
-        if src_lang not in self.supported_languages:
-            raise NotImplementedError(
-                f"Source language code: `{src_lang}` not supported!"
-            )
-
-        if tgt_lang not in self.supported_languages:
-            raise NotImplementedError(
-                f"Target language code: `{tgt_lang}` not supported!"
-            )
-
         body = [{"text": text} for text in texts]
         query_string = urlencode(
             {
