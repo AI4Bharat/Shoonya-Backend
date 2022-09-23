@@ -39,13 +39,13 @@ class AzureTranslator:
                 headers=self.http_headers,
                 json=body,
             )
-        except:
+        except Exception:
             traceback.print_exc()
             return None
 
         try:
             response = response.json()
-        except:
+        except Exception:
             traceback.print_exc()
             print("Response:", response.text)
             return None
