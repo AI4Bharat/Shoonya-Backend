@@ -78,6 +78,10 @@ class ProjectRegistry:
             "prediction": prediction,
         }
 
+        # Check if parent_class is defined
+        if "parent_class" in project["input_dataset"]:
+            fields_to_return["parent_class"] = project["input_dataset"]["parent_class"]
+
         # Check if copy from parent is in the fields
         if "copy_from_parent" in project["input_dataset"]:
             fields_to_return["copy_from_parent"] = project["input_dataset"][

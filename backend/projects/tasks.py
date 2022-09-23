@@ -54,9 +54,11 @@ def create_tasks_from_dataitems(items, project):
                 raise Exception("Item does not have a parent")
 
             try:
-                parent_data = model_to_dict(
-                    dataset_models.Conversation.objects.get(id=item["parent_data"])
-                )
+                # get the parent class from the registry and get the parent object
+                parent_class = input_dataset_info["parent_class"]
+                parent_data = model_to_dict(getattr(dataset_models, parent_class).objects.get(
+                    id=item["parent_data"]
+                ))
                 for input_field, output_field in input_dataset_info[
                     "copy_from_parent"
                 ].items():

@@ -188,6 +188,7 @@ Conversation:
       label_studio_jsx_file: "conversation/conversation_translation.jsx"
       input_dataset:
         class: Conversation
+        parent_class: Conversation
         fields:
           - domain
           - topic
@@ -197,6 +198,11 @@ Conversation:
           - speakers_json
           - machine_translated_conversation_json  
           - parent_data
+        display_fields:
+          - domain
+          - topic
+          - scenario
+          - prompt
         copy_from_parent: 
           conversation_json: source_conversation_json          
       output_dataset:
@@ -205,13 +211,5 @@ Conversation:
         fields:
           variable_parameters:
             - language
-          copy_from_input:
-            domain: domain
-            topic: topic
-            scenario: scenario
-            prompt: prompt
-            speaker_count: speaker_count
-            speakers_json: speakers_json
-            machine_translated_conversation_json: machine_translated_conversation_json
           annotations:
             - conversation_json
