@@ -1,12 +1,9 @@
-from ast import literal_eval
 import pandas as pd
 from celery import shared_task
 from dataset import models as dataset_models
 from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 
 from .utils import (
-    get_batch_translations_using_google_translate,
-    get_batch_translations_using_indictrans_nmt_api,
     get_batch_translations,
 )
 
@@ -190,7 +187,7 @@ def conversation_data_machine_translation(
     batch_size,
     api_type,
     checks_for_particular_languages,
-):  # sourcery skip: raise-specific-error
+):
     """Function to translate Conversation data item and to save the translations in another Conversation dataitem.
     Args:
         languages (list): List of output languages for the translations.

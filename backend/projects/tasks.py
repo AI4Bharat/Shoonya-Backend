@@ -36,9 +36,6 @@ def create_tasks_from_dataitems(items, project):
     # Create task objects
     tasks = []
     for item in items:
-        # Get the item data and handle exceptions
-        # Note: We have added an except-continue here because of a weird issue we were facing where the first item
-        # doesn't have the id field and hence the code breaks. This is a TEMPORARY fix and we need to investigate this further.
         data_id = item["id"]
         if "variable_parameters" in output_dataset_info["fields"]:
             for var_param in output_dataset_info["fields"]["variable_parameters"]:
