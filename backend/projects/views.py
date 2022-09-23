@@ -1591,6 +1591,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 export_type = "CSV"
             tasks = Task.objects.filter(project_id__exact=project)
+
+            if "task_status" in dict(request.query_params):
+                task_status = request.query_params["task_status"]
+                tasks = tasks.filter(task_status=task_status)
+
             if len(tasks) == 0:
                 ret_dict = {"message": "No tasks in project!"}
                 ret_status = status.HTTP_200_OK
