@@ -312,6 +312,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
         end_date = request.data.get("end_date")
         user_id = request.data.get("user_id")
         reports_type = request.data.get("reports_type")
+        review_reports = False
+        if reports_type == "review":
+            review_reports = True
 
         start_date = start_date + " 00:00"
         end_date = end_date + " 23:59"
@@ -348,10 +351,16 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        project_objs = Project.objects.filter(
-            annotators=user_id,
-            project_type=project_type,
-        )
+        if review_reports:
+            project_objs = Project.objects.filter(
+                annotation_reviewers=user_id,
+                project_type=project_type,
+            )
+        else:
+            project_objs = Project.objects.filter(
+                annotators=user_id,
+                project_type=project_type,
+            )
 
         all_annotated_lead_time_list = []
         all_annotated_lead_time_count = 0
@@ -362,26 +371,45 @@ class AnalyticsViewSet(viewsets.ViewSet):
         for proj in project_objs:
 
             project_name = proj.title
-            labeld_tasks_objs = Task.objects.filter(
-                Q(project_id=proj.id)
-                & Q(annotation_users=user_id)
-                & Q(
-                    task_status__in=[
-                        "accepted",
-                        "to_be_revised",
-                        "accepted_with_changes",
-                        "labeled",
-                    ]
+            annotated_labeled_tasks = []
+            if review_reports:
+                labeld_tasks_objs = Task.objects.filter(
+                    Q(project_id=proj.id)
+                    & Q(review_user=user_id)
+                    & Q(task_status__in=["accepted", "accepted_with_changes"])
                 )
-            )
 
-            annotated_task_ids = list(labeld_tasks_objs.values_list("id", flat=True))
-            annotated_labeled_tasks = Annotation.objects.filter(
-                task_id__in=annotated_task_ids,
-                parent_annotation_id=None,
-                created_at__range=[start_date, end_date],
-                completed_by=user_id,
-            )
+                annotated_task_ids = list(
+                    labeld_tasks_objs.values_list("id", flat=True)
+                )
+                annotated_labeled_tasks = Annotation.objects.filter(
+                    task_id__in=annotated_task_ids,
+                    parent_annotation_id__isnull=False,
+                    created_at__range=[start_date, end_date],
+                    completed_by=user_id,
+                )
+            else:
+                labeld_tasks_objs = Task.objects.filter(
+                    Q(project_id=proj.id)
+                    & Q(annotation_users=user_id)
+                    & Q(
+                        task_status__in=[
+                            "accepted",
+                            "to_be_revised",
+                            "accepted_with_changes",
+                            "labeled",
+                        ]
+                    )
+                )
+                annotated_task_ids = list(
+                    labeld_tasks_objs.values_list("id", flat=True)
+                )
+                annotated_labeled_tasks = Annotation.objects.filter(
+                    task_id__in=annotated_task_ids,
+                    parent_annotation_id=None,
+                    created_at__range=[start_date, end_date],
+                    completed_by=user_id,
+                )
 
             annotated_tasks_count = annotated_labeled_tasks.count()
             total_annotated_tasks_count += annotated_tasks_count
