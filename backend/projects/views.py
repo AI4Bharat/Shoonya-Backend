@@ -1594,7 +1594,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             if "task_status" in dict(request.query_params):
                 task_status = request.query_params["task_status"]
-                tasks = tasks.filter(task_status=task_status)
+                task_status=task_status.split(',')
+                tasks = tasks.filter(task_status__in=task_status)
 
             if len(tasks) == 0:
                 ret_dict = {"message": "No tasks in project!"}
