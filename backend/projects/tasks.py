@@ -32,6 +32,7 @@ def create_tasks_from_dataitems(items, project):
     project_type_lower = project_type.lower()
     is_translation_project = "translation" in project_type_lower
     is_conversation_project = "conversation" in project_type_lower
+    is_editing_project = "editing" in project_type_lower
 
     # Create task objects
     tasks = []
@@ -74,11 +75,12 @@ def create_tasks_from_dataitems(items, project):
         task = Task(data=item, project_id=project, input_data=data)
         if is_translation_project:
             if is_conversation_project:
+                field_name = "source_conversation_json" if is_editing_project else "conversation_json"
                 task.data["word_count"] = conversation_wordcount(
-                    task.data["source_conversation_json"]
+                    task.data[field_name]
                 )
                 task.data["sentence_count"] = conversation_sentence_count(
-                    task.data["source_conversation_json"]
+                    task.data[field_name]
                 )
 
             else:
