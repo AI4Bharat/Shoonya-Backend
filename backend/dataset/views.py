@@ -36,13 +36,6 @@ from .tasks import upload_data_to_data_instance
 import dataset
 from tasks.models import Task
 
-DATASET_TYPE_MAP = {
-    "TranslationPair": TranslationPair,
-    "SentenceText": SentenceText,
-    "OCRDocument": OCRDocument,
-    "BlockText": BlockText,
-    "Conversation": Conversation,
-}
 
 ## Utility functions used inside the view functions
 def extract_status_date_time_from_task_queryset(task_queryset):
@@ -726,100 +719,48 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
         try:
-            dataset_instance_ids = request.data.get("instance_ids")
-            dataset_type = request.data.get("dataset_type", "")
-            id = request.data.get("id", "")
-            input_text = request.data.get("input_text", "")
-            output_text = request.data.get("output_text", "")
-            input_language = request.data.get("input_language", "")
-            output_language = request.data.get("output_language", "")
-            machine_translation = request.data.get("machine_translation", "")
-            context = request.data.get("context", "")
-            labse_score = request.data.get("labse_score", "")
-            rating = request.data.get("rating", "")
+            # NOTE: For non-searchable fields, omit the "search_" prefix.
+            # E.g: "dataset_type" is not a searchable field in any model,
+            # even though it is in the search data.
+            # Another example is if some data (like username and password of logged_in user)
+            # are passed through the request.
 
-            # inout_text = request.data.get("input_text", "")
+            dataset_instance_ids = request.data.get("search_instance_ids")
+            dataset_type = request.data.get("dataset_type", "")
+            id = request.data.get("search_id", "")
+            input_text = request.data.get("search_input_text", "")
+            output_text = request.data.get("search_output_text", "")
+            input_language = request.data.get("search_input_language", "")
+            output_language = request.data.get("search_output_language", "")
+            machine_translation = request.data.get("search_machine_translation", "")
+            context = request.data.get("search_context", "")
+            labse_score = request.data.get("search_labse_score", "")
+            rating = request.data.get("search_rating", "")
 
             if type(dataset_instance_ids) != list:
                 dataset_instance_ids = [dataset_instance_ids]
-            filter_string = request.data.get("filter_string")
-            #  Get dataset type from first dataset instance if dataset_type not passed in json data from frontend
-            if dataset_type == "":
-                dataset_type = DatasetInstance.objects.get(
-                    instance_id=dataset_instance_ids[0]
-                ).dataset_type
+
+            # NOTE: The below case (where no dataset type is specified)
+            # needs to be handled better. Either dataset_type or
+            # instance_id should be compulsory.
+            DATASET_TYPE_MAP = {
+                "TranslationPair": TranslationPair,
+                "SentenceText": SentenceText,
+                "OCRDocument": OCRDocument,
+                "BlockText": BlockText,
+                "Conversation": Conversation,
+            }
+
             dataset_model = apps.get_model("dataset", dataset_type)
-            data_items = dataset_model.objects.filter(
-                instance_id__in=dataset_instance_ids
-            )
-            query_params = dict(parse_qsl(filter_string))
-            query_params = filter.fix_booleans_in_dict(query_params)
-            filtered_set = filter.filter_using_dict_and_queryset(
-                query_params, data_items
-            )
+            filtered_set = DATASET_TYPE_MAP[dataset_type].objects.all()
+            for i in request.data.keys():
+                ft = process_search_query(
+                    request.data,
+                    i,
+                    DATASET_TYPE_MAP[dataset_type]._meta.get_fields(),
+                )
+                filtered_set = filtered_set.filter(**ft)
 
-            if id != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(dict(request.data), "id", ["id"])
-                )
-
-            if input_text != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(
-                        dict(request.data), "input_text", ["input_text"]
-                    )
-                )
-            if output_text != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(
-                        dict(request.data), "output_text", ["output_text"]
-                    )
-                )
-            if input_language != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(
-                        dict(request.data), "input_language", ["input_language"]
-                    )
-                )
-            if output_language != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(
-                        dict(request.data), "output_language", ["output_language"]
-                    )
-                )
-            if machine_translation != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(
-                        dict(request.data),
-                        "machine_translation",
-                        ["machine_translation"],
-                    )
-                )
-            if context != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(dict(request.data), "context", ["context"])
-                )
-            if labse_score != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(
-                        dict(request.data), "labse_score", ["labse_score"]
-                    )
-                )
-            if rating != "":
-                filtered_set = filtered_set.filter(
-                    **process_search_query(dict(request.data), "rating", ["rating"])
-                )
-
-            if (
-                dataset_type == "TranslationPair"
-                or dataset_type == "SentenceText"
-                or dataset_type == "OCRDocument"
-                or dataset_type == "BlockText"
-                or dataset_type == "Conversation"
-            ):
-                filtered_set = DATASET_TYPE_MAP[dataset_type].objects.filter(
-                    id__in=filtered_set.values_list("id", flat=True)
-                )
             return Response(
                 data=TranslationPairSerializer(filtered_set, many=True).data,
                 status=status.HTTP_200_OK,
@@ -853,6 +794,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                 }
             )
         except Exception as e:
+            print(e)
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
