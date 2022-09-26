@@ -313,9 +313,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
         user_id = request.data.get("user_id")
         reports_type = request.data.get("reports_type")
         review_reports = False
+
         if reports_type == "review":
             review_reports = True
-
         start_date = start_date + " 00:00"
         end_date = end_date + " 23:59"
 
@@ -437,21 +437,37 @@ class AnalyticsViewSet(viewsets.ViewSet):
             if is_translation_project:
                 result = {
                     "Project Name": project_name,
-                    "Annotated Tasks": annotated_tasks_count,
+                    (
+                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    ): annotated_tasks_count,
                     "Word Count": total_word_count,
-                    "Average Annotation Time (In Seconds)": avg_lead_time,
+                    (
+                        "Average Review Time (In Seconds)"
+                        if review_reports
+                        else "Average Annotation Time (In Seconds)"
+                    ): avg_lead_time,
                 }
             else:
                 result = {
                     "Project Name": project_name,
-                    "Annotated Tasks": annotated_tasks_count,
-                    "Average Annotation Time (In Seconds)": avg_lead_time,
+                    (
+                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    ): annotated_tasks_count,
+                    (
+                        "Average Review Time (In Seconds)"
+                        if review_reports
+                        else "Average Annotation Time (In Seconds)"
+                    ): avg_lead_time,
                 }
 
             project_wise_summary.append(result)
 
         project_wise_summary = sorted(
-            project_wise_summary, key=lambda x: x["Annotated Tasks"], reverse=True
+            project_wise_summary,
+            key=lambda x: x[
+                ("Reviewed Tasks" if review_reports else "Annotated Tasks")
+            ],
+            reverse=True,
         )
 
         if total_annotated_tasks_count > 0:
@@ -462,15 +478,27 @@ class AnalyticsViewSet(viewsets.ViewSet):
         total_summary = {}
         if is_translation_project:
             total_summary = {
-                "Annotated Tasks": total_annotated_tasks_count,
+                (
+                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                ): total_annotated_tasks_count,
                 "Word Count": all_tasks_word_count,
-                "Average Annotation Time (In Seconds)": all_annotated_lead_time_count,
+                (
+                    "Average Review Time (In Seconds)"
+                    if review_reports
+                    else "Average Annotation Time (In Seconds)"
+                ): all_annotated_lead_time_count,
             }
 
         else:
             total_summary = {
-                "Annotated Tasks": total_annotated_tasks_count,
-                "Average Annotation Time (In Seconds)": all_annotated_lead_time_count,
+                (
+                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                ): total_annotated_tasks_count,
+                (
+                    "Average Review Time (In Seconds)"
+                    if review_reports
+                    else "Average Annotation Time (In Seconds)"
+                ): all_annotated_lead_time_count,
             }
 
         final_result = {
