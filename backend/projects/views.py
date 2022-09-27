@@ -1021,9 +1021,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         task_pull_count = project.tasks_pull_count_per_batch
         if "num_tasks" in dict(request.data):
             task_pull_count = request.data["num_tasks"]
-        tasks = tasks.order_by("id")
-        tasks = tasks[:task_pull_count]
-        for task in tasks:
+        # Sort by most recently updated annotation; temporary change
+        task_ids = Annotation_model.objects.filter(task__in=tasks).filter(parent_annotation__isnull=True).order_by("-updated_at").values_list("task", flat=True)
+        # tasks = tasks.order_by("id")
+        task_ids = task_ids[:task_pull_count]
+        for task_id in task_ids:
+            task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
         project.release_lock(REVIEW_LOCK)
