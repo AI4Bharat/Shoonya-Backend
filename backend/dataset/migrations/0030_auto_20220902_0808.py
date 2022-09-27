@@ -43,5 +43,5 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(add_default_speaker_count_where_null),
-        #migrations.RunPython(add_default_organization_id_where_null),
+        # migrations.RunPython(add_default_organization_id_where_null),
     ]
