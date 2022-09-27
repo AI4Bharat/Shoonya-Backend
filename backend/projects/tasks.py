@@ -49,11 +49,9 @@ def create_tasks_from_dataitems(items, project):
                     continue
                 item[output_field] = item[input_field]
                 del item[input_field]
-
         if "copy_from_parent" in input_dataset_info:
             if not item.get("parent_data"):
                 raise Exception("Item does not have a parent")
-
             try:
                 # get the parent class from the registry and get the parent object
                 parent_class = input_dataset_info["parent_class"]
@@ -75,18 +73,18 @@ def create_tasks_from_dataitems(items, project):
         task = Task(data=item, project_id=project, input_data=data)
         if is_translation_project:
             if is_conversation_project:
-                field_name = "source_conversation_json" if is_editing_project else "conversation_json"
-                task.data["word_count"] = conversation_wordcount(
-                    task.data[field_name]
+                field_name = (
+                    "source_conversation_json"
+                    if is_editing_project
+                    else "conversation_json"
                 )
+                task.data["word_count"] = conversation_wordcount(task.data[field_name])
                 task.data["sentence_count"] = conversation_sentence_count(
                     task.data[field_name]
                 )
-
             else:
                 task.data["word_count"] = no_of_words(task.data["input_text"])
         tasks.append(task)
-
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
 
@@ -120,7 +118,6 @@ def create_tasks_from_dataitems(items, project):
         #
         # Prediction.objects.bulk_create(predictions)
         Annotation_model.objects.bulk_create(predictions)
-
     return tasks
 
 
@@ -157,7 +154,6 @@ def filter_data_items(
         filtered_items = filtered_items.exclude(
             id__in=ids_to_exclude.values("input_data")
         )
-
     # Get the input dataset fields from the filtered items
     if input_dataset_info["prediction"] is not None:
         filtered_items = list(
@@ -169,7 +165,6 @@ def filter_data_items(
         filtered_items = list(
             filtered_items.values("id", *input_dataset_info["fields"])
         )
-
     return filtered_items
 
 
@@ -210,7 +205,6 @@ def create_parameters_for_task_creation(
         except KeyError:
             sampling_fraction = sampling_parameters["fraction"]
             sampling_count = int(sampling_fraction * len(filtered_items))
-
         sampled_items = random.sample(filtered_items, k=sampling_count)
     elif sampling_mode == BATCH:
         batch_size = sampling_parameters["batch_size"]
@@ -223,7 +217,6 @@ def create_parameters_for_task_creation(
         ]
     else:
         sampled_items = filtered_items
-
     # Load the project object using the project id
     project = Project.objects.get(pk=project_id)
 
@@ -305,7 +298,6 @@ def export_project_in_place(
             else:
                 setattr(data_item, field, ta[field])
         data_items.append(data_item)
-
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
@@ -367,11 +359,9 @@ def export_project_new_record(
                 task_dict["annotations"] = [OrderedDict(annotation_dict)]
         elif project.project_mode == Collection:
             annotated_tasks.append(task)
-
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
-
     if project.project_mode == Collection:
         for (tl, task) in zip(tasks_list, annotated_tasks):
             if task.output_data is not None:
@@ -379,16 +369,13 @@ def export_project_new_record(
             else:
                 data_item = dataset_model()
                 data_item.instance_id = export_dataset_instance
-
             for field in annotation_fields:
                 setattr(data_item, field, tl["data"][field])
             for field in task_annotation_fields:
                 setattr(data_item, field, tl["data"][field])
-
             data_item.save()
             task.output_data = data_item
             task.save()
-
     elif project.project_mode == Annotation:
 
         download_resources = True
@@ -409,12 +396,10 @@ def export_project_new_record(
                 data_item = dataset_model()
                 data_item.instance_id = export_dataset_instance
                 data_item.parent_data = task.input_data
-
             for field in annotation_fields:
                 setattr(data_item, field, ta[field])
             for field in task_annotation_fields:
                 setattr(data_item, field, ta[field])
-
             data_item.save()
             task.output_data = data_item
             task.save()
