@@ -227,6 +227,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
             project_type = project_details[0].project_type
             project_type = project_type.lower()
+            is_conversation_project = True if "conversation" in project_type else False
             is_translation_project = True if "translation" in project_type else False
         else:
             page = self.paginate_queryset(queryset)
@@ -238,6 +239,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
         if (
             (is_translation_project)
+            and (not is_conversation_project)
             and (page is not None)
             and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
             and (not is_review_mode)
@@ -276,6 +278,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
         if (
             (is_translation_project)
+            and (not is_conversation_project)
             and (page is not None)
             and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES})
         ):
