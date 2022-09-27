@@ -4,8 +4,6 @@ from dataset import models as dataset_models
 from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 
 from .utils import (
-    get_batch_translations_using_google_translate,
-    get_batch_translations_using_indictrans_nmt_api,
     get_batch_translations,
 )
 

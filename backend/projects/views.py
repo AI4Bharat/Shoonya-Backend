@@ -17,7 +17,6 @@ from dataset.serializers import TaskResultSerializer
 
 from utils.search import process_search_query
 
-from dataset import models as dataset_models
 from django_celery_results.models import TaskResult
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -1560,12 +1559,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.filter_string,
                     ids_to_exclude,
                 )
-
                 if items:
 
                     # Pull new data items in to the project asynchronously
                     add_new_data_items_into_project.delay(project_id=pk, items=items)
-
                     ret_dict = {"message": "Adding new tasks to the project."}
                     ret_status = status.HTTP_200_OK
                 else:
@@ -1594,7 +1591,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             if "task_status" in dict(request.query_params):
                 task_status = request.query_params["task_status"]
-                tasks = tasks.filter(task_status=task_status)
+                task_status = task_status.split(",")
+                tasks = tasks.filter(task_status__in=task_status)
 
             if len(tasks) == 0:
                 ret_dict = {"message": "No tasks in project!"}
