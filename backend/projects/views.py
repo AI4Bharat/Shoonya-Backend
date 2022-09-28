@@ -493,7 +493,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = (
                     Task.objects.filter(project_id=project.id)
                     .filter(review_user=user)
-                    .exclude(task_status__in=[ACCEPTED, TO_BE_REVISED])
+                    .exclude(task_status__in=[ACCEPTED, TO_BE_REVISED, EXPORTED])
                 )
                 if tasks:
                     Annotation_model.objects.filter(
@@ -1486,7 +1486,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
             tasks = Task.objects.filter(project_id=project.id).filter(
-                task_status=ACCEPTED
+                task_status__in=[ACCEPTED, EXPORTED]
             )
             tasks.update(task_status=COMPLETE)
             project.enable_task_reviews = True
@@ -1521,7 +1521,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             tasks = Task.objects.filter(project_id=project.id)
             # delete review annotations for review tasks
-            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, TO_BE_REVISED])
+            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, TO_BE_REVISED, EXPORTED])
             Annotation_model.objects.filter(task__in=reviewed_tasks).exclude(
                 parent_annotation__isnull=True
             ).delete()

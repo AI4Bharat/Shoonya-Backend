@@ -46,6 +46,7 @@ FREEZED = "freezed"
 DRAFT = "draft"
 INCOMPLETE = "incomplete"
 COMPLETE = "complete"
+EXPORTED = "exported"
 
 ANNOTATION_STATUS = (
     (UNLABELED, "unlabeled"),
@@ -61,6 +62,7 @@ TASK_STATUS = (
     (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
     (FREEZED, "freezed"),
     (TO_BE_REVISED, "to_be_revised"),
+    (EXPORTED, "exported"),
 )
 
 

@@ -279,6 +279,8 @@ def export_project_in_place(
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
+        task.task_status = EXPORTED
+        task.save()
     download_resources = True
     tasks_df = DataExport.export_csv_file(
         project, tasks_list, download_resources, get_request_data
@@ -362,6 +364,8 @@ def export_project_new_record(
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
+        task.task_status = EXPORTED
+        task.save()
     if project.project_mode == Collection:
         for (tl, task) in zip(tasks_list, annotated_tasks):
             if task.output_data is not None:

@@ -281,7 +281,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             (is_translation_project)
             and (not is_conversation_project)
             and (page is not None)
-            and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES})
+            and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES, EXPORTED})
         ):
             # Shows annotations for review_mode
             serializer = TaskAnnotationSerializer(page, many=True)
@@ -502,7 +502,7 @@ class AnnotationViewSet(
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
 
-        if task.task_status == ACCEPTED:
+        if task.task_status in [ACCEPTED, EXPORTED]:
             ret_dict = {"message": "Task is already reviewed and accepted!"}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
