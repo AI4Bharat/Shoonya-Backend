@@ -1,13 +1,17 @@
 from typing import Tuple
 from dateutil.parser import parse as date_parse
 import re
+import nltk
+
+nltk.download("punkt")
 
 
 def no_of_words(string):
-    filter1 = [word for word in string.split() if len(word) > 1]
-    filter2 = [word for word in filter1 if re.search("[a-zA-Z]", word) != None]
-    length = len(filter2)
-    return length
+
+    list_words = nltk.tokenize.word_tokenize(string)
+    list_tokens = [word for word in list_words if len(word) > 1]
+    length_of_sent = len(list_tokens)
+    return length_of_sent
 
 
 def is_valid_date(s: str) -> Tuple[bool, str]:
@@ -23,3 +27,23 @@ def is_valid_date(s: str) -> Tuple[bool, str]:
         return (False, "Please select dates upto Today")
 
     return (True, "")
+
+
+def conversation_wordcount(conversations: list) -> int:
+    """
+    Returns the total word count of the Conversation DatasetInstance type
+    """
+    word_count = 0
+
+    # Iterate through the list of dictionaries
+    for conversation in conversations:
+        for sentence in conversation["sentences"]:
+            word_count += no_of_words(sentence)
+    return word_count
+
+
+def conversation_sentence_count(conversations: list) -> int:
+    """
+    Returns the total sentence count of the Conversation DatasetInstance type
+    """
+    return sum(len(conversation["sentences"]) for conversation in conversations)

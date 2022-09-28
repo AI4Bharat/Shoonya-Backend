@@ -13,6 +13,7 @@ DATASET_TYPE_CHOICES = [
     ("TranslationPair", "TranslationPair"),
     ("OCRDocument", "OCRDocument"),
     ("BlockText", "BlockText"),
+    ("Conversation", "Conversation"),
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
@@ -269,6 +270,66 @@ class BlockText(DatasetBase):
     )
     domain = models.CharField(
         verbose_name="domain", max_length=1024, help_text=("Domain of the block text")
+    )
+
+    def __str__(self):
+        return str(self.id)
+
+
+class Conversation(DatasetBase):
+    """
+    Dataset for storing Conversation data
+    """
+
+    domain = models.CharField(
+        verbose_name="domain",
+        max_length=1024,
+        help_text=("Domain of the conversation translation"),
+        null=True,
+        blank=True,
+    )
+    topic = models.TextField(
+        verbose_name="topic",
+        null=True,
+        blank=True,
+        help_text=("Topic of the conversation"),
+    )
+    scenario = models.TextField(
+        verbose_name="scenario",
+        null=True,
+        blank=True,
+        help_text=("Scenario of the conversation"),
+    )
+    prompt = models.TextField(
+        verbose_name="prompt",
+        null=True,
+        blank=True,
+        help_text=("Prompt of the conversation"),
+    )
+    speaker_count = models.IntegerField(
+        verbose_name="speaker_count",
+        help_text=("Number of speakers involved in conversation"),
+    )
+    speakers_json = models.JSONField(
+        verbose_name="speakers_details",
+        null=True,
+        blank=True,
+        help_text=("Details of the speakers involved in the conversation"),
+    )
+    language = models.CharField(
+        verbose_name="language", choices=LANG_CHOICES, max_length=15
+    )
+    conversation_json = models.JSONField(
+        verbose_name="conversation_details",
+        help_text=("Details of the conversation"),
+        null=True,
+        blank=True,
+    )
+    machine_translated_conversation_json = models.JSONField(
+        verbose_name="machine_translated_conversation",
+        help_text=("Machine Translated Conversation"),
+        null=True,
+        blank=True,
     )
 
     def __str__(self):

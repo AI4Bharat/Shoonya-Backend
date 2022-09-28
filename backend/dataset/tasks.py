@@ -11,7 +11,9 @@ from .resources import RESOURCE_MAP
 @shared_task(
     bind=True,
 )
-def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content_type):
+def upload_data_to_data_instance(
+    self, dataset_string, pk, dataset_type, content_type, deduplicate=False
+):
     # sourcery skip: raise-specific-error
     """Celery background task to upload the data to the dataset instance through file upload.
     First perform a batch upload and if that fails then move on to an iterative format to find rows with errors.
@@ -22,6 +24,7 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
         pk (int): Primary key of the dataset instance
         dataset_type (str): The type of the dataset instance
         content_type (str): The file format of the uploaded file
+        deduplicate (bool): Whether to deduplicate the data or not
     """
 
     # Create a new tablib Dataset and load the data into this dataset
@@ -29,6 +32,10 @@ def upload_data_to_data_instance(self, dataset_string, pk, dataset_type, content
         imported_data = Dataset().load(b64decode(dataset_string), format=content_type)
     else:
         imported_data = Dataset().load(dataset_string, format=content_type)
+
+    # If deduplicate is True then remove duplicate rows from the imported data
+    if deduplicate:
+        imported_data.remove_duplicates()
 
     # Add the instance_id column to all rows in the dataset
     imported_data.append_col([pk] * len(imported_data), header="instance_id")

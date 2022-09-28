@@ -7,8 +7,6 @@ from celery.utils.log import get_task_logger
 from dataset import models as dataset_models
 from django.forms.models import model_to_dict
 from filters import filter
-from rest_framework import status
-from rest_framework.response import Response
 from users.models import User
 
 from tasks.models import Annotation as Annotation_model
@@ -18,7 +16,7 @@ from utils.monolingual.sentence_splitter import split_sentences
 
 from .models import *
 from .registry_helper import ProjectRegistry
-from .serializers import ProjectUsersSerializer
+from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
 
 # Celery logger settings
 logger = get_task_logger(__name__)
@@ -31,6 +29,10 @@ def create_tasks_from_dataitems(items, project):
     input_dataset_info = registry_helper.get_input_dataset_and_fields(project_type)
     output_dataset_info = registry_helper.get_output_dataset_and_fields(project_type)
     variable_parameters = project.variable_parameters
+    project_type_lower = project_type.lower()
+    is_translation_project = "translation" in project_type_lower
+    is_conversation_project = "conversation" in project_type_lower
+    is_editing_project = "editing" in project_type_lower
 
     # Create task objects
     tasks = []
@@ -43,15 +45,46 @@ def create_tasks_from_dataitems(items, project):
             for input_field, output_field in output_dataset_info["fields"][
                 "copy_from_input"
             ].items():
+                if output_field == input_field:
+                    continue
                 item[output_field] = item[input_field]
                 del item[input_field]
+        if "copy_from_parent" in input_dataset_info:
+            if not item.get("parent_data"):
+                raise Exception("Item does not have a parent")
+            try:
+                # get the parent class from the registry and get the parent object
+                parent_class = input_dataset_info["parent_class"]
+                parent_data = model_to_dict(
+                    getattr(dataset_models, parent_class).objects.get(
+                        id=item["parent_data"]
+                    )
+                )
+                for input_field, output_field in input_dataset_info[
+                    "copy_from_parent"
+                ].items():
+                    item[output_field] = parent_data[input_field]
+            except dataset_models.DatasetBase.DoesNotExist:
+                raise Exception("Parent data not found")
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
 
         # Remove data id because it's not needed in task.data
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
+        if is_translation_project:
+            if is_conversation_project:
+                field_name = (
+                    "source_conversation_json"
+                    if is_editing_project
+                    else "conversation_json"
+                )
+                task.data["word_count"] = conversation_wordcount(task.data[field_name])
+                task.data["sentence_count"] = conversation_sentence_count(
+                    task.data[field_name]
+                )
+            else:
+                task.data["word_count"] = no_of_words(task.data["input_text"])
         tasks.append(task)
-
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
 
@@ -85,7 +118,6 @@ def create_tasks_from_dataitems(items, project):
         #
         # Prediction.objects.bulk_create(predictions)
         Annotation_model.objects.bulk_create(predictions)
-
     return tasks
 
 
@@ -122,7 +154,6 @@ def filter_data_items(
         filtered_items = filtered_items.exclude(
             id__in=ids_to_exclude.values("input_data")
         )
-
     # Get the input dataset fields from the filtered items
     if input_dataset_info["prediction"] is not None:
         filtered_items = list(
@@ -134,42 +165,7 @@ def filter_data_items(
         filtered_items = list(
             filtered_items.values("id", *input_dataset_info["fields"])
         )
-
     return filtered_items
-
-
-# def assign_users_to_tasks(tasks, users):
-#     annotatorList = []
-#     for user in users:
-#         userRole = user["role"]
-#         user_obj = User.objects.get(pk=user["id"])
-#         if userRole == 1 and not user_obj.is_superuser:
-#             annotatorList.append(user)
-
-#     total_tasks = len(tasks)
-#     total_users = len(annotatorList)
-#     # print("Total Users: ",total_users)
-#     # print("Total Tasks: ",total_tasks)
-
-#     tasks_per_user = total_tasks // total_users
-#     chunk = tasks_per_user if total_tasks % total_users == 0 else tasks_per_user + 1
-#     # print(chunk)
-
-#     # updated_tasks = []
-#     for c in range(total_users):
-#         st_idx = c * chunk
-#         # if c == chunk - 1:
-#         #     en_idx = total_tasks
-#         # else:
-#         #     en_idx = (c+1) * chunk
-
-#         en_idx = min((c + 1) * chunk, total_tasks)
-
-#         user_obj = User.objects.get(pk=annotatorList[c]["id"])
-#         for task in tasks[st_idx:en_idx]:
-#             task.annotation_users.add(user_obj)
-#             # updated_tasks.append(task)
-#             task.save()
 
 
 #### CELERY SHARED TASKS
@@ -209,7 +205,6 @@ def create_parameters_for_task_creation(
         except KeyError:
             sampling_fraction = sampling_parameters["fraction"]
             sampling_count = int(sampling_fraction * len(filtered_items))
-
         sampled_items = random.sample(filtered_items, k=sampling_count)
     elif sampling_mode == BATCH:
         batch_size = sampling_parameters["batch_size"]
@@ -222,7 +217,6 @@ def create_parameters_for_task_creation(
         ]
     else:
         sampled_items = filtered_items
-
     # Load the project object using the project id
     project = Project.objects.get(pk=project_id)
 
@@ -304,9 +298,10 @@ def export_project_in_place(
             else:
                 setattr(data_item, field, ta[field])
         data_items.append(data_item)
-
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
+
+    return f"Exported {len(data_items)} items."
 
 
 @shared_task
@@ -364,11 +359,9 @@ def export_project_new_record(
                 task_dict["annotations"] = [OrderedDict(annotation_dict)]
         elif project.project_mode == Collection:
             annotated_tasks.append(task)
-
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
-
     if project.project_mode == Collection:
         for (tl, task) in zip(tasks_list, annotated_tasks):
             if task.output_data is not None:
@@ -376,22 +369,20 @@ def export_project_new_record(
             else:
                 data_item = dataset_model()
                 data_item.instance_id = export_dataset_instance
-
             for field in annotation_fields:
                 setattr(data_item, field, tl["data"][field])
             for field in task_annotation_fields:
                 setattr(data_item, field, tl["data"][field])
-
             data_item.save()
             task.output_data = data_item
             task.save()
-
     elif project.project_mode == Annotation:
 
         download_resources = True
         # export_stream, content_type, filename = DataExport.generate_export_file(
         #     project, tasks_list, 'CSV', download_resources, request.GET
         # )
+
         tasks_df = DataExport.export_csv_file(
             project, tasks_list, download_resources, get_request_data
         )
@@ -405,27 +396,17 @@ def export_project_new_record(
                 data_item = dataset_model()
                 data_item.instance_id = export_dataset_instance
                 data_item.parent_data = task.input_data
-
             for field in annotation_fields:
                 setattr(data_item, field, ta[field])
             for field in task_annotation_fields:
                 setattr(data_item, field, ta[field])
-
             data_item.save()
             task.output_data = data_item
             task.save()
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    exponential_backoff=2,
-    retry_kwargs={
-        "max_retries": 5,
-        "countdown": 2,
-    },
-)
-def add_new_data_items_into_project(self, project_id, items):
+@shared_task
+def add_new_data_items_into_project(project_id, items):
     """Function to pull the dataitems into the project
 
     Args:
@@ -435,7 +416,6 @@ def add_new_data_items_into_project(self, project_id, items):
 
     # Get project instance
     project = Project.objects.get(pk=project_id)
-
     new_tasks = create_tasks_from_dataitems(items, project)
 
     return f"Pulled {len(new_tasks)} new data items into project {project.title}"

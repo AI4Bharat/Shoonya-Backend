@@ -308,25 +308,31 @@ class AnalyticsViewSet(viewsets.ViewSet):
         Get Reports of a User
         """
 
-        from_date = request.data.get("from_date")
-        to_date = request.data.get("to_date")
-        from_date = from_date + " 00:00"
-        to_date = to_date + " 23:59"
+        start_date = request.data.get("start_date")
+        end_date = request.data.get("end_date")
+        user_id = request.data.get("user_id")
+        reports_type = request.data.get("reports_type")
+        review_reports = False
 
-        cond, invalid_message = is_valid_date(from_date)
+        if reports_type == "review":
+            review_reports = True
+        start_date = start_date + " 00:00"
+        end_date = end_date + " 23:59"
+
+        cond, invalid_message = is_valid_date(start_date)
         if not cond:
             return Response(
                 {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        cond, invalid_message = is_valid_date(to_date)
+        cond, invalid_message = is_valid_date(end_date)
         if not cond:
             return Response(
                 {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
-        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
+        start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M")
 
         if start_date > end_date:
             return Response(
@@ -337,72 +343,82 @@ class AnalyticsViewSet(viewsets.ViewSet):
         project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
-        workspace_id = request.data.get("workspace_id")
 
         try:
-            user = User.objects.get(id=request.user.id)
+            user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        if user.organization_id is not request.user.organization_id:
-            return Response(
-                {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
+
+        if review_reports:
+            project_objs = Project.objects.filter(
+                annotation_reviewers=user_id,
+                project_type=project_type,
+            )
+        else:
+            project_objs = Project.objects.filter(
+                annotators=user_id,
+                project_type=project_type,
             )
 
-        org_owner = request.user.organization.created_by.email
-        ws = Workspace.objects.filter(id__in=workspace_id)
-        owners = []
-        for each_ws in ws:
-            ws_managers = [manager.get_username() for manager in each_ws.managers.all()]
-            owners.extend(ws_managers)
-        owners.append(org_owner)
+        all_annotated_lead_time_list = []
+        all_annotated_lead_time_count = 0
+        total_annotated_tasks_count = 0
+        all_tasks_word_count = 0
 
-        if request.user.email in owners:
-            return Response(
-                {
-                    "message": f"Workspace managers or organization owners can't access this page,\
-            please don't select the workspace in which your manager of that workspace "
-                }
-            )
-
-        project_objs = Project.objects.filter(
-            workspace_id__in=workspace_id,
-            annotators=request.user.id,
-            project_type=project_type,
-        )
-
-        final_result = []
+        project_wise_summary = []
         for proj in project_objs:
 
             project_name = proj.title
-            labeld_tasks_objs = Task.objects.filter(
-                Q(project_id=proj.id)
-                & Q(annotation_users=request.user.id)
-                & Q(
-                    task_status__in=[
-                        "accepted",
-                        "to_be_revised",
-                        "accepted_with_changes",
-                        "complete",
-                    ]
+            annotated_labeled_tasks = []
+            if review_reports:
+                labeld_tasks_objs = Task.objects.filter(
+                    Q(project_id=proj.id)
+                    & Q(review_user=user_id)
+                    & Q(task_status__in=["accepted", "accepted_with_changes"])
                 )
-            )
 
-            annotated_task_ids = list(labeld_tasks_objs.values_list("id", flat=True))
-            annotated_labeled_tasks = Annotation.objects.filter(
-                task_id__in=annotated_task_ids,
-                parent_annotation_id=None,
-                updated_at__range=[start_date, end_date],
-                completed_by=request.user.id,
-            )
+                annotated_task_ids = list(
+                    labeld_tasks_objs.values_list("id", flat=True)
+                )
+                annotated_labeled_tasks = Annotation.objects.filter(
+                    task_id__in=annotated_task_ids,
+                    parent_annotation_id__isnull=False,
+                    created_at__range=[start_date, end_date],
+                    completed_by=user_id,
+                )
+            else:
+                labeld_tasks_objs = Task.objects.filter(
+                    Q(project_id=proj.id)
+                    & Q(annotation_users=user_id)
+                    & Q(
+                        task_status__in=[
+                            "accepted",
+                            "to_be_revised",
+                            "accepted_with_changes",
+                            "labeled",
+                        ]
+                    )
+                )
+                annotated_task_ids = list(
+                    labeld_tasks_objs.values_list("id", flat=True)
+                )
+                annotated_labeled_tasks = Annotation.objects.filter(
+                    task_id__in=annotated_task_ids,
+                    parent_annotation_id=None,
+                    created_at__range=[start_date, end_date],
+                    completed_by=user_id,
+                )
 
             annotated_tasks_count = annotated_labeled_tasks.count()
+            total_annotated_tasks_count += annotated_tasks_count
 
             avg_lead_time = 0
             lead_time_annotated_tasks = [
                 eachtask.lead_time for eachtask in annotated_labeled_tasks
             ]
+            all_annotated_lead_time_list.extend(lead_time_annotated_tasks)
             if len(lead_time_annotated_tasks) > 0:
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(
                     lead_time_annotated_tasks
@@ -412,65 +428,83 @@ class AnalyticsViewSet(viewsets.ViewSet):
             total_word_count = 0
             if is_translation_project:
                 total_word_count_list = [
-                    no_of_words(each_task.task.data["input_text"])
+                    each_task.task.data["word_count"]
                     for each_task in annotated_labeled_tasks
                 ]
                 total_word_count = sum(total_word_count_list)
+            all_tasks_word_count += total_word_count
 
-            all_tasks_in_project = Task.objects.filter(
-                Q(project_id=proj.id) & Q(annotation_users=request.user.id)
-            )
-            assigned_tasks_count = all_tasks_in_project.count()
-
-            total_skipped_tasks = Annotation.objects.filter(
-                task__project_id=proj.id,
-                parent_annotation_id=None,
-                completed_by=request.user.id,
-                annotation_status="skipped",
-                updated_at__range=[start_date, end_date],
-            ).count()
-
-            all_pending_tasks_in_project = Annotation.objects.filter(
-                task__project_id=proj.id,
-                parent_annotation_id=None,
-                completed_by=request.user.id,
-                annotation_status="unlabeled",
-                updated_at__range=[start_date, end_date],
-            ).count()
-
-            all_draft_tasks_in_project = Annotation.objects.filter(
-                task__project_id=proj.id,
-                parent_annotation_id=None,
-                completed_by=request.user.id,
-                annotation_status="draft",
-                updated_at__range=[start_date, end_date],
-            ).count()
             if is_translation_project:
                 result = {
-                    "Annotator": request.user.username,
                     "Project Name": project_name,
-                    "Assigned Tasks": assigned_tasks_count,
-                    "Annotated Tasks": annotated_tasks_count,
-                    "Unlabeled Tasks": all_pending_tasks_in_project,
-                    "Skipped Tasks": total_skipped_tasks,
-                    "Draft Tasks": all_draft_tasks_in_project,
+                    (
+                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    ): annotated_tasks_count,
                     "Word Count": total_word_count,
-                    "Average Annotation Time (In Seconds)": avg_lead_time,
+                    (
+                        "Average Review Time (In Seconds)"
+                        if review_reports
+                        else "Average Annotation Time (In Seconds)"
+                    ): avg_lead_time,
                 }
             else:
                 result = {
-                    "Annotator": request.user.username,
                     "Project Name": project_name,
-                    "Assigned Tasks": assigned_tasks_count,
-                    "Annotated Tasks": annotated_tasks_count,
-                    "Unlabeled Tasks": all_pending_tasks_in_project,
-                    "Skipped Tasks": total_skipped_tasks,
-                    "Draft Tasks": all_draft_tasks_in_project,
-                    "Average Annotation Time (In Seconds)": avg_lead_time,
+                    (
+                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    ): annotated_tasks_count,
+                    (
+                        "Average Review Time (In Seconds)"
+                        if review_reports
+                        else "Average Annotation Time (In Seconds)"
+                    ): avg_lead_time,
                 }
 
-            final_result.append(result)
+            project_wise_summary.append(result)
 
+        project_wise_summary = sorted(
+            project_wise_summary,
+            key=lambda x: x[
+                ("Reviewed Tasks" if review_reports else "Annotated Tasks")
+            ],
+            reverse=True,
+        )
+
+        if total_annotated_tasks_count > 0:
+            all_annotated_lead_time_count = (
+                sum(all_annotated_lead_time_list) / total_annotated_tasks_count
+            )
+
+        total_summary = {}
+        if is_translation_project:
+            total_summary = {
+                (
+                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                ): total_annotated_tasks_count,
+                "Word Count": all_tasks_word_count,
+                (
+                    "Average Review Time (In Seconds)"
+                    if review_reports
+                    else "Average Annotation Time (In Seconds)"
+                ): all_annotated_lead_time_count,
+            }
+
+        else:
+            total_summary = {
+                (
+                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                ): total_annotated_tasks_count,
+                (
+                    "Average Review Time (In Seconds)"
+                    if review_reports
+                    else "Average Annotation Time (In Seconds)"
+                ): all_annotated_lead_time_count,
+            }
+
+        final_result = {
+            "total_summary": total_summary,
+            "project_summary": project_wise_summary,
+        }
         return Response(final_result)
 
 

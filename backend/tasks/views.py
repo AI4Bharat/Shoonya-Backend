@@ -95,10 +95,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project = Project.objects.get(id=task.project_id.id)
         annotator = request.user
 
-        if (
-            annotator.role == User.ANNOTATOR
-            and annotator not in project.annotation_reviewers.all()
-        ):
+        if annotator.role == User.ANNOTATOR and annotator != task.review_user:
             if annotator in project.annotators.all():
                 annotations = annotations.filter(completed_by=annotator)
             else:
@@ -106,7 +103,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     {"message": "You are not a part of this project"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
@@ -232,6 +228,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
             project_type = project_details[0].project_type
             project_type = project_type.lower()
+            is_conversation_project = True if "conversation" in project_type else False
             is_translation_project = True if "translation" in project_type else False
         else:
             page = self.paginate_queryset(queryset)
@@ -243,6 +240,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
         if (
             (is_translation_project)
+            and (not is_conversation_project)
             and (page is not None)
             # and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
             and (not is_review_mode)
@@ -281,6 +279,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
         if (
             (is_translation_project)
+            and (not is_conversation_project)
             and (page is not None)
             and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES})
         ):
@@ -309,8 +308,91 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         task_response = super().partial_update(request)
         task_id = task_response.data["id"]
         task = Task.objects.get(pk=task_id)
-        task.release_lock(request.user)
         return task_response
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "project_task_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_task_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+            },
+            required=["project_task_start_id", "project_task_end_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the project"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Deleted successfully! or No rows to delete",
+            403: "Not authorized!",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="delete_project_tasks",
+        url_name="delete_project_tasks",
+    )
+    def delete_project_tasks(self, request, pk=None):
+        project = Project.objects.get(pk=pk)
+        try:
+            if (
+                (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.is_superuser
+                )
+                and (request.user.organization == project.organization_id)
+            ) == False:
+                return Response(
+                    {
+                        "status": status.HTTP_403_FORBIDDEN,
+                        "message": "You are not authorized to access the endpoint.",
+                    }
+                )
+
+            project_task_start_id = request.data.get("project_task_start_id")
+            project_task_end_id = request.data.get("project_task_end_id")
+
+            project_task_ids = [
+                id for id in range(project_task_start_id, project_task_end_id + 1)
+            ]
+
+            project_tasks = Task.objects.filter(project_id=project).filter(
+                id__in=project_task_ids
+            )
+
+            num_project_tasks = len(project_tasks)
+
+            if num_project_tasks == 0:
+                return Response(
+                    {
+                        "status": status.HTTP_200_OK,
+                        "message": "No rows to delete",
+                    }
+                )
+
+            project_tasks.delete()
+            return Response(
+                {
+                    "status": status.HTTP_200_OK,
+                    "message": f"Deleted {num_project_tasks} data items successfully!",
+                }
+            )
+        except:
+            return Response(
+                {
+                    "status": status.HTTP_400_BAD_REQUEST,
+                    "message": "Invalid Parameters in the request body!",
+                }
+            )
 
 
 class AnnotationViewSet(
@@ -370,7 +452,6 @@ class AnnotationViewSet(
         annotation_response = super().create(request)
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        task.release_lock(request.user)
         # project = Project.objects.get(pk=task.project_id.id)
         if task.project_id.required_annotators_per_task == task.annotations.count():
             # if True:

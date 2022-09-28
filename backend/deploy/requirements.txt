@@ -22,3 +22,4 @@ celery
 django-celery-results
 google
 google-cloud-translate
+nltk

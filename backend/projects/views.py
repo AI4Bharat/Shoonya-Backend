@@ -17,7 +17,6 @@ from dataset.serializers import TaskResultSerializer
 
 from utils.search import process_search_query
 
-from dataset import models as dataset_models
 from django_celery_results.models import TaskResult
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -598,10 +597,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 current_task_id = request.query_params["current_task_id"]
                 queryset = queryset.filter(id__gt=current_task_id)
             for task in queryset:
-                if not task.is_locked(request.user):
-                    task.set_lock(request.user)
-                    task_dict = TaskSerializer(task, many=False).data
-                    return Response(task_dict)
+                task_dict = TaskSerializer(task, many=False).data
+                return Response(task_dict)
             ret_dict = {"message": "No more tasks available!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
@@ -642,10 +639,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 current_task_id = request.query_params["current_task_id"]
                 unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
             for task in unattended_tasks:
-                if not task.is_locked(request.user):
-                    task.set_lock(request.user)
-                    task_dict = TaskSerializer(task, many=False).data
-                    return Response(task_dict)
+                task_dict = TaskSerializer(task, many=False).data
+                return Response(task_dict)
             ret_dict = {"message": "No more unlabeled tasks!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
@@ -783,6 +778,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+        except AttributeError:
+            ret_dict = {"message": "No tasks found!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
@@ -1037,9 +1035,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
         task_pull_count = project.tasks_pull_count_per_batch
         if "num_tasks" in dict(request.data):
             task_pull_count = request.data["num_tasks"]
-        tasks = tasks.order_by("id")
-        tasks = tasks[:task_pull_count]
-        for task in tasks:
+        # Sort by most recently updated annotation; temporary change
+        task_ids = (
+            Annotation_model.objects.filter(task__in=tasks)
+            .filter(parent_annotation__isnull=True)
+            .order_by("-updated_at")
+            .values_list("task", flat=True)
+        )
+        # tasks = tasks.order_by("id")
+        task_ids = task_ids[:task_pull_count]
+        for task_id in task_ids:
+            task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
             base_annotation_obj = Annotation_model(
@@ -1315,13 +1321,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         + list(to_be_revised_tasks)
                     )
                     total_word_count_list = [
-                        no_of_words(each_task.task.data["input_text"])
+                        each_task.task.data["word_count"]
                         for each_task in all_annotated_tasks
                     ]
                     total_word_count = sum(total_word_count_list)
                 else:
                     total_word_count_list = [
-                        no_of_words(each_task.task.data["input_text"])
+                        each_task.task.data["word_count"]
                         for each_task in annotated_accept_tasks
                     ]
                     total_word_count = sum(total_word_count_list)
@@ -1607,12 +1613,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.filter_string,
                     ids_to_exclude,
                 )
-
                 if items:
 
                     # Pull new data items in to the project asynchronously
                     add_new_data_items_into_project.delay(project_id=pk, items=items)
-
                     ret_dict = {"message": "Adding new tasks to the project."}
                     ret_status = status.HTTP_200_OK
                 else:
@@ -1638,6 +1642,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 export_type = "CSV"
             tasks = Task.objects.filter(project_id__exact=project)
+
+            if "task_status" in dict(request.query_params):
+                task_status = request.query_params["task_status"]
+                task_status = task_status.split(",")
+                tasks = tasks.filter(task_status__in=task_status)
+
             if len(tasks) == 0:
                 ret_dict = {"message": "No tasks in project!"}
                 ret_status = status.HTTP_200_OK
@@ -1650,20 +1660,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 # Rename keys to match label studio converter
                 # task_dict['id'] = task_dict['task_id']
                 # del task_dict['task_id']
-                if task.correct_annotation is not None:
-                    annotation_dict = model_to_dict(task.correct_annotation)
-                    print(task.correct_annotation)
-                    print(task.correct_annotation.created_at)
-                    print(task.correct_annotation.updated_at)
+                correct_annotation = task.correct_annotation
+                if correct_annotation is None and task.task_status in [
+                    LABELED,
+                    ACCEPTED,
+                    ACCEPTED_WITH_CHANGES,
+                ]:
+                    correct_annotation = task.annotations.all().filter(
+                        parent_annotation__isnull=True
+                    )[0]
+                if correct_annotation is not None:
+                    annotation_dict = model_to_dict(correct_annotation)
                     # annotation_dict['result'] = annotation_dict['result_json']
+
                     # del annotation_dict['result_json']
                     # print(annotation_dict)
-                    annotation_dict["created_at"] = str(
-                        task.correct_annotation.created_at
-                    )
-                    annotation_dict["updated_at"] = str(
-                        task.correct_annotation.updated_at
-                    )
+                    annotation_dict["created_at"] = str(correct_annotation.created_at)
+                    annotation_dict["updated_at"] = str(correct_annotation.updated_at)
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
                     task_dict["annotations"] = [OrderedDict({"result": {}})]
@@ -1722,13 +1735,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type
             )
 
-            dataset_model = getattr(dataset_models, output_dataset_info["dataset_type"])
-
             # If save_type is 'in_place'
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
 
-                data_items = []
                 tasks = Task.objects.filter(
                     project_id__exact=project,
                     task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES],
@@ -1737,7 +1747,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
-                # Perform task export function for inpalce functions
+
+                # Call the async task export function for inplace functions
                 export_project_in_place.delay(
                     annotation_fields=annotation_fields,
                     project_id=pk,
@@ -1746,10 +1757,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             # If save_type is 'new_record'
             elif output_dataset_info["save_type"] == "new_record":
-                export_dataset_instance_id = request.data["export_dataset_instance_id"]
-                export_dataset_instance = dataset_models.DatasetInstance.objects.get(
-                    instance_id__exact=export_dataset_instance_id
+                export_dataset_instance_id = request.data.get(
+                    "export_dataset_instance_id"
                 )
+
+                # If export_dataset_instance_id is not provided
+                if export_dataset_instance_id is None:
+                    ret_dict = {"message": "export_dataset_instance_id is required!"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
 
                 annotation_fields = output_dataset_info["fields"]["annotations"]
                 task_annotation_fields = []
@@ -1761,7 +1777,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_annotation_fields += list(
                         output_dataset_info["fields"]["copy_from_input"].values()
                     )
-                data_items = []
+
                 tasks = Task.objects.filter(
                     project_id__exact=project,
                     task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES],
@@ -1788,7 +1804,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # FIXME: Allow export multiple times
             # project.is_archived=True
             # project.save()
-            ret_dict = {"message": "SUCCESS!"}
+            ret_dict = {"message": "Project Export Started."}
             ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
@@ -1854,6 +1870,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def language_choices(self, request):
         return Response(LANG_CHOICES)
 
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "task_name",
+                openapi.IN_QUERY,
+                description=(
+                    f"A task name to filter the tasks by. Allowed Tasks: {ALLOWED_CELERY_TASKS}"
+                ),
+                type=openapi.TYPE_STRING,
+                required=True,
+            ),
+        ],
+        responses={
+            200: "Returns the past task run history for a particular dataset instance and task name"
+        },
+    )
     @action(methods=["GET"], detail=True, name="Get all past instances of celery tasks")
     def get_async_task_results(self, request, pk):
         """

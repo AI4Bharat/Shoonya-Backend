@@ -140,94 +140,8 @@ class Task(models.Model):
         """
         self.annotation_users.remove(annotator)
 
-    def get_lock_ttl(self):
-        # Lock expiry duration in seconds
-        return 1
-        # if settings.TASK_LOCK_TTL is not None:
-        #     return settings.TASK_LOCK_TTL
-        # return settings.TASK_LOCK_MIN_TTL
-
-    def clear_expired_locks(self):
-        self.locks.filter(expire_at__lt=now()).delete()
-
-    @property
-    def num_locks(self):
-        return self.locks.filter(expire_at__gt=now()).count()
-
-    def set_lock(self, annotator):
-        """Lock current task by specified annotator. Lock lifetime is set by `expire_in_secs`"""
-        num_locks = self.num_locks
-        if num_locks < self.project_id.required_annotators_per_task:
-            lock_ttl = self.get_lock_ttl()
-            expire_at = now() + timedelta(seconds=lock_ttl)
-            TaskLock.objects.create(task=self, user=annotator, expire_at=expire_at)
-        else:
-            raise Exception(
-                "Setting lock failed. Num locks > max annotators. Please call has_lock() before setting the lock."
-            )
-            # logger.error(
-            #     f"Current number of locks for task {self.id} is {num_locks}, but overlap={self.overlap}: "
-            #     f"that's a bug because this task should not be taken in a label stream (task should be locked)")
-        self.clear_expired_locks()
-
-    def release_lock(self, annotator=None):
-        """Release lock for the task.
-        If annotator specified, it checks whether lock is released by the annotator who previously has locked that task"""
-
-        if annotator is not None:
-            self.locks.filter(user=annotator).delete()
-        else:
-            self.locks.all().delete()
-        self.clear_expired_locks()
-
-    def is_locked(self, annotator=None):
-        """Check whether current task has been locked by some annotator"""
-        self.clear_expired_locks()
-        num_locks = self.num_locks
-        # print("Num locks:", num_locks)
-        # if self.project.skip_queue == self.project.SkipQueue.REQUEUE_FOR_ME:
-        #     num_annotations = self.annotations.filter(ground_truth=False).exclude(Q(was_cancelled=True) | ~Q(completed_by=annotator)).count()
-        # else:
-        num_annotations = self.annotations.count()
-
-        # num = num_locks + num_annotations
-        # FIXME: hardcoded to 0 to disable locking mechanism for skipped tasks
-        num = 0
-
-        # if num > self.project_id.required_annotators_per_task:
-        #     logger.error(
-        #         f"Num takes={num} > overlap={self.project_id.required_annotators_per_task} for task={self.id} - it's a bug",
-        #         extra=dict(
-        #             lock_ttl=self.get_lock_ttl(),
-        #             num_locks=num_locks,
-        #             num_annotations=num_annotations,
-        #         )
-        #     )
-        result = bool(num >= self.project_id.required_annotators_per_task)
-        # if annotator:
-        #     # Check if annotator has already annotated a task
-        #     if len(self.annotations.filter(completed_by__exact=annotator.id)) > 0:
-        #         return True
-        #     # Check if already locked by the same annotator
-        #     if self.locks.filter(user=annotator).count() > 0:
-        #         return True
-        return result
-
     def __str__(self):
         return str(self.id)
-
-
-class TaskLock(models.Model):
-    task = models.ForeignKey(
-        Task, on_delete=models.CASCADE, related_name="locks", help_text="Locked task"
-    )
-    expire_at = models.DateTimeField("expire_at")
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="task_locks",
-        help_text="User who locked this task",
-    )
 
 
 class Annotation(models.Model):
@@ -502,20 +416,17 @@ class DataExport(object):
         with get_temp_dir() as tmp_dir:
             converter.convert(input_json, tmp_dir, "CSV", is_dir=False)
             files = get_all_files_from_dir(tmp_dir)
-            # if only one file is exported - no need to create archive
-            if len(os.listdir(tmp_dir)) == 1:
-                output_file = files[0]
-                df = pd.read_csv(output_file)
-                # tasks_annotations = json.load(output_file)
-                # ext = os.path.splitext(output_file)[-1]
-                # content_type = f'application/{ext}'
-                # out = read_bytes_stream(output_file)
-
-                # filename = name + os.path.splitext(output_file)[-1]
-                # return out, content_type, filename
-                return df
-            else:
+            if len(os.listdir(tmp_dir)) != 1:
                 raise NotImplementedError
+            output_file = files[0]
+            # tasks_annotations = json.load(output_file)
+            # ext = os.path.splitext(output_file)[-1]
+            # content_type = f'application/{ext}'
+            # out = read_bytes_stream(output_file)
+
+            # filename = name + os.path.splitext(output_file)[-1]
+            # return out, content_type, filename
+            return pd.read_csv(output_file)
 
             # otherwise pack output directory into archive
             # shutil.make_archive(tmp_dir, 'zip', tmp_dir)
