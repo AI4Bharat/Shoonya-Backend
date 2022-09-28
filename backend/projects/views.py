@@ -1634,6 +1634,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project, tasks_list, export_type, download_resources, request.GET
             )
 
+            if export_type == "TSV":
+                content_type = "application/.tsv"
+                filename = filename.split(".")
+                filename[-1] = "tsv"
+                filename = ".".join(filename)
+
             response = HttpResponse(File(export_stream), content_type=content_type)
             response["Content-Disposition"] = 'attachment; filename="%s"' % filename
             response["filename"] = filename
