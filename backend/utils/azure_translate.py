@@ -57,8 +57,11 @@ class AzureTranslator:
 
 
 # Create a translator instance
-translator_object = AzureTranslator(
-    os.environ["AZURE_TRANSLATOR_TEXT_SUBSCRIPTION_KEY"],
-    os.environ["AZURE_TRANSLATOR_TEXT_REGION"],
-    os.environ["AZURE_TRANSLATOR_TEXT_ENDPOINT"],
-)
+try:
+    translator_object = AzureTranslator(
+        os.environ["AZURE_TRANSLATOR_TEXT_SUBSCRIPTION_KEY"],
+        os.environ["AZURE_TRANSLATOR_TEXT_REGION"],
+        os.environ["AZURE_TRANSLATOR_TEXT_ENDPOINT"],
+    )
+except:
+    pass
