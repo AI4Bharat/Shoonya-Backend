@@ -6,18 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0018_auto_20220629_1425'),
+        ("users", "0018_auto_20220629_1425"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='enable_mail',
-            field=models.BooleanField(default=False, help_text='Indicates whether mailing is enable or not.', verbose_name='enable_mail'),
+            model_name="user",
+            name="enable_mail",
+            field=models.BooleanField(
+                default=False,
+                help_text="Indicates whether mailing is enable or not.",
+                verbose_name="enable_mail",
+            ),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='id',
-            field=models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
+            model_name="user",
+            name="id",
+            field=models.BigAutoField(
+                auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+            ),
         ),
     ]
