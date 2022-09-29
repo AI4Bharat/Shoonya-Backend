@@ -2,11 +2,13 @@ import ast
 import re
 from base64 import b64encode
 from urllib.parse import parse_qsl
+from dataset.serializers import SERIALIZER_MAP
 
 from django.apps import apps
 from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
+from utils.search import flatten
 from django_celery_results.models import TaskResult
 from users.serializers import UserFetchSerializer
 from filters import filter
@@ -722,9 +724,9 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             # Another example is if some data (like username and password of logged_in user)
             # are passed through the request.
 
-            dataset_instance_ids = request.data.get("search_instance_ids")
+            dataset_instance_ids = request.data.get("instance_ids")
             dataset_type = request.data.get("dataset_type", "")
-            id = request.data.get("search_id", "")
+            id = request.data.get("search_id","")
             input_text = request.data.get("search_input_text", "")
             output_text = request.data.get("search_output_text", "")
             input_language = request.data.get("search_input_language", "")
@@ -749,17 +751,10 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             }
 
             dataset_model = apps.get_model("dataset", dataset_type)
-            filtered_set = DATASET_TYPE_MAP[dataset_type].objects.all()
-            for i in request.data.keys():
-                ft = process_search_query(
-                    request.data,
-                    i,
-                    DATASET_TYPE_MAP[dataset_type]._meta.get_fields(),
-                )
-                filtered_set = filtered_set.filter(**ft)
+            filtered_set = DATASET_TYPE_MAP[dataset_type].objects.filter(**request.data["search_keys"], instance_id=dataset_instance_ids[0])
 
             return Response(
-                data=TranslationPairSerializer(filtered_set, many=True).data,
+                data=SERIALIZER_MAP[dataset_type](filtered_set, many=True).data,
                 status=status.HTTP_200_OK,
             )
 
@@ -791,7 +786,6 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                 }
             )
         except Exception as e:
-            print(e)
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
