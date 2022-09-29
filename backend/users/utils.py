@@ -15,6 +15,8 @@ INDIC_TRANS_SUPPORTED_LANGUAGES = [
     "Punjabi",
     "Tamil",
     "Telugu",
+    "Bodo",
+    "Maithili",
 ]
 
 # List of languages supported by Azure Text Translation API
