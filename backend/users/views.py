@@ -1,3 +1,4 @@
+import os
 from http.client import responses
 import secrets
 import string
@@ -307,11 +308,34 @@ class AnalyticsViewSet(viewsets.ViewSet):
         """
         Get Reports of a User
         """
+        PERMISSION_ERROR = {
+            "message": "You do not have enough permissions to access this view!"
+        }
+        emails = User.objects.all()
+        emails_list = emails.values_list("email", flat=True)
+        try:
+            user_email = request.user.email
+            if user_email not in emails_list:
+                return Response(PERMISSION_ERROR, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            if type(request) == dict:
+                pass
+            else:
+                return Response(PERMISSION_ERROR, status=status.HTTP_400_BAD_REQUEST)
 
-        start_date = request.data.get("start_date")
-        end_date = request.data.get("end_date")
-        user_id = request.data.get("user_id")
-        reports_type = request.data.get("reports_type")
+        try:
+            start_date = request.data.get("start_date")
+            end_date = request.data.get("end_date")
+            user_id = request.data.get("user_id")
+            reports_type = request.data.get("reports_type")
+            project_type = request.data.get("project_type")
+        except:
+            start_date = request["start_date"]
+            end_date = request["end_date"]
+            user_id = request["user_id"]
+            reports_type = request["reports_type"]
+            project_type = "project_type"
+
         review_reports = False
 
         if reports_type == "review":
@@ -340,7 +364,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
 
@@ -459,8 +482,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
                         else "Average Annotation Time (In Seconds)"
                     ): avg_lead_time,
                 }
-
-            project_wise_summary.append(result)
+            if result[("Reviewed Tasks" if review_reports else "Annotated Tasks")] > 0:
+                project_wise_summary.append(result)
 
         project_wise_summary = sorted(
             project_wise_summary,
@@ -474,6 +497,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             all_annotated_lead_time_count = (
                 sum(all_annotated_lead_time_list) / total_annotated_tasks_count
             )
+            all_annotated_lead_time_count = round(all_annotated_lead_time_count, 2)
 
         total_summary = {}
         if is_translation_project:

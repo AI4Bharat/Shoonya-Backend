@@ -2,6 +2,7 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+from subprocess import call
 
 
 def main():
@@ -16,6 +17,7 @@ def main():
             "forget to activate a virtual environment?"
         ) from exc
     execute_from_command_line(sys.argv)
+    call(["python", "user_reports.py"])
 
 
 if __name__ == "__main__":
