@@ -678,12 +678,15 @@ class SentenceOperationViewSet(viewsets.ViewSet):
         url_name="calculate_normalized_character_level_edit_distance",
     )
     def calculate_normalized_character_level_edit_distance(self, request):
-        sentence1 = request.data.get("sentence1")
-        sentence2 = request.data.get("sentence2")
+        try:
+            sentence1 = request.data.get("sentence1")
+            sentence2 = request.data.get("sentence2")
 
-        character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
+            character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
 
-        return Response(
-            {"character_level_edit_distance": character_level_edit_distance},
-            status=status.HTTP_200_OK,
-        )
+            return Response(
+                {"character_level_edit_distance": character_level_edit_distance},
+                status=status.HTTP_200_OK,
+            )
+        except:
+            return Response({"message":"Invalid parameters in request body!"},status=status.HTTP_400_BAD_REQUEST)
