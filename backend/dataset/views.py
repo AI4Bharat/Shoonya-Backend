@@ -865,8 +865,12 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             properties={
                 "data_item_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
                 "data_item_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "data_item_ids": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
             },
-            required=["data_item_start_id", "data_item_end_id"],
+            description="Either pass the data_item_start_id and data_item_end_id or the data_item_ids in request body",
         ),
         manual_parameters=[
             openapi.Parameter(
@@ -909,11 +913,14 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             dataset_type = dataset_instance.dataset_type
             dataset_model = apps.get_model("dataset", dataset_type)
 
-            data_item_start_id = request.data.get("data_item_start_id")
-            data_item_end_id = request.data.get("data_item_end_id")
-            data_item_ids = [
-                id for id in range(data_item_start_id, data_item_end_id + 1)
-            ]
+            if "data_item_ids" in request.data:
+                data_item_ids = request.data.get("data_item_ids")
+            else:
+                data_item_start_id = request.data.get("data_item_start_id")
+                data_item_end_id = request.data.get("data_item_end_id")
+                data_item_ids = [
+                    id for id in range(data_item_start_id, data_item_end_id + 1)
+                ]
 
             data_items = dataset_model.objects.filter(
                 instance_id=dataset_instance
