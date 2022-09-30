@@ -553,7 +553,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     "Average Review Time (In Seconds)"
                     if review_reports
                     else "Average Annotation Time (In Seconds)"
-                ): all_annotated_lead_time_count,
+                ): round(all_annotated_lead_time_count,2),
             }
 
         else:
@@ -565,7 +565,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     "Average Review Time (In Seconds)"
                     if review_reports
                     else "Average Annotation Time (In Seconds)"
-                ): all_annotated_lead_time_count,
+                ): round(all_annotated_lead_time_count,2),
             }
 
         final_result = {
