@@ -77,14 +77,14 @@ def caluculate_reports():
         df1.index = blankIndex
         email_to_send = {"ProjectWiseReport": df, "Total Reports Summary": df1}
 
-        print(email_to_send)
+        # print(email_to_send)
 
-        # send_mail(
-        #     "Your Annotation Reports",
-        #     f"Your Annotation Reports are:{email_to_send}",
-        #     settings.DEFAULT_FROM_EMAIL,
-        #     [annotator.email],
-        # )
+        send_mail(
+            "Your Annotation Reports",
+            f"Your Annotation Reports are:{email_to_send}",
+            settings.DEFAULT_FROM_EMAIL,
+            [annotator.email],
+        )
 
     for reviewer in final_reviewer_unique_list:
 
@@ -123,19 +123,11 @@ def caluculate_reports():
         df1.index = blankIndex
         email_to_send = {"ProjectWiseReport": df, "Total Reports Summary": df1}
 
-        print(email_to_send)
+        # print(email_to_send)
 
-        # send_mail(
-        #     "Your Review Reports",
-        #     f"Your Review Reports are:{email_to_send}",
-        #     settings.DEFAULT_FROM_EMAIL,
-        #     [reviewer.email],
-        # )
-
-
-# # schedule.every(10).seconds.do(caluculate_reports)
-# schedule.every().day.at("00:05").do(caluculate_reports)
-
-# while 1:
-#     schedule.run_pending()
-#     time.sleep(1)
+        send_mail(
+            "Your Review Reports",
+            f"Your Review Reports are:{email_to_send}",
+            settings.DEFAULT_FROM_EMAIL,
+            [reviewer.email],
+        )
