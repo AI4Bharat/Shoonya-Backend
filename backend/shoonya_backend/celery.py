@@ -22,6 +22,15 @@ celery_app.config_from_object("django.conf:settings", namespace="CELERY")
 celery_app.conf.task_default_queue = "default"
 celery_app.conf.task_routes = {"functions.tasks.*": {"queue": "functions"}}
 
+# Celery Beat tasks registration
+celery_app.conf.beat_schedule = {
+    "Send_mail_to_Client": {
+        "task": "sendmail.tasks.send_mail_task",
+        "schedule": 600.0,  # every 30 seconds it will be called
+        #'args': (2,) you can pass arguments also if rquired
+    }
+}
+
 # Celery Task related settings
 celery_app.autodiscover_tasks()
 

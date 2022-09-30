@@ -24,3 +24,4 @@ google
 google-cloud-translate
 nltk
 schedule
+django-celery-beat
