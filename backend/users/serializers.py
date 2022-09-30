@@ -28,6 +28,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "languages",
             "availability_status",
             "phone",
+            "enable_mail",
         ]
         read_only_fields = ["email"]
 
@@ -43,6 +44,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "email",
             "languages",
             "availability_status",
+            "enable_mail",
             "first_name",
             "last_name",
             "phone",
