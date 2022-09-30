@@ -24,6 +24,8 @@ from utils.search import process_search_query
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
+from rapidfuzz.distance import Levenshtein
+
 # Create your views here.
 
 
@@ -649,3 +651,39 @@ class PredictionViewSet(
     def create(self, request):
         prediction_response = super().create(request)
         return prediction_response
+
+
+class SentenceOperationViewSet(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated,)
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "sentence1": openapi.Schema(type=openapi.TYPE_STRING),
+                "sentence2": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["sentence1", "sentence2"],
+        ),
+        responses={
+            200: "Character level edit distance calculated successfully.",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="calculate_normalized_character_level_edit_distance",
+        url_name="calculate_normalized_character_level_edit_distance",
+    )
+    def calculate_normalized_character_level_edit_distance(self, request):
+        sentence1 = request.data.get("sentence1")
+        sentence2 = request.data.get("sentence2")
+
+        character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
+
+        return Response(
+            {"character_level_edit_distance": character_level_edit_distance},
+            status=status.HTTP_200_OK,
+        )
