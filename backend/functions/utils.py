@@ -12,8 +12,10 @@ from users.utils import (
     LANG_NAME_TO_CODE_AZURE,
 )
 
-from utils.azure_translate import translator_object
-
+try:
+    from utils.azure_translate import translator_object
+except:
+    pass
 ### Utility Functions
 def check_if_particular_organization_owner(request):
     if request.user.role != User.ORGANIZATION_OWNER and not request.user.is_superuser:
