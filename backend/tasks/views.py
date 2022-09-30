@@ -689,4 +689,7 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 status=status.HTTP_200_OK,
             )
         except:
-            return Response({"message":"Invalid parameters in request body!"},status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "Invalid parameters in request body!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
