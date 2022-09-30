@@ -1,5 +1,5 @@
 from __future__ import absolute_import, unicode_literals
-
+from celery.schedules import crontab
 import os
 
 from celery import Celery
@@ -25,7 +25,7 @@ celery_app.conf.task_routes = {"functions.tasks.*": {"queue": "functions"}}
 celery_app.conf.beat_schedule = {
     "Send_mail_to_Client": {
         "task": "send_mail_task",
-        "schedule": 10.0,  # every 30 seconds it will be called
+        "schedule": crontab(minute=0, hour=1),  # execute every day at 1 am
         #'args': (2,) you can pass arguments also if rquired
     }
 }

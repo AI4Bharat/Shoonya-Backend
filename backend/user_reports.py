@@ -18,7 +18,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 
-def caluculate_reports():
+def calculate_reports():
     analytics = AnalyticsViewSet()
     proj = Project.objects.all()
 
