@@ -1,3 +1,4 @@
+from locale import normalize
 from urllib.parse import unquote
 
 from rest_framework import viewsets
@@ -683,9 +684,14 @@ class SentenceOperationViewSet(viewsets.ViewSet):
             sentence2 = request.data.get("sentence2")
 
             character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
+            normalized_character_level_edit_distance = (
+                character_level_edit_distance / len(sentence1)
+            )
 
             return Response(
-                {"character_level_edit_distance": character_level_edit_distance},
+                {
+                    "normalized_character_level_edit_distance": normalized_character_level_edit_distance
+                },
                 status=status.HTTP_200_OK,
             )
         except:
