@@ -100,6 +100,11 @@ class User(AbstractBaseUser, PermissionsMixin):
             "Designates whether to treat this user as active. Unselect this instead of deleting accounts."
         ),
     )
+    enable_mail = models.BooleanField(
+        verbose_name="enable_mail",
+        default=False,
+        help_text=("Indicates whether mailing is enable or not."),
+    )
 
     date_joined = models.DateTimeField(verbose_name="date joined", default=timezone.now)
 
