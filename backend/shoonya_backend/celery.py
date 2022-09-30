@@ -3,6 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import os
 
 from celery import Celery
+import users.tasks
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shoonya_backend.settings")
 
@@ -25,8 +26,8 @@ celery_app.conf.task_routes = {"functions.tasks.*": {"queue": "functions"}}
 # Celery Beat tasks registration
 celery_app.conf.beat_schedule = {
     "Send_mail_to_Client": {
-        "task": "sendmail.tasks.send_mail_task",
-        "schedule": 600.0,  # every 30 seconds it will be called
+        "task": "users.tasks.send_mail_task",
+        "schedule": 10.0,  # every 30 seconds it will be called
         #'args': (2,) you can pass arguments also if rquired
     }
 }
