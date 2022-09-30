@@ -283,6 +283,7 @@ LOGGING = {
         "django.server": {"propagate": True},
     },
 }
+CELERY_IMPORTS = ("users.tasks",)
 
 # Celery settings
 CELERY_BROKER_URL = "redis://redis:6379/0"
