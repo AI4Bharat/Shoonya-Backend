@@ -13,6 +13,7 @@ celery_app = Celery(
     accept_content=["application/json"],
     result_serializer="json",
     task_serializer="json",
+    result_expires=None,
 )
 # Celery settings
 celery_app.config_from_object("django.conf:settings", namespace="CELERY")
