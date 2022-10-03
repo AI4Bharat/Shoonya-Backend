@@ -700,8 +700,6 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 {"message": "Invalid parameters in request body!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    
-
 
     @swagger_auto_schema(
         method="post",
@@ -724,22 +722,20 @@ class SentenceOperationViewSet(viewsets.ViewSet):
         url_path="calculate_bleu_score",
         url_name="calculate_bleu_score",
     )
-    def calculate_bleu_score(self,request):
+    def calculate_bleu_score(self, request):
         try:
             sentence1 = request.data.get("sentence1")
             sentence2 = request.data.get("sentence2")
 
-            sentence1=[sentence1]
-            sentence2=[[sentence2]]
+            sentence1 = [sentence1]
+            sentence2 = [[sentence2]]
 
-            bleu=BLEU()
+            bleu = BLEU()
 
-            bleu_score=bleu.corpus_score(sentence1,sentence2)
+            bleu_score = bleu.corpus_score(sentence1, sentence2)
 
             return Response(
-                {
-                    "bleu_score":str(bleu_score)
-                },
+                {"bleu_score": str(bleu_score)},
                 status=status.HTTP_200_OK,
             )
         except:
