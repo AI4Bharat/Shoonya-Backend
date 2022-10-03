@@ -293,6 +293,49 @@ class UserViewSet(viewsets.ViewSet):
 
         return Response(ret_dict, status=ret_status)
 
+    @action(
+        detail=False, methods=["post"], url_path="enable_email", url_name="enable_email"
+    )
+    def enable_email(self, request):
+        """
+        Update the mail enable service for  any user
+        """
+        requested_id = request.data.get("user_id")
+        enable_mail = request.data.get("enable_mail")
+
+        if enable_mail == True or enable_mail == False:
+            pass
+        else:
+            return Response(
+                {
+                    "message": "please enter valid  input(True/False) for enable_mail field"
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            user = User.objects.get(id=requested_id)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        requested_id = request.data.get("user_id")
+
+        if requested_id == request.user.id or (
+            request.user.role == 3 and request.user.organization == user.organization
+        ):
+            user.enable_mail = enable_mail
+            user.save()
+            return Response(
+                {"message": "enable mail service updated successfully"},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
+            )
+
 
 class AnalyticsViewSet(viewsets.ViewSet):
     permission_classes = (AllowAny,)
