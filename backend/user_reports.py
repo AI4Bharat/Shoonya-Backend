@@ -16,7 +16,7 @@ from django.db.models import Q
 import pandas as pd
 from django.core.mail import send_mail
 from django.conf import settings
-
+from pretty_html_table import build_table
 
 def calculate_reports():
     analytics = AnalyticsViewSet()
@@ -68,22 +68,39 @@ def calculate_reports():
             df = pd.DataFrame.from_records(final_data["project_summary"])
             blankIndex = [""] * len(df)
             df.index = blankIndex
+            html_table_df = build_table(df
+                , 'orange_light'
+                , font_size='medium'
+                , text_align='left'
+                , width='auto'
+                , index=False)
+
         else:
 
-            df = "NO projects selected"
+            html_table_df = ""
 
         df1 = pd.DataFrame.from_records(final_data["total_summary"], index=[0])
         blankIndex = [""] * len(df1)
         df1.index = blankIndex
-        email_to_send = {"ProjectWiseReport": df, "Total Reports Summary": df1}
+
+        html_table_df1 = build_table(df1
+            , 'orange_dark'
+            , font_size='medium'
+            , text_align='left'
+            , width='auto'
+            , index=False)
+
+        message = "Dear " + str(annotator.username) + ", here are your annotation reports for " + str(yest_date) + ". Thanks for your contributions on Shoonya."
+        email_to_send = "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
 
         # print(email_to_send)
 
         send_mail(
-            "Your Annotation Reports",
-            f"Your Annotation Reports are:{email_to_send}",
+            "Daily Annotation Reports",
+            message,
             settings.DEFAULT_FROM_EMAIL,
             [annotator.email],
+            html_message=email_to_send,
         )
 
     for reviewer in final_reviewer_unique_list:
@@ -109,25 +126,43 @@ def calculate_reports():
         final_data = res.data
         if "total_summary" not in final_data or "project_summary" not in final_data:
             continue
+
         if len(final_data["project_summary"]) > 0:
 
             df = pd.DataFrame.from_records(final_data["project_summary"])
             blankIndex = [""] * len(df)
             df.index = blankIndex
+            html_table_df = build_table(df
+                , 'green_light'
+                , font_size='medium'
+                , text_align='left'
+                , width='auto'
+                , index=False)
+
         else:
 
-            df = "NO projects selected"
+            html_table_df = ""
 
         df1 = pd.DataFrame.from_records(final_data["total_summary"], index=[0])
         blankIndex = [""] * len(df1)
         df1.index = blankIndex
-        email_to_send = {"ProjectWiseReport": df, "Total Reports Summary": df1}
+
+        html_table_df1 = build_table(df1
+            , 'green_dark'
+            , font_size='medium'
+            , text_align='left'
+            , width='auto'
+            , index=False)
+        
+        message = "Dear " + str(reviewer.username) + ", here are your review reports for " + str(yest_date) + ". Thanks for your contributions on Shoonya."
+        email_to_send = "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
 
         # print(email_to_send)
 
         send_mail(
-            "Your Review Reports",
-            f"Your Review Reports are:{email_to_send}",
+            "Daily Review Reports",
+            message,
             settings.DEFAULT_FROM_EMAIL,
             [reviewer.email],
+            html_message=email_to_send,
         )
