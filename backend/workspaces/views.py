@@ -144,11 +144,11 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
     result = {
         "Reviewer Name": userName,
-        "Assigned Tasks": total_task_count,
-        "Accepted Tasks": accepted_objs_count,
-        "Accepted With Changes Tasks": acceptedwtchange_objs_count,
-        "Unreviewed Tasks": labeled_tasks_count,
-        "To Be Revised Tasks": to_be_revised_tasks_count,
+        "Assigned": total_task_count,
+        "Accepted": accepted_objs_count,
+        "Accepted With Changes": acceptedwtchange_objs_count,
+        "Unreviewed": labeled_tasks_count,
+        "To Be Revised": to_be_revised_tasks_count,
     }
     return result
 
@@ -566,11 +566,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Language": selected_language,
                     "Project Type": project_type,
                     "No .of Annotators Assigned": no_of_annotators_assigned,
-                    "Assigned Tasks": total_tasks,
-                    "Annotated Tasks": labeled_count,
-                    "Unlabeled Tasks": un_labeled_count,
-                    "Skipped Tasks": skipped_count,
-                    "Draft Tasks": dropped_tasks,
+                    "Total": total_tasks,
+                    "Annotated": labeled_count,
+                    "Unlabeled": un_labeled_count,
+                    "Skipped": skipped_count,
+                    "Draft": dropped_tasks,
                     "Project Progress": round(project_progress, 3),
                 }
                 final_result.append(result)
@@ -799,11 +799,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Email": email,
                     "Language": selected_language,
                     "No.of Projects": project_count,
-                    "Assigned Tasks": assigned_tasks,
-                    "Annotated Tasks": annotated_tasks,
-                    "Unlabeled Tasks": all_pending_tasks_in_project,
-                    "Skipped Tasks": total_skipped_tasks,
-                    "Draft Tasks": all_draft_tasks_in_project,
+                    "Assigned": assigned_tasks,
+                    "Annotated": annotated_tasks,
+                    "Unlabeled": all_pending_tasks_in_project,
+                    "Skipped": total_skipped_tasks,
+                    "Draft": all_draft_tasks_in_project,
                     "Word Count": total_word_count,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                 }
@@ -813,11 +813,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Email": email,
                     "Language": selected_language,
                     "No.of Projects": project_count,
-                    "Assigned Tasks": assigned_tasks,
-                    "Annotated Tasks": annotated_tasks,
-                    "Unlabeled Tasks": all_pending_tasks_in_project,
-                    "Skipped Tasks": total_skipped_tasks,
-                    "Draft Tasks": all_draft_tasks_in_project,
+                    "Assigned": assigned_tasks,
+                    "Annotated": annotated_tasks,
+                    "Unlabeled": all_pending_tasks_in_project,
+                    "Skipped": total_skipped_tasks,
+                    "Draft": all_draft_tasks_in_project,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                 }
             final_result.append(result)
