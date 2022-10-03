@@ -1,3 +1,4 @@
+from locale import normalize
 from urllib.parse import unquote
 
 from rest_framework import viewsets
@@ -23,6 +24,8 @@ from utils.search import process_search_query
 
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
+
+from rapidfuzz.distance import Levenshtein
 
 # Create your views here.
 
@@ -227,6 +230,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
             project_type = project_details[0].project_type
             project_type = project_type.lower()
+            is_conversation_project = True if "conversation" in project_type else False
             is_translation_project = True if "translation" in project_type else False
         else:
             page = self.paginate_queryset(queryset)
@@ -238,6 +242,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
         if (
             (is_translation_project)
+            and (not is_conversation_project)
             and (page is not None)
             and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
             and (not is_review_mode)
@@ -276,6 +281,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
         if (
             (is_translation_project)
+            and (not is_conversation_project)
             and (page is not None)
             and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES})
         ):
@@ -304,7 +310,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         task_response = super().partial_update(request)
         task_id = task_response.data["id"]
         task = Task.objects.get(pk=task_id)
-        task.release_lock(request.user)
         return task_response
 
     @swagger_auto_schema(
@@ -449,7 +454,6 @@ class AnnotationViewSet(
         annotation_response = super().create(request)
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        task.release_lock(request.user)
         # project = Project.objects.get(pk=task.project_id.id)
         if task.project_id.required_annotators_per_task == task.annotations.count():
             # if True:
@@ -648,3 +652,50 @@ class PredictionViewSet(
     def create(self, request):
         prediction_response = super().create(request)
         return prediction_response
+
+
+class SentenceOperationViewSet(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated,)
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "sentence1": openapi.Schema(type=openapi.TYPE_STRING),
+                "sentence2": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["sentence1", "sentence2"],
+        ),
+        responses={
+            200: "Character level edit distance calculated successfully.",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="calculate_normalized_character_level_edit_distance",
+        url_name="calculate_normalized_character_level_edit_distance",
+    )
+    def calculate_normalized_character_level_edit_distance(self, request):
+        try:
+            sentence1 = request.data.get("sentence1")
+            sentence2 = request.data.get("sentence2")
+
+            character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
+            normalized_character_level_edit_distance = (
+                character_level_edit_distance / len(sentence1)
+            )
+
+            return Response(
+                {
+                    "normalized_character_level_edit_distance": normalized_character_level_edit_distance
+                },
+                status=status.HTTP_200_OK,
+            )
+        except:
+            return Response(
+                {"message": "Invalid parameters in request body!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

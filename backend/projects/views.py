@@ -17,7 +17,6 @@ from dataset.serializers import TaskResultSerializer
 
 from utils.search import process_search_query
 
-from dataset import models as dataset_models
 from django_celery_results.models import TaskResult
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -117,11 +116,11 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     result = {
         "Reviewer Name": userName,
-        "Assigned Tasks": total_task_count,
-        "Accepted Tasks": accepted_objs_count,
-        "Accepted With Changes Tasks": acceptedwtchange_objs_count,
-        "Labeled Tasks": labeled_tasks_count,
-        "To Be Revised Tasks": to_be_revised_tasks_count,
+        "Assigned": total_task_count,
+        "Accepted": accepted_objs_count,
+        "Accepted With Changes": acceptedwtchange_objs_count,
+        "Labeled": labeled_tasks_count,
+        "To Be Revised": to_be_revised_tasks_count,
     }
     return result
 
@@ -594,10 +593,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 current_task_id = request.query_params["current_task_id"]
                 queryset = queryset.filter(id__gt=current_task_id)
             for task in queryset:
-                if not task.is_locked(request.user):
-                    task.set_lock(request.user)
-                    task_dict = TaskSerializer(task, many=False).data
-                    return Response(task_dict)
+                task_dict = TaskSerializer(task, many=False).data
+                return Response(task_dict)
             ret_dict = {"message": "No more tasks available!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
@@ -638,10 +635,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 current_task_id = request.query_params["current_task_id"]
                 unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
             for task in unattended_tasks:
-                if not task.is_locked(request.user):
-                    task.set_lock(request.user)
-                    task_dict = TaskSerializer(task, many=False).data
-                    return Response(task_dict)
+                task_dict = TaskSerializer(task, many=False).data
+                return Response(task_dict)
             ret_dict = {"message": "No more unlabeled tasks!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
@@ -1228,13 +1223,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 Q(project_id=pk) & Q(annotation_users=each_annotator)
             )
             assigned_tasks = all_tasks_in_project.count()
-            items.append(("Assigned Tasks", assigned_tasks))
+            items.append(("Assigned", assigned_tasks))
 
             # get accepted tasks
             annotated_accept_tasks = get_annotated_tasks(
                 pk, each_annotator, "accepted", start_date, end_date
             )
-            items.append(("Accepted Tasks", annotated_accept_tasks.count()))
+            items.append(("Accepted", annotated_accept_tasks.count()))
 
             proj = Project.objects.get(id=pk)
             if proj.enable_task_reviews:
@@ -1242,34 +1237,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 accepted_wt_tasks = get_annotated_tasks(
                     pk, each_annotator, "accepted_with_changes", start_date, end_date
                 )
-                items.append(
-                    ("Accepted With Changes  Tasks", accepted_wt_tasks.count())
-                )
+                items.append(("Accepted With Changes", accepted_wt_tasks.count()))
 
                 # get labeled task count
                 labeled_tasks = get_annotated_tasks(
                     pk, each_annotator, "labeled", start_date, end_date
                 )
-                items.append(("Labeled Tasks", labeled_tasks.count()))
+                items.append(("Labeled", labeled_tasks.count()))
 
                 # get to_be_revised count
                 to_be_revised_tasks = get_annotated_tasks(
                     pk, each_annotator, "to_be_revised", start_date, end_date
                 )
-                items.append(("To Be Revised Tasks", to_be_revised_tasks.count()))
+                items.append(("To Be Revised", to_be_revised_tasks.count()))
             # get unlabeled count
             total_unlabeled_tasks_count = get_tasks_count(
                 pk, each_annotator, "unlabeled"
             )
-            items.append(("Unlabeled Tasks", total_unlabeled_tasks_count))
+            items.append(("Unlabeled", total_unlabeled_tasks_count))
 
             # get skipped tasks count
             total_skipped_tasks_count = get_tasks_count(pk, each_annotator, "skipped")
-            items.append(("Skipped Tasks", total_skipped_tasks_count))
+            items.append(("Skipped", total_skipped_tasks_count))
 
             # get draft tasks count
             total_draft_tasks_count = get_tasks_count(pk, each_annotator, "draft")
-            items.append(("Draft Tasks", total_draft_tasks_count))
+            items.append(("Draft", total_draft_tasks_count))
 
             if is_translation_project:
                 if proj.enable_task_reviews:
@@ -1280,13 +1273,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         + list(to_be_revised_tasks)
                     )
                     total_word_count_list = [
-                        no_of_words(each_task.task.data["input_text"])
+                        each_task.task.data["word_count"]
                         for each_task in all_annotated_tasks
                     ]
                     total_word_count = sum(total_word_count_list)
                 else:
                     total_word_count_list = [
-                        no_of_words(each_task.task.data["input_text"])
+                        each_task.task.data["word_count"]
                         for each_task in annotated_accept_tasks
                     ]
                     total_word_count = sum(total_word_count_list)
@@ -1572,12 +1565,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.filter_string,
                     ids_to_exclude,
                 )
-
                 if items:
 
                     # Pull new data items in to the project asynchronously
                     add_new_data_items_into_project.delay(project_id=pk, items=items)
-
                     ret_dict = {"message": "Adding new tasks to the project."}
                     ret_status = status.HTTP_200_OK
                 else:
@@ -1603,6 +1594,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 export_type = "CSV"
             tasks = Task.objects.filter(project_id__exact=project)
+
+            if "task_status" in dict(request.query_params):
+                task_status = request.query_params["task_status"]
+                task_status = task_status.split(",")
+                tasks = tasks.filter(task_status__in=task_status)
+
             if len(tasks) == 0:
                 ret_dict = {"message": "No tasks in project!"}
                 ret_status = status.HTTP_200_OK
@@ -1642,6 +1639,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
             )
+
+            if export_type == "TSV":
+                content_type = "application/.tsv"
+                filename = filename.split(".")
+                filename[-1] = "tsv"
+                filename = ".".join(filename)
 
             response = HttpResponse(File(export_stream), content_type=content_type)
             response["Content-Disposition"] = 'attachment; filename="%s"' % filename

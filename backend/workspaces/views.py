@@ -93,6 +93,66 @@ def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_
     return annotated_labeled_tasks
 
 
+def get_review_reports(proj_ids, userid, start_date, end_date):
+
+    user = User.objects.get(id=userid)
+    userName = user.username
+
+    total_tasks = Task.objects.filter(project_id__in=proj_ids, review_user=userid)
+
+    total_task_count = total_tasks.count()
+
+    accepted_tasks = Task.objects.filter(
+        project_id__in=proj_ids, review_user=userid, task_status="accepted"
+    )
+
+    accepted_tasks_objs_ids = list(accepted_tasks.values_list("id", flat=True))
+    accepted_objs = Annotation.objects.filter(
+        task_id__in=accepted_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    accepted_objs_count = accepted_objs.count()
+
+    acceptedwtchange_tasks = Task.objects.filter(
+        project_id__in=proj_ids,
+        review_user=userid,
+        task_status="accepted_with_changes",
+    )
+
+    acceptedwtchange_tasks_objs_ids = list(
+        acceptedwtchange_tasks.values_list("id", flat=True)
+    )
+    acceptedwtchange_objs = Annotation.objects.filter(
+        task_id__in=acceptedwtchange_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    acceptedwtchange_objs_count = acceptedwtchange_objs.count()
+
+    labeled_tasks = Task.objects.filter(
+        project_id__in=proj_ids, review_user=userid, task_status="labeled"
+    )
+    labeled_tasks_count = labeled_tasks.count()
+
+    to_be_revised_tasks = Task.objects.filter(
+        project_id__in=proj_ids, review_user=userid, task_status="to_be_revised"
+    )
+    to_be_revised_tasks_count = to_be_revised_tasks.count()
+
+    result = {
+        "Reviewer Name": userName,
+        "Assigned": total_task_count,
+        "Accepted": accepted_objs_count,
+        "Accepted With Changes": acceptedwtchange_objs_count,
+        "Unreviewed": labeled_tasks_count,
+        "To Be Revised": to_be_revised_tasks_count,
+    }
+    return result
+
+
 class WorkspaceViewSet(viewsets.ModelViewSet):
     queryset = Workspace.objects.all()
     serializer_class = WorkspaceSerializer
@@ -506,16 +566,106 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Language": selected_language,
                     "Project Type": project_type,
                     "No .of Annotators Assigned": no_of_annotators_assigned,
-                    "Assigned Tasks": total_tasks,
-                    "Annotated Tasks": labeled_count,
-                    "Unlabeled Tasks": un_labeled_count,
-                    "Skipped Tasks": skipped_count,
-                    "Draft Tasks": dropped_tasks,
+                    "Total": total_tasks,
+                    "Annotated": labeled_count,
+                    "Unlabeled": un_labeled_count,
+                    "Skipped": skipped_count,
+                    "Draft": dropped_tasks,
                     "Project Progress": round(project_progress, 3),
                 }
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Workspace level Reviewer Reports",
+        url_path="reviewer_reports",
+        url_name="reviewer_reports",
+    )
+    def reviewer_reports(self, request, pk=None):
+        """
+        API for getting Workspace level Reviewer Reports
+        """
+        try:
+            ws = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response(
+                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        user_id = request.user.id
+        from_date = request.data.get("from_date")
+        to_date = request.data.get("to_date")
+        from_date = from_date + " 00:00"
+        to_date = to_date + " 23:59"
+        tgt_language = request.data.get("tgt_language")
+        # enable_task_reviews = request.data.get("enable_task_reviews")
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
+        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
+
+        if start_date > end_date:
+            return Response(
+                {"message": "'To' Date should be after 'From' Date"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        proj_objs = Project.objects.filter(workspace_id=pk)
+        review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
+
+        workspace_reviewer_list = []
+        for review_project in review_projects:
+            reviewer_names_list = review_project.annotation_reviewers.all()
+            reviewer_ids = [name.id for name in reviewer_names_list]
+            workspace_reviewer_list.extend(reviewer_ids)
+
+        workspace_reviewer_list = list(set(workspace_reviewer_list))
+        final_reports = []
+
+        if (
+            request.user.role == User.ORGANIZATION_OWNER
+            or request.user.role == User.WORKSPACE_MANAGER
+            or request.user.is_superuser
+        ):
+
+            for id in workspace_reviewer_list:
+                reviewer_projs = Project.objects.filter(
+                    workspace_id=pk, annotation_reviewers=id
+                )
+                reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
+
+                result = get_review_reports(
+                    reviewer_projs_ids, id, start_date, end_date
+                )
+                final_reports.append(result)
+        elif user_id in workspace_reviewer_list:
+            reviewer_projs = Project.objects.filter(
+                workspace_id=pk, annotation_reviewers=user_id
+            )
+            reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
+
+            result = get_review_reports(
+                reviewer_projs_ids, user_id, start_date, end_date
+            )
+            final_reports.append(result)
+
+        else:
+            final_reports = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+
+        return Response(final_reports)
 
     @action(
         detail=True,
@@ -640,7 +790,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             if is_translation_project:
                 total_word_count_list = [
-                    no_of_words(each_task.task.data["input_text"])
+                    each_task.task.data["word_count"]
                     for each_task in annotated_labeled_tasks
                 ]
                 total_word_count = sum(total_word_count_list)
@@ -649,11 +799,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Email": email,
                     "Language": selected_language,
                     "No.of Projects": project_count,
-                    "Assigned Tasks": assigned_tasks,
-                    "Annotated Tasks": annotated_tasks,
-                    "Unlabeled Tasks": all_pending_tasks_in_project,
-                    "Skipped Tasks": total_skipped_tasks,
-                    "Draft Tasks": all_draft_tasks_in_project,
+                    "Assigned": assigned_tasks,
+                    "Annotated": annotated_tasks,
+                    "Unlabeled": all_pending_tasks_in_project,
+                    "Skipped": total_skipped_tasks,
+                    "Draft": all_draft_tasks_in_project,
                     "Word Count": total_word_count,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                 }
@@ -663,11 +813,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Email": email,
                     "Language": selected_language,
                     "No.of Projects": project_count,
-                    "Assigned Tasks": assigned_tasks,
-                    "Annotated Tasks": annotated_tasks,
-                    "Unlabeled Tasks": all_pending_tasks_in_project,
-                    "Skipped Tasks": total_skipped_tasks,
-                    "Draft Tasks": all_draft_tasks_in_project,
+                    "Assigned": assigned_tasks,
+                    "Annotated": annotated_tasks,
+                    "Unlabeled": all_pending_tasks_in_project,
+                    "Skipped": total_skipped_tasks,
+                    "Draft": all_draft_tasks_in_project,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                 }
             final_result.append(result)

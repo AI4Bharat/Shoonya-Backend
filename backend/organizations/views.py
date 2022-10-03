@@ -21,6 +21,11 @@ from datetime import datetime, timezone, timedelta
 import pandas as pd
 from dateutil import relativedelta
 import calendar
+from workspaces.views import get_review_reports
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+import csv
+from django.http import StreamingHttpResponse
 
 
 def get_task_count(
@@ -133,7 +138,6 @@ def get_counts(
             organization_id=organization,
         )
         no_of_projects = projects_objs.count()
-
     else:
 
         total_no_of_tasks_assigned = Task.objects.filter(
@@ -174,24 +178,20 @@ def get_counts(
             organization_id=organization,
         )
         no_of_projects = projects_objs.count()
-
     lead_time_annotated_tasks = [
         eachtask.lead_time for eachtask in annotated_labeled_tasks
     ]
     if len(lead_time_annotated_tasks) > 0:
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
-
     no_of_workspaces_objs = len(
         set([each_proj.workspace_id.id for each_proj in projects_objs])
     )
     total_word_count = "not applicable"
     if is_translation_project:
         total_word_count_list = [
-            no_of_words(each_task.task.data["input_text"])
-            for each_task in annotated_labeled_tasks
+            each_task.task.data["word_count"] for each_task in annotated_labeled_tasks
         ]
         total_word_count = sum(total_word_count_list)
-
     return (
         total_no_of_tasks_count,
         annotated_tasks_count,
@@ -246,7 +246,126 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         serializer = UserFetchSerializer(users, many=True)
         return Response(serializer.data)
 
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Organization level Reviewer Reports",
+        url_path="reviewer_reports",
+        url_name="reviewer_reports",
+    )
+    def reviewer_reports(self, request, pk=None):
+        """
+        API for getting Organization level Reviewer Reports
+        """
+        try:
+            org = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        user_id = request.user.id
+        from_date = request.data.get("from_date")
+        to_date = request.data.get("to_date")
+        from_date = from_date + " 00:00"
+        to_date = to_date + " 23:59"
+        tgt_language = request.data.get("tgt_language")
+        # enable_task_reviews = request.data.get("enable_task_reviews")
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
+        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
+
+        if start_date > end_date:
+            return Response(
+                {"message": "'To' Date should be after 'From' Date"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        proj_objs = Project.objects.filter(organization_id=pk)
+        review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
+
+        org_reviewer_list = []
+        for review_project in review_projects:
+            reviewer_names_list = review_project.annotation_reviewers.all()
+            reviewer_ids = [name.id for name in reviewer_names_list]
+            org_reviewer_list.extend(reviewer_ids)
+
+        org_reviewer_list = list(set(org_reviewer_list))
+        final_reports = []
+
+        if (
+            request.user.role == User.ORGANIZATION_OWNER
+            or request.user.role == User.WORKSPACE_MANAGER
+            or request.user.is_superuser
+        ):
+
+            for id in org_reviewer_list:
+                reviewer_projs = Project.objects.filter(
+                    organization_id=pk, annotation_reviewers=id
+                )
+                reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
+
+                result = get_review_reports(
+                    reviewer_projs_ids, id, start_date, end_date
+                )
+                final_reports.append(result)
+        elif user_id in org_reviewer_list:
+            reviewer_projs = Project.objects.filter(
+                organization_id=pk, annotation_reviewers=user_id
+            )
+            reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
+
+            result = get_review_reports(
+                reviewer_projs_ids, user_id, start_date, end_date
+            )
+            final_reports.append(result)
+        else:
+            final_reports = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+
+        return Response(final_reports)
+
     @is_organization_owner
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "from_date": openapi.Schema(type=openapi.TYPE_STRING),
+                "to_date": openapi.Schema(type=openapi.TYPE_STRING),
+                "tgt_language": openapi.Schema(type=openapi.TYPE_STRING),
+                "project_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "sort_by_column_name": openapi.Schema(type=openapi.TYPE_STRING),
+                "descending_order": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                "download_csv": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+            },
+            required=["from_date", "to_date", "project_type"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the Organization"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Downloaded csv successfully or User analytics Json data successfully returned.",
+            400: "Invalid request body parameters.",
+            404: "Organization not found.",
+        },
+    )
     @action(
         detail=True,
         methods=["POST"],
@@ -301,10 +420,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         result = []
         for annotator in annotators:
+            user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
             if tgt_language == None:
-                selected_language = "-"
+                user_lang_filter = User.objects.get(id=user_id)
+                user_lang = user_lang_filter.languages
+                selected_language = user_lang
+                if "English" in selected_language:
+                    selected_language.remove("English")
                 (
                     total_no_of_tasks_count,
                     annotated_tasks_count,
@@ -358,11 +482,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         "No. of Workspaces": no_of_workspaces_objs,
                         "No. of Projects": no_of_projects,
                         "Project Type": project_type,
-                        "No.Of Tasks Assigned": total_no_of_tasks_count,
-                        "No. of Annotated Tasks": annotated_tasks_count,
-                        "Unlabeled Tasks": total_unlabeled_tasks_count,
-                        "Skipped Tasks": total_skipped_tasks_count,
-                        "Draft Tasks": total_draft_tasks_count,
+                        "Assigned": total_no_of_tasks_count,
+                        "Annotated": annotated_tasks_count,
+                        "Unlabeled": total_unlabeled_tasks_count,
+                        "Skipped": total_skipped_tasks_count,
+                        "Draft": total_draft_tasks_count,
                         "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     }
                 )
@@ -375,18 +499,47 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         "No. of Workspaces": no_of_workspaces_objs,
                         "No. of Projects": no_of_projects,
                         "Project Type": project_type,
-                        "No.Of Tasks Assigned": total_no_of_tasks_count,
-                        "No. of Annotated Tasks": annotated_tasks_count,
-                        "Unlabeled Tasks": total_unlabeled_tasks_count,
-                        "Skipped Tasks": total_skipped_tasks_count,
-                        "Draft Tasks": total_draft_tasks_count,
-                        "Word Count Of Annotated Tasks": total_word_count,
+                        "Assigned": total_no_of_tasks_count,
+                        "Annotated": annotated_tasks_count,
+                        "Unlabeled": total_unlabeled_tasks_count,
+                        "Skipped": total_skipped_tasks_count,
+                        "Draft": total_draft_tasks_count,
+                        "Word Count Of Annotated": total_word_count,
                         "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     }
                 )
         final_result = sorted(
             result, key=lambda x: x[sort_by_column_name], reverse=descending_order
         )
+
+        download_csv = request.data.get("download_csv", False)
+
+        if download_csv:
+
+            class Echo(object):
+                def write(self, value):
+                    return value
+
+            def iter_items(items, pseudo_buffer):
+                writer = csv.DictWriter(pseudo_buffer, fieldnames=list(items[0].keys()))
+                headers = {}
+                for key in list(items[0].keys()):
+                    headers[key] = key
+                yield writer.writerow(headers)
+                print(list(items[0].keys()))
+                for item in items:
+                    yield writer.writerow(item)
+
+            response = StreamingHttpResponse(
+                iter_items(final_result, Echo()),
+                status=status.HTTP_200_OK,
+                content_type="text/csv",
+            )
+            response[
+                "Content-Disposition"
+            ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
+            return response
+
         return Response(data=final_result, status=status.HTTP_200_OK)
 
     @is_organization_owner
@@ -522,11 +675,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Project Type": project_type,
                     "Language": selected_language,
                     "No.Of Annotators Assigned": no_of_annotators_assigned,
-                    "No.Of Tasks": total_tasks,
-                    "Annotated Tasks": labeled_count,
-                    "Unlabeled Tasks": un_labeled_count,
-                    "Skipped Tasks": skipped_count,
-                    "Draft Tasks": dropped_tasks,
+                    "Total": total_tasks,
+                    "Annotated": labeled_count,
+                    "Unlabeled": un_labeled_count,
+                    "Skipped": skipped_count,
+                    "Draft": dropped_tasks,
                     "Project Progress": round(project_progress, 3),
                 }
                 final_result.append(result)
@@ -546,26 +699,45 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
         project_type = request.data.get("project_type")
-        proj_objs = Project.objects.filter(
+        reviewer_reports = request.data.get("reviewer_reports")
+        proj_objs = []
+        if reviewer_reports == True:
+            proj_objs = Project.objects.filter(
+                organization_id=pk, project_type=project_type, enable_task_reviews=True
+            )
+        else:
+            proj_objs = Project.objects.filter(
+                organization_id=pk, project_type=project_type
+            )
+
+        proj_objs_languages = Project.objects.filter(
             organization_id=pk, project_type=project_type
         )
 
-        languages = list(set([proj.tgt_language for proj in proj_objs]))
+        languages = list(set([proj.tgt_language for proj in proj_objs_languages]))
         general_lang = []
         other_lang = []
         for lang in languages:
             proj_lang_filter = proj_objs.filter(tgt_language=lang)
-            tasks_count = Task.objects.filter(
-                project_id__in=proj_lang_filter,
-                project_id__tgt_language=lang,
-                task_status__in=[
-                    "labeled",
-                    "accepted",
-                    "accepted_with_changes",
-                    "to_be_revised",
-                    "complete",
-                ],
-            ).count()
+            tasks_count = 0
+            if reviewer_reports == True:
+                tasks_count = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__tgt_language=lang,
+                    task_status__in=["accepted", "accepted_with_changes"],
+                ).count()
+            else:
+                tasks_count = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__tgt_language=lang,
+                    task_status__in=[
+                        "labeled",
+                        "accepted",
+                        "accepted_with_changes",
+                        "to_be_revised",
+                        "complete",
+                    ],
+                ).count()
 
             result = {"language": lang, "cumulative_tasks_count": tasks_count}
 
@@ -606,6 +778,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         start_date = request.data.get("start_date")
         end_date = request.data.get("end_date")
+        reviewer_reports = request.data.get("reviewer_reports")
 
         org_created_date = organization.created_at
         present_date = datetime.now(timezone.utc)
@@ -687,12 +860,20 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     periodical_list.append(start)
                 else:
                     periodical_list.append(end_date + timedelta(days=1))
-
-        proj_objs = Project.objects.filter(
+        proj_objs = []
+        if reviewer_reports == True:
+            proj_objs = Project.objects.filter(
+                organization_id=pk, project_type=project_type, enable_task_reviews=True
+            )
+        else:
+            proj_objs = Project.objects.filter(
+                organization_id=pk, project_type=project_type
+            )
+        proj_objs_languages = Project.objects.filter(
             organization_id=pk, project_type=project_type
         )
 
-        languages = list(set([proj.tgt_language for proj in proj_objs]))
+        languages = list(set([proj.tgt_language for proj in proj_objs_languages]))
 
         final_result = []
 
@@ -716,24 +897,42 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             other_lang = []
             for lang in languages:
                 proj_lang_filter = proj_objs.filter(tgt_language=lang)
-                tasks_objs = Task.objects.filter(
-                    project_id__in=proj_lang_filter,
-                    task_status__in=[
-                        "labeled",
-                        "accepted",
-                        "accepted_with_changes",
-                        "to_be_revised",
-                        "complete",
-                    ],
-                )
+                annotated_labeled_tasks_count = 0
+                if reviewer_reports == True:
+                    tasks_objs = Task.objects.filter(
+                        project_id__in=proj_lang_filter,
+                        task_status__in=["accepted", "accepted_with_changes"],
+                    )
+                    labeled_count_tasks_ids = list(
+                        tasks_objs.values_list("id", flat=True)
+                    )
+                    annotated_labeled_tasks_count = Annotation.objects.filter(
+                        task_id__in=labeled_count_tasks_ids,
+                        parent_annotation_id__isnull=False,
+                        created_at__gte=periodical_list[period],
+                        created_at__lt=periodical_list[period + 1],
+                    ).count()
+                else:
+                    tasks_objs = Task.objects.filter(
+                        project_id__in=proj_lang_filter,
+                        task_status__in=[
+                            "labeled",
+                            "accepted",
+                            "accepted_with_changes",
+                            "to_be_revised",
+                            "complete",
+                        ],
+                    )
 
-                labeled_count_tasks_ids = list(tasks_objs.values_list("id", flat=True))
-                annotated_labeled_tasks_count = Annotation.objects.filter(
-                    task_id__in=labeled_count_tasks_ids,
-                    parent_annotation_id=None,
-                    created_at__gte=periodical_list[period],
-                    created_at__lt=periodical_list[period + 1],
-                ).count()
+                    labeled_count_tasks_ids = list(
+                        tasks_objs.values_list("id", flat=True)
+                    )
+                    annotated_labeled_tasks_count = Annotation.objects.filter(
+                        task_id__in=labeled_count_tasks_ids,
+                        parent_annotation_id=None,
+                        created_at__gte=periodical_list[period],
+                        created_at__lt=periodical_list[period + 1],
+                    ).count()
 
                 summary_lang = {
                     "language": lang,

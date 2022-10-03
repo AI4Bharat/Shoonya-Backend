@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "import_export",
     "django_celery_results",
+    "django_celery_beat",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -282,9 +283,13 @@ LOGGING = {
         "django.server": {"propagate": True},
     },
 }
+CELERY_IMPORTS = ("users.tasks",)
 
 # Celery settings
+CELERY_TIMEZONE = "Asia/Kolkata"
 CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
 
 # Project lock TTL for task pulling(in seconds)
 PROJECT_LOCK_TTL = 5

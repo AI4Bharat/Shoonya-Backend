@@ -51,6 +51,17 @@ services:
       - redis
       - web
 
+  # Celery beats - for scheduling daily e-mails
+  celery-beat:
+    build: ./backend
+    command: celery -A shoonya_backend.celery beat --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend
+    depends_on:
+      - db
+      - redis
+      - web
+
 volumes:
   postgres_data:
   static_volume:

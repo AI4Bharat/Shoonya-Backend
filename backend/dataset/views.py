@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
+from projects.models import Annotation
 from users.serializers import UserFetchSerializer
 from filters import filter
 from projects.serializers import ProjectSerializer
@@ -18,21 +19,19 @@ from .permissions import DatasetInstancePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from organizations.decorators import (
-    is_organization_owner,
     is_particular_organization_owner,
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
 from users.models import User
-from organizations.models import Organization
-from workspaces.models import Workspace
 
 from . import resources
 from .models import *
 from .serializers import *
 from .tasks import upload_data_to_data_instance
 import dataset
+from tasks.models import Task, Annotation
 
 
 ## Utility functions used inside the view functions
@@ -783,8 +782,12 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             properties={
                 "data_item_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
                 "data_item_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "data_item_ids": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
             },
-            required=["data_item_start_id", "data_item_end_id"],
+            description="Either pass the data_item_start_id and data_item_end_id or the data_item_ids in request body",
         ),
         manual_parameters=[
             openapi.Parameter(
@@ -827,17 +830,35 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             dataset_type = dataset_instance.dataset_type
             dataset_model = apps.get_model("dataset", dataset_type)
 
-            data_item_start_id = request.data.get("data_item_start_id")
-            data_item_end_id = request.data.get("data_item_end_id")
-            data_item_ids = [
-                id for id in range(data_item_start_id, data_item_end_id + 1)
-            ]
+            if "data_item_ids" in request.data:
+                data_item_ids = request.data.get("data_item_ids")
+            else:
+                data_item_start_id = request.data.get("data_item_start_id")
+                data_item_end_id = request.data.get("data_item_end_id")
+                data_item_ids = [
+                    id for id in range(data_item_start_id, data_item_end_id + 1)
+                ]
 
             data_items = dataset_model.objects.filter(
                 instance_id=dataset_instance
             ).filter(id__in=data_item_ids)
             num_data_items = len(data_items)
 
+            related_tasks_input_data_ids = [data_item.id for data_item in data_items]
+
+            related_tasks = Task.objects.filter(
+                input_data__id__in=related_tasks_input_data_ids
+            )
+
+            related_annotations_task_ids = [
+                related_task.id for related_task in related_tasks
+            ]
+            related_annotations = Annotation.objects.filter(
+                task__id__in=related_annotations_task_ids
+            )
+
+            num_related_tasks = len(related_tasks)
+            num_related_annotations = len(related_annotations)
             if num_data_items == 0:
                 return Response(
                     {
@@ -845,11 +866,17 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                         "message": "No rows to delete",
                     }
                 )
+
+            related_annotations_with_parent_annotation = related_annotations.filter(
+                ~Q(parent_annotation=None)
+            )
+            related_annotations_with_parent_annotation.delete()
             data_items.delete()
+
             return Response(
                 {
                     "status": status.HTTP_200_OK,
-                    "message": f"Deleted {num_data_items} data items successfully!",
+                    "message": f"Deleted {num_data_items} data items and {num_related_tasks} related tasks and {num_related_annotations} related annotations successfully!",
                 }
             )
         except:
