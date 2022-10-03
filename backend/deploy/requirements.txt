@@ -26,3 +26,4 @@ nltk
 schedule
 django-celery-beat
 levenshtein
+pretty-html-table
