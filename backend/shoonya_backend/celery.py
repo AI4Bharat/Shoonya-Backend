@@ -17,6 +17,7 @@ celery_app = Celery(
 )
 # Celery settings
 celery_app.config_from_object("django.conf:settings", namespace="CELERY")
+celery_app.conf.result_expires = 0
 
 # Celery Queue related settings
 celery_app.conf.task_default_queue = "default"
