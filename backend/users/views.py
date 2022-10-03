@@ -377,7 +377,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             end_date = request["end_date"]
             user_id = request["user_id"]
             reports_type = request["reports_type"]
-            project_type = "project_type"
+            project_type = request["project_type"]
 
         review_reports = False
 
