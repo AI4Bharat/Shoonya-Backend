@@ -18,6 +18,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from pretty_html_table import build_table
 
+
 def calculate_reports():
     analytics = AnalyticsViewSet()
     proj = Project.objects.all()
@@ -68,30 +69,42 @@ def calculate_reports():
             df = pd.DataFrame.from_records(final_data["project_summary"])
             blankIndex = [""] * len(df)
             df.index = blankIndex
-            html_table_df = build_table(df
-                , 'orange_light'
-                , font_size='medium'
-                , text_align='left'
-                , width='auto'
-                , index=False)
+            html_table_df = build_table(
+                df,
+                "orange_light",
+                font_size="medium",
+                text_align="left",
+                width="auto",
+                index=False,
+            )
 
         else:
 
             html_table_df = ""
 
-        df1 = pd.DataFrame.from_records(final_data["total_summary"], index=[0])
+        df1 = pd.DataFrame.from_records(final_data["total_summary"])
         blankIndex = [""] * len(df1)
         df1.index = blankIndex
 
-        html_table_df1 = build_table(df1
-            , 'orange_dark'
-            , font_size='medium'
-            , text_align='left'
-            , width='auto'
-            , index=False)
+        html_table_df1 = build_table(
+            df1,
+            "orange_dark",
+            font_size="medium",
+            text_align="left",
+            width="auto",
+            index=False,
+        )
 
-        message = "Dear " + str(annotator.username) + ", here are your annotation reports for " + str(yest_date) + ". Thanks for your contributions on Shoonya."
-        email_to_send = "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
+        message = (
+            "Dear "
+            + str(annotator.username)
+            + ", here are your annotation reports for "
+            + str(yest_date)
+            + ". Thanks for your contributions on Shoonya."
+        )
+        email_to_send = (
+            "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
+        )
 
         # print(email_to_send)
 
@@ -132,30 +145,42 @@ def calculate_reports():
             df = pd.DataFrame.from_records(final_data["project_summary"])
             blankIndex = [""] * len(df)
             df.index = blankIndex
-            html_table_df = build_table(df
-                , 'green_light'
-                , font_size='medium'
-                , text_align='left'
-                , width='auto'
-                , index=False)
+            html_table_df = build_table(
+                df,
+                "green_light",
+                font_size="medium",
+                text_align="left",
+                width="auto",
+                index=False,
+            )
 
         else:
 
             html_table_df = ""
 
-        df1 = pd.DataFrame.from_records(final_data["total_summary"], index=[0])
+        df1 = pd.DataFrame.from_records(final_data["total_summary"])
         blankIndex = [""] * len(df1)
         df1.index = blankIndex
 
-        html_table_df1 = build_table(df1
-            , 'green_dark'
-            , font_size='medium'
-            , text_align='left'
-            , width='auto'
-            , index=False)
-        
-        message = "Dear " + str(reviewer.username) + ", here are your review reports for " + str(yest_date) + ". Thanks for your contributions on Shoonya."
-        email_to_send = "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
+        html_table_df1 = build_table(
+            df1,
+            "green_dark",
+            font_size="medium",
+            text_align="left",
+            width="auto",
+            index=False,
+        )
+
+        message = (
+            "Dear "
+            + str(reviewer.username)
+            + ", here are your review reports for "
+            + str(yest_date)
+            + ". Thanks for your contributions on Shoonya."
+        )
+        email_to_send = (
+            "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
+        )
 
         # print(email_to_send)
 

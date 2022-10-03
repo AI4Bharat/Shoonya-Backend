@@ -544,29 +544,33 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         total_summary = {}
         if is_translation_project:
-            total_summary = {
-                (
-                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
-                ): total_annotated_tasks_count,
-                "Word Count": all_tasks_word_count,
-                (
-                    "Average Review Time (In Seconds)"
-                    if review_reports
-                    else "Average Annotation Time (In Seconds)"
-                ): round(all_annotated_lead_time_count, 2),
-            }
+            total_summary = [
+                {
+                    (
+                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    ): total_annotated_tasks_count,
+                    "Word Count": all_tasks_word_count,
+                    (
+                        "Average Review Time (In Seconds)"
+                        if review_reports
+                        else "Average Annotation Time (In Seconds)"
+                    ): round(all_annotated_lead_time_count, 2),
+                }
+            ]
 
         else:
-            total_summary = {
-                (
-                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
-                ): total_annotated_tasks_count,
-                (
-                    "Average Review Time (In Seconds)"
-                    if review_reports
-                    else "Average Annotation Time (In Seconds)"
-                ): round(all_annotated_lead_time_count, 2),
-            }
+            total_summary = [
+                {
+                    (
+                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    ): total_annotated_tasks_count,
+                    (
+                        "Average Review Time (In Seconds)"
+                        if review_reports
+                        else "Average Annotation Time (In Seconds)"
+                    ): round(all_annotated_lead_time_count, 2),
+                }
+            ]
 
         final_result = {
             "total_summary": total_summary,
