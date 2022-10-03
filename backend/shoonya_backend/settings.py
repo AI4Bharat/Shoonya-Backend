@@ -258,7 +258,7 @@ if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
     }
 
 # Setup the Cloud Logging Client
-#if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+# if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
 #    client = gc_logging.Client()
 #    client.setup_logging(log_level=logging.WARNING)
 #    handlers["gcloud-logging"] = {
