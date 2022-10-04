@@ -100,10 +100,10 @@ def calculate_reports():
             + str(annotator.username)
             + ",\n Your progress reports for "
             + f"{(datetime.now() - timedelta(days = 1) ):%d-%m-%Y}"
-            + ".\n Thanks for contributing on Shoonya!"
+            + " are ready.\n Thanks for contributing on Shoonya!"
         )
         email_to_send = (
-            "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
+            "<p>" + message + "</p><br><h>Total Reports</h>" + html_table_df1 + "<br><h>Project-wise Reports</h>" + html_table_df
         )
 
         # print(email_to_send)
@@ -176,10 +176,10 @@ def calculate_reports():
             + str(reviewer.username)
             + ",\n Your progress reports for "
             + f"{(datetime.now() - timedelta(days = 1) ):%d-%m-%Y}"
-            + ".\n Thanks for contributing on Shoonya!"
+            + " are ready.\n Thanks for contributing on Shoonya!"
         )
         email_to_send = (
-            "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
+            "<p>" + message + "</p><br><h>Total Reports</h>" + html_table_df1 + "<br><h>Project-wise Reports</h>" + html_table_df
         )
 
         # print(email_to_send)
