@@ -180,12 +180,12 @@ REST_FRAMEWORK = {
 
 # Email Settings
 EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend"
-EMAIL_HOST = "email-smtp.ap-south-1.amazonaws.com"
+EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = 465
 EMAIL_HOST_USER = os.getenv("SMTP_USERNAME")
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = "admin@shoonya.ai4bharat.org"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 DOMAIN = "shoonya.ai4bharat.org"
 SITE_NAME = "shoonya.ai4bharat.org"
@@ -258,13 +258,13 @@ if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
     }
 
 # Setup the Cloud Logging Client
-if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-    client = gc_logging.Client()
-    client.setup_logging(log_level=logging.WARNING)
-    handlers["gcloud-logging"] = {
-        "class": "google.cloud.logging.handlers.CloudLoggingHandler",
-        "client": client,
-    }
+# if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+#    client = gc_logging.Client()
+#    client.setup_logging(log_level=logging.WARNING)
+#    handlers["gcloud-logging"] = {
+#        "class": "google.cloud.logging.handlers.CloudLoggingHandler",
+#        "client": client,
+#    }
 
 # Define logger configuration
 LOGGING = {
