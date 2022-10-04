@@ -99,7 +99,7 @@ def calculate_reports():
             "Dear "
             + str(annotator.username)
             + ",\n Your progress reports for "
-            + str(yest_date.strftime("%d-%m-%y"))
+            + f"{(datetime.now() - timedelta(days = 1) ):%d-%m-%Y}"
             + ".\n Thanks for contributing on Shoonya!"
         )
         email_to_send = (
@@ -175,7 +175,7 @@ def calculate_reports():
             "Dear "
             + str(reviewer.username)
             + ",\n Your progress reports for "
-            + str(yest_date.strftime("%d-%m-%y"))
+            + f"{(datetime.now() - timedelta(days = 1) ):%d-%m-%Y}"
             + ".\n Thanks for contributing on Shoonya!"
         )
         email_to_send = (
