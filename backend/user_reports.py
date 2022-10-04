@@ -103,7 +103,12 @@ def calculate_reports():
             + " are ready.\n Thanks for contributing on Shoonya!"
         )
         email_to_send = (
-            "<p>" + message + "</p><br><h>Total Reports</h>" + html_table_df1 + "<br><h>Project-wise Reports</h>" + html_table_df
+            "<p>"
+            + message
+            + "</p><br><h>Total Reports</h>"
+            + html_table_df1
+            + "<br><h>Project-wise Reports</h>"
+            + html_table_df
         )
 
         # print(email_to_send)
@@ -179,7 +184,12 @@ def calculate_reports():
             + " are ready.\n Thanks for contributing on Shoonya!"
         )
         email_to_send = (
-            "<p>" + message + "</p><br><h>Total Reports</h>" + html_table_df1 + "<br><h>Project-wise Reports</h>" + html_table_df
+            "<p>"
+            + message
+            + "</p><br><h>Total Reports</h>"
+            + html_table_df1
+            + "<br><h>Project-wise Reports</h>"
+            + html_table_df
         )
 
         # print(email_to_send)
