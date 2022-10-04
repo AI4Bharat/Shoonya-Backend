@@ -329,7 +329,7 @@ class UserViewSet(viewsets.ViewSet):
             user.enable_mail = enable_mail
             user.save()
             return Response(
-                {"message": "enable mail service updated successfully"},
+                {"message": "Daily e-mail service settings changed."},
                 status=status.HTTP_200_OK,
             )
         else:
