@@ -98,9 +98,9 @@ def calculate_reports():
         message = (
             "Dear "
             + str(annotator.username)
-            + ", here are your annotation reports for "
-            + str(yest_date)
-            + ". Thanks for your contributions on Shoonya."
+            + ",\n Your progress reports for "
+            + str(yest_date.strftime("%d-%m-%y"))
+            + ".\n Thanks for contributing on Shoonya!"
         )
         email_to_send = (
             "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
@@ -174,9 +174,9 @@ def calculate_reports():
         message = (
             "Dear "
             + str(reviewer.username)
-            + ", here are your review reports for "
-            + str(yest_date)
-            + ". Thanks for your contributions on Shoonya."
+            + ",\n Your progress reports for "
+            + str(yest_date.strftime("%d-%m-%y"))
+            + ".\n Thanks for contributing on Shoonya!"
         )
         email_to_send = (
             "<p>" + message + "</p><br>" + html_table_df1 + "<br>" + html_table_df
