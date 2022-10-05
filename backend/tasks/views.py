@@ -27,7 +27,21 @@ from drf_yasg.utils import swagger_auto_schema
 
 from rapidfuzz.distance import Levenshtein
 
+from datetime import datetime
+from dateutil import tz
+
 # Create your views here.
+
+
+def utc_to_ist(utc_time):
+    from_zone = tz.gettz("UTC")
+    to_zone = tz.gettz("Asia/Kolkata")
+
+    utc = utc_time.replace(tzinfo=from_zone)
+
+    central = utc.astimezone(to_zone)
+
+    return central
 
 
 def annotation_result_compare(base_annotation_result, review_annotation_result):
@@ -394,6 +408,82 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "status": status.HTTP_400_BAD_REQUEST,
                     "message": "Invalid Parameters in the request body!",
                 }
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "task_type": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["user_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "page",
+                openapi.IN_QUERY,
+                description=("A integer refering to page no of paginated response"),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "records",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to no of records in single page of a paginated response"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+        ],
+        responses={
+            200: "Returns a paginated list of recent tasks annotated/reviewed by a user",
+            403: "Not authorized!",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="annotated_and_reviewed_tasks/get_users_recent_tasks",
+        url_name="get_users_recent_tasks",
+    )
+    def get_users_recent_tasks(self, request):
+        try:
+            user_id = request.data.get("user_id")
+            task_type = request.data.get("task_type", "annotation")
+
+            user = User.objects.get(pk=user_id)
+
+            annotations = Annotation.objects.filter(completed_by=user)
+            if task_type == "review":
+                annotations = annotations.filter(parent_annotation__isnull=False)
+            else:
+                annotations = annotations.filter(parent_annotation__isnull=True)
+
+            annotations = annotations.order_by("-updated_at")
+            annotations = self.paginate_queryset(annotations)
+
+            response = []
+
+            for annotation in annotations:
+                data = {
+                    "Project ID": annotation.task.project_id.id,
+                    "Task ID": annotation.task.id,
+                    "Updated at": utc_to_ist(annotation.updated_at),
+                }
+
+                response.append(data)
+
+            return self.get_paginated_response(response)
+        except:
+            return Response(
+                {
+                    "message": "Invalid Parameters in the request body!",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
