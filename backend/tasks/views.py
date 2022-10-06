@@ -27,21 +27,9 @@ from drf_yasg.utils import swagger_auto_schema
 
 from rapidfuzz.distance import Levenshtein
 
-from datetime import datetime
-from dateutil import tz
+from utils.date_time_conversions import utc_to_ist
 
 # Create your views here.
-
-
-def utc_to_ist(utc_time):
-    from_zone = tz.gettz("UTC")
-    to_zone = tz.gettz("Asia/Kolkata")
-
-    utc = utc_time.replace(tzinfo=from_zone)
-
-    central = utc.astimezone(to_zone)
-    s = central.strftime("%d-%m-%Y %H:%M:%S")
-    return s
 
 
 def annotation_result_compare(base_annotation_result, review_annotation_result):
