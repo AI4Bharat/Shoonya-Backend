@@ -40,8 +40,8 @@ def utc_to_ist(utc_time):
     utc = utc_time.replace(tzinfo=from_zone)
 
     central = utc.astimezone(to_zone)
-
-    return central
+    s = central.strftime("%d-%m-%Y %H:%M:%S")
+    return s
 
 
 def annotation_result_compare(base_annotation_result, review_annotation_result):
