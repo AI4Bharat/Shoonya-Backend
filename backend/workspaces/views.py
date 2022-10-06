@@ -879,12 +879,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     avg_lead_time = sum(lead_time_annotated_tasks) / len(
                         lead_time_annotated_tasks
                     )
-
-                total_word_count_list = [
-                    each_task.task.data["word_count"]
-                    for each_task in annotated_labeled_tasks
-                ]
-                total_word_count = sum(total_word_count_list)
+                if is_translation_project:
+                    total_word_count_list = [
+                        each_task.task.data["word_count"]
+                        for each_task in annotated_labeled_tasks
+                    ]
+                    total_word_count = sum(total_word_count_list)
 
             total_skipped_tasks = get_task_count(
                 proj_ids, ["skipped"], each_annotation_user
