@@ -329,7 +329,7 @@ class UserViewSet(viewsets.ViewSet):
             user.enable_mail = enable_mail
             user.save()
             return Response(
-                {"message": "enable mail service updated successfully"},
+                {"message": "Daily e-mail service settings changed."},
                 status=status.HTTP_200_OK,
             )
         else:
@@ -508,9 +508,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     ): annotated_tasks_count,
                     "Word Count": total_word_count,
                     (
-                        "Average Review Time (In Seconds)"
+                        "Avg Review Time (sec)"
                         if review_reports
-                        else "Average Annotation Time (In Seconds)"
+                        else "Avg Annotation Time (sec)"
                     ): avg_lead_time,
                 }
             else:
@@ -520,9 +520,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                         "Reviewed Tasks" if review_reports else "Annotated Tasks"
                     ): annotated_tasks_count,
                     (
-                        "Average Review Time (In Seconds)"
+                        "Avg Review Time (sec)"
                         if review_reports
-                        else "Average Annotation Time (In Seconds)"
+                        else "Avg Annotation Time (sec)"
                     ): avg_lead_time,
                 }
             if result[("Reviewed Tasks" if review_reports else "Annotated Tasks")] > 0:
@@ -551,9 +551,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     ): total_annotated_tasks_count,
                     "Word Count": all_tasks_word_count,
                     (
-                        "Average Review Time (In Seconds)"
+                        "Avg Review Time (sec)"
                         if review_reports
-                        else "Average Annotation Time (In Seconds)"
+                        else "Avg Annotation Time (sec)"
                     ): round(all_annotated_lead_time_count, 2),
                 }
             ]
@@ -565,9 +565,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                         "Reviewed Tasks" if review_reports else "Annotated Tasks"
                     ): total_annotated_tasks_count,
                     (
-                        "Average Review Time (In Seconds)"
+                        "Avg Review Time (sec)"
                         if review_reports
-                        else "Average Annotation Time (In Seconds)"
+                        else "Avg Annotation Time (sec)"
                     ): round(all_annotated_lead_time_count, 2),
                 }
             ]

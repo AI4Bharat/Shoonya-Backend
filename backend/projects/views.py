@@ -861,9 +861,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "No tasks left for assignment in this project"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        # filter out tasks which meet the annotator count threshold
-        # and assign the ones with least count to user, so as to maintain uniformity
-        tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
+        tasks = tasks[:tasks_to_be_assigned]
         # tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
