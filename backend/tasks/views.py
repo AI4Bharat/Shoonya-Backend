@@ -26,6 +26,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from rapidfuzz.distance import Levenshtein
+from sacrebleu.metrics import BLEU
 
 from utils.date_time_conversions import utc_to_ist
 
@@ -770,6 +771,49 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 {
                     "normalized_character_level_edit_distance": normalized_character_level_edit_distance
                 },
+                status=status.HTTP_200_OK,
+            )
+        except:
+            return Response(
+                {"message": "Invalid parameters in request body!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "sentence1": openapi.Schema(type=openapi.TYPE_STRING),
+                "sentence2": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["sentence1", "sentence2"],
+        ),
+        responses={
+            200: "Bleu calculated successfully.",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="calculate_bleu_score",
+        url_name="calculate_bleu_score",
+    )
+    def calculate_bleu_score(self, request):
+        try:
+            sentence1 = request.data.get("sentence1")
+            sentence2 = request.data.get("sentence2")
+
+            sentence1 = [sentence1]
+            sentence2 = [[sentence2]]
+
+            bleu = BLEU()
+
+            bleu_score = bleu.corpus_score(sentence1, sentence2)
+
+            return Response(
+                {"bleu_score": str(bleu_score)},
                 status=status.HTTP_200_OK,
             )
         except:
