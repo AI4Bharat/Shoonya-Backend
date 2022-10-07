@@ -26,6 +26,9 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from rapidfuzz.distance import Levenshtein
+from sacrebleu.metrics import BLEU
+
+from utils.date_time_conversions import utc_to_ist
 
 # Create your views here.
 
@@ -396,6 +399,82 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 }
             )
 
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "task_type": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["user_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "page",
+                openapi.IN_QUERY,
+                description=("A integer refering to page no of paginated response"),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "records",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to no of records in single page of a paginated response"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+        ],
+        responses={
+            200: "Returns a paginated list of recent tasks annotated/reviewed by a user",
+            403: "Not authorized!",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="annotated_and_reviewed_tasks/get_users_recent_tasks",
+        url_name="get_users_recent_tasks",
+    )
+    def get_users_recent_tasks(self, request):
+        try:
+            user_id = request.data.get("user_id")
+            task_type = request.data.get("task_type", "annotation")
+
+            user = User.objects.get(pk=user_id)
+
+            annotations = Annotation.objects.filter(completed_by=user)
+            if task_type == "review":
+                annotations = annotations.filter(parent_annotation__isnull=False)
+            else:
+                annotations = annotations.filter(parent_annotation__isnull=True)
+
+            annotations = annotations.order_by("-updated_at")
+            annotations = self.paginate_queryset(annotations)
+
+            response = []
+
+            for annotation in annotations:
+                data = {
+                    "Project ID": annotation.task.project_id.id,
+                    "Task ID": annotation.task.id,
+                    "Updated at": utc_to_ist(annotation.updated_at),
+                }
+
+                response.append(data)
+
+            return self.get_paginated_response(response)
+        except:
+            return Response(
+                {
+                    "message": "Invalid Parameters in the request body!",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 
 class AnnotationViewSet(
     mixins.CreateModelMixin,
@@ -692,6 +771,49 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 {
                     "normalized_character_level_edit_distance": normalized_character_level_edit_distance
                 },
+                status=status.HTTP_200_OK,
+            )
+        except:
+            return Response(
+                {"message": "Invalid parameters in request body!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "sentence1": openapi.Schema(type=openapi.TYPE_STRING),
+                "sentence2": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["sentence1", "sentence2"],
+        ),
+        responses={
+            200: "Bleu calculated successfully.",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="calculate_bleu_score",
+        url_name="calculate_bleu_score",
+    )
+    def calculate_bleu_score(self, request):
+        try:
+            sentence1 = request.data.get("sentence1")
+            sentence2 = request.data.get("sentence2")
+
+            sentence1 = [sentence1]
+            sentence2 = [[sentence2]]
+
+            bleu = BLEU()
+
+            bleu_score = bleu.corpus_score(sentence1, sentence2)
+
+            return Response(
+                {"bleu_score": str(bleu_score)},
                 status=status.HTTP_200_OK,
             )
         except:

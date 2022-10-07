@@ -116,11 +116,11 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     result = {
         "Reviewer Name": userName,
-        "Assigned Tasks": total_task_count,
-        "Accepted Tasks": accepted_objs_count,
-        "Accepted With Changes Tasks": acceptedwtchange_objs_count,
-        "Labeled Tasks": labeled_tasks_count,
-        "To Be Revised Tasks": to_be_revised_tasks_count,
+        "Assigned": total_task_count,
+        "Accepted": accepted_objs_count,
+        "Accepted With Changes": acceptedwtchange_objs_count,
+        "Labeled": labeled_tasks_count,
+        "To Be Revised": to_be_revised_tasks_count,
     }
     return result
 
@@ -861,9 +861,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "No tasks left for assignment in this project"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        # filter out tasks which meet the annotator count threshold
-        # and assign the ones with least count to user, so as to maintain uniformity
-        tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
+        tasks = tasks[:tasks_to_be_assigned]
         # tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
@@ -1223,13 +1221,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 Q(project_id=pk) & Q(annotation_users=each_annotator)
             )
             assigned_tasks = all_tasks_in_project.count()
-            items.append(("Assigned Tasks", assigned_tasks))
+            items.append(("Assigned", assigned_tasks))
 
             # get accepted tasks
             annotated_accept_tasks = get_annotated_tasks(
                 pk, each_annotator, "accepted", start_date, end_date
             )
-            items.append(("Accepted Tasks", annotated_accept_tasks.count()))
+            items.append(("Accepted", annotated_accept_tasks.count()))
 
             proj = Project.objects.get(id=pk)
             if proj.enable_task_reviews:
@@ -1237,34 +1235,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 accepted_wt_tasks = get_annotated_tasks(
                     pk, each_annotator, "accepted_with_changes", start_date, end_date
                 )
-                items.append(
-                    ("Accepted With Changes  Tasks", accepted_wt_tasks.count())
-                )
+                items.append(("Accepted With Changes", accepted_wt_tasks.count()))
 
                 # get labeled task count
                 labeled_tasks = get_annotated_tasks(
                     pk, each_annotator, "labeled", start_date, end_date
                 )
-                items.append(("Labeled Tasks", labeled_tasks.count()))
+                items.append(("Labeled", labeled_tasks.count()))
 
                 # get to_be_revised count
                 to_be_revised_tasks = get_annotated_tasks(
                     pk, each_annotator, "to_be_revised", start_date, end_date
                 )
-                items.append(("To Be Revised Tasks", to_be_revised_tasks.count()))
+                items.append(("To Be Revised", to_be_revised_tasks.count()))
             # get unlabeled count
             total_unlabeled_tasks_count = get_tasks_count(
                 pk, each_annotator, "unlabeled"
             )
-            items.append(("Unlabeled Tasks", total_unlabeled_tasks_count))
+            items.append(("Unlabeled", total_unlabeled_tasks_count))
 
             # get skipped tasks count
             total_skipped_tasks_count = get_tasks_count(pk, each_annotator, "skipped")
-            items.append(("Skipped Tasks", total_skipped_tasks_count))
+            items.append(("Skipped", total_skipped_tasks_count))
 
             # get draft tasks count
             total_draft_tasks_count = get_tasks_count(pk, each_annotator, "draft")
-            items.append(("Draft Tasks", total_draft_tasks_count))
+            items.append(("Draft", total_draft_tasks_count))
 
             if is_translation_project:
                 if proj.enable_task_reviews:
