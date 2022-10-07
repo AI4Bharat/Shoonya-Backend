@@ -727,7 +727,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
             dataset_instance_ids = request.data.get("instance_ids")
             dataset_type = request.data.get("dataset_type", "")
-            id = request.data.get("search_id", "")
+            id = request.data.get("search_id","")
             input_text = request.data.get("search_input_text", "")
             output_text = request.data.get("search_output_text", "")
             input_language = request.data.get("search_input_language", "")
@@ -752,9 +752,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             }
 
             dataset_model = apps.get_model("dataset", dataset_type)
-            filtered_set = DATASET_TYPE_MAP[dataset_type].objects.filter(
-                **request.data["search_keys"], instance_id=dataset_instance_ids[0]
-            )
+            filtered_set = DATASET_TYPE_MAP[dataset_type].objects.filter(**request.data["search_keys"], instance_id=dataset_instance_ids[0])
 
             return Response(
                 data=SERIALIZER_MAP[dataset_type](filtered_set, many=True).data,
@@ -789,6 +787,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                 }
             )
         except Exception as e:
+            print(e)
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
