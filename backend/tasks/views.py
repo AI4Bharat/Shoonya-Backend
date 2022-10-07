@@ -26,7 +26,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from rapidfuzz.distance import Levenshtein
-from sacrebleu.metrics import BLEU
+import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
 
@@ -808,9 +808,9 @@ class SentenceOperationViewSet(viewsets.ViewSet):
             sentence1 = [sentence1]
             sentence2 = [[sentence2]]
 
-            bleu = BLEU()
+            bleu = sacrebleu.corpus_bleu(sentence1, sentence2)
 
-            bleu_score = bleu.corpus_score(sentence1, sentence2)
+            bleu_score = bleu.score
 
             return Response(
                 {"bleu_score": str(bleu_score)},
