@@ -59,6 +59,22 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     return annotated_labeled_tasks
 
 
+def get_reviewd_tasks(proj_ids, annotator, status_list, start_date, end_date):
+
+    annotated_tasks_objs = get_task_count(
+        proj_ids, status_list, annotator, return_count=False
+    )
+
+    annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
+    annotated_labeled_tasks = Annotation.objects.filter(
+        task_id__in=annotated_task_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    return annotated_labeled_tasks
+
+
 def un_pack_annotation_tasks(
     proj_ids, each_annotation_user, start_date, end_date, is_translation_project
 ):
@@ -242,6 +258,82 @@ def get_counts(
     )
 
 
+def get_translation_quality_reports(
+    pk,
+    annotator,
+    project_type,
+    start_date,
+    end_date,
+    is_translation_project,
+    tgt_language=None,
+):
+
+    if not is_translation_project:
+        return Response(
+            {
+                "message": "BLEU score and Normalized Character-level edit distance  is not available for Non Translation Projects"
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if tgt_language == None:
+        projects_objs = Project.objects.filter(
+            organization_id_id=pk,
+            project_type=project_type,
+            enable_task_reviews=True,
+            annotators=annotator,
+        )
+    else:
+        projects_objs = Project.objects.filter(
+            organization_id_id=pk,
+            project_type=project_type,
+            enable_task_reviews=True,
+            tgt_language=tgt_language,
+            annotators=annotator,
+        )
+
+    proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
+
+    all_reviewd_tasks_count = get_reviewd_tasks(
+        proj_ids,
+        annotator,
+        ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
+        start_date,
+        end_date,
+    ).count()
+
+    accepted_count = get_reviewd_tasks(
+        proj_ids,
+        annotator,
+        ["accepted"],
+        start_date,
+        end_date,
+    ).count()
+
+    reviewed_except_accepted = round(
+        (accepted_count / all_reviewd_tasks_count) * 100, 2
+    )
+
+    accepted_with_changes_tasks = get_reviewd_tasks(
+        proj_ids,
+        annotator,
+        ["accepted_with_changes"],
+        start_date,
+        end_date,
+    )
+
+    for annot in accepted_with_changes_tasks:
+
+        annotator_obj = Annotation.objects.get(
+            task_id=annot.task_id, parent_annotation_id=None
+        )
+        try:
+            sentence1 = annotator_obj.result["result"][0]["value"]["text"]
+            sentence2 = annot.result["result"][0]["value"]["text"]
+        except:
+            pass
+
+
 class OrganizationViewSet(viewsets.ModelViewSet):
     """
     A viewset for Organization CRUD, access limited only to organization Managers and Superuser.
@@ -403,6 +495,93 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             404: "Organization not found.",
         },
     )
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Testing Quality of Text Translation Annotated by each User",
+        url_name="quality_reports",
+    )
+    def quality_reports(self, request, pk=None):
+        try:
+            organization = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        annotators = User.objects.filter(organization=organization).order_by("username")
+        from_date = request.data.get("from_date")
+        to_date = request.data.get("to_date")
+        from_date = from_date + " 00:00"
+        to_date = to_date + " 23:59"
+        tgt_language = request.data.get("tgt_language")
+        project_type = request.data.get("project_type")
+        project_type_lower = project_type.lower()
+        is_translation_project = True if "translation" in project_type_lower else False
+        sort_by_column_name = request.data.get("sort_by_column_name")
+        descending_order = request.data.get("descending_order")
+        if sort_by_column_name == None:
+            sort_by_column_name = "Annotator"
+
+        if descending_order == None:
+            descending_order = False
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
+        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
+
+        if start_date > end_date:
+            return Response(
+                {"message": "'To' Date should be after 'From' Date"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        result = []
+        for annotator in annotators:
+            user_id = annotator.id
+            name = annotator.username
+            email = annotator.get_username()
+            if tgt_language == None:
+                user_lang_filter = User.objects.get(id=user_id)
+                user_lang = user_lang_filter.languages
+                selected_language = user_lang
+                if "English" in selected_language:
+                    selected_language.remove("English")
+                get_translation_quality_reports(
+                    pk,
+                    annotator,
+                    project_type,
+                    start_date,
+                    end_date,
+                    is_translation_project,
+                )
+
+            else:
+                selected_language = tgt_language
+                list_of_user_languages = annotator.languages
+                if tgt_language != None and tgt_language not in list_of_user_languages:
+                    continue
+                get_translation_quality_reports(
+                    pk,
+                    annotator,
+                    project_type,
+                    start_date,
+                    end_date,
+                    is_translation_project,
+                    tgt_language,
+                )
+
     @action(
         detail=True,
         methods=["POST"],
