@@ -98,6 +98,8 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
     user = User.objects.get(id=userid)
     userName = user.username
 
+    reviewer_languages = user.languages
+
     total_tasks = Task.objects.filter(project_id__in=proj_ids, review_user=userid)
 
     total_task_count = total_tasks.count()
@@ -144,6 +146,7 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
     result = {
         "Reviewer Name": userName,
+        "Language": reviewer_languages,
         "Assigned": total_task_count,
         "Accepted": accepted_objs_count,
         "Accepted With Changes": acceptedwtchange_objs_count,
