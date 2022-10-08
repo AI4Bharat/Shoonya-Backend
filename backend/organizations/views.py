@@ -375,96 +375,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         serializer = UserFetchSerializer(users, many=True)
         return Response(serializer.data)
 
-    @action(
-        detail=True,
-        methods=["POST"],
-        name="Organization level Reviewer Reports",
-        url_path="reviewer_reports",
-        url_name="reviewer_reports",
-    )
-    def reviewer_reports(self, request, pk=None):
-        """
-        API for getting Organization level Reviewer Reports
-        """
-        try:
-            org = Organization.objects.get(pk=pk)
-        except Organization.DoesNotExist:
-            return Response(
-                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        user_id = request.user.id
-        from_date = request.data.get("from_date")
-        to_date = request.data.get("to_date")
-        from_date = from_date + " 00:00"
-        to_date = to_date + " 23:59"
-        tgt_language = request.data.get("tgt_language")
-        # enable_task_reviews = request.data.get("enable_task_reviews")
-
-        cond, invalid_message = is_valid_date(from_date)
-        if not cond:
-            return Response(
-                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
-            )
-        cond, invalid_message = is_valid_date(to_date)
-        if not cond:
-            return Response(
-                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
-            )
-        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
-        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
-
-        if start_date > end_date:
-            return Response(
-                {"message": "'To' Date should be after 'From' Date"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        proj_objs = Project.objects.filter(organization_id=pk)
-        review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
-
-        org_reviewer_list = []
-        for review_project in review_projects:
-            reviewer_names_list = review_project.annotation_reviewers.all()
-            reviewer_ids = [name.id for name in reviewer_names_list]
-            org_reviewer_list.extend(reviewer_ids)
-
-        org_reviewer_list = list(set(org_reviewer_list))
-        final_reports = []
-
-        if (
-            request.user.role == User.ORGANIZATION_OWNER
-            or request.user.role == User.WORKSPACE_MANAGER
-            or request.user.is_superuser
-        ):
-
-            for id in org_reviewer_list:
-                reviewer_projs = Project.objects.filter(
-                    organization_id=pk, annotation_reviewers=id
-                )
-                reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
-
-                result = get_review_reports(
-                    reviewer_projs_ids, id, start_date, end_date
-                )
-                final_reports.append(result)
-        elif user_id in org_reviewer_list:
-            reviewer_projs = Project.objects.filter(
-                organization_id=pk, annotation_reviewers=user_id
-            )
-            reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
-
-            result = get_review_reports(
-                reviewer_projs_ids, user_id, start_date, end_date
-            )
-            final_reports.append(result)
-        else:
-            final_reports = {
-                "message": "You do not have enough permissions to access this view!"
-            }
-
-        return Response(final_reports)
-
-    @is_organization_owner
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
@@ -595,7 +505,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
-
+        user_id = request.user.id
         annotators = User.objects.filter(organization=organization).order_by("username")
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
@@ -604,6 +514,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         only_review_proj = request.data.get("only_review_projects")
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
+        reports_type = request.data.get("reports_type")
         project_type_lower = project_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
         sort_by_column_name = request.data.get("sort_by_column_name")
@@ -635,6 +546,67 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if reports_type == "review":
+
+            proj_objs = Project.objects.filter(organization_id=pk)
+            review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
+
+            org_reviewer_list = []
+            for review_project in review_projects:
+                reviewer_names_list = review_project.annotation_reviewers.all()
+                reviewer_ids = [name.id for name in reviewer_names_list]
+                org_reviewer_list.extend(reviewer_ids)
+
+            org_reviewer_list = list(set(org_reviewer_list))
+
+            final_reports = []
+
+            if (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.role == User.WORKSPACE_MANAGER
+                or request.user.is_superuser
+            ):
+
+                for id in org_reviewer_list:
+                    reviewer_projs = Project.objects.filter(
+                        organization_id=pk, annotation_reviewers=id
+                    )
+                    reviewer_projs_ids = [
+                        review_proj.id for review_proj in reviewer_projs
+                    ]
+
+                    result = get_review_reports(
+                        reviewer_projs_ids, id, start_date, end_date
+                    )
+                    final_reports.append(result)
+            elif user_id in org_reviewer_list:
+                reviewer_projs = Project.objects.filter(
+                    organization_id=pk, annotation_reviewers=user_id
+                )
+                reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
+
+                result = get_review_reports(
+                    reviewer_projs_ids, user_id, start_date, end_date
+                )
+                final_reports.append(result)
+            else:
+                final_reports = {
+                    "message": "You do not have enough permissions to access this view!"
+                }
+
+            return Response(final_reports)
+
+        if not (
+            request.user.is_authenticated
+            and (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
         result = []
         for annotator in annotators:
             user_id = annotator.id
