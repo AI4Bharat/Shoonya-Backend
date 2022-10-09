@@ -60,7 +60,9 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     return annotated_labeled_tasks
 
 
-def get_reviewd_tasks(proj_ids, annotator, status_list, start_date, end_date, parent_annotation_bool):
+def get_reviewd_tasks(
+    proj_ids, annotator, status_list, start_date, end_date, parent_annotation_bool
+):
 
     annotated_tasks_objs = get_task_count(
         proj_ids, status_list, annotator, return_count=False
@@ -346,7 +348,6 @@ def get_translation_quality_reports(
         str2 = reviewer_obj[0].result[0]["value"]["text"]
 
         data = {"sentence1": str1[0], "sentence2": str2[0]}
-
         try:
 
             bleu_score = sentence_operation.calculate_bleu_score(data)
