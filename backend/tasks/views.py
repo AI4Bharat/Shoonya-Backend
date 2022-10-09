@@ -761,6 +761,16 @@ class SentenceOperationViewSet(viewsets.ViewSet):
         try:
             sentence1 = request.data.get("sentence1")
             sentence2 = request.data.get("sentence2")
+        except:
+            try:
+                sentence1 = request["sentence1"]
+                sentence2 = request["sentence2"]
+            except:
+                return Response(
+                    {"message": "Invalid parameters in request body!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        try:
 
             character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
             normalized_character_level_edit_distance = (
@@ -804,7 +814,17 @@ class SentenceOperationViewSet(viewsets.ViewSet):
         try:
             sentence1 = request.data.get("sentence1")
             sentence2 = request.data.get("sentence2")
+        except:
+            try:
+                sentence1 = request["sentence1"]
+                sentence2 = request["sentence2"]
+            except:
+                return Response(
+                    {"message": "Invalid parameters in request body!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
+        try:
             sentence1 = [sentence1]
             sentence2 = [[sentence2]]
 

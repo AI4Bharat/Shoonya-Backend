@@ -26,6 +26,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 import csv
 from django.http import StreamingHttpResponse
+from tasks.views import SentenceOperationViewSet
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -275,7 +276,7 @@ def get_translation_quality_reports(
             },
             status=status.HTTP_404_NOT_FOUND,
         )
-
+    sentence_operation = SentenceOperationViewSet()
     if tgt_language == None:
         projects_objs = Project.objects.filter(
             organization_id_id=pk,
@@ -294,13 +295,14 @@ def get_translation_quality_reports(
 
     proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
 
-    all_reviewd_tasks_count = get_reviewd_tasks(
+    all_reviewd_tasks = get_reviewd_tasks(
         proj_ids,
         annotator,
         ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
         start_date,
         end_date,
-    ).count()
+    )
+    all_reviewd_tasks_count = all_reviewd_tasks.count()
 
     accepted_count = get_reviewd_tasks(
         proj_ids,
@@ -309,10 +311,12 @@ def get_translation_quality_reports(
         start_date,
         end_date,
     ).count()
-
-    reviewed_except_accepted = round(
-        (accepted_count / all_reviewd_tasks_count) * 100, 2
-    )
+    if all_reviewd_tasks_count == 0:
+        reviewed_except_accepted = 0
+    else:
+        reviewed_except_accepted = round(
+            (accepted_count / all_reviewd_tasks_count) * 100, 2
+        )
 
     accepted_with_changes_tasks = get_reviewd_tasks(
         proj_ids,
@@ -321,17 +325,57 @@ def get_translation_quality_reports(
         start_date,
         end_date,
     )
+    total_bleu_score = 0
+    total_char_score = 0
 
     for annot in accepted_with_changes_tasks:
-
-        annotator_obj = Annotation.objects.get(
-            task_id=annot.task_id, parent_annotation_id=None
-        )
         try:
-            sentence1 = annotator_obj.result["result"][0]["value"]["text"]
-            sentence2 = annot.result["result"][0]["value"]["text"]
+            annotator_obj = Annotation.objects.get(
+                task_id=annot.task_id, parent_annotation_id=None
+            )
+            str1 = annotator_obj.result["result"][0]["value"]["text"]
+            str2 = annot.result["result"][0]["value"]["text"]
+
+            data = {"sentence1": str1, "sentence2": str2}
+
+            bleu_score = sentence_operation.calculate_bleu_score(data)
+            total_bleu_score += bleu_score.data["bleu_score"]
+            total_char_score += char_level_distance.data[
+                "normalized_character_level_edit_distance"
+            ]
+            char_level_distance = (
+                sentence_operation.calculate_normalized_character_level_edit_distance(
+                    data
+                )
+            )
         except:
-            pass
+            avg_bleu_score = "not able to calculate"
+            avg_char_score = "not able to calculate"
+            break
+    if len(accepted_with_changes_tasks) > 0:
+        avg_bleu_score = total_bleu_score / len(accepted_with_changes_tasks)
+        avg_bleu_score = round(avg_bleu_score, 2)
+        avg_char_score = total_char_score / len(accepted_with_changes_tasks)
+        avg_char_score = round(avg_char_score, 2)
+    else:
+        avg_bleu_score = "no accepted with changes tasks"
+        avg_char_score = "no accepted with changes tasks"
+
+    total_lead_time = [annot.lead_time for annot in all_reviewd_tasks]
+    avg_lead_time = 0
+    if len(total_lead_time) > 0:
+        avg_lead_time = sum(total_lead_time) / len(total_lead_time)
+        avg_lead_time = round(avg_lead_time, 2)
+
+    return (
+        all_reviewd_tasks_count,
+        accepted_count,
+        reviewed_except_accepted,
+        accepted_with_changes_tasks.count(),
+        avg_char_score,
+        avg_bleu_score,
+        avg_lead_time,
+    )
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -405,6 +449,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             404: "Organization not found.",
         },
     )
+    @is_organization_owner
     @action(
         detail=True,
         methods=["POST"],
@@ -431,7 +476,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
         if sort_by_column_name == None:
-            sort_by_column_name = "Annotator"
+            sort_by_column_name = "Translator"
 
         if descending_order == None:
             descending_order = False
@@ -468,7 +513,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 selected_language = user_lang
                 if "English" in selected_language:
                     selected_language.remove("English")
-                get_translation_quality_reports(
+                (
+                    all_reviewd_tasks_count,
+                    accepted_count,
+                    reviewed_except_accepted,
+                    accepted_with_changes_tasks_count,
+                    avg_char_score,
+                    avg_bleu_score,
+                    avg_lead_time,
+                ) = get_translation_quality_reports(
                     pk,
                     annotator,
                     project_type,
@@ -482,7 +535,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 list_of_user_languages = annotator.languages
                 if tgt_language != None and tgt_language not in list_of_user_languages:
                     continue
-                get_translation_quality_reports(
+                (
+                    all_reviewd_tasks_count,
+                    accepted_count,
+                    reviewed_except_accepted,
+                    accepted_with_changes_tasks_count,
+                    avg_char_score,
+                    avg_bleu_score,
+                    avg_lead_time,
+                ) = get_translation_quality_reports(
                     pk,
                     annotator,
                     project_type,
@@ -491,6 +552,23 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     is_translation_project,
                     tgt_language,
                 )
+            result.append(
+                {
+                    "Translator": name,
+                    "Language": selected_language,
+                    "All Reviewed": all_reviewd_tasks_count,
+                    "Accepted": accepted_count,
+                    "Reviewed Except Accepted": reviewed_except_accepted,
+                    "Accepted With Changes": accepted_with_changes_tasks_count,
+                    "Avg Character Edit Distance Score": avg_char_score,
+                    "Average BLEU Score": avg_bleu_score,
+                    "Avg Lead Time": avg_lead_time,
+                }
+            )
+        final_result = sorted(
+            result, key=lambda x: x[sort_by_column_name], reverse=descending_order
+        )
+        return Response(final_result, status=status.HTTP_200_OK)
 
     @action(
         detail=True,
