@@ -329,26 +329,28 @@ def get_translation_quality_reports(
     total_char_score = 0
 
     for annot in accepted_with_changes_tasks:
-        try:
+        if True:
             annotator_obj = Annotation.objects.get(
                 task_id=annot.task_id, parent_annotation_id=None
             )
-            str1 = annotator_obj.result["result"][0]["value"]["text"]
-            str2 = annot.result["result"][0]["value"]["text"]
 
-            data = {"sentence1": str1, "sentence2": str2}
+            str1 = annotator_obj.result[0]["value"]["text"]
+            str2 = annot.result[0]["value"]["text"]
+
+            data = {"sentence1": str1[0], "sentence2": str2[0]}
 
             bleu_score = sentence_operation.calculate_bleu_score(data)
-            total_bleu_score += bleu_score.data["bleu_score"]
-            total_char_score += char_level_distance.data[
-                "normalized_character_level_edit_distance"
-            ]
+            total_bleu_score += float(bleu_score.data["bleu_score"])
+
             char_level_distance = (
                 sentence_operation.calculate_normalized_character_level_edit_distance(
                     data
                 )
             )
-        except:
+            total_char_score += float(char_level_distance.data[
+                "normalized_character_level_edit_distance"
+            ])
+        else:
             avg_bleu_score = "not able to calculate"
             avg_char_score = "not able to calculate"
             break
