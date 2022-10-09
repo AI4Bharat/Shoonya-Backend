@@ -60,7 +60,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     return annotated_labeled_tasks
 
 
-def get_reviewd_tasks(proj_ids, annotator, status_list, start_date, end_date):
+def get_reviewd_tasks(proj_ids, annotator, status_list, start_date, end_date, parent_annotation_bool):
 
     annotated_tasks_objs = get_task_count(
         proj_ids, status_list, annotator, return_count=False
@@ -69,7 +69,7 @@ def get_reviewd_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
-        parent_annotation_id__isnull=False,
+        parent_annotation_id__isnull=parent_annotation_bool,
         created_at__range=[start_date, end_date],
     )
 
@@ -298,9 +298,10 @@ def get_translation_quality_reports(
     all_reviewd_tasks = get_reviewd_tasks(
         proj_ids,
         annotator,
-        ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
+        ["accepted", "to_be_revised", "accepted_with_changes"],
         start_date,
         end_date,
+        parent_annotation_bool=True,
     )
     all_reviewd_tasks_count = all_reviewd_tasks.count()
 
@@ -310,6 +311,7 @@ def get_translation_quality_reports(
         ["accepted"],
         start_date,
         end_date,
+        parent_annotation_bool=True,
     ).count()
     if all_reviewd_tasks_count == 0:
         reviewed_except_accepted = 0
@@ -324,6 +326,7 @@ def get_translation_quality_reports(
         ["accepted_with_changes"],
         start_date,
         end_date,
+        parent_annotation_bool=True,
     )
     total_bleu_score = 0
     total_char_score = 0
@@ -335,9 +338,12 @@ def get_translation_quality_reports(
         annotator_obj = Annotation.objects.get(
             task_id=annot.task_id, parent_annotation_id=None
         )
+        reviewer_obj = Annotation.objects.filter(
+            task_id=annot.task_id, parent_annotation_id__isnull=False
+        )
 
         str1 = annotator_obj.result[0]["value"]["text"]
-        str2 = annot.result[0]["value"]["text"]
+        str2 = reviewer_obj[0].result[0]["value"]["text"]
 
         data = {"sentence1": str1[0], "sentence2": str2[0]}
 
@@ -583,7 +589,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             result.append(
                 {
                     "Translator": name,
-                    "Language": selected_language,
+                    "Language": annotator.languages,
                     "Reviewed": all_reviewd_tasks_count,
                     "Accepted": accepted_count,
                     "(Accepted/Reviewed) Percentage": reviewed_except_accepted,
