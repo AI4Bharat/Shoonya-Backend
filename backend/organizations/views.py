@@ -26,6 +26,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 import csv
 from django.http import StreamingHttpResponse
+from tasks.views import SentenceOperationViewSet
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -54,6 +55,22 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
         parent_annotation_id=None,
         created_at__range=[start_date, end_date],
         completed_by=annotator,
+    )
+
+    return annotated_labeled_tasks
+
+
+def get_reviewd_tasks(proj_ids, annotator, status_list, start_date, end_date):
+
+    annotated_tasks_objs = get_task_count(
+        proj_ids, status_list, annotator, return_count=False
+    )
+
+    annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
+    annotated_labeled_tasks = Annotation.objects.filter(
+        task_id__in=annotated_task_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
     )
 
     return annotated_labeled_tasks
@@ -242,6 +259,153 @@ def get_counts(
     )
 
 
+def get_translation_quality_reports(
+    pk,
+    annotator,
+    project_type,
+    start_date,
+    end_date,
+    is_translation_project,
+    tgt_language=None,
+):
+
+    if not is_translation_project:
+        return Response(
+            {
+                "message": "BLEU score and Normalized Character-level edit distance  is not available for Non Translation Projects"
+            },
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    sentence_operation = SentenceOperationViewSet()
+    if tgt_language == None:
+        projects_objs = Project.objects.filter(
+            organization_id_id=pk,
+            project_type=project_type,
+            enable_task_reviews=True,
+            annotators=annotator,
+        )
+    else:
+        projects_objs = Project.objects.filter(
+            organization_id_id=pk,
+            project_type=project_type,
+            enable_task_reviews=True,
+            tgt_language=tgt_language,
+            annotators=annotator,
+        )
+
+    proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
+
+    all_reviewd_tasks = get_reviewd_tasks(
+        proj_ids,
+        annotator,
+        ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
+        start_date,
+        end_date,
+    )
+    all_reviewd_tasks_count = all_reviewd_tasks.count()
+
+    accepted_count = get_reviewd_tasks(
+        proj_ids,
+        annotator,
+        ["accepted"],
+        start_date,
+        end_date,
+    ).count()
+    if all_reviewd_tasks_count == 0:
+        reviewed_except_accepted = 0
+    else:
+        reviewed_except_accepted = round(
+            (accepted_count / all_reviewd_tasks_count) * 100, 2
+        )
+
+    accepted_with_changes_tasks = get_reviewd_tasks(
+        proj_ids,
+        annotator,
+        ["accepted_with_changes"],
+        start_date,
+        end_date,
+    )
+    total_bleu_score = 0
+    total_char_score = 0
+
+    bleu_score_error_count = 0
+    char_score_error_count = 0
+
+    for annot in accepted_with_changes_tasks:
+        annotator_obj = Annotation.objects.get(
+            task_id=annot.task_id, parent_annotation_id=None
+        )
+
+        str1 = annotator_obj.result[0]["value"]["text"]
+        str2 = annot.result[0]["value"]["text"]
+
+        data = {"sentence1": str1[0], "sentence2": str2[0]}
+
+        try:
+
+            bleu_score = sentence_operation.calculate_bleu_score(data)
+            total_bleu_score += float(bleu_score.data["bleu_score"])
+        except:
+            bleu_score_error_count += 1
+        try:
+            char_level_distance = (
+                sentence_operation.calculate_normalized_character_level_edit_distance(
+                    data
+                )
+            )
+            total_char_score += float(
+                char_level_distance.data["normalized_character_level_edit_distance"]
+            )
+        except:
+            char_score_error_count += 1
+
+    if len(accepted_with_changes_tasks) > 0:
+
+        accepted_with_change_minus_bleu_score_error = (
+            len(accepted_with_changes_tasks) - bleu_score_error_count
+        )
+        accepted_with_change_minus_char_score_error = (
+            len(accepted_with_changes_tasks) - char_score_error_count
+        )
+
+        if accepted_with_change_minus_bleu_score_error == 0:
+            avg_bleu_score = "all tasks bleu scores given some error"
+        else:
+            avg_bleu_score = (
+                total_bleu_score / accepted_with_change_minus_bleu_score_error
+            )
+            avg_bleu_score = round(avg_bleu_score, 3)
+
+        if accepted_with_change_minus_char_score_error == 0:
+            avg_char_score = "all tasks char scores given some error"
+
+        else:
+            avg_char_score = (
+                total_char_score / accepted_with_change_minus_char_score_error
+            )
+            avg_char_score = round(avg_char_score, 3)
+
+    else:
+        avg_bleu_score = "no accepted with changes tasks"
+        avg_char_score = "no accepted with changes tasks"
+
+    total_lead_time = [annot.lead_time for annot in all_reviewd_tasks]
+    avg_lead_time = 0
+    if len(total_lead_time) > 0:
+        avg_lead_time = sum(total_lead_time) / len(total_lead_time)
+        avg_lead_time = round(avg_lead_time, 2)
+
+    return (
+        all_reviewd_tasks_count,
+        accepted_count,
+        reviewed_except_accepted,
+        accepted_with_changes_tasks.count(),
+        avg_char_score,
+        avg_bleu_score,
+        avg_lead_time,
+    )
+
+
 class OrganizationViewSet(viewsets.ModelViewSet):
     """
     A viewset for Organization CRUD, access limited only to organization Managers and Superuser.
@@ -313,10 +477,131 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             404: "Organization not found.",
         },
     )
+    @is_organization_owner
     @action(
         detail=True,
         methods=["POST"],
-        name="Organization level  users analytics ",
+        name="Testing Quality of Text Translation Annotated by each User",
+        url_name="quality_reports",
+    )
+    def quality_reports(self, request, pk=None):
+        try:
+            organization = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        annotators = User.objects.filter(organization=organization).order_by("username")
+        from_date = request.data.get("from_date")
+        to_date = request.data.get("to_date")
+        from_date = from_date + " 00:00"
+        to_date = to_date + " 23:59"
+        tgt_language = request.data.get("tgt_language")
+        project_type = request.data.get("project_type")
+        project_type_lower = project_type.lower()
+        is_translation_project = True if "translation" in project_type_lower else False
+        sort_by_column_name = request.data.get("sort_by_column_name")
+        descending_order = request.data.get("descending_order")
+        if sort_by_column_name == None:
+            sort_by_column_name = "Translator"
+
+        if descending_order == None:
+            descending_order = False
+
+        cond, invalid_message = is_valid_date(from_date)
+        if not cond:
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        cond, invalid_message = is_valid_date(to_date)
+        if not cond:
+            return Response(
+                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
+        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
+
+        if start_date > end_date:
+            return Response(
+                {"message": "'To' Date should be after 'From' Date"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        result = []
+        for annotator in annotators:
+            user_id = annotator.id
+            name = annotator.username
+            email = annotator.get_username()
+            if tgt_language == None:
+                user_lang_filter = User.objects.get(id=user_id)
+                user_lang = user_lang_filter.languages
+                selected_language = user_lang
+                if "English" in selected_language:
+                    selected_language.remove("English")
+                (
+                    all_reviewd_tasks_count,
+                    accepted_count,
+                    reviewed_except_accepted,
+                    accepted_with_changes_tasks_count,
+                    avg_char_score,
+                    avg_bleu_score,
+                    avg_lead_time,
+                ) = get_translation_quality_reports(
+                    pk,
+                    annotator,
+                    project_type,
+                    start_date,
+                    end_date,
+                    is_translation_project,
+                )
+
+            else:
+                selected_language = tgt_language
+                list_of_user_languages = annotator.languages
+                if tgt_language != None and tgt_language not in list_of_user_languages:
+                    continue
+                (
+                    all_reviewd_tasks_count,
+                    accepted_count,
+                    reviewed_except_accepted,
+                    accepted_with_changes_tasks_count,
+                    avg_char_score,
+                    avg_bleu_score,
+                    avg_lead_time,
+                ) = get_translation_quality_reports(
+                    pk,
+                    annotator,
+                    project_type,
+                    start_date,
+                    end_date,
+                    is_translation_project,
+                    tgt_language,
+                )
+            result.append(
+                {
+                    "Translator": name,
+                    "Language": selected_language,
+                    "Reviewed": all_reviewd_tasks_count,
+                    "Accepted": accepted_count,
+                    "(Accepted/Reviewed) Percentage": reviewed_except_accepted,
+                    "Accepted With Changes": accepted_with_changes_tasks_count,
+                    "Avg Character Edit Distance Score": avg_char_score,
+                    "Average BLEU Score": avg_bleu_score,
+                    "Avg Lead Time": avg_lead_time,
+                }
+            )
+        final_result = sorted(
+            result, key=lambda x: x[sort_by_column_name], reverse=descending_order
+        )
+        return Response(final_result, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get Organization level  users analytics ",
         url_name="user_analytics",
     )
     def user_analytics(self, request, pk=None):

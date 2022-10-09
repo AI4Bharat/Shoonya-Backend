@@ -475,6 +475,83 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "task_status": openapi.Schema(type=openapi.TYPE_STRING),
+                "annotation_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "find_words": openapi.Schema(type=openapi.TYPE_STRING),
+                "replace_words": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["task_status", "annotation_type", "find_words", "replace_words"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the project"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            ),
+        ],
+        responses={
+            200: "Returns the no of annotations modified.",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="find_and_replace_words_in_annotation",
+        url_name="find_and_replace_words_in_annotation",
+    )
+    def find_and_replace_words_in_annotation(self, request, pk=None):
+        try:
+            project = Project.objects.get(pk=pk)
+            task_status = request.data.get("task_status")
+            project_tasks = Task.objects.filter(project_id=project).filter(
+                task_status=task_status
+            )
+
+            task_annotations = Annotation.objects.filter(task__in=project_tasks).filter(
+                completed_by=request.user
+            )
+            annotation_type = request.data.get("annotation_type")
+            print(task_status)
+            if annotation_type == "review":
+                task_annotations = task_annotations.filter(
+                    parent_annotation__isnull=False
+                )
+            else:
+                task_annotations = task_annotations.filter(
+                    parent_annotation__isnull=True
+                )
+
+            find_words = request.data.get("find_words")
+            replace_words = request.data.get("replace_words")
+
+            num_annotations_modified = 0
+            for annotation in task_annotations:
+                text = annotation.result[0]["value"]["text"][0]
+                prev_text = text
+                text = text.replace(find_words, replace_words)
+                annotation.result[0]["value"]["text"][0] = text
+                annotation.save()
+                if prev_text != text:
+                    num_annotations_modified += 1
+
+            return Response(
+                {"message": f"{num_annotations_modified} annotations are modified."},
+                status=status.HTTP_200_OK,
+            )
+        except:
+            return Response(
+                {"message": "Invalid parameters in request body!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 
 class AnnotationViewSet(
     mixins.CreateModelMixin,
@@ -761,6 +838,16 @@ class SentenceOperationViewSet(viewsets.ViewSet):
         try:
             sentence1 = request.data.get("sentence1")
             sentence2 = request.data.get("sentence2")
+        except:
+            try:
+                sentence1 = request["sentence1"]
+                sentence2 = request["sentence2"]
+            except:
+                return Response(
+                    {"message": "Invalid parameters in request body!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        try:
 
             character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
             normalized_character_level_edit_distance = (
@@ -804,7 +891,17 @@ class SentenceOperationViewSet(viewsets.ViewSet):
         try:
             sentence1 = request.data.get("sentence1")
             sentence2 = request.data.get("sentence2")
+        except:
+            try:
+                sentence1 = request["sentence1"]
+                sentence2 = request["sentence2"]
+            except:
+                return Response(
+                    {"message": "Invalid parameters in request body!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
+        try:
             sentence1 = [sentence1]
             sentence2 = [[sentence2]]
 
