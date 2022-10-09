@@ -586,7 +586,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Language": selected_language,
                     "Reviewed": all_reviewd_tasks_count,
                     "Accepted": accepted_count,
-                    "(Accepted /Reviewed) Percentage ": reviewed_except_accepted,
+                    "(Accepted/Reviewed) Percentage": reviewed_except_accepted,
                     "Accepted With Changes": accepted_with_changes_tasks_count,
                     "Avg Character Edit Distance Score": avg_char_score,
                     "Average BLEU Score": avg_bleu_score,
