@@ -328,37 +328,63 @@ def get_translation_quality_reports(
     total_bleu_score = 0
     total_char_score = 0
 
+    bleu_score_error_count = 0
+    char_score_error_count = 0
+
     for annot in accepted_with_changes_tasks:
-        if True:
-            annotator_obj = Annotation.objects.get(
-                task_id=annot.task_id, parent_annotation_id=None
-            )
+        annotator_obj = Annotation.objects.get(
+            task_id=annot.task_id, parent_annotation_id=None
+        )
 
-            str1 = annotator_obj.result[0]["value"]["text"]
-            str2 = annot.result[0]["value"]["text"]
+        str1 = annotator_obj.result[0]["value"]["text"]
+        str2 = annot.result[0]["value"]["text"]
 
-            data = {"sentence1": str1[0], "sentence2": str2[0]}
+        data = {"sentence1": str1[0], "sentence2": str2[0]}
+
+        try:
 
             bleu_score = sentence_operation.calculate_bleu_score(data)
             total_bleu_score += float(bleu_score.data["bleu_score"])
-
+        except:
+            bleu_score_error_count += 1
+        try:
             char_level_distance = (
                 sentence_operation.calculate_normalized_character_level_edit_distance(
                     data
                 )
             )
-            total_char_score += float(char_level_distance.data[
-                "normalized_character_level_edit_distance"
-            ])
-        else:
-            avg_bleu_score = "not able to calculate"
-            avg_char_score = "not able to calculate"
-            break
+            total_char_score += float(
+                char_level_distance.data["normalized_character_level_edit_distance"]
+            )
+        except:
+            char_score_error_count += 1
+
     if len(accepted_with_changes_tasks) > 0:
-        avg_bleu_score = total_bleu_score / len(accepted_with_changes_tasks)
-        avg_bleu_score = round(avg_bleu_score, 2)
-        avg_char_score = total_char_score / len(accepted_with_changes_tasks)
-        avg_char_score = round(avg_char_score, 2)
+
+        accepted_with_change_minus_bleu_score_error = (
+            len(accepted_with_changes_tasks) - bleu_score_error_count
+        )
+        accepted_with_change_minus_char_score_error = (
+            len(accepted_with_changes_tasks) - char_score_error_count
+        )
+
+        if accepted_with_change_minus_bleu_score_error == 0:
+            avg_bleu_score = "all tasks bleu scores given some error"
+        else:
+            avg_bleu_score = (
+                total_bleu_score / accepted_with_change_minus_bleu_score_error
+            )
+            avg_bleu_score = round(avg_bleu_score, 3)
+
+        if accepted_with_change_minus_char_score_error == 0:
+            avg_char_score = "all tasks char scores given some error"
+
+        else:
+            avg_char_score = (
+                total_char_score / accepted_with_change_minus_char_score_error
+            )
+            avg_char_score = round(avg_char_score, 3)
+
     else:
         avg_bleu_score = "no accepted with changes tasks"
         avg_char_score = "no accepted with changes tasks"
@@ -558,9 +584,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {
                     "Translator": name,
                     "Language": selected_language,
-                    "All Reviewed": all_reviewd_tasks_count,
+                    "Reviewed": all_reviewd_tasks_count,
                     "Accepted": accepted_count,
-                    "Reviewed Except Accepted": reviewed_except_accepted,
+                    "(Reviewed /Accepted) Percentage ": reviewed_except_accepted,
                     "Accepted With Changes": accepted_with_changes_tasks_count,
                     "Avg Character Edit Distance Score": avg_char_score,
                     "Average BLEU Score": avg_bleu_score,
