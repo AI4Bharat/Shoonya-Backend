@@ -336,7 +336,7 @@ def get_translation_quality_reports(
 
     bleu_score_error_count = 0
     char_score_error_count = 0
-
+    total_lead_time = []
     for annot in accepted_with_changes_tasks:
         annotator_obj = Annotation.objects.get(
             task_id=annot.task_id, parent_annotation_id=None
@@ -347,6 +347,8 @@ def get_translation_quality_reports(
 
         str1 = annotator_obj.result[0]["value"]["text"]
         str2 = reviewer_obj[0].result[0]["value"]["text"]
+        lead_time = reviewer_obj[0].lead_time
+        total_lead_time.append(lead_time)
 
         data = {"sentence1": str1[0], "sentence2": str2[0]}
         try:
@@ -397,7 +399,6 @@ def get_translation_quality_reports(
         avg_bleu_score = "no accepted with changes tasks"
         avg_char_score = "no accepted with changes tasks"
 
-    total_lead_time = [annot.lead_time for annot in all_reviewd_tasks]
     avg_lead_time = 0
     if len(total_lead_time) > 0:
         avg_lead_time = sum(total_lead_time) / len(total_lead_time)
