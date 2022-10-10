@@ -16,6 +16,8 @@ from tasks.models import Annotation
 from projects.utils import is_valid_date
 from datetime import datetime
 from users.serializers import UserFetchSerializer
+from users.views import get_role_name
+
 
 from .serializers import (
     UnAssignManagerSerializer,
@@ -96,6 +98,7 @@ def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_
 def get_review_reports(proj_ids, userid, start_date, end_date):
 
     user = User.objects.get(id=userid)
+    role = get_role_name(user.role)
     userName = user.username
 
     reviewer_languages = user.languages
@@ -146,6 +149,7 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
     result = {
         "Reviewer Name": userName,
+        "User Role": role,
         "Language": reviewer_languages,
         "Assigned": total_task_count,
         "Accepted": accepted_objs_count,

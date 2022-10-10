@@ -27,6 +27,7 @@ from drf_yasg.utils import swagger_auto_schema
 import csv
 from django.http import StreamingHttpResponse
 from tasks.views import SentenceOperationViewSet
+from users.views import get_role_name
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -539,6 +540,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         result = []
         for annotator in annotators:
+            role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
@@ -590,6 +592,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             result.append(
                 {
                     "Translator": name,
+                    "User Role": role,
                     "Language": annotator.languages,
                     "Reviewed": all_reviewd_tasks_count,
                     "Accepted": accepted_count,
@@ -722,6 +725,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
         result = []
         for annotator in annotators:
+            role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
@@ -791,6 +795,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -813,6 +818,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -835,6 +841,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -856,6 +863,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
