@@ -42,6 +42,18 @@ def generate_random_string(length=12):
     )
 
 
+def get_role_name(num):
+
+    if num == 1:
+        return "Annotator"
+    elif num == 2:
+        return "Workspace Manager"
+    elif num == 3:
+        return "Organization Owner"
+    else:
+        return "Role Not Define"
+
+
 class InviteViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @permission_classes((IsAuthenticated,))

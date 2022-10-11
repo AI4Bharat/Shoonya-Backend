@@ -27,6 +27,7 @@ from drf_yasg.utils import swagger_auto_schema
 import csv
 from django.http import StreamingHttpResponse
 from tasks.views import SentenceOperationViewSet
+from users.views import get_role_name
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -335,7 +336,7 @@ def get_translation_quality_reports(
 
     bleu_score_error_count = 0
     char_score_error_count = 0
-
+    total_lead_time = []
     for annot in accepted_with_changes_tasks:
         annotator_obj = Annotation.objects.get(
             task_id=annot.task_id, parent_annotation_id=None
@@ -346,6 +347,8 @@ def get_translation_quality_reports(
 
         str1 = annotator_obj.result[0]["value"]["text"]
         str2 = reviewer_obj[0].result[0]["value"]["text"]
+        lead_time = reviewer_obj[0].lead_time
+        total_lead_time.append(lead_time)
 
         data = {"sentence1": str1[0], "sentence2": str2[0]}
         try:
@@ -396,7 +399,6 @@ def get_translation_quality_reports(
         avg_bleu_score = "no accepted with changes tasks"
         avg_char_score = "no accepted with changes tasks"
 
-    total_lead_time = [annot.lead_time for annot in all_reviewd_tasks]
     avg_lead_time = 0
     if len(total_lead_time) > 0:
         avg_lead_time = sum(total_lead_time) / len(total_lead_time)
@@ -536,61 +538,60 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "'To' Date should be after 'From' Date"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if tgt_language == None:
+            annotators = User.objects.filter(organization=organization).order_by(
+                "username"
+            )
+        else:
+            proj_objects = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                tgt_language=tgt_language,
+            )
+
+            proj_users_list = [
+                list(pro_obj.annotators.all()) for pro_obj in proj_objects
+            ]
+            proj_users = sum(proj_users_list, [])
+            annotators = list(set(proj_users))
 
         result = []
         for annotator in annotators:
+            role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
+            user_lang_filter = User.objects.get(id=user_id)
+            user_lang = user_lang_filter.languages
             if tgt_language == None:
-                user_lang_filter = User.objects.get(id=user_id)
-                user_lang = user_lang_filter.languages
                 selected_language = user_lang
                 if "English" in selected_language:
                     selected_language.remove("English")
-                (
-                    all_reviewd_tasks_count,
-                    accepted_count,
-                    reviewed_except_accepted,
-                    accepted_with_changes_tasks_count,
-                    avg_char_score,
-                    avg_bleu_score,
-                    avg_lead_time,
-                ) = get_translation_quality_reports(
-                    pk,
-                    annotator,
-                    project_type,
-                    start_date,
-                    end_date,
-                    is_translation_project,
-                )
-
             else:
                 selected_language = tgt_language
-                list_of_user_languages = annotator.languages
-                if tgt_language != None and tgt_language not in list_of_user_languages:
-                    continue
-                (
-                    all_reviewd_tasks_count,
-                    accepted_count,
-                    reviewed_except_accepted,
-                    accepted_with_changes_tasks_count,
-                    avg_char_score,
-                    avg_bleu_score,
-                    avg_lead_time,
-                ) = get_translation_quality_reports(
-                    pk,
-                    annotator,
-                    project_type,
-                    start_date,
-                    end_date,
-                    is_translation_project,
-                    tgt_language,
-                )
+            (
+                all_reviewd_tasks_count,
+                accepted_count,
+                reviewed_except_accepted,
+                accepted_with_changes_tasks_count,
+                avg_char_score,
+                avg_bleu_score,
+                avg_lead_time,
+            ) = get_translation_quality_reports(
+                pk,
+                annotator,
+                project_type,
+                start_date,
+                end_date,
+                is_translation_project,
+                None if tgt_language == None else tgt_language,
+            )
+
             result.append(
                 {
                     "Translator": name,
-                    "Language": annotator.languages,
+                    "User Role": role,
+                    "Language": selected_language,
                     "Reviewed": all_reviewd_tasks_count,
                     "Accepted": accepted_count,
                     "(Accepted/Reviewed) Percentage": reviewed_except_accepted,
@@ -619,7 +620,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
         user_id = request.user.id
-        annotators = User.objects.filter(organization=organization).order_by("username")
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
@@ -720,70 +720,62 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 "message": "You do not have enough permissions to access this view!"
             }
             return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
+
+        if tgt_language == None:
+            annotators = User.objects.filter(organization=organization).order_by(
+                "username"
+            )
+        else:
+            proj_objects = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                tgt_language=tgt_language,
+            )
+
+            proj_users_list = [
+                list(pro_obj.annotators.all()) for pro_obj in proj_objects
+            ]
+            proj_users = sum(proj_users_list, [])
+            annotators = list(set(proj_users))
+
         result = []
         for annotator in annotators:
+            role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
+            user_lang_filter = User.objects.get(id=user_id)
+            user_lang = user_lang_filter.languages
             if tgt_language == None:
-                user_lang_filter = User.objects.get(id=user_id)
-                user_lang = user_lang_filter.languages
                 selected_language = user_lang
                 if "English" in selected_language:
                     selected_language.remove("English")
-                (
-                    total_no_of_tasks_count,
-                    annotated_tasks_count,
-                    accepted,
-                    to_be_revised,
-                    accepted_with_changes,
-                    labeled,
-                    avg_lead_time,
-                    total_skipped_tasks_count,
-                    total_unlabeled_tasks_count,
-                    total_draft_tasks_count,
-                    no_of_projects,
-                    no_of_workspaces_objs,
-                    total_word_count,
-                ) = get_counts(
-                    pk,
-                    annotator,
-                    project_type,
-                    start_date,
-                    end_date,
-                    is_translation_project,
-                    only_review_proj,
-                )
-
             else:
                 selected_language = tgt_language
-                list_of_user_languages = annotator.languages
-                if tgt_language != None and tgt_language not in list_of_user_languages:
-                    continue
-                (
-                    total_no_of_tasks_count,
-                    annotated_tasks_count,
-                    accepted,
-                    to_be_revised,
-                    accepted_with_changes,
-                    labeled,
-                    avg_lead_time,
-                    total_skipped_tasks_count,
-                    total_unlabeled_tasks_count,
-                    total_draft_tasks_count,
-                    no_of_projects,
-                    no_of_workspaces_objs,
-                    total_word_count,
-                ) = get_counts(
-                    pk,
-                    annotator,
-                    project_type,
-                    start_date,
-                    end_date,
-                    is_translation_project,
-                    only_review_proj,
-                    tgt_language,
-                )
+            (
+                total_no_of_tasks_count,
+                annotated_tasks_count,
+                accepted,
+                to_be_revised,
+                accepted_with_changes,
+                labeled,
+                avg_lead_time,
+                total_skipped_tasks_count,
+                total_unlabeled_tasks_count,
+                total_draft_tasks_count,
+                no_of_projects,
+                no_of_workspaces_objs,
+                total_word_count,
+            ) = get_counts(
+                pk,
+                annotator,
+                project_type,
+                start_date,
+                end_date,
+                is_translation_project,
+                only_review_proj,
+                None if tgt_language == None else tgt_language,
+            )
 
             if is_translation_project:
                 if only_review_proj:
@@ -791,6 +783,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -813,6 +806,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -835,6 +829,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -856,6 +851,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
