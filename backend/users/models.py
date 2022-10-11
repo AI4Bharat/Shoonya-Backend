@@ -144,6 +144,24 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
 
+    FULL_TIME = 1
+    PART_TIME = 2
+    NA = 3
+
+    PARTICIPATION_TYPE_CHOICES = (
+        (FULL_TIME, "Full-Time"),
+        (PART_TIME, "Part-Time"),
+        (NA, "N/A"),
+    )
+
+    participation_type = models.PositiveSmallIntegerField(
+        choices=PARTICIPATION_TYPE_CHOICES,
+        blank=False,
+        null=False,
+        default=FULL_TIME,
+        help_text=("Indicates the type of participation of user."),
+    )
+
     unverified_email = models.EmailField(blank=True)
     old_email_update_code = models.CharField(max_length=256, blank=True)
     new_email_verification_code = models.CharField(max_length=256, blank=True)
