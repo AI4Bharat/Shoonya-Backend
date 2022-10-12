@@ -17,4 +17,5 @@ jobs:
           cd Shoonya-Backend
           git checkout develop2
           git pull
+          newgrp docker
           docker-compose -f docker-compose-prod.yml up --build -d
