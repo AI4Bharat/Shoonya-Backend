@@ -27,7 +27,7 @@ celery_app.conf.task_routes = {"functions.tasks.*": {"queue": "functions"}}
 celery_app.conf.beat_schedule = {
     "Send_mail_to_Client": {
         "task": "send_mail_task",
-        "schedule": crontab(minute=0, hour=6),  # execute every day at 1 am
+        "schedule": crontab(minute=0, hour=6),  # execute every day at 6 am
         #'args': (2,) you can pass arguments also if rquired
     }
 }
