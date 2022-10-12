@@ -109,6 +109,7 @@ If there were no errors, congratulations! The project is up and running.
 To run background tasks for project creation, we need to run the following command in the terminal. This has also been added into the `docker-compose.yml` file.
 ```bash 
 celery command - celery -A shoonya_backend.celery worker -l info
+celery command - celery -A shoonya_backend.celery beat --loglevel=info
 ``` 
 
 We can set the concurrency and autoscale in the process as well to manage the number of worker processes in the background. Read more [here](https://stackoverflow.com/a/72366865/9757174). 
