@@ -563,6 +563,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             proj_users = sum(proj_users_list, [])
             annotators = list(set(proj_users))
 
+        annotators = [
+            ann_user
+            for ann_user in annotators
+            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+        ]
+
         result = []
         for annotator in annotators:
             role = get_role_name(annotator.role)
@@ -675,7 +681,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             org_reviewer_list = []
             for review_project in review_projects:
                 reviewer_names_list = review_project.annotation_reviewers.all()
-                reviewer_ids = [name.id for name in reviewer_names_list]
+                reviewer_ids = [
+                    name.id
+                    for name in reviewer_names_list
+                    if (name.participation_type == 1 or name.participation_type == 2)
+                ]
                 org_reviewer_list.extend(reviewer_ids)
 
             org_reviewer_list = list(set(org_reviewer_list))
@@ -745,6 +755,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             ]
             proj_users = sum(proj_users_list, [])
             annotators = list(set(proj_users))
+
+        annotators = [
+            ann_user
+            for ann_user in annotators
+            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+        ]
 
         result = []
         for annotator in annotators:
