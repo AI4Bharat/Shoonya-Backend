@@ -14,7 +14,7 @@ jobs:
         username: ${{ secrets.DEV2_USERNAME }}
         password: ${{ secrets.DEV2_PASSWORD }}
         script: |
-          cd DMU-DataDaan
+          cd Shoonya-Backend
           git checkout develop2
           git pull
           docker-compose -f docker-compose-prod.yml up --build -d
