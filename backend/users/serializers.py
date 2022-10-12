@@ -29,6 +29,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "availability_status",
             "phone",
             "enable_mail",
+            "participation_type",
         ]
         read_only_fields = ["email"]
 
@@ -52,6 +53,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "organization",
             "unverified_email",
             "date_joined",
+            "participation_type",
         ]
         read_only_fields = [
             "id",
