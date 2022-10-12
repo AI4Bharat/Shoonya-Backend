@@ -339,6 +339,9 @@ def get_translation_quality_reports(
         end_date,
         parent_annotation_bool=True,
     )
+    accepted_wt_minor_changes, accepted_wt_major_changes = minor_major_accepted_task(
+        accepted_with_changes_tasks
+    )
     total_bleu_score = 0
     total_char_score = 0
 
@@ -416,7 +419,8 @@ def get_translation_quality_reports(
         all_reviewd_tasks_count,
         accepted_count,
         reviewed_except_accepted,
-        accepted_with_changes_tasks.count(),
+        accepted_wt_minor_changes,
+        accepted_wt_major_changes,
         avg_char_score,
         avg_bleu_score,
         avg_lead_time,
@@ -589,7 +593,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 all_reviewd_tasks_count,
                 accepted_count,
                 reviewed_except_accepted,
-                accepted_with_changes_tasks_count,
+                accepted_wt_minor_changes,
+                accepted_wt_major_changes,
                 avg_char_score,
                 avg_bleu_score,
                 avg_lead_time,
@@ -611,7 +616,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Reviewed": all_reviewd_tasks_count,
                     "Accepted": accepted_count,
                     "(Accepted/Reviewed) Percentage": reviewed_except_accepted,
-                    "Accepted With Changes": accepted_with_changes_tasks_count,
+                    "Accepted With Minor Changes": accepted_wt_minor_changes,
+                    "Accepted With Major Changes": accepted_wt_major_changes,
                     "Avg Character Edit Distance Score": avg_char_score,
                     "Average BLEU Score": avg_bleu_score,
                     "Avg Lead Time": avg_lead_time,
