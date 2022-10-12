@@ -17,6 +17,7 @@ from projects.utils import is_valid_date
 from datetime import datetime
 from users.serializers import UserFetchSerializer
 from users.views import get_role_name
+from projects.utils import minor_major_accepted_task
 
 
 from .serializers import (
@@ -134,8 +135,8 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     )
-
-    acceptedwtchange_objs_count = acceptedwtchange_objs.count()
+    minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
+    # acceptedwtchange_objs_count = acceptedwtchange_objs.count()
 
     labeled_tasks = Task.objects.filter(
         project_id__in=proj_ids, review_user=userid, task_status="labeled"
@@ -153,7 +154,8 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
         "Language": reviewer_languages,
         "Assigned": total_task_count,
         "Accepted": accepted_objs_count,
-        "Accepted With Changes": acceptedwtchange_objs_count,
+        "Accepted With Minor Changes": minor_changes,
+        "Accepted With Major Changes": major_changes,
         "Unreviewed": labeled_tasks_count,
         "To Be Revised": to_be_revised_tasks_count,
     }
@@ -186,6 +188,9 @@ def un_pack_annotation_tasks(
         start_date,
         end_date,
     )
+    accepted_wt_minor_changes, accepted_wt_major_changes = minor_major_accepted_task(
+        accepted_with_changes
+    )
     labeled = get_annotated_tasks(
         proj_ids,
         each_annotation_user,
@@ -215,7 +220,8 @@ def un_pack_annotation_tasks(
     return (
         accepted.count(),
         to_be_revised.count(),
-        accepted_with_changes.count(),
+        accepted_wt_minor_changes,
+        accepted_wt_major_changes,
         labeled.count(),
         avg_lead_time,
         total_word_count,
@@ -856,7 +862,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 (
                     accepted,
                     to_be_revised,
-                    accepted_with_changes,
+                    accepted_wt_minor_changes,
+                    accepted_wt_major_changes,
                     labeled,
                     avg_lead_time,
                     total_word_count,
@@ -913,7 +920,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         "Assigned": assigned_tasks,
                         "Labeled": labeled,
                         "Accepted": accepted,
-                        "Accepted With Changes": accepted_with_changes,
+                        "Accepted With Minor Changes": accepted_wt_minor_changes,
+                        "Accepted With Major Changes": accepted_wt_major_changes,
                         "To Be Revised": to_be_revised,
                         "Unlabeled": all_pending_tasks_in_project,
                         "Skipped": total_skipped_tasks,
@@ -945,7 +953,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         "Assigned": assigned_tasks,
                         "Labeled": labeled,
                         "Accepted": accepted,
-                        "Accepted With Changes": accepted_with_changes,
+                        "Accepted With Minor Changes": accepted_wt_minor_changes,
+                        "Accepted With Major Changes": accepted_wt_major_changes,
                         "To Be Revised": to_be_revised,
                         "Unlabeled": all_pending_tasks_in_project,
                         "Skipped": total_skipped_tasks,
