@@ -2,6 +2,9 @@ from typing import Tuple
 from dateutil.parser import parse as date_parse
 import re
 import nltk
+from tasks.models import Annotation
+from tasks.views import SentenceOperationViewSet
+
 
 nltk.download("punkt")
 
@@ -47,3 +50,36 @@ def conversation_sentence_count(conversations: list) -> int:
     Returns the total sentence count of the Conversation DatasetInstance type
     """
     return sum(len(conversation["sentences"]) for conversation in conversations)
+
+
+def minor_major_accepted_task(annotation_objs):
+    sentence_operation = SentenceOperationViewSet()
+
+    minor, major = [], []
+    for annot in annotation_objs:
+        annotator_obj = Annotation.objects.get(
+            task_id=annot.task_id, parent_annotation_id=None
+        )
+        reviewer_obj = Annotation.objects.filter(
+            task_id=annot.task_id, parent_annotation_id__isnull=False
+        )
+
+        str1 = annotator_obj.result[0]["value"]["text"]
+        str2 = reviewer_obj[0].result[0]["value"]["text"]
+        data = {"sentence1": str1[0], "sentence2": str2[0]}
+        try:
+            char_level_distance = (
+                sentence_operation.calculate_normalized_character_level_edit_distance(
+                    data
+                )
+            )
+            char_score = char_level_distance.data[
+                "normalized_character_level_edit_distance"
+            ]
+            if char_score > 0.3:
+                major.append(annot)
+            else:
+                minor.append(annot)
+        except:
+            pass
+    return len(minor), len(major)

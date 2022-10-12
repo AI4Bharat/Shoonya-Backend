@@ -51,7 +51,7 @@ def get_role_name(num):
     elif num == 3:
         return "Organization Owner"
     else:
-        return "Role Not Define"
+        return "Role Not Defined"
 
 
 class InviteViewSet(viewsets.ViewSet):

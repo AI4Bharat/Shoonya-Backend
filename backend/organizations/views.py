@@ -28,6 +28,7 @@ import csv
 from django.http import StreamingHttpResponse
 from tasks.views import SentenceOperationViewSet
 from users.views import get_role_name
+from projects.utils import minor_major_accepted_task
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -105,6 +106,9 @@ def un_pack_annotation_tasks(
         start_date,
         end_date,
     )
+    accepted_wt_minor_changes, accepted_wt_major_changes = minor_major_accepted_task(
+        accepted_with_changes
+    )
     labeled = get_annotated_tasks(
         proj_ids,
         each_annotation_user,
@@ -134,7 +138,8 @@ def un_pack_annotation_tasks(
     return (
         accepted.count(),
         to_be_revised.count(),
-        accepted_with_changes.count(),
+        accepted_wt_minor_changes,
+        accepted_wt_major_changes,
         labeled.count(),
         avg_lead_time,
         total_word_count,
@@ -155,7 +160,8 @@ def get_counts(
     annotated_tasks = 0
     accepted = 0
     to_be_revised = 0
-    accepted_with_changes = 0
+    accepted_wt_minor_changes = 0
+    accepted_wt_major_changes = 0
     labeled = 0
     if tgt_language == None:
         if only_review_proj == None:
@@ -203,7 +209,8 @@ def get_counts(
         (
             accepted,
             to_be_revised,
-            accepted_with_changes,
+            accepted_wt_minor_changes,
+            accepted_wt_major_changes,
             labeled,
             avg_lead_time,
             total_word_count,
@@ -250,7 +257,8 @@ def get_counts(
         annotated_tasks,
         accepted,
         to_be_revised,
-        accepted_with_changes,
+        accepted_wt_minor_changes,
+        accepted_wt_major_changes,
         labeled,
         avg_lead_time,
         total_skipped_tasks,
@@ -757,7 +765,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 annotated_tasks_count,
                 accepted,
                 to_be_revised,
-                accepted_with_changes,
+                accepted_wt_minor_changes,
+                accepted_wt_major_changes,
                 labeled,
                 avg_lead_time,
                 total_skipped_tasks_count,
@@ -791,7 +800,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Assigned": total_no_of_tasks_count,
                             "Labeled": labeled,
                             "Accepted": accepted,
-                            "Accepted With Changes": accepted_with_changes,
+                            "Accepted With Minor Changes": accepted_wt_minor_changes,
+                            "Accepted With Major Changes": accepted_wt_major_changes,
                             "To Be Revised": to_be_revised,
                             "Unlabeled": total_unlabeled_tasks_count,
                             "Skipped": total_skipped_tasks_count,
@@ -837,7 +847,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Assigned": total_no_of_tasks_count,
                             "Labeled": labeled,
                             "Accepted": accepted,
-                            "Accepted With Changes": accepted_with_changes,
+                            "Accepted With Minor Changes": accepted_wt_minor_changes,
+                            "Accepted With Major Changes": accepted_wt_major_changes,
                             "To Be Revised": to_be_revised,
                             "Unlabeled": total_unlabeled_tasks_count,
                             "Skipped": total_skipped_tasks_count,
