@@ -563,8 +563,16 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             proj_users = sum(proj_users_list, [])
             annotators = list(set(proj_users))
 
+        annotators = [
+            ann_user
+            for ann_user in annotators
+            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+        ]
+
         result = []
         for annotator in annotators:
+            participation_type = annotator.participation_type
+            participation_type = "Full Time" if participation_type == 1 else "Part Time"
             role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
@@ -598,7 +606,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             result.append(
                 {
                     "Translator": name,
-                    "User Role": role,
+                    "Email": email,
                     "Language": selected_language,
                     "Reviewed": all_reviewd_tasks_count,
                     "Accepted": accepted_count,
@@ -607,6 +615,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Avg Character Edit Distance Score": avg_char_score,
                     "Average BLEU Score": avg_bleu_score,
                     "Avg Lead Time": avg_lead_time,
+                    "Participation Type": participation_type,
+                    "User Role": role,
                 }
             )
         final_result = sorted(
@@ -675,7 +685,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             org_reviewer_list = []
             for review_project in review_projects:
                 reviewer_names_list = review_project.annotation_reviewers.all()
-                reviewer_ids = [name.id for name in reviewer_names_list]
+                reviewer_ids = [
+                    name.id
+                    for name in reviewer_names_list
+                    if (name.participation_type == 1 or name.participation_type == 2)
+                ]
                 org_reviewer_list.extend(reviewer_ids)
 
             org_reviewer_list = list(set(org_reviewer_list))
@@ -746,8 +760,16 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             proj_users = sum(proj_users_list, [])
             annotators = list(set(proj_users))
 
+        annotators = [
+            ann_user
+            for ann_user in annotators
+            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+        ]
+
         result = []
         for annotator in annotators:
+            participation_type = annotator.participation_type
+            participation_type = "Full Time" if participation_type == 1 else "Part Time"
             role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
@@ -792,7 +814,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
-                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -810,13 +831,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Average Annotation Time (In Seconds)": round(
                                 avg_lead_time, 2
                             ),
+                            "Participation Type": participation_type,
+                            "User Role": role,
                         }
                     )
                 else:
                     result.append(
                         {
                             "Annotator": name,
-                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -830,6 +852,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Average Annotation Time (In Seconds)": round(
                                 avg_lead_time, 2
                             ),
+                            "Participation Type": participation_type,
+                            "User Role": role,
                         }
                     )
 
@@ -839,7 +863,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
-                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -856,13 +879,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Average Annotation Time (In Seconds)": round(
                                 avg_lead_time, 2
                             ),
+                            "Participation Type": participation_type,
+                            "User Role": role,
                         }
                     )
                 else:
                     result.append(
                         {
                             "Annotator": name,
-                            "User Role": role,
                             "Email": email,
                             "Language": selected_language,
                             "No. of Workspaces": no_of_workspaces_objs,
@@ -875,6 +899,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Average Annotation Time (In Seconds)": round(
                                 avg_lead_time, 2
                             ),
+                            "Participation Type": participation_type,
+                            "User Role": role,
                         }
                     )
 
@@ -1042,9 +1068,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 result = {
                     "Project Id": project_id,
                     "Project Name": project_name,
-                    "Project Type": project_type,
                     "Language": selected_language,
-                    "No.Of Annotators Assigned": no_of_annotators_assigned,
+                    "No. of Annotators Assigned": no_of_annotators_assigned,
                     "Total": total_tasks,
                     "Annotated": labeled_count,
                     "Unlabeled": un_labeled_count,

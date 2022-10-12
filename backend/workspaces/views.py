@@ -99,6 +99,8 @@ def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_
 def get_review_reports(proj_ids, userid, start_date, end_date):
 
     user = User.objects.get(id=userid)
+    participation_type = user.participation_type
+    participation_type = "Full Time" if participation_type == 1 else "Part Time"
     role = get_role_name(user.role)
     userName = user.username
 
@@ -150,6 +152,7 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
     result = {
         "Reviewer Name": userName,
+        "Participation Type": participation_type,
         "User Role": role,
         "Language": reviewer_languages,
         "Assigned": total_task_count,
