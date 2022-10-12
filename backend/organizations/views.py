@@ -571,6 +571,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         result = []
         for annotator in annotators:
+            participation_type = annotator.participation_type
+            participation_type = "Full Time" if participation_type == 1 else "Part Time"
             role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
@@ -604,6 +606,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             result.append(
                 {
                     "Translator": name,
+                    "Participation Type": participation_type,
                     "User Role": role,
                     "Language": selected_language,
                     "Reviewed": all_reviewd_tasks_count,
@@ -764,6 +767,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         result = []
         for annotator in annotators:
+            participation_type = annotator.participation_type
+            participation_type = "Full Time" if participation_type == 1 else "Part Time"
             role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
@@ -808,6 +813,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "Participation Type": participation_type,
                             "User Role": role,
                             "Email": email,
                             "Language": selected_language,
@@ -832,6 +838,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "Participation Type": participation_type,
                             "User Role": role,
                             "Email": email,
                             "Language": selected_language,
@@ -855,6 +862,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "Participation Type": participation_type,
                             "User Role": role,
                             "Email": email,
                             "Language": selected_language,
@@ -878,6 +886,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     result.append(
                         {
                             "Annotator": name,
+                            "Participation Type": participation_type,
                             "User Role": role,
                             "Email": email,
                             "Language": selected_language,
