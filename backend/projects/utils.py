@@ -57,17 +57,18 @@ def minor_major_accepted_task(annotation_objs):
 
     minor, major = [], []
     for annot in annotation_objs:
-        annotator_obj = Annotation.objects.get(
-            task_id=annot.task_id, parent_annotation_id=None
-        )
-        reviewer_obj = Annotation.objects.filter(
-            task_id=annot.task_id, parent_annotation_id__isnull=False
-        )
-
-        str1 = annotator_obj.result[0]["value"]["text"]
-        str2 = reviewer_obj[0].result[0]["value"]["text"]
-        data = {"sentence1": str1[0], "sentence2": str2[0]}
         try:
+            annotator_obj = Annotation.objects.get(
+                task_id=annot.task_id, parent_annotation_id=None
+            )
+            reviewer_obj = Annotation.objects.filter(
+                task_id=annot.task_id, parent_annotation_id__isnull=False
+            )
+
+            str1 = annotator_obj.result[0]["value"]["text"]
+            str2 = reviewer_obj[0].result[0]["value"]["text"]
+            data = {"sentence1": str1[0], "sentence2": str2[0]}
+
             char_level_distance = (
                 sentence_operation.calculate_normalized_character_level_edit_distance(
                     data
@@ -82,4 +83,5 @@ def minor_major_accepted_task(annotation_objs):
                 minor.append(annot)
         except:
             pass
+
     return len(minor), len(major)
