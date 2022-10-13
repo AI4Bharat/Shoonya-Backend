@@ -576,7 +576,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         result = []
         for annotator in annotators:
             participation_type = annotator.participation_type
-            participation_type = "Full Time" if participation_type == 1 else "Part Time"
+            participation_type = (
+                "Full Time"
+                if participation_type == 1
+                else "Part Time"
+                if participation_type == 2
+                else "N/A"
+            )
             role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
@@ -775,7 +781,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         result = []
         for annotator in annotators:
             participation_type = annotator.participation_type
-            participation_type = "Full Time" if participation_type == 1 else "Part Time"
+            participation_type = (
+                "Full Time"
+                if participation_type == 1
+                else "Part Time"
+                if participation_type == 2
+                else "N/A"
+            )
             role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username

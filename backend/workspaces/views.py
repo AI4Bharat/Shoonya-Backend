@@ -100,7 +100,13 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
     user = User.objects.get(id=userid)
     participation_type = user.participation_type
-    participation_type = "Full Time" if participation_type == 1 else "Part Time"
+    participation_type = (
+        "Full Time"
+        if participation_type == 1
+        else "Part Time"
+        if participation_type == 2
+        else "N/A"
+    )
     role = get_role_name(user.role)
     userName = user.username
     email = user.email
@@ -660,101 +666,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
     @action(
         detail=True,
         methods=["POST"],
-        name="Workspace level Reviewer Reports",
-        url_path="reviewer_reports",
-        url_name="reviewer_reports",
-    )
-    def reviewer_reports(self, request, pk=None):
-        """
-        API for getting Workspace level Reviewer Reports
-        """
-        try:
-            ws = Workspace.objects.get(pk=pk)
-        except Workspace.DoesNotExist:
-            return Response(
-                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        user_id = request.user.id
-        from_date = request.data.get("from_date")
-        to_date = request.data.get("to_date")
-        from_date = from_date + " 00:00"
-        to_date = to_date + " 23:59"
-        tgt_language = request.data.get("tgt_language")
-        # enable_task_reviews = request.data.get("enable_task_reviews")
-
-        cond, invalid_message = is_valid_date(from_date)
-        if not cond:
-            return Response(
-                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
-            )
-        cond, invalid_message = is_valid_date(to_date)
-        if not cond:
-            return Response(
-                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
-            )
-        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
-        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
-
-        if start_date > end_date:
-            return Response(
-                {"message": "'To' Date should be after 'From' Date"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        proj_objs = Project.objects.filter(workspace_id=pk)
-        review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
-
-        workspace_reviewer_list = []
-        for review_project in review_projects:
-            reviewer_names_list = review_project.annotation_reviewers.all()
-            reviewer_ids = [name.id for name in reviewer_names_list]
-            workspace_reviewer_list.extend(reviewer_ids)
-
-        workspace_reviewer_list = list(set(workspace_reviewer_list))
-        final_reports = []
-
-        if (
-            request.user.role == User.ORGANIZATION_OWNER
-            or request.user.role == User.WORKSPACE_MANAGER
-            or request.user.is_superuser
-        ):
-
-            for id in workspace_reviewer_list:
-                reviewer_projs = Project.objects.filter(
-                    workspace_id=pk, annotation_reviewers=id
-                )
-                reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
-
-                result = get_review_reports(
-                    reviewer_projs_ids, id, start_date, end_date
-                )
-                final_reports.append(result)
-        elif user_id in workspace_reviewer_list:
-            reviewer_projs = Project.objects.filter(
-                workspace_id=pk, annotation_reviewers=user_id
-            )
-            reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
-
-            result = get_review_reports(
-                reviewer_projs_ids, user_id, start_date, end_date
-            )
-            final_reports.append(result)
-
-        else:
-            final_reports = {
-                "message": "You do not have enough permissions to access this view!"
-            }
-
-        return Response(final_reports)
-
-    @action(
-        detail=True,
-        methods=["POST"],
         name="Workspace member Details",
         url_path="user_analytics",
         url_name="user_analytics",
     )
-    @is_particular_workspace_manager
     def user_analytics(self, request, pk=None):
         """
         API for getting user_analytics of a workspace
@@ -775,12 +690,17 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             org_owner = org_obj.created_by.get_username()
         except:
             org_owner = ""
+        user_id = request.user.id
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
         to_date = to_date + " 23:59"
         only_review_proj = request.data.get("only_review_projects")
+        reports_type = request.data.get("reports_type")
         tgt_language = request.data.get("tgt_language")
+        project_type = request.data.get("project_type")
+        project_type_lower = project_type.lower()
+        is_translation_project = True if "translation" in project_type_lower else False
         # enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
@@ -801,14 +721,75 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 {"message": "'To' Date should be after 'From' Date"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if reports_type == "review":
+
+            proj_objs = Project.objects.filter(workspace_id=pk)
+            review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
+
+            workspace_reviewer_list = []
+            for review_project in review_projects:
+                reviewer_names_list = review_project.annotation_reviewers.all()
+                reviewer_ids = [name.id for name in reviewer_names_list]
+                workspace_reviewer_list.extend(reviewer_ids)
+
+            workspace_reviewer_list = list(set(workspace_reviewer_list))
+            final_reports = []
+
+            if (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.role == User.WORKSPACE_MANAGER
+                or request.user.is_superuser
+            ):
+
+                for id in workspace_reviewer_list:
+                    reviewer_projs = Project.objects.filter(
+                        workspace_id=pk, annotation_reviewers=id
+                    )
+                    reviewer_projs_ids = [
+                        review_proj.id for review_proj in reviewer_projs
+                    ]
+
+                    result = get_review_reports(
+                        reviewer_projs_ids, id, start_date, end_date
+                    )
+                    final_reports.append(result)
+            elif user_id in workspace_reviewer_list:
+                reviewer_projs = Project.objects.filter(
+                    workspace_id=pk, annotation_reviewers=user_id
+                )
+                reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
+
+                result = get_review_reports(
+                    reviewer_projs_ids, user_id, start_date, end_date
+                )
+                final_reports.append(result)
+
+            else:
+                final_reports = {
+                    "message": "You do not have enough permissions to access this view!"
+                }
+
+            return Response(final_reports)
+
+        if not (
+            request.user.is_authenticated
+            and (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.role == User.WORKSPACE_MANAGER
+                or request.user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
+
         user_obj = list(ws.members.all())
         user_mail = [user.get_username() for user in ws.members.all()]
         user_name = [user.username for user in ws.members.all()]
         users_id = [user.id for user in ws.members.all()]
 
-        project_type = request.data.get("project_type")
-        project_type_lower = project_type.lower()
-        is_translation_project = True if "translation" in project_type_lower else False
         selected_language = "-"
         final_result = []
         for index, each_annotation_user in enumerate(users_id):
