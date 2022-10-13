@@ -71,6 +71,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     user = User.objects.get(id=userid)
     userName = user.username
+    email = user.email
 
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
@@ -116,6 +117,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     result = {
         "Reviewer Name": userName,
+        "Email": email,
         "Assigned": total_task_count,
         "Accepted": accepted_objs_count,
         "Accepted With Minor Changes": minor_changes,
