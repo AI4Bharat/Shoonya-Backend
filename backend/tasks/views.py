@@ -101,7 +101,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project = Project.objects.get(id=task.project_id.id)
         annotator = request.user
 
-        if annotator.role == User.ANNOTATOR and annotator != task.review_user:
+        if annotator != task.review_user:
             if annotator in project.annotators.all():
                 annotations = annotations.filter(completed_by=annotator)
             else:
@@ -165,7 +165,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             else:
-                if request.user.role == User.ANNOTATOR and not user_obj.is_superuser:
+                if request.user in Project.objects.get(id=request.query_params["project_id"]).annotators.all() and not user_obj.is_superuser:
                     queryset = Task.objects.filter(
                         project_id__exact=request.query_params["project_id"]
                     ).filter(annotation_users=user.id)
@@ -257,9 +257,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids.append(each_data["id"])
 
             if (
-                user.role == User.ANNOTATOR
-                and user
-                in Project.objects.get(
+                user in Project.objects.get(
                     id=request.query_params["project_id"]
                 ).annotators.all()
             ):
