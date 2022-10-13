@@ -109,6 +109,7 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
     )
     role = get_role_name(user.role)
     userName = user.username
+    email = user.email
 
     reviewer_languages = user.languages
 
@@ -158,6 +159,7 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
     result = {
         "Reviewer Name": userName,
+        "Email": email,
         "Participation Type": participation_type,
         "User Role": role,
         "Language": reviewer_languages,
