@@ -165,7 +165,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             else:
-                if request.user in Project.objects.get(id=request.query_params["project_id"]).annotators.all() and not user_obj.is_superuser:
+                if request.user in Project.objects.get(id=request.query_params["project_id"]).annotators.all():
                     queryset = Task.objects.filter(
                         project_id__exact=request.query_params["project_id"]
                     ).filter(annotation_users=user.id)
