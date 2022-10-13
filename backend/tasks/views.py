@@ -165,7 +165,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             else:
-                if request.user in Project.objects.get(id=request.query_params["project_id"]).annotators.all():
+                if (
+                    request.user
+                    in Project.objects.get(
+                        id=request.query_params["project_id"]
+                    ).annotators.all()
+                ):
                     queryset = Task.objects.filter(
                         project_id__exact=request.query_params["project_id"]
                     ).filter(annotation_users=user.id)
@@ -257,7 +262,8 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids.append(each_data["id"])
 
             if (
-                user in Project.objects.get(
+                user
+                in Project.objects.get(
                     id=request.query_params["project_id"]
                 ).annotators.all()
             ):
