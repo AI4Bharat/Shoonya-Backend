@@ -71,6 +71,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     user = User.objects.get(id=userid)
     userName = user.username
+    email = user.email
 
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
@@ -112,10 +113,19 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     to_be_revised_tasks = Task.objects.filter(
         project_id=proj_id, review_user=userid, task_status="to_be_revised"
     )
-    to_be_revised_tasks_count = to_be_revised_tasks.count()
+    to_be_revised_tasks_objs_ids = list(
+        to_be_revised_tasks.values_list("id", flat=True)
+    )
+    to_be_revised_objs = Annotation_model.objects.filter(
+        task_id__in=to_be_revised_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+    to_be_revised_tasks_count = to_be_revised_objs.count()
 
     result = {
         "Reviewer Name": userName,
+        "Email": email,
         "Assigned": total_task_count,
         "Accepted": accepted_objs_count,
         "Accepted With Minor Changes": minor_changes,
