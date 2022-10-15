@@ -158,7 +158,7 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
     to_be_revised_tasks_objs_ids = list(
         to_be_revised_tasks.values_list("id", flat=True)
     )
-    to_be_revised_objs = Annotation_model.objects.filter(
+    to_be_revised_objs = Annotation.objects.filter(
         task_id__in=to_be_revised_tasks_objs_ids,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
