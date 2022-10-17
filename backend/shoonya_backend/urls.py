@@ -1,12 +1,18 @@
 import os
 from django.contrib import admin
 from django.urls import path, include, re_path
+from macpath import basename
 from rest_framework import permissions
 from rest_framework import routers
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from drf_yasg.generators import OpenAPISchemaGenerator
-from tasks.views import TaskViewSet, AnnotationViewSet, PredictionViewSet
+from tasks.views import (
+    TaskViewSet,
+    AnnotationViewSet,
+    PredictionViewSet,
+    SentenceOperationViewSet,
+)
 
 
 class BothHttpAndHttpsSchemaGenerator(OpenAPISchemaGenerator):
@@ -59,5 +65,8 @@ router = routers.DefaultRouter()
 router.register(r"task", TaskViewSet, basename="task")
 router.register(r"annotation", AnnotationViewSet, basename="annotation")
 router.register(r"prediction", PredictionViewSet, basename="prediction")
+router.register(
+    r"sentenceoperation", SentenceOperationViewSet, basename="sentenceoperation"
+)
 
 urlpatterns += router.urls

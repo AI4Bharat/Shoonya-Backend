@@ -46,7 +46,7 @@ from .decorators import (
     project_is_archived,
     project_is_published,
 )
-from .utils import is_valid_date, no_of_words
+from .utils import is_valid_date, no_of_words, minor_major_accepted_task
 
 from workspaces.decorators import is_particular_workspace_manager
 
@@ -71,6 +71,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     user = User.objects.get(id=userid)
     userName = user.username
+    email = user.email
 
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
@@ -102,7 +103,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         updated_at__range=[start_date, end_date],
     )
 
-    acceptedwtchange_objs_count = acceptedwtchange_objs.count()
+    minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
     labeled_tasks = Task.objects.filter(
         project_id=proj_id, review_user=userid, task_status="complete"
@@ -112,15 +113,25 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     to_be_revised_tasks = Task.objects.filter(
         project_id=proj_id, review_user=userid, task_status="to_be_revised"
     )
-    to_be_revised_tasks_count = to_be_revised_tasks.count()
+    to_be_revised_tasks_objs_ids = list(
+        to_be_revised_tasks.values_list("id", flat=True)
+    )
+    to_be_revised_objs = Annotation_model.objects.filter(
+        task_id__in=to_be_revised_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+    to_be_revised_tasks_count = to_be_revised_objs.count()
 
     result = {
         "Reviewer Name": userName,
-        "Assigned Tasks": total_task_count,
-        "Accepted Tasks": accepted_objs_count,
-        "Accepted With Changes Tasks": acceptedwtchange_objs_count,
-        "Labeled Tasks": labeled_tasks_count,
-        "To Be Revised Tasks": to_be_revised_tasks_count,
+        "Email": email,
+        "Assigned": total_task_count,
+        "Accepted": accepted_objs_count,
+        "Accepted With Minor Changes": minor_changes,
+        "Accepted With Major Changes": major_changes,
+        "Labeled": labeled_tasks_count,
+        "To Be Revised": to_be_revised_tasks_count,
     }
     return result
 
@@ -870,9 +881,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "No tasks left for assignment in this project"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        # filter out tasks which meet the annotator count threshold
-        # and assign the ones with least count to user, so as to maintain uniformity
-        tasks = tasks.order_by("annotator_count")[:tasks_to_be_assigned]
+        tasks = tasks[:tasks_to_be_assigned]
         # tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
@@ -1252,13 +1261,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 Q(project_id=pk) & Q(annotation_users=each_annotator)
             )
             assigned_tasks = all_tasks_in_project.count()
-            items.append(("Assigned Tasks", assigned_tasks))
+            items.append(("Assigned", assigned_tasks))
 
             # get accepted tasks
             annotated_accept_tasks = get_annotated_tasks(
                 pk, each_annotator, "accepted", start_date, end_date
             )
-            items.append(("Accepted Tasks", annotated_accept_tasks.count()))
+            items.append(("Accepted", annotated_accept_tasks.count()))
 
             proj = Project.objects.get(id=pk)
             if proj.enable_task_reviews:
@@ -1266,21 +1275,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 accepted_wt_tasks = get_annotated_tasks(
                     pk, each_annotator, "accepted_with_changes", start_date, end_date
                 )
-                items.append(
-                    ("Accepted With Changes  Tasks", accepted_wt_tasks.count())
+
+                minor_changes, major_changes = minor_major_accepted_task(
+                    accepted_wt_tasks
                 )
+
+                items.append(("Accepted With Minor Changes", minor_changes))
+
+                items.append(("Accepted With Major Changes", major_changes))
 
                 # get labeled task count
                 labeled_tasks = get_annotated_tasks(
                     pk, each_annotator, "complete", start_date, end_date
                 )
-                items.append(("Labeled Tasks", labeled_tasks.count()))
+                items.append(("Labeled", labeled_tasks.count()))
 
                 # get to_be_revised count
                 to_be_revised_tasks = get_annotated_tasks(
                     pk, each_annotator, "to_be_revised", start_date, end_date
                 )
-                items.append(("To Be Revised Tasks", to_be_revised_tasks.count()))
+                items.append(("To Be Revised", to_be_revised_tasks.count()))
             # get unlabeled count
             total_unlabeled_tasks_count = Annotation_model.objects.filter(
                 task__project_id=pk,
@@ -1521,7 +1535,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             tasks = Task.objects.filter(project_id=project.id)
             # delete review annotations for review tasks
-            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, TO_BE_REVISED, EXPORTED])
+            reviewed_tasks = tasks.filter(
+                task_status__in=[ACCEPTED, TO_BE_REVISED, EXPORTED]
+            )
             Annotation_model.objects.filter(task__in=reviewed_tasks).exclude(
                 parent_annotation__isnull=True
             ).delete()
@@ -1687,6 +1703,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
             )
+
+            if export_type == "TSV":
+                content_type = "application/.tsv"
+                filename = filename.split(".")
+                filename[-1] = "tsv"
+                filename = ".".join(filename)
 
             response = HttpResponse(File(export_stream), content_type=content_type)
             response["Content-Disposition"] = 'attachment; filename="%s"' % filename

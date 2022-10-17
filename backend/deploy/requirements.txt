@@ -23,3 +23,8 @@ django-celery-results
 google
 google-cloud-translate
 nltk
+schedule
+django-celery-beat
+levenshtein
+pretty-html-table
+sacrebleu

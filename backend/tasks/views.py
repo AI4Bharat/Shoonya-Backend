@@ -1,3 +1,4 @@
+from locale import normalize
 from urllib.parse import unquote
 
 from rest_framework import viewsets
@@ -23,6 +24,11 @@ from utils.search import process_search_query
 
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
+
+from rapidfuzz.distance import Levenshtein
+import sacrebleu
+
+from utils.date_time_conversions import utc_to_ist
 
 # Create your views here.
 
@@ -95,7 +101,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project = Project.objects.get(id=task.project_id.id)
         annotator = request.user
 
-        if annotator.role == User.ANNOTATOR and annotator != task.review_user:
+        if annotator != task.review_user:
             if annotator in project.annotators.all():
                 annotations = annotations.filter(completed_by=annotator)
             else:
@@ -160,7 +166,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             else:
-                if request.user.role == User.ANNOTATOR and not user_obj.is_superuser:
+                if (
+                    request.user
+                    in Project.objects.get(
+                        id=request.query_params["project_id"]
+                    ).annotators.all()
+                ):
                     queryset = Task.objects.filter(
                         project_id__exact=request.query_params["project_id"]
                     ).filter(annotation_users=user.id)
@@ -252,8 +263,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids.append(each_data["id"])
 
             if (
-                user.role == User.ANNOTATOR
-                and user
+                user
                 in Project.objects.get(
                     id=request.query_params["project_id"]
                 ).annotators.all()
@@ -392,6 +402,159 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "status": status.HTTP_400_BAD_REQUEST,
                     "message": "Invalid Parameters in the request body!",
                 }
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "task_type": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["user_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "page",
+                openapi.IN_QUERY,
+                description=("A integer refering to page no of paginated response"),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "records",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to no of records in single page of a paginated response"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+        ],
+        responses={
+            200: "Returns a paginated list of recent tasks annotated/reviewed by a user",
+            403: "Not authorized!",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="annotated_and_reviewed_tasks/get_users_recent_tasks",
+        url_name="get_users_recent_tasks",
+    )
+    def get_users_recent_tasks(self, request):
+        try:
+            user_id = request.data.get("user_id")
+            task_type = request.data.get("task_type", "annotation")
+
+            user = User.objects.get(pk=user_id)
+
+            annotations = Annotation.objects.filter(completed_by=user)
+            if task_type == "review":
+                annotations = annotations.filter(parent_annotation__isnull=False)
+            else:
+                annotations = annotations.filter(parent_annotation__isnull=True)
+
+            annotations = annotations.order_by("-updated_at")
+            annotations = self.paginate_queryset(annotations)
+
+            response = []
+
+            for annotation in annotations:
+                data = {
+                    "Project ID": annotation.task.project_id.id,
+                    "Task ID": annotation.task.id,
+                    "Updated at": utc_to_ist(annotation.updated_at),
+                }
+
+                response.append(data)
+
+            return self.get_paginated_response(response)
+        except:
+            return Response(
+                {
+                    "message": "Invalid Parameters in the request body!",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "task_status": openapi.Schema(type=openapi.TYPE_STRING),
+                "annotation_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "find_words": openapi.Schema(type=openapi.TYPE_STRING),
+                "replace_words": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["task_status", "annotation_type", "find_words", "replace_words"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the project"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            ),
+        ],
+        responses={
+            200: "Returns the no of annotations modified.",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="find_and_replace_words_in_annotation",
+        url_name="find_and_replace_words_in_annotation",
+    )
+    def find_and_replace_words_in_annotation(self, request, pk=None):
+        try:
+            project = Project.objects.get(pk=pk)
+            task_status = request.data.get("task_status")
+            project_tasks = Task.objects.filter(project_id=project).filter(
+                task_status=task_status
+            )
+
+            task_annotations = Annotation.objects.filter(task__in=project_tasks).filter(
+                completed_by=request.user
+            )
+            annotation_type = request.data.get("annotation_type")
+            print(task_status)
+            if annotation_type == "review":
+                task_annotations = task_annotations.filter(
+                    parent_annotation__isnull=False
+                )
+            else:
+                task_annotations = task_annotations.filter(
+                    parent_annotation__isnull=True
+                )
+
+            find_words = request.data.get("find_words")
+            replace_words = request.data.get("replace_words")
+
+            num_annotations_modified = 0
+            for annotation in task_annotations:
+                text = annotation.result[0]["value"]["text"][0]
+                prev_text = text
+                text = text.replace(find_words, replace_words)
+                annotation.result[0]["value"]["text"][0] = text
+                annotation.save()
+                if prev_text != text:
+                    num_annotations_modified += 1
+
+            return Response(
+                {"message": f"{num_annotations_modified} annotations are modified."},
+                status=status.HTTP_200_OK,
+            )
+        except:
+            return Response(
+                {"message": "Invalid parameters in request body!"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
@@ -650,3 +813,113 @@ class PredictionViewSet(
     def create(self, request):
         prediction_response = super().create(request)
         return prediction_response
+
+
+class SentenceOperationViewSet(viewsets.ViewSet):
+    permission_classes = (IsAuthenticated,)
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "sentence1": openapi.Schema(type=openapi.TYPE_STRING),
+                "sentence2": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["sentence1", "sentence2"],
+        ),
+        responses={
+            200: "Character level edit distance calculated successfully.",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="calculate_normalized_character_level_edit_distance",
+        url_name="calculate_normalized_character_level_edit_distance",
+    )
+    def calculate_normalized_character_level_edit_distance(self, request):
+        try:
+            sentence1 = request.data.get("sentence1")
+            sentence2 = request.data.get("sentence2")
+        except:
+            try:
+                sentence1 = request["sentence1"]
+                sentence2 = request["sentence2"]
+            except:
+                return Response(
+                    {"message": "Invalid parameters in request body!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        try:
+
+            character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
+            normalized_character_level_edit_distance = (
+                character_level_edit_distance / len(sentence1)
+            )
+
+            return Response(
+                {
+                    "normalized_character_level_edit_distance": normalized_character_level_edit_distance
+                },
+                status=status.HTTP_200_OK,
+            )
+        except:
+            return Response(
+                {"message": "Invalid parameters in request body!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "sentence1": openapi.Schema(type=openapi.TYPE_STRING),
+                "sentence2": openapi.Schema(type=openapi.TYPE_STRING),
+            },
+            required=["sentence1", "sentence2"],
+        ),
+        responses={
+            200: "Bleu calculated successfully.",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="calculate_bleu_score",
+        url_name="calculate_bleu_score",
+    )
+    def calculate_bleu_score(self, request):
+        try:
+            sentence1 = request.data.get("sentence1")
+            sentence2 = request.data.get("sentence2")
+        except:
+            try:
+                sentence1 = request["sentence1"]
+                sentence2 = request["sentence2"]
+            except:
+                return Response(
+                    {"message": "Invalid parameters in request body!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        try:
+            sentence1 = [sentence1]
+            sentence2 = [[sentence2]]
+
+            bleu = sacrebleu.corpus_bleu(sentence1, sentence2)
+
+            bleu_score = bleu.score
+
+            return Response(
+                {"bleu_score": str(bleu_score)},
+                status=status.HTTP_200_OK,
+            )
+        except:
+            return Response(
+                {"message": "Invalid parameters in request body!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

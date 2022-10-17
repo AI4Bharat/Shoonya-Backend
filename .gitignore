@@ -14,7 +14,7 @@ frontend/
 
 
 # Env
-.env
+.env*
 virtualenv/
 myvenv/
 venv/

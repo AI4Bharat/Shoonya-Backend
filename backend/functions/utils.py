@@ -9,9 +9,13 @@ from users.utils import (
     LANG_NAME_TO_CODE_GOOGLE,
     LANG_NAME_TO_CODE_ULCA,
     LANG_TRANS_MODEL_CODES,
+    LANG_NAME_TO_CODE_AZURE,
 )
 
-
+try:
+    from utils.azure_translate import translator_object
+except:
+    pass
 ### Utility Functions
 def check_if_particular_organization_owner(request):
     if request.user.role != User.ORGANIZATION_OWNER and not request.user.is_superuser:
@@ -230,7 +234,6 @@ def get_translation_using_cdac_model(input_sentence, source_language, target_lan
 
     response = requests.post(
         "https://cdac.ulcacontrib.org/aai4b-nmt-inference/v0/translate",
-        headers=headers,
         json=json_data,
     )
 
@@ -282,13 +285,62 @@ def get_batch_translations_using_google_translate(
         return str(e)
 
 
+def get_batch_translations_using_azure_translate(
+    sentence_list,
+    source_language,
+    target_language,
+    checks_for_particular_languages=False,
+):
+    """Function to get the translation for the input sentences using the Azure Translate API.
+
+    Args:
+        sentence_list (list): List of sentences to be translated.
+        source_language (str): Original language of the sentence.
+        target_language (str): Target language of the sentence.
+        checks_for_particular_languages (bool, optional):  If True, checks for the particular languages in the translations. .Defaults to False.
+
+    Returns:
+        list/str: List of translated sentences or error message.
+    """
+
+    if checks_for_particular_languages:
+        # Checks for particular languages
+        if target_language in ["Bodo", "Maithili"]:
+            target_language = "Hindi"
+        elif target_language == "Kashmiri":
+            target_language = "Urdu"
+
+    # Change the target language to the language code
+    target_lang_code = LANG_NAME_TO_CODE_AZURE[target_language]
+    source_lang_code = LANG_NAME_TO_CODE_AZURE[source_language]
+
+    try:
+        return translator_object.batch_translate(
+            sentence_list, source_lang_code, target_lang_code
+        )
+    except Exception as e:
+        return str(e)
+
+
 def get_batch_translations(
     sentences_to_translate,
     source_lang,
     target_lang,
     api_type,
     checks_for_particular_languages,
-):
+) -> dict:
+    """Function to get the translation for the input sentences using various APIs.
+
+    Args:
+        sentences_to_translate (list): List of sentences to be translated.
+        source_lang (str): Original language of the sentence.
+        target_lang (str): Final language of the sentence.
+        api_type (str): Type of API to be used for translation.
+        checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
+
+    Returns:
+        dict: Dictionary containing the translated sentences or error message.
+    """
 
     # Check the API type
     if api_type == "indic-trans":
@@ -302,8 +354,18 @@ def get_batch_translations(
         )
 
     elif api_type == "google":
-        # Get the translation using the Indictrans NMT API
+        # Get the translation using the Google Translate API
         translations_output = get_batch_translations_using_google_translate(
+            sentence_list=sentences_to_translate,
+            source_language=source_lang,
+            target_language=target_lang,
+            checks_for_particular_languages=checks_for_particular_languages,
+        )
+
+    elif api_type == "azure":
+
+        # Get the translation using the Azure Translate API
+        translations_output = get_batch_translations_using_azure_translate(
             sentence_list=sentences_to_translate,
             source_language=source_lang,
             target_language=target_lang,

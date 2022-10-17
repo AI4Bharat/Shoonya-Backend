@@ -1,3 +1,4 @@
+import os
 from http.client import responses
 import secrets
 import string
@@ -39,6 +40,18 @@ def generate_random_string(length=12):
     return "".join(
         secrets.choice(string.ascii_uppercase + string.digits) for i in range(length)
     )
+
+
+def get_role_name(num):
+
+    if num == 1:
+        return "Annotator"
+    elif num == 2:
+        return "Workspace Manager"
+    elif num == 3:
+        return "Organization Owner"
+    else:
+        return "Role Not Defined"
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -293,6 +306,49 @@ class UserViewSet(viewsets.ViewSet):
 
         return Response(ret_dict, status=ret_status)
 
+    @action(
+        detail=False, methods=["post"], url_path="enable_email", url_name="enable_email"
+    )
+    def enable_email(self, request):
+        """
+        Update the mail enable service for  any user
+        """
+        requested_id = request.data.get("user_id")
+        enable_mail = request.data.get("enable_mail")
+
+        if enable_mail == True or enable_mail == False:
+            pass
+        else:
+            return Response(
+                {
+                    "message": "please enter valid  input(True/False) for enable_mail field"
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            user = User.objects.get(id=requested_id)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        requested_id = request.data.get("user_id")
+
+        if requested_id == request.user.id or (
+            request.user.role == 3 and request.user.organization == user.organization
+        ):
+            user.enable_mail = enable_mail
+            user.save()
+            return Response(
+                {"message": "Daily e-mail service settings changed."},
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return Response(
+                {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
+            )
+
 
 class AnalyticsViewSet(viewsets.ViewSet):
     permission_classes = (AllowAny,)
@@ -307,11 +363,34 @@ class AnalyticsViewSet(viewsets.ViewSet):
         """
         Get Reports of a User
         """
+        PERMISSION_ERROR = {
+            "message": "You do not have enough permissions to access this view!"
+        }
+        emails = User.objects.all()
+        emails_list = emails.values_list("email", flat=True)
+        try:
+            user_email = request.user.email
+            if user_email not in emails_list:
+                return Response(PERMISSION_ERROR, status=status.HTTP_400_BAD_REQUEST)
+        except:
+            if type(request) == dict:
+                pass
+            else:
+                return Response(PERMISSION_ERROR, status=status.HTTP_400_BAD_REQUEST)
 
-        start_date = request.data.get("start_date")
-        end_date = request.data.get("end_date")
-        user_id = request.data.get("user_id")
-        reports_type = request.data.get("reports_type")
+        try:
+            start_date = request.data.get("start_date")
+            end_date = request.data.get("end_date")
+            user_id = request.data.get("user_id")
+            reports_type = request.data.get("reports_type")
+            project_type = request.data.get("project_type")
+        except:
+            start_date = request["start_date"]
+            end_date = request["end_date"]
+            user_id = request["user_id"]
+            reports_type = request["reports_type"]
+            project_type = request["project_type"]
+
         review_reports = False
 
         if reports_type == "review":
@@ -340,7 +419,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
 
@@ -397,7 +475,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                             "accepted",
                             "to_be_revised",
                             "accepted_with_changes",
-                            "labeled",
+                            "complete",
                         ]
                     )
                 )
@@ -442,9 +520,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     ): annotated_tasks_count,
                     "Word Count": total_word_count,
                     (
-                        "Average Review Time (In Seconds)"
+                        "Avg Review Time (sec)"
                         if review_reports
-                        else "Average Annotation Time (In Seconds)"
+                        else "Avg Annotation Time (sec)"
                     ): avg_lead_time,
                 }
             else:
@@ -454,13 +532,13 @@ class AnalyticsViewSet(viewsets.ViewSet):
                         "Reviewed Tasks" if review_reports else "Annotated Tasks"
                     ): annotated_tasks_count,
                     (
-                        "Average Review Time (In Seconds)"
+                        "Avg Review Time (sec)"
                         if review_reports
-                        else "Average Annotation Time (In Seconds)"
+                        else "Avg Annotation Time (sec)"
                     ): avg_lead_time,
                 }
-
-            project_wise_summary.append(result)
+            if result[("Reviewed Tasks" if review_reports else "Annotated Tasks")] > 0:
+                project_wise_summary.append(result)
 
         project_wise_summary = sorted(
             project_wise_summary,
@@ -474,32 +552,37 @@ class AnalyticsViewSet(viewsets.ViewSet):
             all_annotated_lead_time_count = (
                 sum(all_annotated_lead_time_list) / total_annotated_tasks_count
             )
+            all_annotated_lead_time_count = round(all_annotated_lead_time_count, 2)
 
         total_summary = {}
         if is_translation_project:
-            total_summary = {
-                (
-                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
-                ): total_annotated_tasks_count,
-                "Word Count": all_tasks_word_count,
-                (
-                    "Average Review Time (In Seconds)"
-                    if review_reports
-                    else "Average Annotation Time (In Seconds)"
-                ): all_annotated_lead_time_count,
-            }
+            total_summary = [
+                {
+                    (
+                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    ): total_annotated_tasks_count,
+                    "Word Count": all_tasks_word_count,
+                    (
+                        "Avg Review Time (sec)"
+                        if review_reports
+                        else "Avg Annotation Time (sec)"
+                    ): round(all_annotated_lead_time_count, 2),
+                }
+            ]
 
         else:
-            total_summary = {
-                (
-                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
-                ): total_annotated_tasks_count,
-                (
-                    "Average Review Time (In Seconds)"
-                    if review_reports
-                    else "Average Annotation Time (In Seconds)"
-                ): all_annotated_lead_time_count,
-            }
+            total_summary = [
+                {
+                    (
+                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    ): total_annotated_tasks_count,
+                    (
+                        "Avg Review Time (sec)"
+                        if review_reports
+                        else "Avg Annotation Time (sec)"
+                    ): round(all_annotated_lead_time_count, 2),
+                }
+            ]
 
         final_result = {
             "total_summary": total_summary,
