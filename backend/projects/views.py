@@ -46,7 +46,7 @@ from .decorators import (
     project_is_archived,
     project_is_published,
 )
-from .utils import is_valid_date, no_of_words
+from .utils import is_valid_date, no_of_words, minor_major_accepted_task
 
 from workspaces.decorators import is_particular_workspace_manager
 
@@ -71,6 +71,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     user = User.objects.get(id=userid)
     userName = user.username
+    email = user.email
 
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
@@ -102,7 +103,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         created_at__range=[start_date, end_date],
     )
 
-    acceptedwtchange_objs_count = acceptedwtchange_objs.count()
+    minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
     labeled_tasks = Task.objects.filter(
         project_id=proj_id, review_user=userid, task_status="labeled"
@@ -112,13 +113,23 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     to_be_revised_tasks = Task.objects.filter(
         project_id=proj_id, review_user=userid, task_status="to_be_revised"
     )
-    to_be_revised_tasks_count = to_be_revised_tasks.count()
+    to_be_revised_tasks_objs_ids = list(
+        to_be_revised_tasks.values_list("id", flat=True)
+    )
+    to_be_revised_objs = Annotation_model.objects.filter(
+        task_id__in=to_be_revised_tasks_objs_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+    to_be_revised_tasks_count = to_be_revised_objs.count()
 
     result = {
         "Reviewer Name": userName,
+        "Email": email,
         "Assigned": total_task_count,
         "Accepted": accepted_objs_count,
-        "Accepted With Changes": acceptedwtchange_objs_count,
+        "Accepted With Minor Changes": minor_changes,
+        "Accepted With Major Changes": major_changes,
         "Labeled": labeled_tasks_count,
         "To Be Revised": to_be_revised_tasks_count,
     }
@@ -1235,7 +1246,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 accepted_wt_tasks = get_annotated_tasks(
                     pk, each_annotator, "accepted_with_changes", start_date, end_date
                 )
-                items.append(("Accepted With Changes", accepted_wt_tasks.count()))
+
+                minor_changes, major_changes = minor_major_accepted_task(
+                    accepted_wt_tasks
+                )
+
+                items.append(("Accepted With Minor Changes", minor_changes))
+
+                items.append(("Accepted With Major Changes", major_changes))
 
                 # get labeled task count
                 labeled_tasks = get_annotated_tasks(

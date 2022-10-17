@@ -27,6 +27,8 @@ from drf_yasg.utils import swagger_auto_schema
 import csv
 from django.http import StreamingHttpResponse
 from tasks.views import SentenceOperationViewSet
+from users.views import get_role_name
+from projects.utils import minor_major_accepted_task
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -104,6 +106,9 @@ def un_pack_annotation_tasks(
         start_date,
         end_date,
     )
+    accepted_wt_minor_changes, accepted_wt_major_changes = minor_major_accepted_task(
+        accepted_with_changes
+    )
     labeled = get_annotated_tasks(
         proj_ids,
         each_annotation_user,
@@ -133,7 +138,8 @@ def un_pack_annotation_tasks(
     return (
         accepted.count(),
         to_be_revised.count(),
-        accepted_with_changes.count(),
+        accepted_wt_minor_changes,
+        accepted_wt_major_changes,
         labeled.count(),
         avg_lead_time,
         total_word_count,
@@ -154,7 +160,8 @@ def get_counts(
     annotated_tasks = 0
     accepted = 0
     to_be_revised = 0
-    accepted_with_changes = 0
+    accepted_wt_minor_changes = 0
+    accepted_wt_major_changes = 0
     labeled = 0
     if tgt_language == None:
         if only_review_proj == None:
@@ -202,7 +209,8 @@ def get_counts(
         (
             accepted,
             to_be_revised,
-            accepted_with_changes,
+            accepted_wt_minor_changes,
+            accepted_wt_major_changes,
             labeled,
             avg_lead_time,
             total_word_count,
@@ -249,7 +257,8 @@ def get_counts(
         annotated_tasks,
         accepted,
         to_be_revised,
-        accepted_with_changes,
+        accepted_wt_minor_changes,
+        accepted_wt_major_changes,
         labeled,
         avg_lead_time,
         total_skipped_tasks,
@@ -330,12 +339,15 @@ def get_translation_quality_reports(
         end_date,
         parent_annotation_bool=True,
     )
+    accepted_wt_minor_changes, accepted_wt_major_changes = minor_major_accepted_task(
+        accepted_with_changes_tasks
+    )
     total_bleu_score = 0
     total_char_score = 0
 
     bleu_score_error_count = 0
     char_score_error_count = 0
-
+    total_lead_time = []
     for annot in accepted_with_changes_tasks:
         annotator_obj = Annotation.objects.get(
             task_id=annot.task_id, parent_annotation_id=None
@@ -346,6 +358,8 @@ def get_translation_quality_reports(
 
         str1 = annotator_obj.result[0]["value"]["text"]
         str2 = reviewer_obj[0].result[0]["value"]["text"]
+        lead_time = reviewer_obj[0].lead_time
+        total_lead_time.append(lead_time)
 
         data = {"sentence1": str1[0], "sentence2": str2[0]}
         try:
@@ -396,7 +410,6 @@ def get_translation_quality_reports(
         avg_bleu_score = "no accepted with changes tasks"
         avg_char_score = "no accepted with changes tasks"
 
-    total_lead_time = [annot.lead_time for annot in all_reviewd_tasks]
     avg_lead_time = 0
     if len(total_lead_time) > 0:
         avg_lead_time = sum(total_lead_time) / len(total_lead_time)
@@ -406,7 +419,8 @@ def get_translation_quality_reports(
         all_reviewd_tasks_count,
         accepted_count,
         reviewed_except_accepted,
-        accepted_with_changes_tasks.count(),
+        accepted_wt_minor_changes,
+        accepted_wt_major_changes,
         avg_char_score,
         avg_bleu_score,
         avg_lead_time,
@@ -536,68 +550,85 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "'To' Date should be after 'From' Date"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if tgt_language == None:
+            annotators = User.objects.filter(organization=organization).order_by(
+                "username"
+            )
+        else:
+            proj_objects = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                tgt_language=tgt_language,
+            )
+
+            proj_users_list = [
+                list(pro_obj.annotators.all()) for pro_obj in proj_objects
+            ]
+            proj_users = sum(proj_users_list, [])
+            annotators = list(set(proj_users))
+
+        annotators = [
+            ann_user
+            for ann_user in annotators
+            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+        ]
 
         result = []
         for annotator in annotators:
+            participation_type = annotator.participation_type
+            participation_type = (
+                "Full Time"
+                if participation_type == 1
+                else "Part Time"
+                if participation_type == 2
+                else "N/A"
+            )
+            role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
+            user_lang_filter = User.objects.get(id=user_id)
+            user_lang = user_lang_filter.languages
             if tgt_language == None:
-                user_lang_filter = User.objects.get(id=user_id)
-                user_lang = user_lang_filter.languages
                 selected_language = user_lang
                 if "English" in selected_language:
                     selected_language.remove("English")
-                (
-                    all_reviewd_tasks_count,
-                    accepted_count,
-                    reviewed_except_accepted,
-                    accepted_with_changes_tasks_count,
-                    avg_char_score,
-                    avg_bleu_score,
-                    avg_lead_time,
-                ) = get_translation_quality_reports(
-                    pk,
-                    annotator,
-                    project_type,
-                    start_date,
-                    end_date,
-                    is_translation_project,
-                )
-
             else:
                 selected_language = tgt_language
-                list_of_user_languages = annotator.languages
-                if tgt_language != None and tgt_language not in list_of_user_languages:
-                    continue
-                (
-                    all_reviewd_tasks_count,
-                    accepted_count,
-                    reviewed_except_accepted,
-                    accepted_with_changes_tasks_count,
-                    avg_char_score,
-                    avg_bleu_score,
-                    avg_lead_time,
-                ) = get_translation_quality_reports(
-                    pk,
-                    annotator,
-                    project_type,
-                    start_date,
-                    end_date,
-                    is_translation_project,
-                    tgt_language,
-                )
+            (
+                all_reviewd_tasks_count,
+                accepted_count,
+                reviewed_except_accepted,
+                accepted_wt_minor_changes,
+                accepted_wt_major_changes,
+                avg_char_score,
+                avg_bleu_score,
+                avg_lead_time,
+            ) = get_translation_quality_reports(
+                pk,
+                annotator,
+                project_type,
+                start_date,
+                end_date,
+                is_translation_project,
+                None if tgt_language == None else tgt_language,
+            )
+
             result.append(
                 {
                     "Translator": name,
-                    "Language": annotator.languages,
+                    "Email": email,
+                    "Language": selected_language,
                     "Reviewed": all_reviewd_tasks_count,
                     "Accepted": accepted_count,
                     "(Accepted/Reviewed) Percentage": reviewed_except_accepted,
-                    "Accepted With Changes": accepted_with_changes_tasks_count,
+                    "Accepted With Minor Changes": accepted_wt_minor_changes,
+                    "Accepted With Major Changes": accepted_wt_major_changes,
                     "Avg Character Edit Distance Score": avg_char_score,
                     "Average BLEU Score": avg_bleu_score,
                     "Avg Lead Time": avg_lead_time,
+                    "Participation Type": participation_type,
+                    "User Role": role,
                 }
             )
         final_result = sorted(
@@ -619,7 +650,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
         user_id = request.user.id
-        annotators = User.objects.filter(organization=organization).order_by("username")
         from_date = request.data.get("from_date")
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
@@ -667,7 +697,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             org_reviewer_list = []
             for review_project in review_projects:
                 reviewer_names_list = review_project.annotation_reviewers.all()
-                reviewer_ids = [name.id for name in reviewer_names_list]
+                reviewer_ids = [
+                    name.id
+                    for name in reviewer_names_list
+                    if (name.participation_type == 1 or name.participation_type == 2)
+                ]
                 org_reviewer_list.extend(reviewer_ids)
 
             org_reviewer_list = list(set(org_reviewer_list))
@@ -720,70 +754,77 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 "message": "You do not have enough permissions to access this view!"
             }
             return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
+
+        if tgt_language == None:
+            annotators = User.objects.filter(organization=organization).order_by(
+                "username"
+            )
+        else:
+            proj_objects = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                tgt_language=tgt_language,
+            )
+
+            proj_users_list = [
+                list(pro_obj.annotators.all()) for pro_obj in proj_objects
+            ]
+            proj_users = sum(proj_users_list, [])
+            annotators = list(set(proj_users))
+
+        annotators = [
+            ann_user
+            for ann_user in annotators
+            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+        ]
+
         result = []
         for annotator in annotators:
+            participation_type = annotator.participation_type
+            participation_type = (
+                "Full Time"
+                if participation_type == 1
+                else "Part Time"
+                if participation_type == 2
+                else "N/A"
+            )
+            role = get_role_name(annotator.role)
             user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
+            user_lang_filter = User.objects.get(id=user_id)
+            user_lang = user_lang_filter.languages
             if tgt_language == None:
-                user_lang_filter = User.objects.get(id=user_id)
-                user_lang = user_lang_filter.languages
                 selected_language = user_lang
                 if "English" in selected_language:
                     selected_language.remove("English")
-                (
-                    total_no_of_tasks_count,
-                    annotated_tasks_count,
-                    accepted,
-                    to_be_revised,
-                    accepted_with_changes,
-                    labeled,
-                    avg_lead_time,
-                    total_skipped_tasks_count,
-                    total_unlabeled_tasks_count,
-                    total_draft_tasks_count,
-                    no_of_projects,
-                    no_of_workspaces_objs,
-                    total_word_count,
-                ) = get_counts(
-                    pk,
-                    annotator,
-                    project_type,
-                    start_date,
-                    end_date,
-                    is_translation_project,
-                    only_review_proj,
-                )
-
             else:
                 selected_language = tgt_language
-                list_of_user_languages = annotator.languages
-                if tgt_language != None and tgt_language not in list_of_user_languages:
-                    continue
-                (
-                    total_no_of_tasks_count,
-                    annotated_tasks_count,
-                    accepted,
-                    to_be_revised,
-                    accepted_with_changes,
-                    labeled,
-                    avg_lead_time,
-                    total_skipped_tasks_count,
-                    total_unlabeled_tasks_count,
-                    total_draft_tasks_count,
-                    no_of_projects,
-                    no_of_workspaces_objs,
-                    total_word_count,
-                ) = get_counts(
-                    pk,
-                    annotator,
-                    project_type,
-                    start_date,
-                    end_date,
-                    is_translation_project,
-                    only_review_proj,
-                    tgt_language,
-                )
+            (
+                total_no_of_tasks_count,
+                annotated_tasks_count,
+                accepted,
+                to_be_revised,
+                accepted_wt_minor_changes,
+                accepted_wt_major_changes,
+                labeled,
+                avg_lead_time,
+                total_skipped_tasks_count,
+                total_unlabeled_tasks_count,
+                total_draft_tasks_count,
+                no_of_projects,
+                no_of_workspaces_objs,
+                total_word_count,
+            ) = get_counts(
+                pk,
+                annotator,
+                project_type,
+                start_date,
+                end_date,
+                is_translation_project,
+                only_review_proj,
+                None if tgt_language == None else tgt_language,
+            )
 
             if is_translation_project:
                 if only_review_proj:
@@ -798,7 +839,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Assigned": total_no_of_tasks_count,
                             "Labeled": labeled,
                             "Accepted": accepted,
-                            "Accepted With Changes": accepted_with_changes,
+                            "Accepted With Minor Changes": accepted_wt_minor_changes,
+                            "Accepted With Major Changes": accepted_wt_major_changes,
                             "To Be Revised": to_be_revised,
                             "Unlabeled": total_unlabeled_tasks_count,
                             "Skipped": total_skipped_tasks_count,
@@ -807,6 +849,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Average Annotation Time (In Seconds)": round(
                                 avg_lead_time, 2
                             ),
+                            "Participation Type": participation_type,
+                            "User Role": role,
                         }
                     )
                 else:
@@ -826,6 +870,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Average Annotation Time (In Seconds)": round(
                                 avg_lead_time, 2
                             ),
+                            "Participation Type": participation_type,
+                            "User Role": role,
                         }
                     )
 
@@ -842,7 +888,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Assigned": total_no_of_tasks_count,
                             "Labeled": labeled,
                             "Accepted": accepted,
-                            "Accepted With Changes": accepted_with_changes,
+                            "Accepted With Minor Changes": accepted_wt_minor_changes,
+                            "Accepted With Major Changes": accepted_wt_major_changes,
                             "To Be Revised": to_be_revised,
                             "Unlabeled": total_unlabeled_tasks_count,
                             "Skipped": total_skipped_tasks_count,
@@ -850,6 +897,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Average Annotation Time (In Seconds)": round(
                                 avg_lead_time, 2
                             ),
+                            "Participation Type": participation_type,
+                            "User Role": role,
                         }
                     )
                 else:
@@ -868,6 +917,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "Average Annotation Time (In Seconds)": round(
                                 avg_lead_time, 2
                             ),
+                            "Participation Type": participation_type,
+                            "User Role": role,
                         }
                     )
 
@@ -1035,9 +1086,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 result = {
                     "Project Id": project_id,
                     "Project Name": project_name,
-                    "Project Type": project_type,
                     "Language": selected_language,
-                    "No.Of Annotators Assigned": no_of_annotators_assigned,
+                    "No. of Annotators Assigned": no_of_annotators_assigned,
                     "Total": total_tasks,
                     "Annotated": labeled_count,
                     "Unlabeled": un_labeled_count,
