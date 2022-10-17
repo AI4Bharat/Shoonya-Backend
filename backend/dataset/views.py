@@ -718,27 +718,48 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
         try:
+            # NOTE: For non-searchable fields, omit the "search_" prefix.
+            # E.g: "dataset_type" is not a searchable field in any model,
+            # even though it is in the search data.
+            # Another example is if some data (like username and password of logged_in user)
+            # are passed through the request.
+
             dataset_instance_ids = request.data.get("instance_ids")
             dataset_type = request.data.get("dataset_type", "")
+            id = request.data.get("search_id", "")
+            input_text = request.data.get("search_input_text", "")
+            output_text = request.data.get("search_output_text", "")
+            input_language = request.data.get("search_input_language", "")
+            output_language = request.data.get("search_output_language", "")
+            machine_translation = request.data.get("search_machine_translation", "")
+            context = request.data.get("search_context", "")
+            labse_score = request.data.get("search_labse_score", "")
+            rating = request.data.get("search_rating", "")
+
             if type(dataset_instance_ids) != list:
                 dataset_instance_ids = [dataset_instance_ids]
-            filter_string = request.data.get("filter_string")
-            #  Get dataset type from first dataset instance if dataset_type not passed in json data from frontend
-            if dataset_type == "":
-                dataset_type = DatasetInstance.objects.get(
-                    instance_id=dataset_instance_ids[0]
-                ).dataset_type
+
+            # NOTE: The below case (where no dataset type is specified)
+            # needs to be handled better. Either dataset_type or
+            # instance_id should be compulsory.
+            DATASET_TYPE_MAP = {
+                "TranslationPair": TranslationPair,
+                "SentenceText": SentenceText,
+                "OCRDocument": OCRDocument,
+                "BlockText": BlockText,
+                "Conversation": Conversation,
+            }
+
             dataset_model = apps.get_model("dataset", dataset_type)
-            data_items = dataset_model.objects.filter(
-                instance_id__in=dataset_instance_ids
+            filtered_set = DATASET_TYPE_MAP[dataset_type].objects.filter(
+                **request.data["search_keys"], instance_id=dataset_instance_ids[0]
             )
-            query_params = dict(parse_qsl(filter_string))
-            query_params = filter.fix_booleans_in_dict(query_params)
-            filtered_set = filter.filter_using_dict_and_queryset(
-                query_params, data_items
+
+            return Response(
+                data=SERIALIZER_MAP[dataset_type](filtered_set, many=True).data,
+                status=status.HTTP_200_OK,
             )
-            # filtered_data = filtered_set.values()
-            # serializer = DatasetItemsSerializer(filtered_set, many=True)
+
             page = request.GET.get("page")
             try:
                 page = self.paginate_queryset(filtered_set)
@@ -766,14 +787,14 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": "Error fetching data items!",
                 }
             )
-        except:
+        except Exception as e:
+            print(e)
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
                     "message": "Error fetching data items!",
                 }
             )
-        # return Response(filtered_data)
 
     @swagger_auto_schema(
         method="post",
