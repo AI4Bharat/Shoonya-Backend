@@ -55,7 +55,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
         parent_annotation_id=None,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -112,7 +112,7 @@ def un_pack_annotation_tasks(
     labeled = get_annotated_tasks(
         proj_ids,
         each_annotation_user,
-        ["labeled"],
+        ["complete"],
         start_date,
         end_date,
     )
@@ -226,7 +226,7 @@ def get_counts(
         annotated_labeled_tasks = get_annotated_tasks(
             proj_ids,
             annotator,
-            ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
+            ["accepted", "to_be_revised", "accepted_with_changes", "complete"],
             start_date,
             end_date,
         )
@@ -248,9 +248,30 @@ def get_counts(
             ]
             total_word_count = sum(total_word_count_list)
 
-    total_skipped_tasks = get_task_count(proj_ids, ["skipped"], annotator)
-    all_pending_tasks_in_project = get_task_count(proj_ids, ["unlabeled"], annotator)
-    all_draft_tasks_in_project = get_task_count(proj_ids, ["draft"], annotator)
+    total_skipped_tasks = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        parent_annotation_id=None,
+        completed_by=annotator,
+        annotation_status="skipped",
+        updated_at__range=[start_date, end_date],
+    ).count()
+    # get_task_count(proj_ids, ["skipped"], annotator)
+    all_pending_tasks_in_project = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        parent_annotation_id=None,
+        completed_by=annotator,
+        annotation_status="unlabeled",
+        updated_at__range=[start_date, end_date],
+    ).count()
+    # get_task_count(proj_ids, ["unlabeled"], annotator)
+    all_draft_tasks_in_project = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        parent_annotation_id=None,
+        completed_by=annotator,
+        annotation_status="draft",
+        updated_at__range=[start_date, end_date],
+    ).count()
+    # get_task_count(proj_ids, ["draft"], annotator)
 
     return (
         assigned_tasks,
@@ -1046,10 +1067,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         if annotator not in proj_manager
                     ]
                 )
-                un_labeled_task = Task.objects.filter(
-                    project_id=proj.id, task_status="unlabeled"
-                )
-                un_labeled_count = un_labeled_task.count()
                 labeled_count_tasks = Task.objects.filter(
                     Q(project_id=proj.id)
                     & Q(
@@ -1057,7 +1074,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "accepted",
                             "to_be_revised",
                             "accepted_with_changes",
-                            "labeled",
+                            "complete",
                         ]
                     )
                 )
@@ -1073,11 +1090,25 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
                 labeled_count = annotated_labeled_tasks.count()
 
-                skipped_count = Task.objects.filter(
-                    project_id=proj.id, task_status="skipped"
+                un_labeled_count = Annotation.objects.filter(
+                    task__project_id=proj.id,
+                    parent_annotation_id=None,
+                    annotation_status="unlabeled",
+                    updated_at__range=[start_date, end_date],
                 ).count()
-                dropped_tasks = Task.objects.filter(
-                    project_id=proj.id, task_status="draft"
+
+                skipped_count = Annotation.objects.filter(
+                    task__project_id=proj.id,
+                    parent_annotation_id=None,
+                    annotation_status="skipped",
+                    updated_at__range=[start_date, end_date],
+                ).count()
+
+                dropped_tasks = Annotation.objects.filter(
+                    task__project_id=proj.id,
+                    parent_annotation_id=None,
+                    annotation_status="draft",
+                    updated_at__range=[start_date, end_date],
                 ).count()
                 if total_tasks == 0:
                     project_progress = 0.0
