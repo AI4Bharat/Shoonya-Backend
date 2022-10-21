@@ -44,16 +44,34 @@ ACCEPTED_WITH_CHANGES = "accepted_with_changes"
 TO_BE_REVISED = "to_be_revised"
 FREEZED = "freezed"
 DRAFT = "draft"
+INCOMPLETE = "incomplete"
+ANNOTATED = "annotated"
+REVIEWED = "reviewed"
+UNREVIEWED = "unreviewed"
+EXPORTED = "Exported"
+ACCEPTED_WITH_MINOR_CHANGES = "accepted_with_minor_changes"
+ACCEPTED_WITH_MAJOR_CHANGES = "accepted_with_major_changes"
+
 
 TASK_STATUS = (
+    (INCOMPLETE, "incomplete"),
+    (ANNOTATED, "annotated"),
+    (REVIEWED, "reviewed"),
+    (EXPORTED, "Exported"),
+    (FREEZED, "freezed"),
+)
+
+
+ANNOTATION_STATUS = (
     (UNLABELED, "unlabeled"),
     (LABELED, "labeled"),
     (SKIPPED, "skipped"),
-    (ACCEPTED, "accepted"),
-    (ACCEPTED_WITH_CHANGES, "accepted_with_changes"),
-    (FREEZED, "freezed"),
-    (TO_BE_REVISED, "to_be_revised"),
     (DRAFT, "draft"),
+    (UNREVIEWED, "unreviewed"),
+    (ACCEPTED, "accepted"),
+    (TO_BE_REVISED, "to_be_revised"),
+    (ACCEPTED_WITH_MINOR_CHANGES, "accepted_with_minor_changes"),
+    (ACCEPTED_WITH_MAJOR_CHANGES, "accepted_with_major_changes"),
 )
 
 
@@ -152,6 +170,13 @@ class Annotation(models.Model):
         on_delete=models.CASCADE,
         verbose_name="annotation_task_id",
         related_name="annotations",
+    )
+
+    annotation_status = models.CharField(
+        choices=ANNOTATION_STATUS,
+        max_length=100,
+        default=UNLABELED,
+        verbose_name="annotation_status",
     )
     completed_by = models.ForeignKey(
         User, on_delete=models.CASCADE, verbose_name="annotation_completed_by"
