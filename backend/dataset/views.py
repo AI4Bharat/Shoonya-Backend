@@ -732,6 +732,10 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             data_items = dataset_model.objects.filter(
                 instance_id__in=dataset_instance_ids
             )
+
+            if "search_keys" in request.data:
+                data_items=data_items.filter(**request.data["search_keys"])
+
             query_params = dict(parse_qsl(filter_string))
             query_params = filter.fix_booleans_in_dict(query_params)
             filtered_set = filter.filter_using_dict_and_queryset(
