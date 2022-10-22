@@ -717,7 +717,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
-        try:
+        # try:
             dataset_instance_ids = request.data.get("instance_ids")
             dataset_type = request.data.get("dataset_type", "")
             if type(dataset_instance_ids) != list:
@@ -734,7 +734,19 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             )
 
             if "search_keys" in request.data:
-                data_items = data_items.filter(**request.data["search_keys"])
+                search_dict={}
+                for key,value in request.data["search_keys"].items():
+                    field_type=str(dataset_model._meta.get_field(key).get_internal_type())
+                    # print(field_type)
+                    if value is not None:
+                        if field_type=="TextField":
+                            search_dict["%s__search" %key]=value
+                        else:
+                            search_dict["%s__icontains" %key]=value
+                    else:
+                        search_dict[key]=value
+
+                data_items=data_items.filter(**search_dict)
 
             query_params = dict(parse_qsl(filter_string))
             query_params = filter.fix_booleans_in_dict(query_params)
@@ -770,7 +782,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": "Error fetching data items!",
                 }
             )
-        except:
+        # except:
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
