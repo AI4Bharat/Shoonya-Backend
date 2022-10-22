@@ -717,74 +717,80 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
-        # try:
-        dataset_instance_ids = request.data.get("instance_ids")
-        dataset_type = request.data.get("dataset_type", "")
-        if type(dataset_instance_ids) != list:
-            dataset_instance_ids = [dataset_instance_ids]
-        filter_string = request.data.get("filter_string")
-        #  Get dataset type from first dataset instance if dataset_type not passed in json data from frontend
-        if dataset_type == "":
-            dataset_type = DatasetInstance.objects.get(
-                instance_id=dataset_instance_ids[0]
-            ).dataset_type
-        dataset_model = apps.get_model("dataset", dataset_type)
-        data_items = dataset_model.objects.filter(instance_id__in=dataset_instance_ids)
-
-        if "search_keys" in request.data:
-            search_dict = {}
-            for key, value in request.data["search_keys"].items():
-                field_type = str(dataset_model._meta.get_field(key).get_internal_type())
-                # print(field_type)
-                if value is not None:
-                    if field_type == "TextField":
-                        search_dict["%s__search" % key] = value
-                    else:
-                        search_dict["%s__icontains" % key] = value
-                else:
-                    search_dict[key] = value
-
-            data_items = data_items.filter(**search_dict)
-
-        query_params = dict(parse_qsl(filter_string))
-        query_params = filter.fix_booleans_in_dict(query_params)
-        filtered_set = filter.filter_using_dict_and_queryset(query_params, data_items)
-        # filtered_data = filtered_set.values()
-        # serializer = DatasetItemsSerializer(filtered_set, many=True)
-        page = request.GET.get("page")
         try:
-            page = self.paginate_queryset(filtered_set)
-        except Exception as e:
-            page = []
-            data = page
-            return Response(
-                {
-                    "status": status.HTTP_200_OK,
-                    "message": "No more record.",
-                    # TODO: should be results. Needs testing to be sure.
-                    "data": data,
-                }
+            dataset_instance_ids = request.data.get("instance_ids")
+            dataset_type = request.data.get("dataset_type", "")
+            if type(dataset_instance_ids) != list:
+                dataset_instance_ids = [dataset_instance_ids]
+            filter_string = request.data.get("filter_string")
+            #  Get dataset type from first dataset instance if dataset_type not passed in json data from frontend
+            if dataset_type == "":
+                dataset_type = DatasetInstance.objects.get(
+                    instance_id=dataset_instance_ids[0]
+                ).dataset_type
+            dataset_model = apps.get_model("dataset", dataset_type)
+            data_items = dataset_model.objects.filter(
+                instance_id__in=dataset_instance_ids
             )
 
-        if page is not None:
-            datset_serializer = SERIALIZER_MAP[dataset_type]
-            serializer = datset_serializer(page, many=True)
-            data = serializer.data
-            return self.get_paginated_response(data)
+            if "search_keys" in request.data:
+                search_dict = {}
+                for key, value in request.data["search_keys"].items():
+                    field_type = str(
+                        dataset_model._meta.get_field(key).get_internal_type()
+                    )
+                    # print(field_type)
+                    if value is not None:
+                        if field_type == "TextField":
+                            search_dict["%s__search" % key] = value
+                        else:
+                            search_dict["%s__icontains" % key] = value
+                    else:
+                        search_dict[key] = value
 
-        return Response(
-            {
-                "status": status.HTTP_400_BAD_REQUEST,
-                "message": "Error fetching data items!",
-            }
-        )
-        # except:
-        return Response(
-            {
-                "status": status.HTTP_400_BAD_REQUEST,
-                "message": "Error fetching data items!",
-            }
-        )
+                data_items = data_items.filter(**search_dict)
+
+            query_params = dict(parse_qsl(filter_string))
+            query_params = filter.fix_booleans_in_dict(query_params)
+            filtered_set = filter.filter_using_dict_and_queryset(
+                query_params, data_items
+            )
+            # filtered_data = filtered_set.values()
+            # serializer = DatasetItemsSerializer(filtered_set, many=True)
+            page = request.GET.get("page")
+            try:
+                page = self.paginate_queryset(filtered_set)
+            except Exception as e:
+                page = []
+                data = page
+                return Response(
+                    {
+                        "status": status.HTTP_200_OK,
+                        "message": "No more record.",
+                        # TODO: should be results. Needs testing to be sure.
+                        "data": data,
+                    }
+                )
+
+            if page is not None:
+                datset_serializer = SERIALIZER_MAP[dataset_type]
+                serializer = datset_serializer(page, many=True)
+                data = serializer.data
+                return self.get_paginated_response(data)
+
+            return Response(
+                {
+                    "status": status.HTTP_400_BAD_REQUEST,
+                    "message": "Error fetching data items!",
+                }
+            )
+        except:
+            return Response(
+                {
+                    "status": status.HTTP_400_BAD_REQUEST,
+                    "message": "Error fetching data items!",
+                }
+            )
 
     # return Response(filtered_data)
 
