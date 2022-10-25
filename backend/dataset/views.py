@@ -732,6 +732,24 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             data_items = dataset_model.objects.filter(
                 instance_id__in=dataset_instance_ids
             )
+
+            if "search_keys" in request.data:
+                search_dict = {}
+                for key, value in request.data["search_keys"].items():
+                    field_type = str(
+                        dataset_model._meta.get_field(key).get_internal_type()
+                    )
+                    # print(field_type)
+                    if value is not None:
+                        if field_type == "TextField":
+                            search_dict["%s__search" % key] = value
+                        else:
+                            search_dict["%s__icontains" % key] = value
+                    else:
+                        search_dict[key] = value
+
+                data_items = data_items.filter(**search_dict)
+
             query_params = dict(parse_qsl(filter_string))
             query_params = filter.fix_booleans_in_dict(query_params)
             filtered_set = filter.filter_using_dict_and_queryset(
@@ -773,7 +791,8 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": "Error fetching data items!",
                 }
             )
-        # return Response(filtered_data)
+
+    # return Response(filtered_data)
 
     @swagger_auto_schema(
         method="post",
