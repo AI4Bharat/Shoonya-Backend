@@ -523,7 +523,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 completed_by=request.user
             )
             annotation_type = request.data.get("annotation_type")
-            print(task_status)
+            # print(task_status)
             if annotation_type == "review":
                 task_annotations = task_annotations.filter(
                     parent_annotation__isnull=False
