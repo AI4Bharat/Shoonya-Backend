@@ -830,7 +830,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         url_name="delete_data_items",
     )
     def delete_data_items(self, request, pk=None):
-        try:
+        #try:
             dataset_instance = DatasetInstance.objects.get(pk=pk)
 
             if (
@@ -897,14 +897,14 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "status": status.HTTP_200_OK,
                     "message": f"Deleted {num_data_items} data items and {num_related_tasks} related tasks and {num_related_annotations} related annotations successfully!",
                 }
-            )
-        except:
-            return Response(
-                {
-                    "status": status.HTTP_400_BAD_REQUEST,
-                    "message": "Invalid Parameters in the request body!",
-                }
-            )
+           # )
+        #except:
+        #    return Response(
+        #       {
+        #            "status": status.HTTP_400_BAD_REQUEST,
+        #            "message": "Invalid Parameters in the request body!",
+        #       }
+        #    )
 
 
 class DatasetTypeView(APIView):
