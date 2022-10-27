@@ -897,7 +897,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "status": status.HTTP_200_OK,
                     "message": f"Deleted {num_data_items} data items and {num_related_tasks} related tasks and {num_related_annotations} related annotations successfully!",
                 }
-           # )
+            )
         #except:
         #    return Response(
         #       {
