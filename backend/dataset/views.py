@@ -874,7 +874,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             ]
             related_annotations = Annotation.objects.filter(
                 task__id__in=related_annotations_task_ids
-            ).order_by('-id')
+            ).order_by("-id")
 
             num_related_tasks = len(related_tasks)
             num_related_annotations = len(related_annotations)
@@ -886,7 +886,6 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-            
             for related_annotation in related_annotations:
                 related_annotation.delete()
             data_items.delete()
