@@ -874,7 +874,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             ]
             related_annotations = Annotation.objects.filter(
                 task__id__in=related_annotations_task_ids
-            )
+            ).order_by("-id")
 
             num_related_tasks = len(related_tasks)
             num_related_annotations = len(related_annotations)
@@ -886,10 +886,8 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-            related_annotations_with_parent_annotation = related_annotations.filter(
-                ~Q(parent_annotation=None)
-            )
-            related_annotations_with_parent_annotation.delete()
+            for related_annotation in related_annotations:
+                related_annotation.delete()
             data_items.delete()
 
             return Response(
@@ -898,11 +896,11 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": f"Deleted {num_data_items} data items and {num_related_tasks} related tasks and {num_related_annotations} related annotations successfully!",
                 }
             )
-        except:
+        except Exception as error:
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
-                    "message": "Invalid Parameters in the request body!",
+                    "message": str(error),
                 }
             )
 
