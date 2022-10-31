@@ -627,20 +627,7 @@ class AnnotationViewSet(
                 else:
                     task.correct_annotation = None
 
-            # request.data["task_status"]
-            # TODO: Support accepting annotations manually
-            # if task.annotations.count() == 1:
-            # if not task.project_id.enable_task_reviews:
-            #     task.correct_annotation = annotation
-            #     #if task.task_status == ANNOTATED:
-            #     task.task_status = ANNOTATED
-
-        else:
-            # To-Do : Fix the Labeled for required_annotators_per_task
-            task.task_status = INCOMPLETE
-            # request.data["task_status"]
-
-        task.save()
+            task.save()
         return annotation_response
 
     def create_review_annotation(self, request):
@@ -747,20 +734,9 @@ class AnnotationViewSet(
                         task.correct_annotation = annotation
                     else:
                         task.correct_annotation = None
-            else:
-                task.task_status = INCOMPLETE
-            task.save()
-            # if task.project_id.required_annotators_per_task == task.annotations.count():
-            #     # if True:
-            #     task.task_status = request.data["task_status"]
-            #     # TODO: Support accepting annotations manually
-            #     # if task.annotations.count() == 1:
-            #     if not task.project_id.enable_task_reviews:
-            #         task.correct_annotation = annotation
-            #         if task.task_status == LABELED:
-            #             task.task_status = ACCEPTED
-            # else:
-            #     task.task_status = request.data["task_status"]
+
+                task.save()
+
         # Review annotation update
         else:
             if "review_status" in dict(request.data) and request.data[
