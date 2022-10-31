@@ -254,9 +254,7 @@ def export_project_in_place(
     project = Project.objects.get(pk=project_id)
 
     # Get all the accepted tasks for the project
-    tasks = Task.objects.filter(
-        project_id__exact=project, task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES]
-    )
+    tasks = Task.objects.filter(project_id__exact=project, task_status__in=[REVIEWED])
 
     data_items = []
 
@@ -339,9 +337,7 @@ def export_project_new_record(
     project = Project.objects.get(pk=project_id)
 
     # Get all the accepted tasks for the project
-    tasks = Task.objects.filter(
-        project_id__exact=project, task_status__in=[ACCEPTED, ACCEPTED_WITH_CHANGES]
-    )
+    tasks = Task.objects.filter(project_id__exact=project, task_status__in=[REVIEWED])
 
     tasks_list = []
     annotated_tasks = []
