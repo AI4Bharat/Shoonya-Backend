@@ -621,6 +621,12 @@ class AnnotationViewSet(
         if task.project_id.required_annotators_per_task == no_of_annotations:
             # if True:
             task.task_status = ANNOTATED
+            if not task.project_id.enable_task_reviews:
+                if no_of_annotations == 1:
+                    task.correct_annotation = annotation
+                else:
+                    task.correct_annotation = None
+
             # request.data["task_status"]
             # TODO: Support accepting annotations manually
             # if task.annotations.count() == 1:
@@ -695,18 +701,14 @@ class AnnotationViewSet(
             review_status == ACCEPTED
             or review_status == ACCEPTED_WITH_MINOR_CHANGES
             or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+            or review_status == TO_BE_REVISED
         ):
-            task.correct_annotation = annotation
+            if review_status != TO_BE_REVISED:
+                task.correct_annotation = annotation
+                parent_annotation.review_notes = annotation.review_notes
+                parent_annotation.save()
             task.task_status = REVIEWED
             task.save()
-            # is_modified = annotation_result_compare(
-            #     annotation.parent_annotation.result, annotation.result
-            # )
-            # if is_modified:
-            #     review_status = ACCEPTED_WITH_CHANGES
-
-        parent_annotation.review_notes = annotation.review_notes
-        parent_annotation.save()
 
         return annotation_response
 
@@ -740,6 +742,11 @@ class AnnotationViewSet(
             if task.project_id.required_annotators_per_task == no_of_annotations:
                 # if True:
                 task.task_status = ANNOTATED
+                if not task.project_id.enable_task_reviews:
+                    if no_of_annotations == 1:
+                        task.correct_annotation = annotation
+                    else:
+                        task.correct_annotation = None
             else:
                 task.task_status = INCOMPLETE
             task.save()
@@ -782,23 +789,16 @@ class AnnotationViewSet(
                 review_status == ACCEPTED
                 or review_status == ACCEPTED_WITH_MINOR_CHANGES
                 or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+                or review_status == TO_BE_REVISED
             ):
-                task.correct_annotation = annotation
-                # is_modified = annotation_result_compare(
-                #     annotation.parent_annotation.result, annotation.result
-                # )
-                # if is_modified:
-                #     review_status = ACCEPTED_WITH_CHANGES
-            else:
-                task.correct_annotation = None
+                if review_status != TO_BE_REVISED:
+                    task.correct_annotation = annotation
+                    parent = annotation.parent_annotation
+                    parent.review_notes = annotation.review_notes
+                    parent.save()
+                task.task_status = REVIEWED
+                task.save()
 
-            task.task_status = review_status
-
-            parent = annotation.parent_annotation
-            parent.review_notes = annotation.review_notes
-            parent.save()
-
-        task.save()
         return annotation_response
 
     def destroy(self, request, pk=None):
