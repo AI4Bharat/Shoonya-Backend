@@ -77,51 +77,45 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     total_task_count = total_tasks.count()
 
-    accepted_tasks = Task.objects.filter(
-        project_id=proj_id, review_user=userid, task_status="accepted"
-    )
-
-    accepted_tasks_objs_ids = list(accepted_tasks.values_list("id", flat=True))
     accepted_objs = Annotation_model.objects.filter(
-        task_id__in=accepted_tasks_objs_ids,
+        annotation_status="accepted",
+        task__project_id=proj_id,
+        task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     )
 
     accepted_objs_count = accepted_objs.count()
 
-    acceptedwtchange_tasks = Task.objects.filter(
-        project_id=proj_id, review_user=userid, task_status="accepted_with_changes"
-    )
-
-    acceptedwtchange_tasks_objs_ids = list(
-        acceptedwtchange_tasks.values_list("id", flat=True)
-    )
-    acceptedwtchange_objs = Annotation_model.objects.filter(
-        task_id__in=acceptedwtchange_tasks_objs_ids,
+    minor_changes = Annotation_model.objects.filter(
+        annotation_status="accepted_with_minor_changes",
+        task__project_id=proj_id,
+        task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
-    )
+    ).count()
 
-    minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
+    major_changes = Annotation_model.objects.filter(
+        annotation_status="accepted_with_major_changes",
+        task__project_id=proj_id,
+        task__review_user=userid,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    ).count()
+    # minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
     labeled_tasks = Task.objects.filter(
-        project_id=proj_id, review_user=userid, task_status="labeled"
+        project_id=proj_id, review_user=userid, task_status="annotated"
     )
     labeled_tasks_count = labeled_tasks.count()
 
-    to_be_revised_tasks = Task.objects.filter(
-        project_id=proj_id, review_user=userid, task_status="to_be_revised"
-    )
-    to_be_revised_tasks_objs_ids = list(
-        to_be_revised_tasks.values_list("id", flat=True)
-    )
-    to_be_revised_objs = Annotation_model.objects.filter(
-        task_id__in=to_be_revised_tasks_objs_ids,
+    to_be_revised_tasks_count = Annotation_model.objects.filter(
+        annotation_status="to_be_revised",
+        task__project_id=proj_id,
+        task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
-    )
-    to_be_revised_tasks_count = to_be_revised_objs.count()
+    ).count()
 
     result = {
         "Reviewer Name": userName,
@@ -298,29 +292,27 @@ def get_task_count(pk, status):
     return task_count
 
 
-def get_tasks_count(pk, annotator, status, return_task_count=True):
-    Task_objs = Task.objects.filter(
-        project_id=pk, annotation_users=annotator, task_status=status
-    )
-    if return_task_count == True:
-        Task_objs_count = Task_objs.count()
-        return Task_objs_count
-    else:
-        return Task_objs
+# def get_tasks_count(pk, annotator, status, return_task_count=True):
+#     Task_objs = Task.objects.filter(
+#         project_id=pk, annotation_users=annotator, task_status=status
+#     )
+#     if return_task_count == True:
+#         Task_objs_count = Task_objs.count()
+#         return Task_objs_count
+#     else:
+#         return Task_objs
 
 
-def get_annotated_tasks(pk, annotator, status, start_date, end_date):
-    annotated_tasks_objs = get_tasks_count(
-        pk, annotator, status, return_task_count=False
-    )
-    annotated_tasks_objs_ids = list(annotated_tasks_objs.values_list("id", flat=True))
-    annotated_objs = Annotation_model.objects.filter(
-        task_id__in=annotated_tasks_objs_ids,
-        parent_annotation_id=None,
-        created_at__range=[start_date, end_date],
-        completed_by=annotator,
-    )
-    return annotated_objs
+# def get_annotated_tasks(pk, annotator, status, start_date, end_date):
+
+#     annotated_objs = Annotation_model.objects.filter(
+#         annotation_status=status,
+#         task__project_id=pk,
+#         parent_annotation_id__isnull=True,
+#         created_at__range=[start_date, end_date],
+#         completed_by=annotator,
+#     )
+#     return annotated_objs
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -1234,86 +1226,147 @@ class ProjectViewSet(viewsets.ModelViewSet):
             assigned_tasks = all_tasks_in_project.count()
             items.append(("Assigned", assigned_tasks))
 
-            # get accepted tasks
-            annotated_accept_tasks = get_annotated_tasks(
-                pk, each_annotator, "accepted", start_date, end_date
+            # get labeled task count
+            labeled_annotations = Annotation_model.objects.filter(
+                task__project_id=pk,
+                annotation_status="labeled",
+                parent_annotation_id__isnull=True,
+                created_at__range=[start_date, end_date],
+                completed_by=each_annotator,
             )
-            items.append(("Accepted", annotated_accept_tasks.count()))
+            labeled_annotation_ids = [ann.id for ann in labeled_annotations]
+
+            reviewed_ann = Annotation_model.objects.filter(
+                parent_annotation_id__in=labeled_annotation_ids
+            ).count()
+
+            labeled_only_annotations = len(labeled_annotations) - reviewed_ann
+
+            items.append(("Labeled", labeled_only_annotations))
 
             proj = Project.objects.get(id=pk)
             if proj.enable_task_reviews:
-                # get accepted with changes tasks count
-                accepted_wt_tasks = get_annotated_tasks(
-                    pk, each_annotator, "accepted_with_changes", start_date, end_date
+                # get accepted tasks
+                annotations_of_reviewer_accepted = Annotation_model.objects.filter(
+                    task__project_id=pk,
+                    annotation_status="accepted",
+                    parent_annotation_id__isnull=False,
+                    created_at__range=[start_date, end_date],
+                )
+                parent_anno_ids = [
+                    ann.parent_annotation_id for ann in annotations_of_reviewer_accepted
+                ]
+                annotated_accept_tasks = Annotation_model.objects.filter(
+                    id__in=parent_anno_ids,
+                    completed_by=each_annotator,
                 )
 
-                minor_changes, major_changes = minor_major_accepted_task(
-                    accepted_wt_tasks
+                items.append(("Accepted", annotated_accept_tasks.count()))
+
+                # get accepted with Minor changes tasks count
+                annotations_of_reviewer_minor = Annotation_model.objects.filter(
+                    task__project_id=pk,
+                    annotation_status="accepted_with_minor_changes",
+                    parent_annotation_id__isnull=False,
+                    created_at__range=[start_date, end_date],
+                )
+                parent_anno_ids_of_minor = [
+                    ann.parent_annotation_id for ann in annotations_of_reviewer_minor
+                ]
+                annotated_accept_minor_changes_tasks = Annotation_model.objects.filter(
+                    id__in=parent_anno_ids_of_minor,
+                    completed_by=each_annotator,
                 )
 
-                items.append(("Accepted With Minor Changes", minor_changes))
-
-                items.append(("Accepted With Major Changes", major_changes))
-
-                # get labeled task count
-                labeled_tasks = get_annotated_tasks(
-                    pk, each_annotator, "labeled", start_date, end_date
+                items.append(
+                    (
+                        "Accepted With Minor Changes",
+                        annotated_accept_minor_changes_tasks.count(),
+                    )
                 )
-                items.append(("Labeled", labeled_tasks.count()))
 
+                # get accepted with Major changes tasks count
+                annotations_of_reviewer_major = Annotation_model.objects.filter(
+                    task__project_id=pk,
+                    annotation_status="accepted_with_major_changes",
+                    parent_annotation_id__isnull=False,
+                    created_at__range=[start_date, end_date],
+                )
+                parent_anno_ids_of_major = [
+                    ann.parent_annotation_id for ann in annotations_of_reviewer_major
+                ]
+                annotated_accept_major_changes_tasks = Annotation_model.objects.filter(
+                    id__in=parent_anno_ids_of_major,
+                    completed_by=each_annotator,
+                )
+
+                items.append(
+                    (
+                        "Accepted With Major Changes",
+                        annotated_accept_major_changes_tasks.count(),
+                    )
+                )
                 # get to_be_revised count
-                to_be_revised_tasks = get_annotated_tasks(
-                    pk, each_annotator, "to_be_revised", start_date, end_date
+                annotations_of_reviewer_to_be_revised = Annotation_model.objects.filter(
+                    task__project_id=pk,
+                    annotation_status="to_be_revised",
+                    parent_annotation_id__isnull=False,
+                    created_at__range=[start_date, end_date],
                 )
-                items.append(("To Be Revised", to_be_revised_tasks.count()))
+                parent_anno_ids_of_to_be_revised = [
+                    ann.parent_annotation_id
+                    for ann in annotations_of_reviewer_to_be_revised
+                ]
+                annotated_to_be_revised_tasks = Annotation_model.objects.filter(
+                    id__in=parent_anno_ids_of_to_be_revised,
+                    completed_by=each_annotator,
+                )
+                items.append(("To Be Revised", annotated_to_be_revised_tasks.count()))
             # get unlabeled count
-            total_unlabeled_tasks_count = get_tasks_count(
-                pk, each_annotator, "unlabeled"
-            )
+            total_unlabeled_tasks_count = Annotation_model.objects.filter(
+                task__project_id=pk,
+                annotation_status="unlabeled",
+                parent_annotation_id__isnull=True,
+                created_at__range=[start_date, end_date],
+                completed_by=each_annotator,
+            ).count()
             items.append(("Unlabeled", total_unlabeled_tasks_count))
 
             # get skipped tasks count
-            total_skipped_tasks_count = get_tasks_count(pk, each_annotator, "skipped")
+            total_skipped_tasks_count = Annotation_model.objects.filter(
+                task__project_id=pk,
+                annotation_status="skipped",
+                parent_annotation_id__isnull=True,
+                created_at__range=[start_date, end_date],
+                completed_by=each_annotator,
+            ).count()
+
             items.append(("Skipped", total_skipped_tasks_count))
 
             # get draft tasks count
-            total_draft_tasks_count = get_tasks_count(pk, each_annotator, "draft")
+            total_draft_tasks_count = Annotation_model.objects.filter(
+                task__project_id=pk,
+                annotation_status="draft",
+                parent_annotation_id__isnull=True,
+                created_at__range=[start_date, end_date],
+                completed_by=each_annotator,
+            ).count()
+
             items.append(("Draft", total_draft_tasks_count))
 
             if is_translation_project:
-                if proj.enable_task_reviews:
-                    all_annotated_tasks = (
-                        list(annotated_accept_tasks)
-                        + list(accepted_wt_tasks)
-                        + list(labeled_tasks)
-                        + list(to_be_revised_tasks)
-                    )
-                    total_word_count_list = [
-                        each_task.task.data["word_count"]
-                        for each_task in all_annotated_tasks
-                    ]
-                    total_word_count = sum(total_word_count_list)
-                else:
-                    total_word_count_list = [
-                        each_task.task.data["word_count"]
-                        for each_task in annotated_accept_tasks
-                    ]
-                    total_word_count = sum(total_word_count_list)
+
+                total_word_count_list = [
+                    each_task.task.data["word_count"]
+                    for each_task in labeled_annotations
+                ]
+                total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
-            if proj.enable_task_reviews:
-                all_annotated_tasks = (
-                    list(annotated_accept_tasks)
-                    + list(accepted_wt_tasks)
-                    + list(labeled_tasks)
-                    + list(to_be_revised_tasks)
-                )
-                lead_time_annotated_tasks = [
-                    annot.lead_time for annot in all_annotated_tasks
-                ]
-            else:
-                lead_time_annotated_tasks = [
-                    eachtask.lead_time for eachtask in annotated_accept_tasks
-                ]
+
+            lead_time_annotated_tasks = [
+                annot.lead_time for annot in labeled_annotations
+            ]
+
             avg_lead_time = 0
             if len(lead_time_annotated_tasks) > 0:
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(
