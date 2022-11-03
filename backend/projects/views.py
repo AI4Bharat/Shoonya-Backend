@@ -444,7 +444,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     Q(project_id=project.id) & Q(annotation_users__in=[user])
                 ).filter(Q(task_status="incomplete"))
                 Annotation_model.objects.filter(
-                    Q(completed_by=user) & Q(annotation_status="draft")
+                    Q(completed_by=user)
+                    & Q(annotation_status="draft")
+                    & Q(parent_annotation_id__isnull=True)
                 ).delete()  # delete all draft annotations by the user
                 for task in tasks:
                     task.annotation_users.remove(user)
@@ -1771,7 +1773,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(
                     project_id__exact=project,
                     task_status__in=[REVIEWED],
-                )
+                ).exclude(correct_annotation__annotation_status="to_be_revised")
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
@@ -1810,7 +1812,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(
                     project_id__exact=project,
                     task_status__in=[REVIEWED],
-                )
+                ).exclude(correct_annotation__annotation_status="to_be_revised")
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
