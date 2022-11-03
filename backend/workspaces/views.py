@@ -261,25 +261,13 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 members=request.user,
                 is_archived=False,
                 organization=request.user.organization,
-            )
-            try:
-                data = self.paginate_queryset(data)
-            except:
-                page = []
-                data = page
-                return Response(
-                    {
-                        "status": status.HTTP_200_OK,
-                        "message": "No more record.",
-                        "results": data,
-                    }
-                )
+            )    
             serializer = WorkspaceSerializer(data, many=True)
-            return self.get_paginated_response(serializer.data)
+            return serializer.data
         elif int(request.user.role) == User.ORGANIZATION_OWNER:
             data = self.queryset.filter(organization=request.user.organization)
             serializer = WorkspaceSerializer(data, many=True)
-            return self.get_paginated_response(serializer.data)
+            return serializer.data
         else:
             return Response(
                 {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
