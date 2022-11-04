@@ -263,11 +263,11 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 organization=request.user.organization,
             )
             serializer = WorkspaceSerializer(data, many=True)
-            return serializer.data
+            return Response(serializer.data)
         elif int(request.user.role) == User.ORGANIZATION_OWNER:
             data = self.queryset.filter(organization=request.user.organization)
             serializer = WorkspaceSerializer(data, many=True)
-            return serializer.data
+            return Response(serializer.data)
         else:
             return Response(
                 {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
