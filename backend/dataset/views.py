@@ -851,9 +851,29 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
             if "data_item_ids" in request.data:
                 data_item_ids = request.data.get("data_item_ids")
+                if len(data_item_ids) == 0:
+                    return Response(
+                        {
+                            "status": status.HTTP_400_BAD_REQUEST,
+                            "message": "Please enter valid values",
+                        }
+                    )
             else:
                 data_item_start_id = request.data.get("data_item_start_id")
                 data_item_end_id = request.data.get("data_item_end_id")
+                if (
+                    data_item_start_id == ""
+                    or data_item_end_id == ""
+                    or data_item_start_id == None
+                    or data_item_end_id == None
+                ):
+                    return Response(
+                        {
+                            "status": status.HTTP_400_BAD_REQUEST,
+                            "message": "Please enter valid values",
+                        }
+                    )
+
                 data_item_ids = [
                     id for id in range(data_item_start_id, data_item_end_id + 1)
                 ]
