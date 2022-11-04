@@ -46,8 +46,10 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
     annotations = apps.get_model("tasks", "Annotation")
     db_alias = schema_editor.connection.alias
     taskobj = tasks.objects.using(db_alias).all()
-    annotator_annotobj = annotations.using(db_alias).filter(parent_annotation_id=None)
-    reviewer_annotobj = annotations.using(db_alias).filter(
+    annotator_annotobj = annotations.objects.using(db_alias).filter(
+        parent_annotation_id=None
+    )
+    reviewer_annotobj = annotations.objects.using(db_alias).filter(
         parent_annotation_id__isnull=False
     )
     # annotator annotation objects status update
