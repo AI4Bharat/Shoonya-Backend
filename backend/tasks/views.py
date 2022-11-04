@@ -123,10 +123,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
-        is_review_mode = (
-                "mode" in dict(request.query_params)
-                and request.query_params["mode"] == "review"
-            )
         if "project_id" in dict(request.query_params):
             # Step 1: get the logged-in user details
             # Step 2: if - he is NOT (superuser, or manager or org owner), filter based on logged in user.
@@ -135,7 +131,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             user = request.user
             user_obj = User.objects.get(pk=user.id)
-
+            is_review_mode = (
+                "mode" in dict(request.query_params)
+                and request.query_params["mode"] == "review"
+            )
 
             if is_review_mode:
                 if (
@@ -208,9 +207,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 data = serializer.data
                 return Response(data)
 
-        task_status = INCOMPLETE
+        task_status = UNLABELED
         if is_review_mode:
-            task_status = COMPLETE
+            task_status = LABELED
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
             task_status = request.query_params["task_status"]
@@ -253,7 +252,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             (is_translation_project)
             and (not is_conversation_project)
             and (page is not None)
-            # and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
+            and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
             and (not is_review_mode)
         ):
             serializer = TaskAnnotationSerializer(page, many=True)
@@ -291,7 +290,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             (is_translation_project)
             and (not is_conversation_project)
             and (page is not None)
-            and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES, EXPORTED})
+            and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES})
         ):
             # Shows annotations for review_mode
             serializer = TaskAnnotationSerializer(page, many=True)
@@ -665,7 +664,7 @@ class AnnotationViewSet(
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
 
-        if task.task_status in [ACCEPTED, EXPORTED]:
+        if task.task_status == ACCEPTED:
             ret_dict = {"message": "Task is already reviewed and accepted!"}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
@@ -720,15 +719,17 @@ class AnnotationViewSet(
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
 
-            labeled_annotation_count = Annotation.objects.filter(task=task).filter(annotation_status=LABELED).count()
-            if task.project_id.required_annotators_per_task == labeled_annotation_count:
+            if task.project_id.required_annotators_per_task == task.annotations.count():
                 # if True:
-                task.task_status = COMPLETE
+                task.task_status = request.data["task_status"]
                 # TODO: Support accepting annotations manually
                 # if task.annotations.count() == 1:
                 if not task.project_id.enable_task_reviews:
                     task.correct_annotation = annotation
-                    task.task_status = ACCEPTED
+                    if task.task_status == LABELED:
+                        task.task_status = ACCEPTED
+            else:
+                task.task_status = request.data["task_status"]
         # Review annotation update
         else:
             if "review_status" in dict(request.data) and request.data[
@@ -769,13 +770,11 @@ class AnnotationViewSet(
         instance = self.get_object()
         annotation_id = instance.id
         annotation = Annotation.objects.get(pk=annotation_id)
-        annotation.annotation_status = UNLABELED
-        annotation.result = []
-        annotation.save()
         task = annotation.task
-        if task.task_status == COMPLETE:
-            task.task_status = INCOMPLETE
+        task.task_status = UNLABELED
         task.save()
+
+        annotation_response = super().destroy(request)
 
         return Response({"message": "Annotation Deleted"}, status=status.HTTP_200_OK)
 

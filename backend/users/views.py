@@ -475,7 +475,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                             "accepted",
                             "to_be_revised",
                             "accepted_with_changes",
-                            "complete",
+                            "labeled",
                         ]
                     )
                 )

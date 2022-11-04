@@ -73,7 +73,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
         parent_annotation_id=None,
-        updated_at__range=[start_date, end_date],
+        created_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -90,7 +90,7 @@ def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=labeled_tasks_ids,
         parent_annotation_id=None,
-        updated_at__range=[start_date, end_date],
+        created_at__range=[start_date, end_date],
     )
 
     return annotated_labeled_tasks
@@ -147,12 +147,8 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
     minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
     # acceptedwtchange_objs_count = acceptedwtchange_objs.count()
 
-    labeled_tasks = Annotation.objects.filter(
-        task__project_id__in=proj_ids,
-        task__review_user=userid,
-        annotation_status="labeled",
-        parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+    labeled_tasks = Task.objects.filter(
+        project_id__in=proj_ids, review_user=userid, task_status="labeled"
     )
     labeled_tasks_count = labeled_tasks.count()
 
@@ -217,7 +213,7 @@ def un_pack_annotation_tasks(
     labeled = get_annotated_tasks(
         proj_ids,
         each_annotation_user,
-        ["complete"],
+        ["labeled"],
         start_date,
         end_date,
     )
@@ -641,32 +637,18 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 )
                 labeled_tasks = get_annotated_tasks_project_analytics(
                     proj.id,
-                    ["accepted", "to_be_revised", "accepted_with_changes", "complete"],
+                    ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
                     start_date,
                     end_date,
                 )
 
                 labeled_count = labeled_tasks.count()
 
-                un_labeled_count = Annotation.objects.filter(
-                    task__project_id=proj.id,
-                    parent_annotation_id=None,
-                    annotation_status="unlabeled",
-                    updated_at__range=[start_date, end_date],
-                ).count()
-                skipped_count = Annotation.objects.filter(
-                    task__project_id=proj.id,
-                    parent_annotation_id=None,
-                    annotation_status="skipped",
-                    updated_at__range=[start_date, end_date],
-                ).count()
-
-                dropped_tasks = Annotation.objects.filter(
-                    task__project_id=proj.id,
-                    parent_annotation_id=None,
-                    annotation_status="draft",
-                    updated_at__range=[start_date, end_date],
-                ).count()
+                un_labeled_count = get_task_count_project_analytics(
+                    proj.id, ["unlabeled"]
+                )
+                skipped_count = get_task_count_project_analytics(proj.id, ["skipped"])
+                dropped_tasks = get_task_count_project_analytics(proj.id, ["draft"])
 
                 if total_tasks == 0:
                     project_progress = 0.0
@@ -886,11 +868,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     end_date,
                     is_translation_project,
                 )
+
             else:
                 annotated_labeled_tasks = get_annotated_tasks(
                     proj_ids,
                     each_annotation_user,
-                    ["accepted", "to_be_revised", "accepted_with_changes", "complete"],
+                    ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
                     start_date,
                     end_date,
                 )
@@ -911,29 +894,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     ]
                     total_word_count = sum(total_word_count_list)
 
-            total_skipped_tasks = Annotation.objects.filter(
-                task__project_id__in=proj_ids,
-                parent_annotation_id=None,
-                completed_by=each_annotation_user,
-                annotation_status="skipped",
-                updated_at__range=[start_date, end_date],
-            ).count()
-
-            all_pending_tasks_in_project = Annotation.objects.filter(
-                task__project_id__in=proj_ids,
-                parent_annotation_id=None,
-                completed_by=each_annotation_user,
-                annotation_status="unlabeled",
-                updated_at__range=[start_date, end_date],
-            ).count()
-
-            all_draft_tasks_in_project = Annotation.objects.filter(
-                task__project_id__in=proj_ids,
-                parent_annotation_id=None,
-                completed_by=each_annotation_user,
-                annotation_status="draft",
-                updated_at__range=[start_date, end_date],
-            ).count()
+            total_skipped_tasks = get_task_count(
+                proj_ids, ["skipped"], each_annotation_user
+            )
+            all_pending_tasks_in_project = get_task_count(
+                proj_ids, ["unlabeled"], each_annotation_user
+            )
+            all_draft_tasks_in_project = get_task_count(
+                proj_ids, ["draft"], each_annotation_user
+            )
 
             if is_translation_project:
                 if only_review_proj:
