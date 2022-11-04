@@ -85,7 +85,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     accepted_objs = Annotation_model.objects.filter(
         task_id__in=accepted_tasks_objs_ids,
         parent_annotation_id__isnull=False,
-        updated_at__range=[start_date, end_date],
+        created_at__range=[start_date, end_date],
     )
 
     accepted_objs_count = accepted_objs.count()
@@ -100,13 +100,13 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     acceptedwtchange_objs = Annotation_model.objects.filter(
         task_id__in=acceptedwtchange_tasks_objs_ids,
         parent_annotation_id__isnull=False,
-        updated_at__range=[start_date, end_date],
+        created_at__range=[start_date, end_date],
     )
 
     minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
     labeled_tasks = Task.objects.filter(
-        project_id=proj_id, review_user=userid, task_status="complete"
+        project_id=proj_id, review_user=userid, task_status="labeled"
     )
     labeled_tasks_count = labeled_tasks.count()
 
@@ -317,7 +317,7 @@ def get_annotated_tasks(pk, annotator, status, start_date, end_date):
     annotated_objs = Annotation_model.objects.filter(
         task_id__in=annotated_tasks_objs_ids,
         parent_annotation_id=None,
-        updated_at__range=[start_date, end_date],
+        created_at__range=[start_date, end_date],
         completed_by=annotator,
     )
     return annotated_objs
@@ -372,12 +372,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_pull_result"] = last_project_export_result
 
         # Add a field to specify the no. of available tasks to be assigned
-        project_response.data["unassigned_task_count"] = get_task_count(pk, INCOMPLETE)
+        project_response.data["unassigned_task_count"] = get_task_count(pk, UNLABELED)
 
         # Add a field to specify the no. of labeled tasks
         project_response.data["labeled_task_count"] = (
             Task.objects.filter(project_id=pk)
-            .filter(task_status=COMPLETE)
+            .filter(task_status=LABELED)
             .filter(review_user__isnull=True)
             .exclude(annotation_users=request.user.id)
             .count()
@@ -450,14 +450,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                 tasks = Task.objects.filter(
                     Q(project_id=project.id) & Q(annotation_users__in=[user])
-                ).filter(task_status="incomplete")
+                ).filter(Q(task_status="unlabeled") | Q(task_status="draft"))
                 Annotation_model.objects.filter(
-                    Q(completed_by=user) & Q(annotation_status="draft")
+                    Q(completed_by=user) & Q(task__task_status="draft")
                 ).delete()  # delete all draft annotations by the user
                 for task in tasks:
                     task.annotation_users.remove(user)
                     task.save()
-                # tasks.update(task_status="unlabeled")  # unassign user from tasks
+                tasks.update(task_status="unlabeled")  # unassign user from tasks
                 project.annotators.remove(user)
                 project.frozen_users.add(user)
                 project.save()
@@ -504,15 +504,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = (
                     Task.objects.filter(project_id=project.id)
                     .filter(review_user=user)
-                    .exclude(task_status__in=[ACCEPTED, TO_BE_REVISED, EXPORTED])
+                    .exclude(task_status__in=[ACCEPTED, TO_BE_REVISED])
                 )
-                if tasks:
-                    Annotation_model.objects.filter(
-                        Q(completed_by=user) & Q(task__in=tasks)
-                    ).delete()
-                    for task in tasks:
-                        task.review_user = None
-                        task.save()
+                for task in tasks:
+                    task.review_user = None
+                    task.save()
                 project.frozen_users.add(user)
                 project.save()
             return Response(
@@ -621,13 +617,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     Task.objects.filter(
                         project_id__exact=project.id,
                         review_user=request.user.id,
-                        task_status__exact=COMPLETE,
+                        task_status__exact=LABELED,
                     )
                     if is_review_mode
                     else Task.objects.filter(
                         project_id__exact=project.id,
                         annotation_users=request.user.id,
-                        task_status__exact=INCOMPLETE,
+                        task_status__exact=UNLABELED,
                     )
                 )
             else:
@@ -636,12 +632,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 unattended_tasks = (
                     Task.objects.filter(
                         project_id__exact=project.id,
-                        task_status__exact=COMPLETE,
+                        task_status__exact=LABELED,
                     )
                     if is_review_mode
                     else Task.objects.filter(
                         project_id__exact=project.id,
-                        task_status__exact=INCOMPLETE,
+                        task_status__exact=UNLABELED,
                     )
                 )
             unattended_tasks = unattended_tasks.order_by("id")
@@ -825,29 +821,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         # check if user has pending tasks
+        # the below logic will work only for required_annotators_per_task=1
+        # TO-DO Modify and use the commented logic to cover all cases
         pending_tasks = (
             Task.objects.filter(project_id=pk)
             .filter(annotation_users=cur_user.id)
-            .filter(task_status__exact=INCOMPLETE)
-        )
-
-        pending_tasks_count = (
-            Annotation_model.objects.filter(task__in=pending_tasks)
-            .filter(completed_by__exact=cur_user.id)
-            .filter(annotation_status=UNLABELED)
+            .filter(task_status__exact=UNLABELED)
             .count()
         )
-
         # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
         # assigned_tasks = assigned_tasks_queryset.count()
         # completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
         # pending_tasks = assigned_tasks - completed_tasks
-        if pending_tasks_count >= project.max_pending_tasks_per_user:
+        if pending_tasks >= project.max_pending_tasks_per_user:
             return Response(
                 {"message": "Your pending task count is too high"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks_count
+        tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
 
         if "num_tasks" in dict(request.data):
             task_pull_count = request.data["num_tasks"]
@@ -870,7 +861,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks = Task.objects.filter(project_id=pk)
         tasks = tasks.order_by("id")
         tasks = (
-            tasks.filter(task_status=INCOMPLETE)
+            tasks.filter(task_status=UNLABELED)
             .exclude(annotation_users=cur_user.id)
             .annotate(annotator_count=Count("annotation_users"))
         )
@@ -886,13 +877,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
-            base_annotation_obj = Annotation_model(
-                result=[],
-                task=task,
-                completed_by=cur_user,
-            )
-            base_annotation_obj.save()
-
         project.release_lock(ANNOTATION_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -915,14 +899,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = (
                     Task.objects.filter(project_id__exact=project_id)
                     .filter(annotation_users=user.id)
-                    .filter(task_status=INCOMPLETE)
+                    .filter(task_status=UNLABELED)
                 )
                 if tasks.count() > 0:
                     for task in tasks:
                         task.unassign(user_obj)
-                    Annotation_model.objects.filter(completed_by=user).filter(
-                        task__in=tasks
-                    ).delete()
                     return Response(
                         {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                     )
@@ -1031,7 +1012,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # check if the project contains eligible tasks to pull
         tasks = (
             Task.objects.filter(project_id=pk)
-            .filter(task_status=COMPLETE)
+            .filter(task_status=LABELED)
             .filter(review_user__isnull=True)
             .exclude(annotation_users=cur_user.id)
         )
@@ -1057,13 +1038,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
-            base_annotation_obj = Annotation_model(
-                result=[],
-                task=task,
-                completed_by=cur_user,
-            )
-            base_annotation_obj.save()
-
         project.release_lock(REVIEW_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -1087,14 +1061,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if project_obj and user in project_obj.annotation_reviewers.all():
                 tasks = (
                     Task.objects.filter(project_id__exact=project_id)
-                    .filter(task_status=COMPLETE)
+                    .filter(task_status=LABELED)
                     .filter(review_user=user.id)
                 )
                 if tasks.count() > 0:
                     tasks.update(review_user=None)
-                    Annotation_model.objects.filter(completed_by=user).filter(
-                        task__in=tasks
-                    ).delete()
                     return Response(
                         {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                     )
@@ -1286,7 +1257,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 # get labeled task count
                 labeled_tasks = get_annotated_tasks(
-                    pk, each_annotator, "complete", start_date, end_date
+                    pk, each_annotator, "labeled", start_date, end_date
                 )
                 items.append(("Labeled", labeled_tasks.count()))
 
@@ -1296,35 +1267,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
                 items.append(("To Be Revised", to_be_revised_tasks.count()))
             # get unlabeled count
-            total_unlabeled_tasks_count = Annotation_model.objects.filter(
-                task__project_id=pk,
-                parent_annotation_id=None,
-                completed_by=each_annotator,
-                annotation_status="unlabeled",
-                updated_at__range=[start_date, end_date],
-            ).count()
-
-            items.append(("Unlabeled Tasks", total_unlabeled_tasks_count))
+            total_unlabeled_tasks_count = get_tasks_count(
+                pk, each_annotator, "unlabeled"
+            )
+            items.append(("Unlabeled", total_unlabeled_tasks_count))
 
             # get skipped tasks count
-            total_skipped_tasks_count = Annotation_model.objects.filter(
-                task__project_id=pk,
-                parent_annotation_id=None,
-                completed_by=each_annotator,
-                annotation_status="skipped",
-                updated_at__range=[start_date, end_date],
-            ).count()
-            items.append(("Skipped Tasks", total_skipped_tasks_count))
+            total_skipped_tasks_count = get_tasks_count(pk, each_annotator, "skipped")
+            items.append(("Skipped", total_skipped_tasks_count))
 
             # get draft tasks count
-            total_draft_tasks_count = Annotation_model.objects.filter(
-                task__project_id=pk,
-                parent_annotation_id=None,
-                completed_by=each_annotator,
-                annotation_status="draft",
-                updated_at__range=[start_date, end_date],
-            ).count()
-            items.append(("Draft Tasks", total_draft_tasks_count))
+            total_draft_tasks_count = get_tasks_count(pk, each_annotator, "draft")
+            items.append(("Draft", total_draft_tasks_count))
 
             if is_translation_project:
                 if proj.enable_task_reviews:
@@ -1500,9 +1454,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
             tasks = Task.objects.filter(project_id=project.id).filter(
-                task_status__in=[ACCEPTED, EXPORTED]
+                task_status=ACCEPTED
             )
-            tasks.update(task_status=COMPLETE)
+            tasks.update(task_status=LABELED)
             project.enable_task_reviews = True
             project.save()
             return Response(
@@ -1535,14 +1489,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             tasks = Task.objects.filter(project_id=project.id)
             # delete review annotations for review tasks
-            reviewed_tasks = tasks.filter(
-                task_status__in=[ACCEPTED, TO_BE_REVISED, EXPORTED]
-            )
+            reviewed_tasks = tasks.filter(task_status__in=[ACCEPTED, TO_BE_REVISED])
             Annotation_model.objects.filter(task__in=reviewed_tasks).exclude(
                 parent_annotation__isnull=True
             ).delete()
             # mark all unreviewed tasks accepted
-            unreviewed_tasks = tasks.filter(task_status=COMPLETE)
+            unreviewed_tasks = tasks.filter(task_status=LABELED)
             unreviewed_tasks.update(task_status=ACCEPTED)
             # unassign reviewers
             tasks.update(review_user=None)
