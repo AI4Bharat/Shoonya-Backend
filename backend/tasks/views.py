@@ -370,6 +370,19 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             project_task_start_id = request.data.get("project_task_start_id")
             project_task_end_id = request.data.get("project_task_end_id")
 
+            if (
+                project_task_start_id == ""
+                or project_task_end_id == ""
+                or project_task_start_id == None
+                or project_task_end_id == None
+            ):
+                return Response(
+                    {
+                        "status": status.HTTP_400_BAD_REQUEST,
+                        "message": "Please enter valid values",
+                    }
+                )
+
             project_task_ids = [
                 id for id in range(project_task_start_id, project_task_end_id + 1)
             ]
@@ -395,11 +408,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "message": f"Deleted {num_project_tasks} data items successfully!",
                 }
             )
-        except:
+        except Exception as error:
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
-                    "message": "Invalid Parameters in the request body!",
+                    "message": str(error),
                 }
             )
 
