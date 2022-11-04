@@ -261,7 +261,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 members=request.user,
                 is_archived=False,
                 organization=request.user.organization,
-            )    
+            )
             serializer = WorkspaceSerializer(data, many=True)
             return serializer.data
         elif int(request.user.role) == User.ORGANIZATION_OWNER:
