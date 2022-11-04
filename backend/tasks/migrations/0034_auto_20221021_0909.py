@@ -160,7 +160,7 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
         | Q(task_status="to_be_revised")
     )
     for tas3 in task3:
-        if tas3.enable_task_reviews:
+        if tas3.project_id.enable_task_reviews:
             tas3.task_status = "reviewed"
             tas3.save()
         else:
