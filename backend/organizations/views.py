@@ -21,7 +21,7 @@ from datetime import datetime, timezone, timedelta
 import pandas as pd
 from dateutil import relativedelta
 import calendar
-from workspaces.views import get_review_reports
+from workspaces.views import get_review_reports, un_pack_annotation_tasks
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 import csv
@@ -78,72 +78,6 @@ def get_reviewd_tasks(
     )
 
     return annotated_labeled_tasks
-
-
-def un_pack_annotation_tasks(
-    proj_ids, each_annotation_user, start_date, end_date, is_translation_project
-):
-
-    accepted = get_annotated_tasks(
-        proj_ids,
-        each_annotation_user,
-        ["accepted"],
-        start_date,
-        end_date,
-    )
-
-    to_be_revised = get_annotated_tasks(
-        proj_ids,
-        each_annotation_user,
-        ["to_be_revised"],
-        start_date,
-        end_date,
-    )
-    accepted_with_changes = get_annotated_tasks(
-        proj_ids,
-        each_annotation_user,
-        ["accepted_with_changes"],
-        start_date,
-        end_date,
-    )
-    accepted_wt_minor_changes, accepted_wt_major_changes = minor_major_accepted_task(
-        accepted_with_changes
-    )
-    labeled = get_annotated_tasks(
-        proj_ids,
-        each_annotation_user,
-        ["labeled"],
-        start_date,
-        end_date,
-    )
-
-    all_annotated_tasks = (
-        list(accepted)
-        + list(to_be_revised)
-        + list(accepted_with_changes)
-        + list(labeled)
-    )
-    lead_time_annotated_tasks = [eachtask.lead_time for eachtask in all_annotated_tasks]
-    avg_lead_time = 0
-    if len(lead_time_annotated_tasks) > 0:
-        avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
-    total_word_count = 0
-    if is_translation_project:
-
-        total_word_count_list = [
-            each_task.task.data["word_count"] for each_task in all_annotated_tasks
-        ]
-        total_word_count = sum(total_word_count_list)
-
-    return (
-        accepted.count(),
-        to_be_revised.count(),
-        accepted_wt_minor_changes,
-        accepted_wt_major_changes,
-        labeled.count(),
-        avg_lead_time,
-        total_word_count,
-    )
 
 
 def get_counts(
@@ -223,17 +157,18 @@ def get_counts(
         )
 
     else:
-        annotated_labeled_tasks = get_annotated_tasks(
-            proj_ids,
-            annotator,
-            ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
-            start_date,
-            end_date,
+
+        labeled_annotations = Annotation.objects.filter(
+            task__project_id__in=proj_ids,
+            annotation_status="labeled",
+            parent_annotation_id__isnull=True,
+            created_at__range=[start_date, end_date],
+            completed_by=annotator,
         )
 
-        annotated_tasks = annotated_labeled_tasks.count()
+        annotated_tasks = labeled_annotations.count()
         lead_time_annotated_tasks = [
-            eachtask.lead_time for eachtask in annotated_labeled_tasks
+            eachtask.lead_time for eachtask in labeled_annotations
         ]
         avg_lead_time = 0
         if len(lead_time_annotated_tasks) > 0:
@@ -243,14 +178,32 @@ def get_counts(
         total_word_count = 0
         if is_translation_project:
             total_word_count_list = [
-                each_task.task.data["word_count"]
-                for each_task in annotated_labeled_tasks
+                each_task.task.data["word_count"] for each_task in labeled_annotations
             ]
             total_word_count = sum(total_word_count_list)
 
-    total_skipped_tasks = get_task_count(proj_ids, ["skipped"], annotator)
-    all_pending_tasks_in_project = get_task_count(proj_ids, ["unlabeled"], annotator)
-    all_draft_tasks_in_project = get_task_count(proj_ids, ["draft"], annotator)
+    total_skipped_tasks = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="skipped",
+        parent_annotation_id__isnull=True,
+        created_at__range=[start_date, end_date],
+        completed_by=annotator,
+    )
+    all_pending_tasks_in_project = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="unlabeled",
+        parent_annotation_id__isnull=True,
+        created_at__range=[start_date, end_date],
+        completed_by=annotator,
+    )
+
+    all_draft_tasks_in_project = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="draft",
+        parent_annotation_id__isnull=True,
+        created_at__range=[start_date, end_date],
+        completed_by=annotator,
+    )
 
     return (
         assigned_tasks,
@@ -306,24 +259,44 @@ def get_translation_quality_reports(
 
     proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
 
-    all_reviewd_tasks = get_reviewd_tasks(
-        proj_ids,
-        annotator,
-        ["accepted", "to_be_revised", "accepted_with_changes"],
-        start_date,
-        end_date,
-        parent_annotation_bool=True,
+    all_reviewd_tasks = Annotation.objects.filter(
+        annotation_status__in=[
+            "accepted",
+            "to_be_revised",
+            "accepted_with_minor_changes",
+            "accepted_with_major_changes",
+        ],
+        task__project_id__in=proj_ids,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
     )
-    all_reviewd_tasks_count = all_reviewd_tasks.count()
 
-    accepted_count = get_reviewd_tasks(
-        proj_ids,
-        annotator,
-        ["accepted"],
-        start_date,
-        end_date,
-        parent_annotation_bool=True,
-    ).count()
+    parent_anno_ids_of_reviewed = [
+        ann.parent_annotation_id for ann in all_reviewd_tasks
+    ]
+    reviewed_annotations_of_user = Annotation.objects.filter(
+        id__in=parent_anno_ids_of_reviewed,
+        completed_by=annotator,
+    )
+
+    all_reviewd_tasks_count = reviewed_annotations_of_user.count()
+
+    accepted_tasks = all_reviewd_tasks.all().exclude(
+        annotation_status__in=[
+            "to_be_revised",
+            "accepted_with_minor_changes",
+            "accepted_with_major_changes",
+        ],
+    )
+
+    parent_anno_ids_of_accepted = [ann.parent_annotation_id for ann in accepted_tasks]
+    accepted_annotations_of_user = Annotation.objects.filter(
+        id__in=parent_anno_ids_of_accepted,
+        completed_by=annotator,
+    )
+
+    accepted_count = accepted_annotations_of_user.count()
+
     if all_reviewd_tasks_count == 0:
         reviewed_except_accepted = 0
     else:
@@ -331,17 +304,44 @@ def get_translation_quality_reports(
             (accepted_count / all_reviewd_tasks_count) * 100, 2
         )
 
-    accepted_with_changes_tasks = get_reviewd_tasks(
-        proj_ids,
-        annotator,
-        ["accepted_with_changes"],
-        start_date,
-        end_date,
-        parent_annotation_bool=True,
+    accepted_with_minor_changes_tasks = all_reviewd_tasks.all().exclude(
+        annotation_status__in=[
+            "to_be_revised",
+            "accepted",
+            "accepted_with_major_changes",
+        ],
     )
-    accepted_wt_minor_changes, accepted_wt_major_changes = minor_major_accepted_task(
-        accepted_with_changes_tasks
+
+    parent_annotation_minor_changes = [
+        ann.parent_annotation_id for ann in accepted_with_minor_changes_tasks
+    ]
+    minor_changes_annotations_of_user = Annotation.objects.filter(
+        id__in=parent_annotation_minor_changes,
+        completed_by=annotator,
     )
+    minor_changes_count = minor_changes_annotations_of_user.count()
+
+    accepted_with_major_changes_tasks = all_reviewd_tasks.all().exclude(
+        annotation_status__in=[
+            "to_be_revised",
+            "accepted",
+            "accepted_with_minor_changes",
+        ],
+    )
+
+    parent_annotation_major_changes = [
+        ann.parent_annotation_id for ann in accepted_with_major_changes_tasks
+    ]
+    major_changes_annotations_of_user = Annotation.objects.filter(
+        id__in=parent_annotation_major_changes,
+        completed_by=annotator,
+    )
+    major_changes_count = major_changes_annotations_of_user.count()
+
+    accepted_with_changes_tasks = list(major_changes_annotations_of_user) + list(
+        minor_changes_annotations_of_user
+    )
+
     total_bleu_score = 0
     total_char_score = 0
 
@@ -349,12 +349,8 @@ def get_translation_quality_reports(
     char_score_error_count = 0
     total_lead_time = []
     for annot in accepted_with_changes_tasks:
-        annotator_obj = Annotation.objects.get(
-            task_id=annot.task_id, parent_annotation_id=None
-        )
-        reviewer_obj = Annotation.objects.filter(
-            task_id=annot.task_id, parent_annotation_id__isnull=False
-        )
+        annotator_obj = annot
+        reviewer_obj = Annotation.objects.filter(parent_annotation_id=annot.id)
 
         str1 = annotator_obj.result[0]["value"]["text"]
         str2 = reviewer_obj[0].result[0]["value"]["text"]
@@ -419,8 +415,8 @@ def get_translation_quality_reports(
         all_reviewd_tasks_count,
         accepted_count,
         reviewed_except_accepted,
-        accepted_wt_minor_changes,
-        accepted_wt_major_changes,
+        minor_changes_count,
+        major_changes_count,
         avg_char_score,
         avg_bleu_score,
         avg_lead_time,
@@ -971,10 +967,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        from_date = request.data.get("from_date")
-        to_date = request.data.get("to_date")
-        from_date = from_date + " 00:00"
-        to_date = to_date + " 23:59"
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
 
@@ -985,27 +977,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         if descending_order == None:
             descending_order = False
-
-        cond, invalid_message = is_valid_date(from_date)
-        if not cond:
-            return Response(
-                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        cond, invalid_message = is_valid_date(to_date)
-        if not cond:
-            return Response(
-                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
-        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
-
-        if start_date > end_date:
-            return Response(
-                {"message": "'To' Date should be after 'From' Date"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         if tgt_language == None:
             selected_language = "-"
@@ -1046,43 +1017,33 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         if annotator not in proj_manager
                     ]
                 )
-                un_labeled_task = Task.objects.filter(
-                    project_id=proj.id, task_status="unlabeled"
+
+                incomplete_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="incomplete"
                 )
-                un_labeled_count = un_labeled_task.count()
-                labeled_count_tasks = Task.objects.filter(
-                    Q(project_id=proj.id)
-                    & Q(
-                        task_status__in=[
-                            "accepted",
-                            "to_be_revised",
-                            "accepted_with_changes",
-                            "labeled",
-                        ]
-                    )
+                incomplete_count = incomplete_tasks.count()
+
+                labeled_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="annotated"
+                )
+                labeled_count = labeled_tasks.count()
+
+                reviewed_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="reviewed"
                 )
 
-                labeled_count_tasks_ids = list(
-                    labeled_count_tasks.values_list("id", flat=True)
-                )
-                annotated_labeled_tasks = Annotation.objects.filter(
-                    task_id__in=labeled_count_tasks_ids,
-                    parent_annotation_id=None,
-                    created_at__range=[start_date, end_date],
-                )
+                reviewed_count = reviewed_tasks.count()
 
-                labeled_count = annotated_labeled_tasks.count()
+                exported_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="exported"
+                )
+                exported_count = exported_tasks.count()
 
-                skipped_count = Task.objects.filter(
-                    project_id=proj.id, task_status="skipped"
-                ).count()
-                dropped_tasks = Task.objects.filter(
-                    project_id=proj.id, task_status="draft"
-                ).count()
                 if total_tasks == 0:
                     project_progress = 0.0
                 else:
-                    project_progress = (labeled_count / total_tasks) * 100
+                    project_progress = (reviewed_count / total_tasks) * 100
+
                 result = {
                     "Project Id": project_id,
                     "Project Name": project_name,
@@ -1090,10 +1051,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "No. of Annotators Assigned": no_of_annotators_assigned,
                     "Total": total_tasks,
                     "Annotated": labeled_count,
-                    "Unlabeled": un_labeled_count,
-                    "Skipped": skipped_count,
-                    "Draft": dropped_tasks,
-                    "Project Progress": round(project_progress, 3),
+                    "Incomplete": incomplete_count,
+                    "Reviewed": reviewed_count,
+                    "Exported": exported_count,
+                    "Project Progress(Reviewed/Total)": round(project_progress, 3),
                 }
                 final_result.append(result)
         return Response(final_result)
@@ -1137,18 +1098,31 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 tasks_count = Task.objects.filter(
                     project_id__in=proj_lang_filter,
                     project_id__tgt_language=lang,
-                    task_status__in=["accepted", "accepted_with_changes"],
+                    task_status__in=[
+                        "reviewed",
+                        "exported",
+                    ],
                 ).count()
+
+                # Annotation.objects.filter(
+                #     task__project_id__in=proj_lang_filter,
+                #     task__project_id__tgt_language=lang,
+                #     annotation_status__in=[
+                #         "accepted",
+                #         "accepted_with_minor_changes",
+                #         "accepted_with_major_changes",
+                #     ],
+                #     parent_annotation_id__isnull=False,
+                # ).count()
+
             else:
                 tasks_count = Task.objects.filter(
                     project_id__in=proj_lang_filter,
                     project_id__tgt_language=lang,
                     task_status__in=[
-                        "labeled",
-                        "accepted",
-                        "accepted_with_changes",
-                        "to_be_revised",
-                        "complete",
+                        "annotated",
+                        "reviewed",
+                        "exported",
                     ],
                 ).count()
 
@@ -1314,26 +1288,31 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if reviewer_reports == True:
                     tasks_objs = Task.objects.filter(
                         project_id__in=proj_lang_filter,
-                        task_status__in=["accepted", "accepted_with_changes"],
+                        task_status__in=[
+                            "reviewed",
+                            "exported",
+                        ],
                     )
                     labeled_count_tasks_ids = list(
                         tasks_objs.values_list("id", flat=True)
                     )
-                    annotated_labeled_tasks_count = Annotation.objects.filter(
-                        task_id__in=labeled_count_tasks_ids,
-                        parent_annotation_id__isnull=False,
-                        created_at__gte=periodical_list[period],
-                        created_at__lt=periodical_list[period + 1],
-                    ).count()
+                    annotated_labeled_tasks_count = (
+                        Annotation.objects.filter(
+                            task_id__in=labeled_count_tasks_ids,
+                            parent_annotation_id__isnull=False,
+                            created_at__gte=periodical_list[period],
+                            created_at__lt=periodical_list[period + 1],
+                        )
+                        .exclude(annotation_status="to_be_revised")
+                        .count()
+                    )
                 else:
                     tasks_objs = Task.objects.filter(
                         project_id__in=proj_lang_filter,
                         task_status__in=[
-                            "labeled",
-                            "accepted",
-                            "accepted_with_changes",
-                            "to_be_revised",
-                            "complete",
+                            "annotated",
+                            "reviewed",
+                            "exported",
                         ],
                     )
 
@@ -1342,7 +1321,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     )
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
-                        parent_annotation_id=None,
+                        parent_annotation_id__isnull=True,
                         created_at__gte=periodical_list[period],
                         created_at__lt=periodical_list[period + 1],
                     ).count()
@@ -1373,5 +1352,4 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             }
 
             final_result.append(summary_period)
-
         return Response(final_result)

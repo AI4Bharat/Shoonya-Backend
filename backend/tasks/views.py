@@ -207,9 +207,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 data = serializer.data
                 return Response(data)
 
-        task_status = UNLABELED
+        task_status = INCOMPLETE
         if is_review_mode:
-            task_status = LABELED
+            task_status = ANNOTATED
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
             task_status = request.query_params["task_status"]
@@ -252,7 +252,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             (is_translation_project)
             and (not is_conversation_project)
             and (page is not None)
-            and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
+            # and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
             and (not is_review_mode)
         ):
             serializer = TaskAnnotationSerializer(page, many=True)
@@ -290,7 +290,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             (is_translation_project)
             and (not is_conversation_project)
             and (page is not None)
-            and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES})
+            and (task_status in {REVIEWED, EXPORTED})
         ):
             # Shows annotations for review_mode
             serializer = TaskAnnotationSerializer(page, many=True)
@@ -615,26 +615,30 @@ class AnnotationViewSet(
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
         # project = Project.objects.get(pk=task.project_id.id)
-        if task.project_id.required_annotators_per_task == task.annotations.count():
+        no_of_annotations = task.annotations.filter(
+            parent_annotation_id=None, annotation_status="labeled"
+        ).count()
+        if task.project_id.required_annotators_per_task == no_of_annotations:
             # if True:
-            task.task_status = request.data["task_status"]
-            # TODO: Support accepting annotations manually
-            # if task.annotations.count() == 1:
+            task.task_status = ANNOTATED
             if not task.project_id.enable_task_reviews:
-                task.correct_annotation = annotation
-                if task.task_status == LABELED:
-                    task.task_status = ACCEPTED
+                if no_of_annotations == 1:
+                    task.correct_annotation = annotation
+                else:
+                    task.correct_annotation = None
 
-        else:
-            # To-Do : Fix the Labeled for required_annotators_per_task
-            task.task_status = request.data["task_status"]
-        task.save()
+            task.save()
         return annotation_response
 
     def create_review_annotation(self, request):
         task_id = request.data["task"]
         if "review_status" in dict(request.data) and request.data["review_status"] in [
             ACCEPTED,
+            UNREVIEWED,
+            ACCEPTED_WITH_MINOR_CHANGES,
+            ACCEPTED_WITH_MAJOR_CHANGES,
+            DRAFT,
+            SKIPPED,
             TO_BE_REVISED,
         ]:
             review_status = request.data["review_status"]
@@ -664,7 +668,7 @@ class AnnotationViewSet(
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
 
-        if task.task_status == ACCEPTED:
+        if task.task_status == REVIEWED:
             ret_dict = {"message": "Task is already reviewed and accepted!"}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
@@ -680,17 +684,18 @@ class AnnotationViewSet(
         annotation_response = super().create(request)
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        if review_status == ACCEPTED:
-            task.correct_annotation = annotation
-            is_modified = annotation_result_compare(
-                annotation.parent_annotation.result, annotation.result
-            )
-            if is_modified:
-                review_status = ACCEPTED_WITH_CHANGES
-        task.task_status = review_status
-        task.save()
-        parent_annotation.review_notes = annotation.review_notes
-        parent_annotation.save()
+        if (
+            review_status == ACCEPTED
+            or review_status == ACCEPTED_WITH_MINOR_CHANGES
+            or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+            or review_status == TO_BE_REVISED
+        ):
+            if review_status != TO_BE_REVISED:
+                task.correct_annotation = annotation
+                parent_annotation.review_notes = annotation.review_notes
+                parent_annotation.save()
+            task.task_status = REVIEWED
+            task.save()
 
         return annotation_response
 
@@ -718,23 +723,33 @@ class AnnotationViewSet(
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
-
-            if task.project_id.required_annotators_per_task == task.annotations.count():
+            no_of_annotations = task.annotations.filter(
+                parent_annotation_id=None, annotation_status="labeled"
+            ).count()
+            if task.project_id.required_annotators_per_task == no_of_annotations:
                 # if True:
-                task.task_status = request.data["task_status"]
-                # TODO: Support accepting annotations manually
-                # if task.annotations.count() == 1:
+                task.task_status = ANNOTATED
                 if not task.project_id.enable_task_reviews:
-                    task.correct_annotation = annotation
-                    if task.task_status == LABELED:
-                        task.task_status = ACCEPTED
-            else:
-                task.task_status = request.data["task_status"]
+                    if no_of_annotations == 1:
+                        task.correct_annotation = annotation
+                    else:
+                        task.correct_annotation = None
+
+                task.save()
+
         # Review annotation update
         else:
             if "review_status" in dict(request.data) and request.data[
                 "review_status"
-            ] in [ACCEPTED, TO_BE_REVISED]:
+            ] in [
+                ACCEPTED,
+                UNREVIEWED,
+                ACCEPTED_WITH_MINOR_CHANGES,
+                ACCEPTED_WITH_MAJOR_CHANGES,
+                DRAFT,
+                SKIPPED,
+                TO_BE_REVISED,
+            ]:
                 review_status = request.data["review_status"]
             else:
                 ret_dict = {"message": "Missing param : review_status"}
@@ -746,23 +761,20 @@ class AnnotationViewSet(
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
 
-            if review_status == ACCEPTED:
-                task.correct_annotation = annotation
-                is_modified = annotation_result_compare(
-                    annotation.parent_annotation.result, annotation.result
-                )
-                if is_modified:
-                    review_status = ACCEPTED_WITH_CHANGES
-            else:
-                task.correct_annotation = None
+            if (
+                review_status == ACCEPTED
+                or review_status == ACCEPTED_WITH_MINOR_CHANGES
+                or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+                or review_status == TO_BE_REVISED
+            ):
+                if review_status != TO_BE_REVISED:
+                    task.correct_annotation = annotation
+                    parent = annotation.parent_annotation
+                    parent.review_notes = annotation.review_notes
+                    parent.save()
+                task.task_status = REVIEWED
+                task.save()
 
-            task.task_status = review_status
-
-            parent = annotation.parent_annotation
-            parent.review_notes = annotation.review_notes
-            parent.save()
-
-        task.save()
         return annotation_response
 
     def destroy(self, request, pk=None):
@@ -771,7 +783,7 @@ class AnnotationViewSet(
         annotation_id = instance.id
         annotation = Annotation.objects.get(pk=annotation_id)
         task = annotation.task
-        task.task_status = UNLABELED
+        task.task_status = INCOMPLETE
         task.save()
 
         annotation_response = super().destroy(request)
