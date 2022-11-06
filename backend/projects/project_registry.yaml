@@ -41,9 +41,9 @@ Translation:
         fields:
           annotations:
             - output_text
-    SemanticTextualSimilarity:
+    SemanticTextualSimilarity_Scale5:
       project_mode: "Annotation"
-      label_studio_jsx_file: "translation/SemanticTextualSimilarity_Scale5.jsx"
+      label_studio_jsx_file: "translation/semantic_textual_similarity_scale5.jsx"
       input_dataset:
         class: TranslationPair
         fields:
