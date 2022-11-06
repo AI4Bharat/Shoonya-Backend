@@ -43,7 +43,7 @@ Translation:
             - output_text
     SemanticTextualSimilarity:
       project_mode: "Annotation"
-      label_studio_jsx_file: "translation/semantic_textual_similarity.jsx"
+      label_studio_jsx_file: "translation/SemanticTextualSimilarity_Scale5.jsx"
       input_dataset:
         class: TranslationPair
         fields:
