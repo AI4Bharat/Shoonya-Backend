@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
                 choices=[
                     ("MonolingualTranslation", "MonolingualTranslation"),
                     ("TranslationEditing", "TranslationEditing"),
-                    ("SemanticTextualSimilarity", "SemanticTextualSimilarity"),
+                    ("SemanticTextualSimilarity_Scale5", "SemanticTextualSimilarity_Scale5"),
                     ("ContextualTranslationEditing", "ContextualTranslationEditing"),
                     ("OCRAnnotation", "OCRAnnotation"),
                     ("MonolingualCollection", "MonolingualCollection"),
