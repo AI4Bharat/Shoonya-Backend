@@ -514,9 +514,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
         users = User.objects.filter(dataset_users__instance_id=pk)
-        print(users)
+        # print(users)
         serializer = UserFetchSerializer(many=True, data=users)
-        print(serializer)
+        # print(serializer)
         serializer.is_valid()
         return Response(serializer.data)
 
@@ -732,6 +732,24 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             data_items = dataset_model.objects.filter(
                 instance_id__in=dataset_instance_ids
             )
+
+            if "search_keys" in request.data:
+                search_dict = {}
+                for key, value in request.data["search_keys"].items():
+                    field_type = str(
+                        dataset_model._meta.get_field(key).get_internal_type()
+                    )
+                    # print(field_type)
+                    if value is not None:
+                        if field_type == "TextField":
+                            search_dict["%s__search" % key] = value
+                        else:
+                            search_dict["%s__icontains" % key] = value
+                    else:
+                        search_dict[key] = value
+
+                data_items = data_items.filter(**search_dict)
+
             query_params = dict(parse_qsl(filter_string))
             query_params = filter.fix_booleans_in_dict(query_params)
             filtered_set = filter.filter_using_dict_and_queryset(
@@ -773,7 +791,8 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": "Error fetching data items!",
                 }
             )
-        # return Response(filtered_data)
+
+    # return Response(filtered_data)
 
     @swagger_auto_schema(
         method="post",
@@ -832,9 +851,29 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
             if "data_item_ids" in request.data:
                 data_item_ids = request.data.get("data_item_ids")
+                if len(data_item_ids) == 0:
+                    return Response(
+                        {
+                            "status": status.HTTP_400_BAD_REQUEST,
+                            "message": "Please enter valid values",
+                        }
+                    )
             else:
                 data_item_start_id = request.data.get("data_item_start_id")
                 data_item_end_id = request.data.get("data_item_end_id")
+                if (
+                    data_item_start_id == ""
+                    or data_item_end_id == ""
+                    or data_item_start_id == None
+                    or data_item_end_id == None
+                ):
+                    return Response(
+                        {
+                            "status": status.HTTP_400_BAD_REQUEST,
+                            "message": "Please enter valid values",
+                        }
+                    )
+
                 data_item_ids = [
                     id for id in range(data_item_start_id, data_item_end_id + 1)
                 ]
@@ -855,7 +894,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             ]
             related_annotations = Annotation.objects.filter(
                 task__id__in=related_annotations_task_ids
-            )
+            ).order_by("-id")
 
             num_related_tasks = len(related_tasks)
             num_related_annotations = len(related_annotations)
@@ -867,10 +906,8 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-            related_annotations_with_parent_annotation = related_annotations.filter(
-                ~Q(parent_annotation=None)
-            )
-            related_annotations_with_parent_annotation.delete()
+            for related_annotation in related_annotations:
+                related_annotation.delete()
             data_items.delete()
 
             return Response(
@@ -879,11 +916,11 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": f"Deleted {num_data_items} data items and {num_related_tasks} related tasks and {num_related_annotations} related annotations successfully!",
                 }
             )
-        except:
+        except Exception as error:
             return Response(
                 {
                     "status": status.HTTP_400_BAD_REQUEST,
-                    "message": "Invalid Parameters in the request body!",
+                    "message": str(error),
                 }
             )
 
