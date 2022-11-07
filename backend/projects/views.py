@@ -458,7 +458,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.annotation_users.remove(user)
                     task.save()
                 tasks.update(task_status="unlabeled")  # unassign user from tasks
-                project.annotators.remove(user)
+                #project.annotators.remove(user)
                 project.frozen_users.add(user)
                 project.save()
             return Response(
@@ -1375,10 +1375,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 # check if annotator is present in frozen users list of the project
                 if annotator in project.frozen_users.all():
                     project.frozen_users.remove(annotator)
-                    return Response(
-                        {"message": "Annotator removed from frozen users list of the project"},
-                        status=status.HTTP_200_OK,
-                    )
+                    project.save()
 
                 # check if annotator is already added to project
                 if annotator in project.annotators.all():
@@ -1428,10 +1425,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 # check if reviewer is present in frozen users list of the project
                 if user in project.frozen_users.all():
                     project.frozen_users.remove(user)
-                    return Response(
-                        {"message": "Reviewer removed from frozen users list of the project"},
-                        status=status.HTTP_200_OK,
-                    )
+                    project.save()
                 
                 # check if user is already added to project
                 if user in project.annotation_reviewers.all():
