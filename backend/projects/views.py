@@ -1372,6 +1372,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
 
             for annotator in annotators:
+                # check if annotator is present in frozen users list of the project
+                if annotator in project.frozen_users.all():
+                    project.frozen_users.remove(annotator)
+                    return Response(
+                        {"message": "Annotator removed from frozen users list of the project"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 # check if annotator is already added to project
                 if annotator in project.annotators.all():
                     return Response(
