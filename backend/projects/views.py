@@ -1425,6 +1425,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"message": "user does not exist"}, status=status.HTTP_404_NOT_FOUND
                 )
             for user in users:
+                # check if reviewer is present in frozen users list of the project
+                if user in project.frozen_users.all():
+                    project.frozen_users.remove(user)
+                    return Response(
+                        {"message": "Reviewer removed from frozen users list of the project"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                
                 # check if user is already added to project
                 if user in project.annotation_reviewers.all():
                     return Response(
