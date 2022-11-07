@@ -1377,7 +1377,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.frozen_users.remove(annotator)
                     return Response(
                         {"message": "Annotator removed from frozen users list of the project"},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=status.HTTP_200_OK,
                     )
 
                 # check if annotator is already added to project
@@ -1430,7 +1430,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.frozen_users.remove(user)
                     return Response(
                         {"message": "Reviewer removed from frozen users list of the project"},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=status.HTTP_200_OK,
                     )
                 
                 # check if user is already added to project
