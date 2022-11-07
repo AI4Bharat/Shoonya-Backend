@@ -139,44 +139,6 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
         err_ann.annotation_status = "accepted_with_major_changes"
         err_ann.save()
 
-    # tasks objects status update
-
-    task1 = taskobj.filter(
-        Q(task_status="unlabeled") | Q(task_status="skipped") | Q(task_status="draft")
-    )
-
-    for tas1 in task1:
-        tas1.task_status = "incomplete"
-        tas1.save()
-
-    task2 = taskobj.filter(task_status="labeled")
-    for tas2 in task2:
-        tas2.task_status = "annotated"
-        tas2.save()
-
-    task3 = taskobj.filter(
-        Q(task_status="accepted")
-        | Q(task_status="accepted_with_changes")
-        | Q(task_status="to_be_revised")
-    )
-    for tas3 in task3:
-        if tas3.project_id.enable_task_reviews:
-            tas3.task_status = "reviewed"
-            tas3.save()
-        else:
-            tas3.task_status = "annotated"
-            tas3.save()
-
-    task4 = taskobj.filter(task_status="freezed")
-    for tas4 in task4:
-        tas4.task_status = "freezed"
-        tas4.save()
-
-    task5 = taskobj.filter(task_status="exported")
-    for tas5 in task5:
-        tas5.task_status = "exported"
-        tas5.save()
-
 
 class Migration(migrations.Migration):
 
@@ -206,20 +168,4 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(change_existing_task_annotation_status_in_db),
-        migrations.AlterField(
-            model_name="task",
-            name="task_status",
-            field=models.CharField(
-                choices=[
-                    ("incomplete", "incomplete"),
-                    ("annotated", "annotated"),
-                    ("reviewed", "reviewed"),
-                    ("exported", "exported"),
-                    ("freezed", "freezed"),
-                ],
-                default="incomplete",
-                max_length=100,
-                verbose_name="task_status",
-            ),
-        ),
     ]
