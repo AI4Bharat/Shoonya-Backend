@@ -902,16 +902,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                     )
                 return Response(
-                    {"message": "No tasks to unassign"},
-                    status=status.HTTP_404_NOT_FOUND,
+                    {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
             return Response(
-                {"message": "Project id not provided"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"message": "No tasks to unassign"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response(
-            {"message": "Only annotators can unassign tasks"},
-            status=status.HTTP_403_FORBIDDEN,
+            {"message": "Project id not provided"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     @swagger_auto_schema(
