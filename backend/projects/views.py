@@ -871,6 +871,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
+            base_annotation_obj = Annotation_model(
+                result=[],
+                task=task,
+                completed_by=cur_user,
+            )
+            base_annotation_obj.save()
         project.release_lock(ANNOTATION_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -1031,6 +1037,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
+            base_annotation_obj = Annotation_model(
+                result=[],
+                task=task,
+                completed_by=cur_user,
+            )
+            base_annotation_obj.save()
         project.release_lock(REVIEW_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
