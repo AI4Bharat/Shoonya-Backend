@@ -1,5 +1,6 @@
 from locale import normalize
 from urllib.parse import unquote
+import ast
 
 from rest_framework import viewsets
 from rest_framework import mixins
@@ -123,195 +124,139 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
+
+        user_id = request.user.id
+        user = request.user
+
         if "project_id" in dict(request.query_params):
-            # Step 1: get the logged-in user details
-            # Step 2: if - he is NOT (superuser, or manager or org owner), filter based on logged in user.
-            # Step 3: else - if user_filter passed, filter based on user
-            # Step 4: else - else don't filter
-
-            user = request.user
-            user_obj = User.objects.get(pk=user.id)
-            is_review_mode = (
-                "mode" in dict(request.query_params)
-                and request.query_params["mode"] == "review"
-            )
-
-            if is_review_mode:
-                if (
-                    request.user
-                    in Project.objects.get(
-                        id=request.query_params["project_id"]
-                    ).annotation_reviewers.all()
-                ):
-                    queryset = Task.objects.filter(
-                        project_id__exact=request.query_params["project_id"]
-                    ).filter(review_user=user.id)
-
-                elif (
-                    request.user.role == User.WORKSPACE_MANAGER
-                    or request.user.role == User.ORGANIZATION_OWNER
-                ):
-                    if "user_filter" in dict(request.query_params):
-                        queryset = Task.objects.filter(
-                            project_id__exact=request.query_params["project_id"]
-                        ).filter(review_user=request.query_params["user_filter"])
-                    else:
-                        queryset = Task.objects.filter(
-                            project_id__exact=request.query_params["project_id"]
-                        )
-                else:
-                    return Response(
-                        {"message": "You do not have access!"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            else:
-                if (
-                    request.user
-                    in Project.objects.get(
-                        id=request.query_params["project_id"]
-                    ).annotators.all()
-                ):
-                    queryset = Task.objects.filter(
-                        project_id__exact=request.query_params["project_id"]
-                    ).filter(annotation_users=user.id)
-                else:
-                    if "user_filter" in dict(request.query_params):
-                        queryset = Task.objects.filter(
-                            project_id__exact=request.query_params["project_id"]
-                        ).filter(annotation_users=request.query_params["user_filter"])
-                    else:
-                        queryset = Task.objects.filter(
-                            project_id__exact=request.query_params["project_id"]
-                        )
-
-        else:
-            is_review_mode = (
-                "mode" in dict(request.query_params)
-                and request.query_params["mode"] == "review"
-            )
-            queryset = Task.objects.all()
-
-        # Handle search query (if any)
-        if len(queryset):
-            queryset = queryset.filter(
-                **process_search_query(
-                    request.GET, "data", list(queryset.first().data.keys())
+            proj_id = request.query_params["project_id"]
+            proj_objs = Project.objects.filter(id=proj_id)
+            if len(proj_objs) == 0:
+                return Response(
+                    {"message": " this project not  exist"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-            )
+            proj_annotators = proj_objs[0].annotators.all()
+            proj_reviewers = proj_objs[0].annotation_reviewers.all()
 
-        if "page" in dict(request.query_params):
-            page = request.query_params["page"]
-            if int(page) == 0:
-                queryset = queryset.order_by("id")
-                serializer = TaskSerializer(queryset, many=True)
+            view = "user_view"
+            exist_req_user = 0
+            if user.role == 3 or user.role == 2:
+                if not ((user in proj_annotators) or (user in proj_reviewers)):
+                    view = "managerial_view"
+
+                    if "req_user" in dict(request.query_params):
+                        exist_req_user = 1
+                        req_user = request.query_params["req_user"]
+
+            if exist_req_user:
+                user_id = int(req_user)
+
+            if "annotation_status" in dict(request.query_params):
+                ann_status = request.query_params["annotation_status"]
+                ann_status = ast.literal_eval(ann_status)
+
+                if view == "managerial_view":
+                    if not ("req_user" in dict(request.query_params)):
+                        return Response(
+                            {"message": " please provide the req_user as query_param "},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                ann = Annotation.objects.filter(
+                    annotation_status__in=ann_status,
+                    parent_annotation_id__isnull=True,
+                    completed_by=user_id,
+                )
+                task_ids = [an.task_id for an in ann]
+
+                tasks = Task.objects.filter(id__in=task_ids)
+
+                serializer = TaskAnnotationSerializer(tasks, many=True)
                 data = serializer.data
                 return Response(data)
 
-        task_status = INCOMPLETE
-        if is_review_mode:
-            task_status = ANNOTATED
-        if "task_status" in dict(request.query_params):
-            queryset = queryset.filter(task_status=request.query_params["task_status"])
-            task_status = request.query_params["task_status"]
-        else:
-            queryset = queryset.filter(task_status=task_status)
+            if "review_status" in dict(request.query_params):
+                rew_status = request.query_params["review_status"]
+                rew_status = ast.literal_eval(rew_status)
 
-        queryset = queryset.order_by("id")
+                if view == "managerial_view":
+                    if not ("req_user" in dict(request.query_params)):
 
-        page = request.GET.get("page")
-        try:
-            page = self.paginate_queryset(queryset)
-        except Exception:
-            page = []
-            data = page
-            return Response(
-                {
-                    "status": status.HTTP_200_OK,
-                    "message": "No more record.",
-                    # TODO: should be results. Needs testing to be sure.
-                    "data": data,
-                }
-            )
-        if "project_id" in dict(request.query_params):
-            project_details = Project.objects.filter(
-                id=request.query_params["project_id"]
-            )
-            project_type = project_details[0].project_type
-            project_type = project_type.lower()
-            is_conversation_project = True if "conversation" in project_type else False
-            is_translation_project = True if "translation" in project_type else False
-        else:
-            page = self.paginate_queryset(queryset)
-            serializer = TaskAnnotationSerializer(page, many=True)
-            data = serializer.data
-            return self.get_paginated_response(data)
+                        ann = Annotation.objects.filter(
+                            annotation_status__in=rew_status,
+                            parent_annotation_id__isnull=False,
+                        )
+                        task_ids = [an.task_id for an in ann]
 
-        user = request.user
+                        tasks = Task.objects.filter(id__in=task_ids)
 
-        if (
-            (is_translation_project)
-            and (not is_conversation_project)
-            and (page is not None)
-            # and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
-            and (not is_review_mode)
-        ):
-            serializer = TaskAnnotationSerializer(page, many=True)
-            data = serializer.data
-            task_ids = []
-            for index, each_data in enumerate(data):
-                task_ids.append(each_data["id"])
+                        serializer = TaskAnnotationSerializer(tasks, many=True)
+                        data = serializer.data
+                        return Response(data)
 
-            if (
-                user
-                in Project.objects.get(
-                    id=request.query_params["project_id"]
-                ).annotators.all()
-            ):
-                annotation_queryset = Annotation.objects.filter(
-                    completed_by=request.user
-                ).filter(task__id__in=task_ids)
+                ann = Annotation.objects.filter(
+                    annotation_status__in=rew_status,
+                    parent_annotation_id__isnull=False,
+                    completed_by=user_id,
+                )
+                task_ids = [an.task_id for an in ann]
 
-                for index, each_data in enumerate(data):
-                    annotation_queryset_instance = annotation_queryset.filter(
-                        task__id=each_data["id"]
+                tasks = Task.objects.filter(id__in=task_ids)
+
+                serializer = TaskAnnotationSerializer(tasks, many=True)
+                data = serializer.data
+                return Response(data)
+
+            tas_status = ["incomplete"]
+            if "task_status" in dict(request.query_params):
+                tas_status = request.query_params["task_status"]
+                tas_status = ast.literal_eval(tas_status)
+
+            if view == "managerial_view":
+                if not ("req_user" in dict(request.query_params)):
+
+                    tasks = Task.objects.filter(
+                        project_id__exact=proj_id,
+                        task_status__in=tas_status,
                     )
-                    if len(annotation_queryset_instance) != 0:
-                        annotation_queryset_instance = annotation_queryset_instance[0]
-                        data[index]["data"][
-                            "output_text"
-                        ] = annotation_queryset_instance.result[0]["value"]["text"][0]
-                        each_data["machine_translation"] = each_data["data"][
-                            "machine_translation"
-                        ]
-                        del each_data["data"]["machine_translation"]
-                return self.get_paginated_response(data)
+                    serializer = TaskAnnotationSerializer(tasks, many=True)
+                    data = serializer.data
+                    return Response(data)
 
-        if (
-            (is_translation_project)
-            and (not is_conversation_project)
-            and (page is not None)
-            and (task_status in {REVIEWED, EXPORTED})
-        ):
-            # Shows annotations for review_mode
-            serializer = TaskAnnotationSerializer(page, many=True)
-            data = serializer.data
-            for index, each_data in enumerate(data):
-                data[index]["data"]["output_text"] = each_data["correct_annotation"][
-                    "result"
-                ][0]["value"]["text"][0]
-                each_data["correct_annotation"] = each_data["correct_annotation"]["id"]
-                each_data["machine_translation"] = each_data["data"][
-                    "machine_translation"
-                ]
-                del each_data["data"]["machine_translation"]
-            return self.get_paginated_response(data)
-        elif page is not None:
-            serializer = TaskSerializer(page, many=True)
-            data = serializer.data
-            return self.get_paginated_response(data)
+            proj_annotators_ids = [an.id for an in proj_annotators]
+            proj_reviewers_ids = [an.id for an in proj_reviewers]
 
-        # serializer = TaskSerializer(queryset, many=True)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+            if user_id in proj_annotators_ids:
+
+                tasks = Task.objects.filter(
+                    project_id__exact=proj_id,
+                    task_status__in=tas_status,
+                    annotation_users=user_id,
+                )
+                serializer = TaskAnnotationSerializer(tasks, many=True)
+                data = serializer.data
+                return Response(data)
+            if user_id in proj_reviewers_ids:
+                tasks = Task.objects.filter(
+                    project_id__exact=proj_id,
+                    task_status__in=tas_status,
+                    review_user_id=user_id,
+                )
+
+                serializer = TaskAnnotationSerializer(tasks, many=True)
+                data = serializer.data
+                return Response(data)
+
+            return Response(
+                {"message": " this user do not have permission to access this view"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        else:
+            return Response(
+                {"message": "please provide project_id as a query_param "},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     def partial_update(self, request, pk=None):
         task_response = super().partial_update(request)
