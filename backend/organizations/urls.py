@@ -7,6 +7,9 @@ router = routers.DefaultRouter()
 
 router.register(r"", OrganizationViewSet, basename="organization")
 router.register(r"public", OrganizationPublicViewSet, basename="public")
+<<<<<<< HEAD
 
+=======
+>>>>>>> dev
 
 urlpatterns = router.urls
