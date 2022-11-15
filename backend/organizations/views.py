@@ -1399,60 +1399,56 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
         project_type = request.data.get("project_type")
-        reviewer_reports = request.data.get("reviewer_reports")
         proj_objs = []
-        if reviewer_reports == True:
-            proj_objs = Project.objects.filter(
-                organization_id=pk, project_type=project_type, enable_task_reviews=True
-            )
-        else:
-            proj_objs = Project.objects.filter(
-                organization_id=pk, project_type=project_type
-            )
 
-        proj_objs_languages = Project.objects.filter(
+        proj_objs = Project.objects.filter(
             organization_id=pk, project_type=project_type
         )
 
-        languages = list(set([proj.tgt_language for proj in proj_objs_languages]))
+        languages = list(set([proj.tgt_language for proj in proj_objs]))
         general_lang = []
         other_lang = []
         for lang in languages:
             proj_lang_filter = proj_objs.filter(tgt_language=lang)
-            tasks_count = 0
-            if reviewer_reports == True:
-                tasks_count = Task.objects.filter(
-                    project_id__in=proj_lang_filter,
-                    project_id__tgt_language=lang,
-                    task_status__in=["accepted", "accepted_with_changes"],
-                ).count()
-            else:
-                tasks_count = Task.objects.filter(
-                    project_id__in=proj_lang_filter,
-                    project_id__tgt_language=lang,
-                    task_status__in=[
-                        "labeled",
-                        "accepted",
-                        "accepted_with_changes",
-                        "to_be_revised",
-                        "complete",
-                    ],
-                ).count()
+            annotation_tasks_count = 0
+            reviewer_task_count = 0
+            reviewer_task_count = Task.objects.filter(
+                project_id__in=proj_lang_filter,
+                project_id__enable_task_reviews=True,
+                task_status__in=["accepted", "accepted_with_changes"],
+            ).count()
+            annotation_tasks_count = Task.objects.filter(
+                project_id__in=proj_lang_filter,
+                task_status__in=[
+                    "labeled",
+                    "accepted",
+                    "accepted_with_changes",
+                    "to_be_revised",
+                    "complete",
+                ],
+            ).count()
 
-            result = {"language": lang, "cumulative_tasks_count": tasks_count}
+            result = {
+                "language": lang,
+                "ann_cumulative_tasks_count": annotation_tasks_count,
+                "rew_cumulative_tasks_count": reviewer_task_count,
+            }
 
             if lang == None or lang == "":
                 other_lang.append(result)
             else:
                 general_lang.append(result)
 
-        other_count = 0
+        ann_count = 0
+        rew_count = 0
         for dat in other_lang:
-            other_count += dat["cumulative_tasks_count"]
+            ann_count += dat["ann_cumulative_tasks_count"]
+            rew_count += dat["rew_cumulative_tasks_count"]
         if len(other_lang) > 0:
             other_language = {
                 "language": "Others",
-                "cumulative_tasks_count": other_count,
+                "ann_cumulative_tasks_count": ann_count,
+                "rew_cumulative_tasks_count": rew_count,
             }
             general_lang.append(other_language)
 
