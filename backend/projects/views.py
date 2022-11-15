@@ -548,54 +548,50 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         project = Project.objects.get(pk=pk)
         user_role = request.user.role
+        task_status = request.data.get("task_status")
+        mode = request.data.get("mode")
+        annotation_status = request.data.get("annotation_status")
+        current_task_id = request.data.get("current_task_id")
 
         # Check if the endpoint is being accessed in review mode
-        is_review_mode = (
-            "mode" in dict(request.query_params)
-            and request.query_params["mode"] == "review"
-        )
+
+        is_review_mode = True if mode == "review" else False
+
+        # is_review_mode = (
+        #     "mode" in dict(request.query_params)
+        #     and request.query_params["mode"] == "review"
+        # )
         if is_review_mode:
             if not project.enable_task_reviews:
                 resp_dict = {"message": "Task reviews are not enabled for this project"}
                 return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
         # Check if task_status is passed
-        if "task_status" in dict(request.query_params):
-
+        if task_status != None:
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
             ):
-                # Filter Tasks based on whether the request is in review mode or not
                 queryset = (
                     Task.objects.filter(
                         project_id__exact=project.id,
                         review_user=request.user.id,
-                        task_status=request.query_params["task_status"],
+                        task_status=task_status,
                     )
                     if is_review_mode
                     else Task.objects.filter(
                         project_id__exact=project.id,
                         annotation_users=request.user.id,
-                        task_status=request.query_params["task_status"],
+                        task_status=task_status,
                     )
                 )
             else:
-                # TODO : Refactor code to reduce DB calls
                 queryset = Task.objects.filter(
-                    task_status=request.query_params["task_status"]
+                    project_id__exact=project.id,
+                    task_status=task_status,
                 )
-
-            if len(queryset) > 0:
-                queryset = queryset.filter(
-                    **process_search_query(
-                        request.GET, "data", list(queryset.first().data.keys())
-                    )
-                )
-
             queryset = queryset.order_by("id")
 
-            if "current_task_id" in dict(request.query_params):
-                current_task_id = request.query_params["current_task_id"]
+            if current_task_id != None:
                 queryset = queryset.filter(id__gt=current_task_id)
             for task in queryset:
                 task_dict = TaskSerializer(task, many=False).data
@@ -603,6 +599,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "No more tasks available!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
+
         else:
             # Check if there are unattended tasks
             if user_role == 1 and not request.user.is_superuser:
@@ -636,8 +633,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             unattended_tasks = unattended_tasks.order_by("id")
 
-            if "current_task_id" in dict(request.query_params):
-                current_task_id = request.query_params["current_task_id"]
+            if current_task_id != None:
                 unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
             for task in unattended_tasks:
                 task_dict = TaskSerializer(task, many=False).data
@@ -645,6 +641,94 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "No more unlabeled tasks!"}
             ret_status = status.HTTP_204_NO_CONTENT
             return Response(ret_dict, status=ret_status)
+
+        # -------------------------------------------------------
+        # if "task_status" in dict(request.query_params):
+
+        #     if (
+        #         request.user in project.annotation_reviewers.all()
+        #         or request.user in project.annotators.all()
+        #     ):
+        #         # Filter Tasks based on whether the request is in review mode or not
+        #         queryset = (
+        #             Task.objects.filter(
+        #                 project_id__exact=project.id,
+        #                 review_user=request.user.id,
+        #                 task_status=request.query_params["task_status"],
+        #             )
+        #             if is_review_mode
+        #             else Task.objects.filter(
+        #                 project_id__exact=project.id,
+        #                 annotation_users=request.user.id,
+        #                 task_status=request.query_params["task_status"],
+        #             )
+        #         )
+        #     else:
+        #         # TODO : Refactor code to reduce DB calls
+        #         queryset = Task.objects.filter(
+        #             task_status=request.query_params["task_status"]
+        #         )
+
+        #     if len(queryset) > 0:
+        #         queryset = queryset.filter(
+        #             **process_search_query(
+        #                 request.GET, "data", list(queryset.first().data.keys())
+        #             )
+        #         )
+
+        #     queryset = queryset.order_by("id")
+
+        #     if "current_task_id" in dict(request.query_params):
+        #         current_task_id = request.query_params["current_task_id"]
+        #         queryset = queryset.filter(id__gt=current_task_id)
+        #     for task in queryset:
+        #         task_dict = TaskSerializer(task, many=False).data
+        #         return Response(task_dict)
+        #     ret_dict = {"message": "No more tasks available!"}
+        #     ret_status = status.HTTP_204_NO_CONTENT
+        #     return Response(ret_dict, status=ret_status)
+        # else:
+        #     # Check if there are unattended tasks
+        #     if user_role == 1 and not request.user.is_superuser:
+        #         # Filter Tasks based on whether the request is in review mode or not
+        #         unattended_tasks = (
+        #             Task.objects.filter(
+        #                 project_id__exact=project.id,
+        #                 review_user=request.user.id,
+        #                 task_status__exact=ANNOTATED,
+        #             )
+        #             if is_review_mode
+        #             else Task.objects.filter(
+        #                 project_id__exact=project.id,
+        #                 annotation_users=request.user.id,
+        #                 task_status__exact=INCOMPLETE,
+        #             )
+        #         )
+        #     else:
+        #         # TODO : Refactor code to reduce DB calls
+        #         # Filter Tasks based on whether the request is in review mode or not
+        #         unattended_tasks = (
+        #             Task.objects.filter(
+        #                 project_id__exact=project.id,
+        #                 task_status__exact=ANNOTATED,
+        #             )
+        #             if is_review_mode
+        #             else Task.objects.filter(
+        #                 project_id__exact=project.id,
+        #                 task_status__exact=INCOMPLETE,
+        #             )
+        #         )
+        #     unattended_tasks = unattended_tasks.order_by("id")
+
+        #     if "current_task_id" in dict(request.query_params):
+        #         current_task_id = request.query_params["current_task_id"]
+        #         unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
+        #     for task in unattended_tasks:
+        #         task_dict = TaskSerializer(task, many=False).data
+        #         return Response(task_dict)
+        #     ret_dict = {"message": "No more unlabeled tasks!"}
+        #     ret_status = status.HTTP_204_NO_CONTENT
+        #     return Response(ret_dict, status=ret_status)
 
     @is_organization_owner_or_workspace_manager
     def create(self, request, *args, **kwargs):
