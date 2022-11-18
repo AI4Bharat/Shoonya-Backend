@@ -418,7 +418,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-
     @swagger_auto_schema(
         method="post",
         request_body=UserEmailSerializer,
