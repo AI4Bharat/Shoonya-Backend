@@ -391,28 +391,31 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         try:
             # projects = self.queryset.filter(annotators=request.user)
-
+    
             if request.user.role == User.ORGANIZATION_OWNER:
-                projects = self.queryset.filter(
-                    organization_id=request.user.organization
-                )
+                projects = self.queryset.filter(organization_id=request.user.organization)
             elif request.user.role == User.WORKSPACE_MANAGER:
-                projects = self.queryset.filter(
-                    workspace_id__in=Workspace.objects.filter(
-                        managers=request.user
-                    ).values_list("id", flat=True)
+                projects = (
+                    self.queryset.filter(
+                        workspace_id__in=Workspace.objects.filter(
+                            managers=request.user
+                        ).values_list("id", flat=True)
+                    )
+                    | self.queryset.filter(annotators=request.user)
+                    | self.queryset.filter(annotation_reviewers=request.user)
                 )
             else:
                 projects = self.queryset.filter(
                     annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
-                projects = projects.distinct()
+            projects = projects.distinct()
             projects_json = self.serializer_class(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
             return Response(
                 {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
             )
+
 
     @swagger_auto_schema(
         method="post",
