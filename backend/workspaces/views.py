@@ -251,7 +251,8 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     queryset = Workspace.objects.all()
     serializer_class = WorkspaceSerializer
     permission_classes = (IsAuthenticated,)
-
+    
+    @is_particular_workspace_manager
     def list(self, request, *args, **kwargs):
         if (
             int(request.user.role) == User.ANNOTATOR
