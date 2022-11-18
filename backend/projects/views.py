@@ -894,30 +894,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
         user_obj = User.objects.get(pk=user.id)
         project_id = pk
 
-        if userRole == 1 and not user_obj.is_superuser:
-            if project_id:
-                tasks = (
-                    Task.objects.filter(project_id__exact=project_id)
-                    .filter(annotation_users=user.id)
-                    .filter(task_status=UNLABELED)
-                )
-                if tasks.count() > 0:
-                    for task in tasks:
-                        task.unassign(user_obj)
-                    return Response(
-                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
-                    )
+        if project_id:
+            tasks = (
+                Task.objects.filter(project_id__exact=project_id)
+                .filter(annotation_users=user.id)
+                .filter(task_status=UNLABELED)
+            )
+            if tasks.count() > 0:
+                for task in tasks:
+                    task.unassign(user_obj)
                 return Response(
-                    {"message": "No tasks to unassign"},
-                    status=status.HTTP_404_NOT_FOUND,
+                    {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
             return Response(
-                {"message": "Project id not provided"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"message": "No tasks to unassign"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response(
-            {"message": "Only annotators can unassign tasks"},
-            status=status.HTTP_403_FORBIDDEN,
+            {"message": "Project id not provided"},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     @swagger_auto_schema(
