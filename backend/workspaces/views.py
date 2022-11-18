@@ -254,10 +254,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     
     @is_particular_workspace_manager
     def list(self, request, *args, **kwargs):
-        if (
-            int(request.user.role) == User.ANNOTATOR
-            or int(request.user.role) == User.WORKSPACE_MANAGER
-        ):
+        if int(request.user.role) == User.WORKSPACE_MANAGER:
             data = self.queryset.filter(
                 members=request.user,
                 is_archived=False,
