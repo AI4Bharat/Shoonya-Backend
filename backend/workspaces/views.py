@@ -252,11 +252,10 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     serializer_class = WorkspaceSerializer
     permission_classes = (IsAuthenticated,)
     
-    @is_particular_workspace_manager
     def list(self, request, *args, **kwargs):
         if int(request.user.role) == User.WORKSPACE_MANAGER:
             data = self.queryset.filter(
-                members=request.user,
+                managers=request.user,
                 is_archived=False,
                 organization=request.user.organization,
             )
