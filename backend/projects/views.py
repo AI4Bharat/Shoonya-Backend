@@ -391,9 +391,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         try:
             # projects = self.queryset.filter(annotators=request.user)
-    
+
             if request.user.role == User.ORGANIZATION_OWNER:
-                projects = self.queryset.filter(organization_id=request.user.organization)
+                projects = self.queryset.filter(
+                    organization_id=request.user.organization
+                )
             elif request.user.role == User.WORKSPACE_MANAGER:
                 projects = (
                     self.queryset.filter(
