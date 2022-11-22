@@ -1,7 +1,5 @@
 name: Automated Deployment Pipeline
-on:
-  push:
-    branches: [develop2]
+on: [workflow_dispatch]
 jobs:
   build:
     name: Build and Deploy
