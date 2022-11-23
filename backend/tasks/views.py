@@ -182,11 +182,17 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
                 task_ids = [an.task_id for an in ann]
 
-                tasks = Task.objects.filter(id__in=task_ids)
+                annotation_status = [an.annotation_status for an in ann]
 
-                serializer = TaskAnnotationSerializer(tasks, many=True)
-                data = serializer.data
-                return Response(data)
+                ordered_tasks = []
+
+                for idx, ids in enumerate(task_ids):
+                    tas = Task.objects.filter(id=ids)
+                    tas = tas.values()[0]
+                    tas["annotation_status"] = annotation_status[idx]
+                    ordered_tasks.append(tas)
+
+                return Response(ordered_tasks)
 
             if "review_status" in dict(request.query_params):
                 rew_status = request.query_params["review_status"]
@@ -201,11 +207,17 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         )
                         task_ids = [an.task_id for an in ann]
 
-                        tasks = Task.objects.filter(id__in=task_ids)
+                        annotation_status = [an.annotation_status for an in ann]
 
-                        serializer = TaskAnnotationSerializer(tasks, many=True)
-                        data = serializer.data
-                        return Response(data)
+                        ordered_tasks = []
+
+                        for idx, ids in enumerate(task_ids):
+                            tas = Task.objects.filter(id=ids)
+                            tas = tas.values()[0]
+                            tas["review_status"] = annotation_status[idx]
+                            ordered_tasks.append(tas)
+
+                        return Response(ordered_tasks)
 
                 ann = Annotation.objects.filter(
                     annotation_status__in=rew_status,
@@ -214,11 +226,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
                 task_ids = [an.task_id for an in ann]
 
-                tasks = Task.objects.filter(id__in=task_ids)
+                annotation_status = [an.annotation_status for an in ann]
 
-                serializer = TaskAnnotationSerializer(tasks, many=True)
-                data = serializer.data
-                return Response(data)
+                ordered_tasks = []
+
+                for idx, ids in enumerate(task_ids):
+                    tas = Task.objects.filter(id=ids)
+                    tas = tas.values()[0]
+                    tas["review_status"] = annotation_status[idx]
+                    ordered_tasks.append(tas)
+                return Response(ordered_tasks)
 
             tas_status = ["incomplete"]
             if "task_status" in dict(request.query_params):
@@ -232,9 +249,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         project_id__exact=proj_id,
                         task_status__in=tas_status,
                     )
-                    serializer = TaskAnnotationSerializer(tasks, many=True)
-                    data = serializer.data
-                    return Response(data)
+
+                    tasks = tasks.values()
+                    return Response(tasks)
 
             proj_annotators_ids = [an.id for an in proj_annotators]
             proj_reviewers_ids = [an.id for an in proj_reviewers]
@@ -246,19 +263,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     task_status__in=tas_status,
                     annotation_users=user_id,
                 )
-                serializer = TaskAnnotationSerializer(tasks, many=True)
-                data = serializer.data
-                return Response(data)
+                tasks = tasks.values()
+                return Response(tasks)
             if user_id in proj_reviewers_ids:
                 tasks = Task.objects.filter(
                     project_id__exact=proj_id,
                     task_status__in=tas_status,
                     review_user_id=user_id,
                 )
-
-                serializer = TaskAnnotationSerializer(tasks, many=True)
-                data = serializer.data
-                return Response(data)
+                tasks = tasks.values()
+                return Response(tasks)
 
             return Response(
                 {"message": " this user do not have permission to access this view"},
