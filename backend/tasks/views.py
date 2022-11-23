@@ -176,6 +176,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         )
 
                 ann = Annotation.objects.filter(
+                    task__project_id_id=proj_id,
                     annotation_status__in=ann_status,
                     parent_annotation_id__isnull=True,
                     completed_by=user_id,
@@ -202,6 +203,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     if not ("req_user" in dict(request.query_params)):
 
                         ann = Annotation.objects.filter(
+                            task__project_id_id=proj_id,
                             annotation_status__in=rew_status,
                             parent_annotation_id__isnull=False,
                         )
@@ -220,6 +222,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         return Response(ordered_tasks)
 
                 ann = Annotation.objects.filter(
+                    task__project_id_id=proj_id,
                     annotation_status__in=rew_status,
                     parent_annotation_id__isnull=False,
                     completed_by=user_id,
