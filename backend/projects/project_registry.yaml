@@ -213,3 +213,29 @@ Conversation:
             - language
           annotations:
             - conversation_json
+
+
+Audio: 
+  description: "Projects related to audio-processing" 
+  project_types: 
+    SingleSpeakerAudioTranscriptionEditing: 
+      project_mode: "Annotation" 
+      label_studio_jsx_file: "audio/single_speaker_transcription_editing.jsx" 
+      input_dataset: 
+        class: SpeechConversation 
+        fields: 
+          - audio_url 
+          - reference_raw_transcript 
+          - audio_duration 
+          - scenario 
+          - domain 
+        display_fields: 
+          - scenario 
+          - audio_url 
+        prediction: machine_transcribed_json 
+      output_dataset:  
+        class: SpeechConversation 
+        save_type: in_place 
+        fields: 
+          annotations: 
+            - transcribed_json

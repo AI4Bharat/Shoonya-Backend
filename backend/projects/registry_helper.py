@@ -152,9 +152,11 @@ class ProjectRegistry:
         # Note: `toName` attrib is essential for label-studio-frontend to create annotation json
         output_nodes = doc.xpath("//*[@toName]")
         for output_node in output_nodes:
-            assert (
-                output_node.attrib["name"] in output_fields
-            ), f'[{label_studio_jsx_file}]: Output field `{output_node.attrib["name"]}` not found in dataset model'
+            ignore_assertion = output_node.attrib.get("className", "assertion")
+            if ignore_assertion != "ignore_assertion":
+                assert (
+                    output_node.attrib["name"] in output_fields
+                ), f'[{label_studio_jsx_file}]: Output field `{output_node.attrib["name"]}` not found in dataset model'
             assert (
                 output_node.attrib["toName"] in input_fields
             ), f'[{label_studio_jsx_file}]: Input field `{output_node.attrib["toName"]}` not found in dataset model'
