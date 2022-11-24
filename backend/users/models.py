@@ -61,13 +61,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
 
     ANNOTATOR = 1
-    WORKSPACE_MANAGER = 2
-    ORGANIZATION_OWNER = 3
+    REVIEWER = 2
+    WORKSPACE_MANAGER = 3
+    ORGANIZATION_OWNER = 4
+    ADMIN = 5
 
     ROLE_CHOICES = (
         (ANNOTATOR, "Annotator"),
+        (REVIEWER, "Reviewer"),
         (WORKSPACE_MANAGER, "Workspace Manager"),
         (ORGANIZATION_OWNER, "Organization Owner"),
+        (ADMIN, "Admin"),
     )
 
     username = models.CharField(verbose_name="username", max_length=265)
@@ -142,7 +146,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ),
     )
 
-    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
+    organization = models.ManyToManyField(Organization, verbose_name="organizations", null=True, related_name="organization_users")
 
     FULL_TIME = 1
     PART_TIME = 2
@@ -207,8 +211,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_annotator(self):
         return self.role == User.ANNOTATOR
 
+    def is_reviewer(self):
+        return self.role == User.REVIEWER
+
     def is_workspace_manager(self):
         return self.role == User.WORKSPACE_MANAGER
 
     def is_organization_owner(self):
         return self.role == User.ORGANIZATION_OWNER
+
+    def is_admin(self):
+        return self.role == User.ADMIN

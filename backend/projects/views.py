@@ -398,10 +398,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     | self.queryset.filter(annotators=request.user)
                     | self.queryset.filter(annotation_reviewers=request.user)
                 )
-            else:
+            elif request.user.role == User.REVIEWER:
                 projects = self.queryset.filter(
                     annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
+            elif request.user.role == User.ANNOTATOR:
+                projects = self.queryset.filter(
+                    annotators=request.user
+                )
             projects = projects.distinct()
             projects_json = self.serializer_class(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
@@ -474,6 +478,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+    @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove_reviewer")
     def remove_reviewer(self, request, pk=None):
         if "ids" in dict(request.data):
@@ -657,7 +662,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         else:
             # Check if there are unattended tasks
-            if user_role == 1 and not request.user.is_superuser:
+            if (request.user in project.annotation_reviewers.all() or request.user in project.annotators.all()) and not request.user.is_superuser:
                 # Filter Tasks based on whether the request is in review mode or not
                 unattended_tasks = (
                     Task.objects.filter(
@@ -944,20 +949,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
         userRole = user.role
         user_obj = User.objects.get(pk=user.id)
         project_id = pk
+        project = Project.objects.get(pk=pk)
 
-        if userRole == 1 and not user_obj.is_superuser:
-            if project_id:
-                tasks = (
-                    Task.objects.filter(project_id__exact=project_id)
-                    .filter(annotation_users=user.id)
-                    .filter(task_status=INCOMPLETE)
-                )
-                if tasks.count() > 0:
-                    for task in tasks:
-                        task.unassign(user_obj)
-                    return Response(
-                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
-                    )
+        if user in project.annotators.all():
+            pass
+        else:
+            return Response(
+                {"message": "You are not assigned to this project"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        #if userRole == 1 and not user_obj.is_superuser:
+        if project_id:
+            tasks = (
+                Task.objects.filter(project_id__exact=project_id)
+                .filter(annotation_users=user.id)
+                .filter(task_status=INCOMPLETE)
+            )
+            if tasks.count() > 0:
+                for task in tasks:
+                    task.unassign(user_obj)
                 return Response(
                     {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
@@ -1539,6 +1550,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"message": "user does not exist"}, status=status.HTTP_404_NOT_FOUND
                 )
             for user in users:
+                if user.role == User.ANNOTATOR:
+                    return Response(
+                        {"message": "One or more users does not have permission to review annotations"},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
                 # check if user is already added to project
                 if user in project.annotation_reviewers.all():
                     return Response(

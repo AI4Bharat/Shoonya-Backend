@@ -465,6 +465,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     {"message": "User with such id does not exist!"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
+            if user.role == User.ANNOTATOR or user.role == User.REVIEWER:
+                return Response(
+                    {"message": "One or more users do not have access to be manager"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             try:
                 workspace = Workspace.objects.get(pk=pk)
             except Workspace.DoesNotExist:

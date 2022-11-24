@@ -47,9 +47,13 @@ def get_role_name(num):
     if num == 1:
         return "Annotator"
     elif num == 2:
-        return "Workspace Manager"
+        return "Reviewer"
     elif num == 3:
+        return "Workspace Manager"
+    elif num == 4:
         return "Organization Owner"
+    elif num == 5:
+        return "Admin"
     else:
         return "Role Not Defined"
 
@@ -336,7 +340,7 @@ class UserViewSet(viewsets.ViewSet):
         requested_id = request.data.get("user_id")
 
         if requested_id == request.user.id or (
-            request.user.role == 3 and request.user.organization == user.organization
+            request.user.role == User.ORGANIZATION_OWNER and request.user.organization == user.organization
         ):
             user.enable_mail = enable_mail
             user.save()
