@@ -392,6 +392,12 @@ class SpeechConversation(DatasetBase):
             "Optional field to store the plaintext transcription which was used by the speaker to read out"
         ),
     )
+    prediction_json = models.JSONField(
+        verbose_name="prediction_json",
+        null=True,
+        blank=True,
+        help_text=("Prepopulated prediction for the implemented models"),
+    )
 
     def __str__(self):
         return str(self.id)
