@@ -357,8 +357,6 @@ class SpeechConversation(DatasetBase):
     )
     speakers_json = models.JSONField(
         verbose_name="speakers_details",
-        null=True,
-        blank=True,
         help_text=("Details of the speakers involved in the conversation"),
     )
     language = models.CharField(
@@ -380,14 +378,10 @@ class SpeechConversation(DatasetBase):
     )
     audio_url = models.URLField(
         verbose_name="audio_url",
-        null=True,
-        blank=True,
         help_text=("Link to the audio-file"),
     )
     audio_duration = models.FloatField(
         verbose_name="audio_play_duration",
-        null=True,
-        blank=True,
         help_text=("Length of the audio in seconds (float)"),
     )
     reference_raw_transcript = models.TextField(
