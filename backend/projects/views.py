@@ -2,7 +2,7 @@ import re
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
-
+import pandas as pd
 from django.core.files import File
 from django.db.models import Count, Q
 from django.forms.models import model_to_dict
@@ -16,7 +16,6 @@ from users.serializers import UserEmailSerializer
 from dataset.serializers import TaskResultSerializer
 
 from utils.search import process_search_query
-
 from django_celery_results.models import TaskResult
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -1444,6 +1443,125 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
 
+    @is_organization_owner_or_workspace_manager
+    @action(
+        detail=True,
+        methods=["GET"],
+        name="Get Project tasks and annotationsand reviewers text",
+        url_name="export_project_tasks",
+    )
+    def export_project_tasks(self, request, pk=None):
+        supportred_types = ["CSV", "TSV", "JSON", "csv", "tsv", "json"]
+        if "export_type" in dict(request.query_params):
+            export_type = request.query_params["export_type"]
+            if export_type not in supportred_types:
+                final_result = {
+                    "message": "exported type only supported formats are : {csv,tsv,json} "
+                }
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(final_result, status=ret_status)
+        else:
+            # default
+            export_type = "csv"
+        try:
+            proj_obj = Project.objects.get(id=pk)
+        except Project.DoesNotExist:
+            final_result = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(final_result, status=ret_status)
+
+        tas = Task.objects.filter(project_id=pk)
+        tas_id = [ts.id for ts in tas]
+        tas_intext = [ts.data["input_text"] for ts in tas]
+
+        annotation_text_final = []
+        reviewer_text_final = []
+        annotation_users_final = []
+        review_users_final = []
+        for id in tas_id:
+            ann = Annotation_model.objects.filter(
+                task_id=id, parent_annotation__isnull=True
+            )
+            annotation_text = []
+            reviewer_text = []
+            annotator_user = []
+            reviewer_user = []
+
+            for an in ann:
+                user_details = {}
+                text_json = an.result[0]["value"]
+                text_json["completed_by"] = an.completed_by.id
+                text_json["email"] = an.completed_by.email
+                text_json["first_name"] = an.completed_by.first_name
+                annotation_text.append(text_json)
+
+                user_details["id"] = an.completed_by.id
+                user_details["mail"] = an.completed_by.email
+                user_details["first_name"] = an.completed_by.first_name
+                annotator_user.append(user_details)
+
+            rew = Annotation_model.objects.filter(
+                task_id=id, parent_annotation__isnull=False
+            )
+
+            for an in rew:
+                user_details = {}
+                text_json = an.result[0]["value"]
+                text_json["completed_by"] = an.completed_by.id
+                text_json["email"] = an.completed_by.email
+                text_json["first_name"] = an.completed_by.first_name
+                reviewer_text.append(text_json)
+
+                user_details["id"] = an.completed_by.id
+                user_details["mail"] = an.completed_by.email
+                user_details["first_name"] = an.completed_by.first_name
+                reviewer_user.append(user_details)
+
+            annotation_text_final.append(annotation_text)
+            reviewer_text_final.append(reviewer_text)
+            annotation_users_final.append(annotator_user)
+            review_users_final.append(reviewer_user)
+
+        zipped = list(
+            zip(
+                tas_id,
+                tas_intext,
+                annotation_text_final,
+                reviewer_text_final,
+                annotation_users_final,
+                review_users_final,
+            )
+        )
+        df = pd.DataFrame(zipped)
+        df.columns = [
+            "task_id",
+            "input_text",
+            "annotators_text",
+            "reviewers_text",
+            "annotation_users_final",
+            "review_users_final",
+        ]
+
+        if export_type == "csv" or export_type == "CSV":
+
+            content = df.to_csv(index=False)
+            content_type = "application/.csv"
+            filename = "project_details.csv"
+        elif export_type == "tsv" or export_type == "TSV":
+
+            content = df.to_csv(sep="\t", index=False)
+            content_type = "application/.tsv"
+            filename = "project_details.tsv"
+        elif export_type == "json" or export_type == "JSON":
+            content = df.to_json(force_ascii=False, indent=4)
+            content_type = "application/json"
+            filename = "project_details.json"
+
+        response = HttpResponse(content, content_type=content_type)
+        response["Content-Disposition"] = 'attachment; filename="%s"' % filename
+        response["filename"] = filename
+        return response
+
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
@@ -1780,7 +1898,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 filename = filename.split(".")
                 filename[-1] = "tsv"
                 filename = ".".join(filename)
-
             response = HttpResponse(File(export_stream), content_type=content_type)
             response["Content-Disposition"] = 'attachment; filename="%s"' % filename
             response["filename"] = filename
