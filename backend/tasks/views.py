@@ -170,11 +170,26 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                 if view == "managerial_view":
                     if not ("req_user" in dict(request.query_params)):
-                        return Response(
-                            {"message": " please provide the req_user as query_param "},
-                            status=status.HTTP_400_BAD_REQUEST,
+                        ann = Annotation.objects.filter(
+                            task__project_id_id=proj_id,
+                            annotation_status__in=ann_status,
+                            parent_annotation_id__isnull=True,
                         )
+                        task_ids = [an.task_id for an in ann]
 
+                        annotation_status = [an.annotation_status for an in ann]
+                        user_mail = [an.completed_by.email for an in ann]
+
+                        ordered_tasks = []
+
+                        for idx, ids in enumerate(task_ids):
+                            tas = Task.objects.filter(id=ids)
+                            tas = tas.values()[0]
+                            tas["annotation_status"] = annotation_status[idx]
+                            tas["user_mail"] = user_mail[idx]
+                            ordered_tasks.append(tas)
+
+                        return Response(ordered_tasks)
                 ann = Annotation.objects.filter(
                     task__project_id_id=proj_id,
                     annotation_status__in=ann_status,
@@ -184,6 +199,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids = [an.task_id for an in ann]
 
                 annotation_status = [an.annotation_status for an in ann]
+                user_mail = [an.completed_by.email for an in ann]
 
                 ordered_tasks = []
 
@@ -191,6 +207,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas = Task.objects.filter(id=ids)
                     tas = tas.values()[0]
                     tas["annotation_status"] = annotation_status[idx]
+                    tas["user_mail"] = user_mail[idx]
                     ordered_tasks.append(tas)
 
                 return Response(ordered_tasks)
@@ -210,6 +227,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         task_ids = [an.task_id for an in ann]
 
                         annotation_status = [an.annotation_status for an in ann]
+                        user_mail = [an.completed_by.email for an in ann]
 
                         ordered_tasks = []
 
@@ -217,6 +235,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = Task.objects.filter(id=ids)
                             tas = tas.values()[0]
                             tas["review_status"] = annotation_status[idx]
+                            tas["user_mail"] = user_mail[idx]
                             ordered_tasks.append(tas)
 
                         return Response(ordered_tasks)
@@ -230,6 +249,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids = [an.task_id for an in ann]
 
                 annotation_status = [an.annotation_status for an in ann]
+                user_mail = [an.completed_by.email for an in ann]
 
                 ordered_tasks = []
 
@@ -237,6 +257,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas = Task.objects.filter(id=ids)
                     tas = tas.values()[0]
                     tas["review_status"] = annotation_status[idx]
+                    tas["user_mail"] = user_mail[idx]
                     ordered_tasks.append(tas)
                 return Response(ordered_tasks)
 
