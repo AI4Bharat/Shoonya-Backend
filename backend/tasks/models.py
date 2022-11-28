@@ -131,7 +131,7 @@ class Task(models.Model):
     task_status = models.CharField(
         choices=TASK_STATUS,
         max_length=100,
-        default=UNLABELED,
+        default=INCOMPLETE,
         verbose_name="task_status",
     )
     metadata_json = models.JSONField(
