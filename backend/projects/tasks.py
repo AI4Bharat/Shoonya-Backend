@@ -287,6 +287,9 @@ def export_project_in_place(
 
     for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
 
+        if output_dataset_info["dataset_type"] == "SpeechConversation":
+            ta_labels = json.loads(ta["labels"])
+            ta_transcribed_json = json.loads(ta["transcribed_json"])
         task.output_data = task.input_data
         task.save()
         data_item = dataset_model.objects.get(id__exact=tl["input_data"])
@@ -295,6 +298,19 @@ def export_project_in_place(
             # We need to store the rating in integer format
             if field == "rating":
                 setattr(data_item, field, int(ta[field]))
+            elif field == "transcribed_json":
+                speakers_details = json.loads(data_item.speakers_json)
+                for idx in range(len(ta_transcribed_json)):
+                    ta_labels[idx]["text"] = ta_transcribed_json[idx]
+                    speaker_id = next(
+                        speaker
+                        for speaker in speakers_details
+                        if speaker["name"] == ta_labels[idx]["labels"][0]
+                    )["speaker_id"]
+                    ta_labels[idx]["speaker_id"] = speaker_id
+                    del ta_labels[idx]["labels"]
+                ta_labels = json.dumps(ta_labels)
+                setattr(data_item, field, ta_labels)
             else:
                 setattr(data_item, field, ta[field])
         data_items.append(data_item)

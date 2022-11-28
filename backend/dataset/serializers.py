@@ -86,6 +86,16 @@ class ConversationSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class SpeechConversationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Speech Conversation
+    """
+
+    class Meta:
+        model = SpeechConversation
+        fields = "__all__"
+
+
 # Define a mapping between dataset instance type and serializer
 SERIALIZER_MAP = {
     "SentenceText": SentenceTextSerializer,
@@ -93,6 +103,7 @@ SERIALIZER_MAP = {
     "OCRDocument": OCRDocumentSerializer,
     "BlockText": BlockTextSerializer,
     "Conversation": ConversationSerializer,
+    "SpeechConversation": SpeechConversationSerializer,
 }
 
 # class CollectionDatasetSerializer(serializers.ModelSerializer):
