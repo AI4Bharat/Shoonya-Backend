@@ -946,11 +946,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         if userRole == 1 and not user_obj.is_superuser:
             if project_id:
-                tasks = (
-                    Task.objects.filter(project_id__exact=project_id)
-                    .filter(annotation_users=user.id)
-                    .filter(task_status=INCOMPLETE)
+                ann = Annotation_model.objects.filter(
+                    task__project_id=project_id,
+                    completed_by=user.id,
+                    annotation_status="unlabeled",
                 )
+
+                tas_ids = [an.task_id for an in ann]
+                ann.delete()
+
+                tasks = Task.objects.filter(id__in=tas_ids)
                 if tasks.count() > 0:
                     for task in tasks:
                         task.unassign(user_obj)
@@ -1115,11 +1120,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if project_id:
             project_obj = Project.objects.get(pk=project_id)
             if project_obj and user in project_obj.annotation_reviewers.all():
-                tasks = (
-                    Task.objects.filter(project_id__exact=project_id)
-                    .filter(task_status=ANNOTATED)
-                    .filter(review_user=user.id)
+
+                ann = Annotation_model.objects.filter(
+                    task__project_id=project_id,
+                    completed_by=user.id,
+                    annotation_status="unreviewed",
                 )
+                tas_ids = [an.task_id for an in ann]
+                ann.delete()
+
+                tasks = Task.objects.filter(id__in=tas_ids)
                 if tasks.count() > 0:
                     tasks.update(review_user=None)
                     return Response(
