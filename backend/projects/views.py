@@ -1091,6 +1091,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 result=[],
                 task=task,
                 completed_by=cur_user,
+                annotation_status="unreviewed",
             )
             base_annotation_obj.save()
         project.release_lock(REVIEW_LOCK)
