@@ -949,6 +949,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ann = Annotation_model.objects.filter(
                     task__project_id=project_id,
                     completed_by=user.id,
+                    parent_annotation__isnull=True,
                     annotation_status="unlabeled",
                 )
 
@@ -1087,16 +1088,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .values_list("task", flat=True)
         )
         # tasks = tasks.order_by("id")
+        task_ids = list(set(task_ids))
         task_ids = task_ids[:task_pull_count]
         for task_id in task_ids:
             task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
+            rec_ann = Annotation_model.objects.filter(task_id=task_id).order_by(
+                "-updated_at"
+            )
             base_annotation_obj = Annotation_model(
                 result=[],
                 task=task,
                 completed_by=cur_user,
                 annotation_status="unreviewed",
+                parent_annotation=rec_ann[0],
             )
             base_annotation_obj.save()
         project.release_lock(REVIEW_LOCK)
@@ -1124,10 +1130,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ann = Annotation_model.objects.filter(
                     task__project_id=project_id,
                     completed_by=user.id,
+                    parent_annotation__isnull=False,
                     annotation_status="unreviewed",
                 )
                 tas_ids = [an.task_id for an in ann]
-                ann.delete()
+
+                for an in ann:
+                    an.parent_annotation = None
+                    an.save()
+                    an.delete()
 
                 tasks = Task.objects.filter(id__in=tas_ids)
                 if tasks.count() > 0:
