@@ -1245,14 +1245,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 accepted_wt_tasks = get_annotated_tasks(
                     pk, each_annotator, "accepted_with_changes", start_date, end_date
                 )
+                if project_type == "ContextualTranslationEditing":
+                    minor_changes, major_changes = minor_major_accepted_task(
+                        accepted_wt_tasks
+                    )
 
-                minor_changes, major_changes = minor_major_accepted_task(
-                    accepted_wt_tasks
-                )
+                    items.append(("Accepted With Minor Changes", minor_changes))
 
-                items.append(("Accepted With Minor Changes", minor_changes))
-
-                items.append(("Accepted With Major Changes", major_changes))
+                    items.append(("Accepted With Major Changes", major_changes))
+                    
+                else:
+                    items.append(("Accepted With Changes", accepted_wt_tasks))
 
                 # get labeled task count
                 labeled_tasks = get_annotated_tasks(
