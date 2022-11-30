@@ -1245,7 +1245,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 accepted_wt_tasks = get_annotated_tasks(
                     pk, each_annotator, "accepted_with_changes", start_date, end_date
                 )
-                if project_type == "ContextualTranslationEditing":
+                if is_translation_project:
                     minor_changes, major_changes = minor_major_accepted_task(
                         accepted_wt_tasks
                     )
