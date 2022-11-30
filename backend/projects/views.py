@@ -1157,7 +1157,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
         start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
         end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
-
+    
         if start_date > end_date:
             return Response(
                 {"message": "'To' Date should be after 'From' Date"},
@@ -1167,9 +1167,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_type = project_type.lower()
         is_translation_project = True if "translation" in project_type else False
         users_id = request.user.id
-
+    
         reports_type = request.data.get("reports_type")
-
+    
         if reports_type == "review_reports":
             if proj_obj.enable_task_reviews:
                 reviewer_names_list = proj_obj.annotation_reviewers.all()
@@ -1180,7 +1180,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     or request.user.role == User.WORKSPACE_MANAGER
                     or request.user.is_superuser
                 ):
-
+    
                     for id in reviewer_ids:
                         result = get_review_reports(pk, id, start_date, end_date)
                         final_reports.append(result)
@@ -1195,10 +1195,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 result = {"message": "disabled task reviews for this project "}
                 return Response(result)
-        managers = [
-            user1.get_username() for user1 in proj_obj.workspace_id.managers.all()
-        ]
-
+        managers = [user1.get_username() for user1 in proj_obj.workspace_id.managers.all()]
+    
         final_result = []
         users_ids = []
         user_mails = []
@@ -1214,7 +1212,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ]
             user_names = [annotator.username for annotator in proj_obj.annotators.all()]
         elif request.user.role == User.ANNOTATOR:
-
+    
             users_ids = [request.user.id]
             user_names = [request.user.username]
             user_mails = [request.user.email]
@@ -1222,66 +1220,62 @@ class ProjectViewSet(viewsets.ModelViewSet):
             user_name = user_names[index]
             usermail = user_mails[index]
             items = []
-
+    
             items.append(("Annotator", user_name))
             items.append(("Email", usermail))
-
+    
             # get total tasks
             all_tasks_in_project = Task.objects.filter(
                 Q(project_id=pk) & Q(annotation_users=each_annotator)
             )
             assigned_tasks = all_tasks_in_project.count()
             items.append(("Assigned", assigned_tasks))
-
+    
             # get accepted tasks
             annotated_accept_tasks = get_annotated_tasks(
                 pk, each_annotator, "accepted", start_date, end_date
             )
             items.append(("Accepted", annotated_accept_tasks.count()))
-
+    
             proj = Project.objects.get(id=pk)
             if proj.enable_task_reviews:
                 # get accepted with changes tasks count
                 accepted_wt_tasks = get_annotated_tasks(
                     pk, each_annotator, "accepted_with_changes", start_date, end_date
                 )
-                if is_translation_project:
+                if project_type in ["ContextualTranslationEditing", "TranslationEditing"]:
                     minor_changes, major_changes = minor_major_accepted_task(
                         accepted_wt_tasks
                     )
-
                     items.append(("Accepted With Minor Changes", minor_changes))
-
+    
                     items.append(("Accepted With Major Changes", major_changes))
-                    
+    
                 else:
-                    items.append(("Accepted With Changes", accepted_wt_tasks))
-
+                    items.append(("Accepted With Changes", accepted_wt_tasks.count()))
                 # get labeled task count
                 labeled_tasks = get_annotated_tasks(
                     pk, each_annotator, "labeled", start_date, end_date
                 )
                 items.append(("Labeled", labeled_tasks.count()))
-
+    
                 # get to_be_revised count
                 to_be_revised_tasks = get_annotated_tasks(
                     pk, each_annotator, "to_be_revised", start_date, end_date
                 )
                 items.append(("To Be Revised", to_be_revised_tasks.count()))
             # get unlabeled count
-            total_unlabeled_tasks_count = get_tasks_count(
-                pk, each_annotator, "unlabeled"
-            )
+            total_unlabeled_tasks_count = get_tasks_count(pk, each_annotator, "unlabeled")
             items.append(("Unlabeled", total_unlabeled_tasks_count))
-
+    
             # get skipped tasks count
             total_skipped_tasks_count = get_tasks_count(pk, each_annotator, "skipped")
             items.append(("Skipped", total_skipped_tasks_count))
-
+    
             # get draft tasks count
             total_draft_tasks_count = get_tasks_count(pk, each_annotator, "draft")
             items.append(("Draft", total_draft_tasks_count))
-
+    
             if is_translation_project:
                 if proj.enable_task_reviews:
                     all_annotated_tasks = (
@@ -1321,10 +1315,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 avg_lead_time = sum(lead_time_annotated_tasks) / len(
                     lead_time_annotated_tasks
                 )
-            items.append(
-                ("Average Annotation Time (In Seconds)", round(avg_lead_time, 2))
-            )
-
+            items.append(("Average Annotation Time (In Seconds)", round(avg_lead_time, 2)))
+    
             final_result.append(dict(items))
         ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
