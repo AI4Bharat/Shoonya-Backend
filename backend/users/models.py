@@ -146,7 +146,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         ),
     )
 
-    organization = models.ManyToManyField(Organization, verbose_name="organizations", null=True, related_name="organization_users")
+    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
+    organizations = models.ManyToManyField(Organization, verbose_name="organizations", null=True, related_name="organization_users")
 
     FULL_TIME = 1
     PART_TIME = 2

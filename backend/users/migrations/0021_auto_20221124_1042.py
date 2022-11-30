@@ -11,13 +11,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='user',
-            name='organization',
-        ),
         migrations.AddField(
             model_name='user',
-            name='organization',
+            name='organizations',
             field=models.ManyToManyField(null=True, related_name='organization_users', to='organizations.Organization', verbose_name='organizations'),
         ),
         migrations.AlterField(
