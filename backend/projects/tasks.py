@@ -299,7 +299,7 @@ def export_project_in_place(
             if field == "rating":
                 setattr(data_item, field, int(ta[field]))
             elif field == "transcribed_json":
-                speakers_details = json.loads(data_item.speakers_json)
+                speakers_details = data_item.speakers_json
                 for idx in range(len(ta_transcribed_json)):
                     ta_labels[idx]["text"] = ta_transcribed_json[idx]
                     speaker_id = next(
@@ -309,7 +309,6 @@ def export_project_in_place(
                     )["speaker_id"]
                     ta_labels[idx]["speaker_id"] = speaker_id
                     del ta_labels[idx]["labels"]
-                ta_labels = json.dumps(ta_labels)
                 setattr(data_item, field, ta_labels)
             else:
                 setattr(data_item, field, ta[field])
