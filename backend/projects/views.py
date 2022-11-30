@@ -1253,7 +1253,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     items.append(("Accepted With Minor Changes", minor_changes))
 
                     items.append(("Accepted With Major Changes", major_changes))
-                    
+
                 else:
                     items.append(("Accepted With Changes", accepted_wt_tasks))
 
