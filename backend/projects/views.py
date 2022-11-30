@@ -72,7 +72,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     user = User.objects.get(id=userid)
     userName = user.username
     email = user.email
-
+    project_obj = Project.objects.get(id=proj_id)
+    proj_type = project_obj.project_type
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
     total_task_count = total_tasks.count()
@@ -103,7 +104,11 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         created_at__range=[start_date, end_date],
     )
 
-    minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
+    if proj_type in [
+        "ContextualTranslationEditing",
+        "TranslationEditing",
+    ]:
+        minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
     labeled_tasks = Task.objects.filter(
         project_id=proj_id, review_user=userid, task_status="labeled"
@@ -122,17 +127,31 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         created_at__range=[start_date, end_date],
     )
     to_be_revised_tasks_count = to_be_revised_objs.count()
+    if proj_type in [
+        "ContextualTranslationEditing",
+        "TranslationEditing",
+    ]:
+        result = {
+            "Reviewer Name": userName,
+            "Email": email,
+            "Assigned": total_task_count,
+            "Accepted": accepted_objs_count,
+            "Accepted With Minor Changes": minor_changes,
+            "Accepted With Major Changes": major_changes,
+            "Labeled": labeled_tasks_count,
+            "To Be Revised": to_be_revised_tasks_count,
+        }
+    else:
+        result = {
+            "Reviewer Name": userName,
+            "Email": email,
+            "Assigned": total_task_count,
+            "Accepted": accepted_objs_count,
+            "Accepted With Changes": acceptedwtchange_objs.count(),
+            "Labeled": labeled_tasks_count,
+            "To Be Revised": to_be_revised_tasks_count,
+        }
 
-    result = {
-        "Reviewer Name": userName,
-        "Email": email,
-        "Assigned": total_task_count,
-        "Accepted": accepted_objs_count,
-        "Accepted With Minor Changes": minor_changes,
-        "Accepted With Major Changes": major_changes,
-        "Labeled": labeled_tasks_count,
-        "To Be Revised": to_be_revised_tasks_count,
-    }
     return result
 
 
