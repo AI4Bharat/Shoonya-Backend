@@ -1287,16 +1287,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         + list(labeled_tasks)
                         + list(to_be_revised_tasks)
                     )
-                    total_word_count_list = [
-                        each_task.task.data["word_count"]
-                        for each_task in all_annotated_tasks
-                    ]
+                    total_word_count_list = []
+
+                    for each_task in all_annotated_tasks:
+                        try:
+                            total_word_count_list.append(
+                                each_task.task.data["word_count"]
+                            )
+                        except:
+                            pass
                     total_word_count = sum(total_word_count_list)
                 else:
-                    total_word_count_list = [
-                        each_task.task.data["word_count"]
-                        for each_task in annotated_accept_tasks
-                    ]
+                    total_word_count_list = []
+
+                    for each_task in annotated_accept_tasks:
+                        try:
+                            total_word_count_list.append(
+                                each_task.task.data["word_count"]
+                            )
+                        except:
+                            pass
                     total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
             if proj.enable_task_reviews:
