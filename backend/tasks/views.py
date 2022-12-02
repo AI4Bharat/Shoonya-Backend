@@ -99,12 +99,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         task = self.get_object()
         annotations = Annotation.objects.filter(task=task)
         project = Project.objects.get(id=task.project_id.id)
-        annotator = request.user
+        user = request.user
 
-        if annotator != task.review_user:
-            if annotator in project.annotators.all():
-                annotations = annotations.filter(completed_by=annotator)
-            else:
+        if user != task.review_user:
+            if user in project.annotators.all():
+                annotations = annotations.filter(completed_by=user)
+            elif user.role == User.ANNOTATOR:
                 return Response(
                     {"message": "You are not a part of this project"},
                     status=status.HTTP_400_BAD_REQUEST,
