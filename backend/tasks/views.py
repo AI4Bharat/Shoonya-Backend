@@ -175,10 +175,21 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_status__in=ann_status,
                             parent_annotation_id__isnull=True,
                         )
-                        task_ids = [an.task_id for an in ann]
 
-                        annotation_status = [an.annotation_status for an in ann]
-                        user_mail = [an.completed_by.email for an in ann]
+                        tasks = Task.objects.filter(annotations__in=ann)
+                        tasks = tasks.distinct()
+                        # Handle search query (if any)
+                        if len(tasks):
+                            tasks = tasks.filter(
+                                **process_search_query(
+                                    request.GET, "data", list(tasks.first().data.keys())
+                                )
+                            )
+                        ann_filter1 = ann.filter(task__in=tasks)
+
+                        task_ids = [an.task_id for an in ann_filter1]
+                        annotation_status = [an.annotation_status for an in ann_filter1]
+                        user_mail = [an.completed_by.email for an in ann_filter1]
 
                         ordered_tasks = []
 
@@ -196,10 +207,21 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     parent_annotation_id__isnull=True,
                     completed_by=user_id,
                 )
-                task_ids = [an.task_id for an in ann]
 
-                annotation_status = [an.annotation_status for an in ann]
-                user_mail = [an.completed_by.email for an in ann]
+                tasks = Task.objects.filter(annotations__in=ann)
+                tasks = tasks.distinct()
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
+                    )
+                ann_filter1 = ann.filter(task__in=tasks)
+
+                task_ids = [an.task_id for an in ann_filter1]
+                annotation_status = [an.annotation_status for an in ann_filter1]
+                user_mail = [an.completed_by.email for an in ann_filter1]
 
                 ordered_tasks = []
 
@@ -224,11 +246,20 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_status__in=rew_status,
                             parent_annotation_id__isnull=False,
                         )
-                        task_ids = [an.task_id for an in ann]
+                        tasks = Task.objects.filter(annotations__in=ann)
+                        tasks = tasks.distinct()
+                        # Handle search query (if any)
+                        if len(tasks):
+                            tasks = tasks.filter(
+                                **process_search_query(
+                                    request.GET, "data", list(tasks.first().data.keys())
+                                )
+                            )
+                        ann_filter1 = ann.filter(task__in=tasks)
 
-                        annotation_status = [an.annotation_status for an in ann]
-                        user_mail = [an.completed_by.email for an in ann]
-
+                        task_ids = [an.task_id for an in ann_filter1]
+                        annotation_status = [an.annotation_status for an in ann_filter1]
+                        user_mail = [an.completed_by.email for an in ann_filter1]
                         ordered_tasks = []
 
                         for idx, ids in enumerate(task_ids):
@@ -246,10 +277,20 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     parent_annotation_id__isnull=False,
                     completed_by=user_id,
                 )
-                task_ids = [an.task_id for an in ann]
+                tasks = Task.objects.filter(annotations__in=ann)
+                tasks = tasks.distinct()
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
+                    )
+                ann_filter1 = ann.filter(task__in=tasks)
 
-                annotation_status = [an.annotation_status for an in ann]
-                user_mail = [an.completed_by.email for an in ann]
+                task_ids = [an.task_id for an in ann_filter1]
+                annotation_status = [an.annotation_status for an in ann_filter1]
+                user_mail = [an.completed_by.email for an in ann_filter1]
 
                 ordered_tasks = []
 
@@ -274,6 +315,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         task_status__in=tas_status,
                     )
 
+                    # Handle search query (if any)
+                    if len(tasks):
+                        tasks = tasks.filter(
+                            **process_search_query(
+                                request.GET, "data", list(tasks.first().data.keys())
+                            )
+                        )
+
                     tasks = tasks.values()
                     return Response(tasks)
 
@@ -287,19 +336,38 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     task_status__in=tas_status,
                     annotation_users=user_id,
                 )
+
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
+                    )
+
                 tasks = tasks.values()
                 return Response(tasks)
+
             if user_id in proj_reviewers_ids:
                 tasks = Task.objects.filter(
                     project_id__exact=proj_id,
                     task_status__in=tas_status,
                     review_user_id=user_id,
                 )
+
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
+                    )
+
                 tasks = tasks.values()
                 return Response(tasks)
 
             return Response(
-                {"message": " this user do not have permission to access this view"},
+                {"message": " this user not part of this project"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         else:
