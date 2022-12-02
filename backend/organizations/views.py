@@ -1387,7 +1387,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=["POST"],
+        methods=["GET"],
         name="Get Cumulative tasks completed ",
         url_name="cumulative_tasks_count",
     )
@@ -1398,59 +1398,69 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        project_type = request.data.get("project_type")
-        proj_objs = []
+        project_types = [
+            "ContextualTranslationEditing",
+            "ContextualSentenceVerification",
+            "SemanticTextualSimilarity_Scale5",
+            "SingleSpeakerAudioTranscriptionEditing",
+        ]
+        final_result_for_all_types = {}
+        for project_type in project_types:
+            proj_objs = []
+            proj_objs = Project.objects.filter(
+                organization_id=pk, project_type=project_type
+            )
 
-        proj_objs = Project.objects.filter(
-            organization_id=pk, project_type=project_type
-        )
+            languages = list(set([proj.tgt_language for proj in proj_objs]))
+            general_lang = []
+            other_lang = []
+            for lang in languages:
+                proj_lang_filter = proj_objs.filter(tgt_language=lang)
+                annotation_tasks_count = 0
+                reviewer_task_count = 0
+                reviewer_task_count = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__enable_task_reviews=True,
+                    task_status__in=["accepted", "accepted_with_changes"],
+                ).count()
+                annotation_tasks_count = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    task_status__in=[
+                        "labeled",
+                        "accepted",
+                        "accepted_with_changes",
+                        "to_be_revised",
+                        "complete",
+                    ],
+                ).count()
 
-        languages = list(set([proj.tgt_language for proj in proj_objs]))
-        general_lang = []
-        other_lang = []
-        for lang in languages:
-            proj_lang_filter = proj_objs.filter(tgt_language=lang)
-            annotation_tasks_count = 0
-            reviewer_task_count = 0
-            reviewer_task_count = Task.objects.filter(
-                project_id__in=proj_lang_filter,
-                project_id__enable_task_reviews=True,
-                task_status__in=["accepted", "accepted_with_changes"],
-            ).count()
-            annotation_tasks_count = Task.objects.filter(
-                project_id__in=proj_lang_filter,
-                task_status__in=[
-                    "labeled",
-                    "accepted",
-                    "accepted_with_changes",
-                    "to_be_revised",
-                    "complete",
-                ],
-            ).count()
+                result = {
+                    "language": lang,
+                    "ann_cumulative_tasks_count": annotation_tasks_count,
+                    "rew_cumulative_tasks_count": reviewer_task_count,
+                }
 
-            result = {
-                "language": lang,
-                "ann_cumulative_tasks_count": annotation_tasks_count,
-                "rew_cumulative_tasks_count": reviewer_task_count,
-            }
+                if lang == None or lang == "":
+                    other_lang.append(result)
+                else:
+                    general_lang.append(result)
 
-            if lang == None or lang == "":
-                other_lang.append(result)
-            else:
-                general_lang.append(result)
+            ann_count = 0
+            rew_count = 0
+            for dat in other_lang:
+                ann_count += dat["ann_cumulative_tasks_count"]
+                rew_count += dat["rew_cumulative_tasks_count"]
+            if len(other_lang) > 0:
+                other_language = {
+                    "language": "Others",
+                    "ann_cumulative_tasks_count": ann_count,
+                    "rew_cumulative_tasks_count": rew_count,
+                }
+                general_lang.append(other_language)
 
-        ann_count = 0
-        rew_count = 0
-        for dat in other_lang:
-            ann_count += dat["ann_cumulative_tasks_count"]
-            rew_count += dat["rew_cumulative_tasks_count"]
-        if len(other_lang) > 0:
-            other_language = {
-                "language": "Others",
-                "ann_cumulative_tasks_count": ann_count,
-                "rew_cumulative_tasks_count": rew_count,
-            }
-            general_lang.append(other_language)
+            final_result = sorted(
+                general_lang, key=lambda x: x["language"], reverse=False
+            )
 
-        final_result = sorted(general_lang, key=lambda x: x["language"], reverse=False)
-        return Response(final_result)
+            final_result_for_all_types[project_type] = final_result
+        return Response(final_result_for_all_types)
