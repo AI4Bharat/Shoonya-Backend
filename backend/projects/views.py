@@ -583,7 +583,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         parent_annotation_id__isnull=False,
                         completed_by=request.user.id,
                     )
-                    task_ids = [ann.task_id for ann in annotations]
                 else:
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
@@ -591,7 +590,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         parent_annotation_id__isnull=True,
                         completed_by=request.user.id,
                     )
-                    task_ids = [ann.task_id for ann in annotations]
             else:
                 if is_review_mode:
                     annotations = Annotation_model.objects.filter(
@@ -599,15 +597,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         annotation_status=annotation_status,
                         parent_annotation_id__isnull=False,
                     )
-                    task_ids = [ann.task_id for ann in annotations]
                 else:
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
                         parent_annotation_id__isnull=True,
                     )
-                    task_ids = [ann.task_id for ann in annotations]
-                    task_ids = list(set(task_ids))
+
+            tasks = Task.objects.filter(annotations__in=annotations)
+            tasks = tasks.distinct()
+            if len(tasks):
+                tasks = tasks.filter(
+                    **process_search_query(
+                        request.GET, "data", list(tasks.first().data.keys())
+                    )
+                )
+            ann_filter1 = annotations.filter(task__in=tasks)
+            task_ids = [an.task_id for an in ann_filter1]
 
             queryset = Task.objects.filter(id__in=task_ids).order_by("id")
 
@@ -625,7 +631,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
             ):
-                queryset = (
+                tasks = (
                     Task.objects.filter(
                         project_id__exact=project.id,
                         review_user=request.user.id,
@@ -639,11 +645,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                 )
             else:
-                queryset = Task.objects.filter(
+                tasks = Task.objects.filter(
                     project_id__exact=project.id,
                     task_status=task_status,
                 )
-            queryset = queryset.order_by("id")
+
+            if len(tasks):
+                tasks = tasks.filter(
+                    **process_search_query(
+                        request.GET, "data", list(tasks.first().data.keys())
+                    )
+                )
+
+            queryset = tasks.order_by("id")
 
             if current_task_id != None:
                 queryset = queryset.filter(id__gt=current_task_id)
@@ -658,7 +672,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Check if there are unattended tasks
             if user_role == 1 and not request.user.is_superuser:
                 # Filter Tasks based on whether the request is in review mode or not
-                unattended_tasks = (
+                tasks = (
                     Task.objects.filter(
                         project_id__exact=project.id,
                         review_user=request.user.id,
@@ -674,7 +688,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 # TODO : Refactor code to reduce DB calls
                 # Filter Tasks based on whether the request is in review mode or not
-                unattended_tasks = (
+                tasks = (
                     Task.objects.filter(
                         project_id__exact=project.id,
                         task_status__exact=ANNOTATED,
@@ -685,7 +699,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         task_status__exact=INCOMPLETE,
                     )
                 )
-            unattended_tasks = unattended_tasks.order_by("id")
+
+            if len(tasks):
+                tasks = tasks.filter(
+                    **process_search_query(
+                        request.GET, "data", list(tasks.first().data.keys())
+                    )
+                )
+
+            unattended_tasks = tasks.order_by("id")
 
             if current_task_id != None:
                 unattended_tasks = unattended_tasks.filter(id__gt=current_task_id)
