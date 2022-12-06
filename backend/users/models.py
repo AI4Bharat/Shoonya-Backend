@@ -147,7 +147,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True)
-    organizations = models.ManyToManyField(Organization, verbose_name="organizations", null=True, related_name="organization_users")
 
     FULL_TIME = 1
     PART_TIME = 2
@@ -182,6 +181,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         indexes = [
             models.Index(fields=["username"]),
             models.Index(fields=["email"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(fields=['email', 'organization'], name='email_org_unique')
         ]
 
     def clean(self):

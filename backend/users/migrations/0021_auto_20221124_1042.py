@@ -6,15 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('organizations', '0008_auto_20220930_0451'),
         ('users', '0020_user_participation_type'),
     ]
 
     operations = [
-        migrations.AddField(
+        migrations.AddConstraint(
             model_name='user',
-            name='organizations',
-            field=models.ManyToManyField(null=True, related_name='organization_users', to='organizations.Organization', verbose_name='organizations'),
+            constraint=models.UniqueConstraint(fields=('email', 'organization'), name='email_org_unique'),
         ),
         migrations.AlterField(
             model_name='user',

@@ -2,12 +2,6 @@
 
 from django.db import migrations
 
-def copy_org_relationships(apps, schema_editor):
-    User = apps.get_model("users", "User")
-    for user in User.objects.all():
-        user.organizations.add(user.organization)
-        user.save()
-
 def restructure_user_roles(apps, schema_editor):
     User = apps.get_model("users", "User")
     for user in User.objects.all():
@@ -22,6 +16,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(copy_org_relationships),
         migrations.RunPython(restructure_user_roles),
     ]
