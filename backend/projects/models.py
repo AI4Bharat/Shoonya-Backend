@@ -110,6 +110,9 @@ class Project(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True, help_text=("Project Created At")
     )
+    published_at = models.DateTimeField(
+        help_text=("Project published at"), null=True, blank=True
+    )
     is_archived = models.BooleanField(
         verbose_name="project_is_archived",
         default=False,

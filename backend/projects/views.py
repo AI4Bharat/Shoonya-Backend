@@ -4,7 +4,7 @@ from datetime import datetime
 from time import sleep
 import pandas as pd
 from django.core.files import File
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.http import HttpResponse
 from rest_framework import status, viewsets
@@ -401,7 +401,37 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 projects = self.queryset.filter(
                     annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
+                projects = projects.filter(is_published=True).filter(is_archived=False)
             projects = projects.distinct()
+
+            if (
+                "sort_type" in request.query_params
+                and request.query_params["sort_type"] == "most_recent_worked_projects"
+            ):
+                annotations = Annotation_model.objects.filter(completed_by=request.user)
+                annotations = annotations.order_by("-updated_at")
+                project_ids = []
+                project_ids_set = set()
+                for annotation in annotations:
+                    project_id = annotation.task.project_id.id
+                    if project_id not in project_ids_set:
+                        project_ids.append(project_id)
+                        project_ids_set.add(project_id)
+                unannotated_projects = projects.exclude(pk__in=project_ids)
+                unannotated_projects = unannotated_projects.order_by(
+                    F("published_at").desc(nulls_last=True)
+                )
+                for project in unannotated_projects:
+                    project_ids.append(project.id)
+                preserved = Case(
+                    *[When(pk=pk, then=pos) for pos, pk in enumerate(project_ids)]
+                )
+                projects = Project.objects.filter(pk__in=project_ids).order_by(
+                    preserved
+                )
+            else:
+                projects = projects.order_by(F("published_at").desc(nulls_last=True))
+
             projects_json = self.serializer_class(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
@@ -2108,6 +2138,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Task.objects.bulk_update(updated_tasks, ['annotation_users'])
 
             project.is_published = True
+            project.published_at = datetime.now()
             project.save()
 
             ret_dict = {"message": "This project is published"}
