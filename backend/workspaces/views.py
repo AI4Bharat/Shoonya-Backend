@@ -681,7 +681,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
-        is_translation_project = True if "translation" in project_type_lower else False
+        trans_projects = ["SemanticTextualSimilarity_Scale5"]
+        is_translation_project = (
+            True
+            if "translation" in project_type_lower or project_type in trans_projects
+            else False
+        )
         # enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)

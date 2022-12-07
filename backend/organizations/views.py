@@ -521,7 +521,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
-        is_translation_project = True if "translation" in project_type_lower else False
+        trans_projects = ["SemanticTextualSimilarity_Scale5"]
+        is_translation_project = (
+            True
+            if "translation" in project_type_lower or project_type in trans_projects
+            else False
+        )
+
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
         if sort_by_column_name == None:
@@ -659,7 +665,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         project_type = request.data.get("project_type")
         reports_type = request.data.get("reports_type")
         project_type_lower = project_type.lower()
-        is_translation_project = True if "translation" in project_type_lower else False
+        trans_projects = ["SemanticTextualSimilarity_Scale5"]
+        is_translation_project = (
+            True
+            if "translation" in project_type_lower or project_type in trans_projects
+            else False
+        )
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
         if sort_by_column_name == None:

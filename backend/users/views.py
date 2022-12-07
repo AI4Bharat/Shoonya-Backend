@@ -420,7 +420,12 @@ class AnalyticsViewSet(viewsets.ViewSet):
             )
 
         project_type_lower = project_type.lower()
-        is_translation_project = True if "translation" in project_type_lower else False
+        trans_projects = ["SemanticTextualSimilarity_Scale5"]
+        is_translation_project = (
+            True
+            if "translation" in project_type_lower or project_type in trans_projects
+            else False
+        )
 
         try:
             user = User.objects.get(id=user_id)
