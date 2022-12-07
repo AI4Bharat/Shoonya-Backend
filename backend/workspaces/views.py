@@ -182,7 +182,12 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
 
 def un_pack_annotation_tasks(
-    proj_ids, each_annotation_user, start_date, end_date, is_translation_project
+    proj_ids,
+    each_annotation_user,
+    start_date,
+    end_date,
+    is_translation_project,
+    project_type,
 ):
 
     accepted = get_annotated_tasks(
@@ -229,7 +234,7 @@ def un_pack_annotation_tasks(
     if len(lead_time_annotated_tasks) > 0:
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
     total_word_count = 0
-    if is_translation_project:
+    if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
 
         total_word_count_list = [
             each_task.task.data["word_count"] for each_task in all_annotated_tasks
@@ -681,12 +686,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
-        trans_projects = ["SemanticTextualSimilarity_Scale5"]
-        is_translation_project = (
-            True
-            if "translation" in project_type_lower or project_type in trans_projects
-            else False
-        )
+        is_translation_project = True if "translation" in project_type_lower else False
         # enable_task_reviews = request.data.get("enable_task_reviews")
 
         cond, invalid_message = is_valid_date(from_date)
@@ -845,6 +845,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     start_date,
                     end_date,
                     is_translation_project,
+                    project_type,
                 )
 
             else:
@@ -865,7 +866,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     avg_lead_time = sum(lead_time_annotated_tasks) / len(
                         lead_time_annotated_tasks
                     )
-                if is_translation_project:
+                if (
+                    is_translation_project
+                    or project_type == "SemanticTextualSimilarity_Scale5"
+                ):
                     total_word_count_list = [
                         each_task.task.data["word_count"]
                         for each_task in annotated_labeled_tasks
@@ -882,7 +886,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 proj_ids, ["draft"], each_annotation_user
             )
 
-            if is_translation_project:
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
                 if only_review_proj:
                     result = {
                         "Annotator": name,

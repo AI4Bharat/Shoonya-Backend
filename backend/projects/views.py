@@ -1184,12 +1184,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
         project_type = proj_obj.project_type
         project_type_lower = project_type.lower()
-        trans_projects = ["SemanticTextualSimilarity_Scale5"]
-        is_translation_project = (
-            True
-            if "translation" in project_type_lower or project_type in trans_projects
-            else False
-        )
+        is_translation_project = True if "translation" in project_type_lower else False
         users_id = request.user.id
 
         reports_type = request.data.get("reports_type")
@@ -1306,7 +1301,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             total_draft_tasks_count = get_tasks_count(pk, each_annotator, "draft")
             items.append(("Draft", total_draft_tasks_count))
 
-            if is_translation_project:
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
                 if proj.enable_task_reviews:
                     all_annotated_tasks = (
                         list(annotated_accept_tasks)

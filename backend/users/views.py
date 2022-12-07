@@ -420,12 +420,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             )
 
         project_type_lower = project_type.lower()
-        trans_projects = ["SemanticTextualSimilarity_Scale5"]
-        is_translation_project = (
-            True
-            if "translation" in project_type_lower or project_type in trans_projects
-            else False
-        )
+        is_translation_project = True if "translation" in project_type_lower else False
 
         try:
             user = User.objects.get(id=user_id)
@@ -509,7 +504,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 avg_lead_time = round(avg_lead_time, 2)
 
             total_word_count = 0
-            if is_translation_project:
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
                 total_word_count_list = [
                     each_task.task.data["word_count"]
                     for each_task in annotated_labeled_tasks
@@ -517,7 +515,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 total_word_count = sum(total_word_count_list)
             all_tasks_word_count += total_word_count
 
-            if is_translation_project:
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
                 result = {
                     "Project Name": project_name,
                     (
@@ -560,7 +561,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             all_annotated_lead_time_count = round(all_annotated_lead_time_count, 2)
 
         total_summary = {}
-        if is_translation_project:
+        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             total_summary = [
                 {
                     (
