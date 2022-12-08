@@ -508,10 +508,13 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-                total_word_count_list = [
-                    each_task.task.data["word_count"]
-                    for each_task in annotated_labeled_tasks
-                ]
+                total_word_count_list = []
+                for each_task in annotated_labeled_tasks:
+                    try:
+                        total_word_count_list.append(each_task.task.data["word_count"])
+                    except:
+                        pass
+
                 total_word_count = sum(total_word_count_list)
             all_tasks_word_count += total_word_count
 

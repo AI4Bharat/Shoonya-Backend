@@ -236,9 +236,13 @@ def un_pack_annotation_tasks(
     total_word_count = 0
     if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
 
-        total_word_count_list = [
-            each_task.task.data["word_count"] for each_task in all_annotated_tasks
-        ]
+        total_word_count_list = []
+        for each_task in all_annotated_tasks:
+            try:
+                total_word_count_list.append(each_task.task.data["word_count"])
+            except:
+                pass
+
         total_word_count = sum(total_word_count_list)
 
     return (
@@ -870,10 +874,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     is_translation_project
                     or project_type == "SemanticTextualSimilarity_Scale5"
                 ):
-                    total_word_count_list = [
-                        each_task.task.data["word_count"]
-                        for each_task in annotated_labeled_tasks
-                    ]
+                    total_word_count_list = []
+                    for each_task in annotated_labeled_tasks:
+                        try:
+                            total_word_count_list.append(
+                                each_task.task.data["word_count"]
+                            )
+                        except:
+                            pass
+
                     total_word_count = sum(total_word_count_list)
 
             total_skipped_tasks = get_task_count(
