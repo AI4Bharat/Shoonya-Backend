@@ -81,7 +81,12 @@ def get_reviewd_tasks(
 
 
 def un_pack_annotation_tasks(
-    proj_ids, each_annotation_user, start_date, end_date, is_translation_project
+    proj_ids,
+    each_annotation_user,
+    start_date,
+    end_date,
+    is_translation_project,
+    project_type,
 ):
 
     accepted = get_annotated_tasks(
@@ -128,7 +133,7 @@ def un_pack_annotation_tasks(
     if len(lead_time_annotated_tasks) > 0:
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
     total_word_count = 0
-    if is_translation_project:
+    if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
 
         total_word_count_list = [
             each_task.task.data["word_count"] for each_task in all_annotated_tasks
@@ -220,6 +225,7 @@ def get_counts(
             start_date,
             end_date,
             is_translation_project,
+            project_type,
         )
 
     else:
@@ -241,7 +247,7 @@ def get_counts(
                 lead_time_annotated_tasks
             )
         total_word_count = 0
-        if is_translation_project:
+        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             total_word_count_list = [
                 each_task.task.data["word_count"]
                 for each_task in annotated_labeled_tasks
@@ -521,7 +527,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
+
         is_translation_project = True if "translation" in project_type_lower else False
+
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
         if sort_by_column_name == None:
@@ -826,7 +834,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 None if tgt_language == None else tgt_language,
             )
 
-            if is_translation_project:
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
                 if only_review_proj:
 
                     result.append(

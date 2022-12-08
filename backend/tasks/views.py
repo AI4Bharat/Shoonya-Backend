@@ -208,11 +208,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 return Response(data)
 
         task_status = UNLABELED
+        accepted_wt_changes_or_to_be_revised_task = False
         if is_review_mode:
             task_status = LABELED
         if "task_status" in dict(request.query_params):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
             task_status = request.query_params["task_status"]
+
+            if task_status == "accepted_with_changes" or task_status == "to_be_revised":
+                accepted_wt_changes_or_to_be_revised_task = True
+
         else:
             queryset = queryset.filter(task_status=task_status)
 
@@ -241,9 +246,19 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             is_conversation_project = True if "conversation" in project_type else False
             is_translation_project = True if "translation" in project_type else False
         else:
+
             page = self.paginate_queryset(queryset)
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
+
+            for index, each_data in enumerate(data):
+                if accepted_wt_changes_or_to_be_revised_task and is_review_mode:
+                    ann = Annotation.objects.filter(
+                        task_id=data[index]["id"], parent_annotation__isnull=True
+                    )
+                    email = ann[0].completed_by.email
+                    data[index]["email"] = email
+
             return self.get_paginated_response(data)
 
         user = request.user
@@ -296,6 +311,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             serializer = TaskAnnotationSerializer(page, many=True)
             data = serializer.data
             for index, each_data in enumerate(data):
+
+                if accepted_wt_changes_or_to_be_revised_task and is_review_mode:
+                    ann = Annotation.objects.filter(
+                        task_id=data[index]["id"], parent_annotation__isnull=True
+                    )
+                    email = ann[0].completed_by.email
+                    data[index]["email"] = email
                 data[index]["data"]["output_text"] = each_data["correct_annotation"][
                     "result"
                 ][0]["value"]["text"][0]
@@ -308,6 +330,15 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         elif page is not None:
             serializer = TaskSerializer(page, many=True)
             data = serializer.data
+
+            for index, each_data in enumerate(data):
+
+                if accepted_wt_changes_or_to_be_revised_task and is_review_mode:
+                    ann = Annotation.objects.filter(
+                        task_id=data[index]["id"], parent_annotation__isnull=True
+                    )
+                    email = ann[0].completed_by.email
+                    data[index]["email"] = email
             return self.get_paginated_response(data)
 
         # serializer = TaskSerializer(queryset, many=True)
