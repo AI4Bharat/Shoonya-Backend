@@ -12,23 +12,26 @@ def add_word_count(apps, schema_editor):
     db_alias = schema_editor.connection.alias
     taskobj = tasks.objects.using(db_alias).all()
     for tas in taskobj:
-        if "word_count" in tas.data.keys():
-            pass
-        else:
-            db_object_id = tas.input_data.id
-            data_object = dataset_models.DatasetBase.objects.get(pk=db_object_id)
-            insta_id = data_object.instance_id_id
-            dsi = DatasetInstance.objects.filter(instance_id=insta_id)
-            dataset_type1 = dsi[0].dataset_type
+        try:
+            if "word_count" in tas.data.keys():
+                pass
+            else:
+                db_object_id = tas.input_data.id
+                data_object = dataset_models.DatasetBase.objects.get(pk=db_object_id)
+                insta_id = data_object.instance_id_id
+                dsi = DatasetInstance.objects.filter(instance_id=insta_id)
+                dataset_type1 = dsi[0].dataset_type
 
-            if dataset_type1 == "TranslationPair":
-                try:
-                    tas.data["word_count"] = no_of_words(tas.data["input_text"])
-                except TypeError:
-                    pass
-                except:
-                    tas.data["word_count"] = 0
-                tas.save()
+                if dataset_type1 == "TranslationPair":
+                    try:
+                        tas.data["word_count"] = no_of_words(tas.data["input_text"])
+                    except TypeError:
+                        pass
+                    except:
+                        tas.data["word_count"] = 0
+                    tas.save()
+        except AttributeError:
+            pass
 
 
 class Migration(migrations.Migration):
