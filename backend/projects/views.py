@@ -71,7 +71,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     user = User.objects.get(id=userid)
     userName = user.username
     email = user.email
-
+    project_obj = Project.objects.get(id=proj_id)
+    proj_type = project_obj.project_type
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
     total_task_count = total_tasks.count()
@@ -115,7 +116,6 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     ).count()
-
     result = {
         "Reviewer Name": userName,
         "Email": email,
@@ -1264,8 +1264,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         project_type = proj_obj.project_type
-        project_type = project_type.lower()
-        is_translation_project = True if "translation" in project_type else False
+        project_type_lower = project_type.lower()
+        is_translation_project = True if "translation" in project_type_lower else False
         users_id = request.user.id
 
         reports_type = request.data.get("reports_type")
@@ -1461,12 +1461,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             items.append(("Draft", total_draft_tasks_count))
 
-            if is_translation_project:
+            if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
 
-                total_word_count_list = [
-                    each_task.task.data["word_count"]
-                    for each_task in labeled_annotations
-                ]
+                total_word_count_list = []
+                for each_task in labeled_annotations:
+                    try:
+                        total_word_count_list.append(each_task.task.data["word_count"])
+                    except:
+                        pass
+                    
+                
                 total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
 
