@@ -201,7 +201,12 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
 
 def un_pack_annotation_tasks(
-    proj_ids, each_annotation_user, start_date, end_date, is_translation_project
+    proj_ids,
+    each_annotation_user,
+    start_date,
+    end_date,
+    is_translation_project,
+    project_type,
 ):
 
     annotations_of_reviewer_accepted = Annotation.objects.filter(
@@ -288,11 +293,15 @@ def un_pack_annotation_tasks(
     if len(lead_time_annotated_tasks) > 0:
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
     total_word_count = 0
-    if is_translation_project:
+    if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
 
-        total_word_count_list = [
-            each_task.task.data["word_count"] for each_task in labeled_annotations
-        ]
+        total_word_count_list = []
+        for each_task in labeled_annotations:
+            try:
+                total_word_count_list.append(each_task.task.data["word_count"])
+            except:
+                pass
+
         total_word_count = sum(total_word_count_list)
 
     return (
@@ -884,6 +893,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     start_date,
                     end_date,
                     is_translation_project,
+                    project_type,
                 )
 
             else:
@@ -905,11 +915,19 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     avg_lead_time = sum(lead_time_annotated_tasks) / len(
                         lead_time_annotated_tasks
                     )
-                if is_translation_project:
-                    total_word_count_list = [
-                        each_task.task.data["word_count"]
-                        for each_task in labeled_annotations
-                    ]
+                if (
+                    is_translation_project
+                    or project_type == "SemanticTextualSimilarity_Scale5"
+                ):
+                    total_word_count_list = []
+                    for each_task in labeled_annotations:
+                        try:
+                            total_word_count_list.append(
+                                each_task.task.data["word_count"]
+                            )
+                        except:
+                            pass
+
                     total_word_count = sum(total_word_count_list)
 
             total_skipped_tasks = Annotation.objects.filter(
@@ -935,7 +953,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 completed_by=each_annotation_user,
             )
 
-            if is_translation_project:
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
                 if only_review_proj:
                     result = {
                         "Annotator": name,

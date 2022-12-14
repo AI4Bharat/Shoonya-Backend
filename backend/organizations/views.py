@@ -154,6 +154,7 @@ def get_counts(
             start_date,
             end_date,
             is_translation_project,
+            project_type,
         )
 
     else:
@@ -176,10 +177,14 @@ def get_counts(
                 lead_time_annotated_tasks
             )
         total_word_count = 0
-        if is_translation_project:
-            total_word_count_list = [
-                each_task.task.data["word_count"] for each_task in labeled_annotations
-            ]
+        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
+            total_word_count_list = []
+            for each_task in labeled_annotations:
+                try:
+                    total_word_count_list.append(each_task.task.data["word_count"])
+                except:
+                    pass
+
             total_word_count = sum(total_word_count_list)
 
     total_skipped_tasks = Annotation.objects.filter(
@@ -517,7 +522,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         project_type_lower = project_type.lower()
+
         is_translation_project = True if "translation" in project_type_lower else False
+
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
         if sort_by_column_name == None:
@@ -822,7 +829,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 None if tgt_language == None else tgt_language,
             )
 
-            if is_translation_project:
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
                 if only_review_proj:
 
                     result.append(

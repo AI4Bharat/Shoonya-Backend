@@ -13,7 +13,7 @@ from tasks.models import Annotation as Annotation_model
 from tasks.models import *
 from tasks.models import Task
 from utils.monolingual.sentence_splitter import split_sentences
-
+from dataset.models import DatasetInstance
 from .models import *
 from .registry_helper import ProjectRegistry
 from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
@@ -33,6 +33,12 @@ def create_tasks_from_dataitems(items, project):
     is_translation_project = "translation" in project_type_lower
     is_conversation_project = "conversation" in project_type_lower
     is_editing_project = "editing" in project_type_lower
+
+    data_object = dataset_models.DatasetBase.objects.get(pk=items[0]["id"])
+    insta_id = data_object.instance_id_id
+    dataset_type1 = ""
+    dsi = DatasetInstance.objects.filter(instance_id=insta_id)
+    dataset_type1 = dsi[0].dataset_type
 
     # Create task objects
     tasks = []
@@ -71,7 +77,7 @@ def create_tasks_from_dataitems(items, project):
         # Remove data id because it's not needed in task.data
         del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
-        if is_translation_project:
+        if is_translation_project or dataset_type1 == "TranslationPair":
             if is_conversation_project:
                 field_name = (
                     "source_conversation_json"
@@ -299,7 +305,7 @@ def export_project_in_place(
             if field == "rating":
                 setattr(data_item, field, int(ta[field]))
             elif field == "transcribed_json":
-                speakers_details = json.loads(data_item.speakers_json)
+                speakers_details = data_item.speakers_json
                 for idx in range(len(ta_transcribed_json)):
                     ta_labels[idx]["text"] = ta_transcribed_json[idx]
                     speaker_id = next(
@@ -309,7 +315,6 @@ def export_project_in_place(
                     )["speaker_id"]
                     ta_labels[idx]["speaker_id"] = speaker_id
                     del ta_labels[idx]["labels"]
-                ta_labels = json.dumps(ta_labels)
                 setattr(data_item, field, ta_labels)
             else:
                 setattr(data_item, field, ta[field])

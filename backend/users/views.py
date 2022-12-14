@@ -508,15 +508,24 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 avg_lead_time = round(avg_lead_time, 2)
 
             total_word_count = 0
-            if is_translation_project:
-                total_word_count_list = [
-                    each_task.task.data["word_count"]
-                    for each_task in annotated_labeled_tasks
-                ]
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
+                total_word_count_list = []
+                for each_task in annotated_labeled_tasks:
+                    try:
+                        total_word_count_list.append(each_task.task.data["word_count"])
+                    except:
+                        pass
+
                 total_word_count = sum(total_word_count_list)
             all_tasks_word_count += total_word_count
 
-            if is_translation_project:
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
                 result = {
                     "Project Name": project_name,
                     (
@@ -559,7 +568,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             all_annotated_lead_time_count = round(all_annotated_lead_time_count, 2)
 
         total_summary = {}
-        if is_translation_project:
+        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             total_summary = [
                 {
                     (
