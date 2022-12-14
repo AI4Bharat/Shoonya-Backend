@@ -41,7 +41,7 @@ class Migration(migrations.Migration):
                     ("Exported", "Exported"),
                     ("freezed", "freezed"),
                 ],
-                default="unlabeled",
+                default="incomplete",
                 max_length=100,
                 verbose_name="task_status",
             ),
