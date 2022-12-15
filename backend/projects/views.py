@@ -1491,7 +1491,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             items.append(("Draft", total_draft_tasks_count))
 
-            if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
+            if (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
 
                 total_word_count_list = []
                 for each_task in labeled_annotations:
@@ -1499,8 +1502,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         total_word_count_list.append(each_task.task.data["word_count"])
                     except:
                         pass
-                    
-                
+
                 total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
 
