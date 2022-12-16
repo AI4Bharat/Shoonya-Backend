@@ -353,6 +353,26 @@ class UserViewSet(viewsets.ViewSet):
                 {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
             )
 
+    @swagger_auto_schema(responses={200: UserProfileSerializer, 403: "Not Authorized"})
+    @action(detail=False, methods=["get"], url_path="user_details")
+    def user_details(self, request):
+        if request.user.role == User.ADMIN:
+            user_details = User.objects.all()
+            serializer = UserProfileSerializer(user_details, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN)
+
+    @swagger_auto_schema(request_body=UserUpdateSerializer)
+    @action(detail=True, methods=["patch"], url_path="edit_user_details")
+    def user_details_update(self, request, pk=None):
+        if request.user.role != User.ADMIN:
+            return Response({"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN)
+        user = User.objects.get(id=pk)
+        serializer = UserUpdateSerializer(user, request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "User details edited"}, status=status.HTTP_200_OK)
 
 class AnalyticsViewSet(viewsets.ViewSet):
     permission_classes = (AllowAny,)
