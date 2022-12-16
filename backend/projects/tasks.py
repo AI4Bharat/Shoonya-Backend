@@ -260,9 +260,14 @@ def export_project_in_place(
     project = Project.objects.get(pk=project_id)
 
     # Get all the accepted tasks for the project
-    tasks = Task.objects.filter(
-        project_id__exact=project, task_status__in=[REVIEWED]
-    ).exclude(correct_annotation__annotation_status="to_be_revised")
+    if project.enable_task_reviews:
+        tasks = Task.objects.filter(
+            project_id__exact=project, task_status__in=[REVIEWED]
+        ).exclude(correct_annotation__annotation_status="to_be_revised")
+    else:
+        tasks = Task.objects.filter(
+            project_id__exact=project, task_status__in=[ANNOTATED]
+        )
 
     data_items = []
 
@@ -360,9 +365,15 @@ def export_project_new_record(
     project = Project.objects.get(pk=project_id)
 
     # Get all the accepted tasks for the project
-    tasks = Task.objects.filter(
-        project_id__exact=project, task_status__in=[REVIEWED]
-    ).exclude(correct_annotation__annotation_status="to_be_revised")
+
+    if project.enable_task_reviews:
+        tasks = Task.objects.filter(
+            project_id__exact=project, task_status__in=[REVIEWED]
+        ).exclude(correct_annotation__annotation_status="to_be_revised")
+    else:
+        tasks = Task.objects.filter(
+            project_id__exact=project, task_status__in=[ANNOTATED]
+        )
 
     tasks_list = []
     annotated_tasks = []

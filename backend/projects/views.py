@@ -763,6 +763,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             # Create project object
             project_response = super().create(request, *args, **kwargs)
+
+            project_id = project_response.data["id"]
+
+            proj = Project.objects.get(id=project_id)
+            if proj.required_annotators_per_task > 1:
+                proj.enable_task_reviews = True
+                proj.save()
+
         else:
 
             # Collect the POST request parameters
@@ -777,6 +785,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Create project object
             project_response = super().create(request, *args, **kwargs)
             project_id = project_response.data["id"]
+
+            proj = Project.objects.get(id=project_id)
+            if proj.required_annotators_per_task > 1:
+                proj.enable_task_reviews = True
+                proj.save()
 
             # Function call to create the paramters for the sampling and filtering of sentences
             create_parameters_for_task_creation.delay(
@@ -1769,9 +1782,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
             tasks = Task.objects.filter(project_id=project.id).filter(
-                task_status=REVIEWED
+                task_status__in=[ANNOTATED, EXPORTED]
             )
-            tasks.update(task_status=ANNOTATED)
+
+            for tas in tasks:
+                anns = Annotation.objects.filter(
+                    task_id=tas.id, parent_annotation__isnull=False
+                )
+                if len(anns) > 0:
+                    tas.correct_annotation = anns[0]
+                    tas.review_user = anns[0].completed_by
+                    if tas.task_status == ANNOTATED:
+                        tas.task_status = REVIEWED
+
+                tas.save()
+
+            # tasks.update(task_status=ANNOTATED)
             project.enable_task_reviews = True
             project.save()
             return Response(
@@ -1797,25 +1823,34 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def disable_task_reviews(self, request, pk):
         try:
             project = Project.objects.get(pk=pk)
+            if project.required_annotators_per_task > 1:
+                return Response(
+                    {
+                        "message": "you can't disable task reviews for this project because required_annotators_per_task in this project is more than 1 "
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             if not project.enable_task_reviews:
                 return Response(
                     {"message": "Task reviews are already disabled"},
                     status=status.HTTP_403_FORBIDDEN,
                 )
             tasks = Task.objects.filter(project_id=project.id)
-            # delete review annotations for review tasks
+            # get all review tasks
             reviewed_tasks = tasks.filter(task_status__in=[REVIEWED])
-            Annotation_model.objects.filter(task__in=reviewed_tasks).exclude(
-                parent_annotation__isnull=True
-            ).delete()
+            ann_rew_exp_tasks = tasks.filter(
+                task_status__in=[REVIEWED, ANNOTATED, EXPORTED]
+            )
             # change all reviewed task status from "reviewed" to "annotate"
             reviewed_tasks.update(task_status=ANNOTATED)
-
-            # mark all unreviewed tasks accepted
-            # unreviewed_tasks = tasks.filter(task_status=LABELED)
-            # unreviewed_tasks.update(task_status=ACCEPTED)
-            # unassign reviewers
             tasks.update(review_user=None)
+            for tas in ann_rew_exp_tasks:
+                anns = Annotation.objects.filter(
+                    task_id=tas.id, parent_annotation__isnull=True
+                )
+                tas.correct_annotation = anns[0]
+                tas.save()
             project.enable_task_reviews = False
             project.save()
             return Response(
