@@ -1786,15 +1786,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
 
             for tas in tasks:
-                anns = Annotation.objects.filter(
+                anns = Annotation_model.objects.filter(
                     task_id=tas.id, parent_annotation__isnull=False
                 )
                 if len(anns) > 0:
-                    tas.correct_annotation = anns[0]
+                    rew_status = anns[0].annotation_status
+                    if rew_status in [
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        TO_BE_REVISED,
+                    ]:
+                        tas.correct_annotation = anns[0]
                     tas.review_user = anns[0].completed_by
-                    if tas.task_status == ANNOTATED:
+                    if tas.task_status == ANNOTATED and rew_status in [
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        TO_BE_REVISED,
+                    ]:
                         tas.task_status = REVIEWED
-
+                else:
+                    tas.correct_annotation = None
                 tas.save()
 
             # tasks.update(task_status=ANNOTATED)
@@ -1846,7 +1859,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             reviewed_tasks.update(task_status=ANNOTATED)
             tasks.update(review_user=None)
             for tas in ann_rew_exp_tasks:
-                anns = Annotation.objects.filter(
+                anns = Annotation_model.objects.filter(
                     task_id=tas.id, parent_annotation__isnull=True
                 )
                 tas.correct_annotation = anns[0]
