@@ -291,6 +291,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids = [an.task_id for an in ann_filter1]
                 annotation_status = [an.annotation_status for an in ann_filter1]
                 user_mail = [an.completed_by.email for an in ann_filter1]
+                annotator_mail = [
+                    Annotation.objects.filter(id=an.parent_annotation_id)[
+                        0
+                    ].completed_by.email
+                    for an in ann_filter1
+                ]
 
                 ordered_tasks = []
 
@@ -299,6 +305,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas = tas.values()[0]
                     tas["review_status"] = annotation_status[idx]
                     tas["user_mail"] = user_mail[idx]
+                    tas["annotator_mail"] = annotator_mail[idx]
                     ordered_tasks.append(tas)
                 return Response(ordered_tasks)
 
