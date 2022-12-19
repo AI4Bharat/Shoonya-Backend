@@ -21,7 +21,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from users.models import User
 
-from projects.serializers import ProjectSerializer, ProjectUsersSerializer
+from projects.serializers import ProjectSerializer, ProjectUsersSerializer, ProjectSerializerOptimized
 from tasks.models import Annotation as Annotation_model
 from tasks.models import *
 from tasks.models import Task
@@ -433,6 +433,86 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 projects = projects.order_by(F("published_at").desc(nulls_last=True))
 
             projects_json = self.serializer_class(projects, many=True)
+            return Response(projects_json.data, status=status.HTTP_200_OK)
+        except Exception:
+            return Response(
+                {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "sort_type",
+                openapi.IN_QUERY,
+                description=("A string specifying the type of sort applied to the list.Enter sort_type=most_recent_worked_projects to sort by most recent else default sort by published_at field will be applied."),
+                type=openapi.TYPE_STRING,
+                required=False,
+            )
+        ],
+        responses={
+            200:ProjectSerializerOptimized,
+            400:"Please Login!",
+        }
+    )
+    @action(detail=False,methods=["get"],url_name="list-optimized",url_path="projects_list/optimized")
+    def list_optimized(self,request):
+        """
+        List all projects with some optimizations.
+        """
+        try:
+            # projects = self.queryset.filter(annotators=request.user)
+
+            if request.user.role == User.ORGANIZATION_OWNER:
+                projects = self.queryset.filter(
+                    organization_id=request.user.organization
+                )
+            elif request.user.role == User.WORKSPACE_MANAGER:
+                projects = (
+                    self.queryset.filter(
+                        workspace_id__in=Workspace.objects.filter(
+                            managers=request.user
+                        ).values_list("id", flat=True)
+                    )
+                    | self.queryset.filter(annotators=request.user)
+                    | self.queryset.filter(annotation_reviewers=request.user)
+                )
+            else:
+                projects = self.queryset.filter(
+                    annotators=request.user
+                ) | self.queryset.filter(annotation_reviewers=request.user)
+                projects = projects.filter(is_published=True).filter(is_archived=False)
+            projects = projects.distinct()
+
+            if (
+                "sort_type" in request.query_params
+                and request.query_params["sort_type"] == "most_recent_worked_projects"
+            ):
+                annotations = Annotation_model.objects.filter(completed_by=request.user)
+                annotations = annotations.order_by("-updated_at")
+                project_ids = []
+                project_ids_set = set()
+                for annotation in annotations:
+                    project_id = annotation.task.project_id.id
+                    if project_id not in project_ids_set:
+                        project_ids.append(project_id)
+                        project_ids_set.add(project_id)
+                unannotated_projects = projects.exclude(pk__in=project_ids)
+                unannotated_projects = unannotated_projects.order_by(
+                    F("published_at").desc(nulls_last=True)
+                )
+                for project in unannotated_projects:
+                    project_ids.append(project.id)
+                preserved = Case(
+                    *[When(pk=pk, then=pos) for pos, pk in enumerate(project_ids)]
+                )
+                projects = Project.objects.filter(pk__in=project_ids).order_by(
+                    preserved
+                )
+            else:
+                projects = projects.order_by(F("published_at").desc(nulls_last=True))
+
+            projects_json = ProjectSerializerOptimized(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
             return Response(
