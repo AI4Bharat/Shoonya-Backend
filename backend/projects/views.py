@@ -21,7 +21,11 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from users.models import User
 
-from projects.serializers import ProjectSerializer, ProjectUsersSerializer, ProjectSerializerOptimized
+from projects.serializers import (
+    ProjectSerializer,
+    ProjectUsersSerializer,
+    ProjectSerializerOptimized,
+)
 from tasks.models import Annotation as Annotation_model
 from tasks.models import *
 from tasks.models import Task
@@ -445,18 +449,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
             openapi.Parameter(
                 "sort_type",
                 openapi.IN_QUERY,
-                description=("A string specifying the type of sort applied to the list.Enter sort_type=most_recent_worked_projects to sort by most recent else default sort by published_at field will be applied."),
+                description=(
+                    "A string specifying the type of sort applied to the list.Enter sort_type=most_recent_worked_projects to sort by most recent else default sort by published_at field will be applied."
+                ),
                 type=openapi.TYPE_STRING,
                 required=False,
             )
         ],
         responses={
-            200:ProjectSerializerOptimized,
-            400:"Please Login!",
-        }
+            200: ProjectSerializerOptimized,
+            400: "Please Login!",
+        },
     )
-    @action(detail=False,methods=["get"],url_name="list-optimized",url_path="projects_list/optimized")
-    def list_optimized(self,request):
+    @action(
+        detail=False,
+        methods=["get"],
+        url_name="list-optimized",
+        url_path="projects_list/optimized",
+    )
+    def list_optimized(self, request):
         """
         List all projects with some optimizations.
         """
