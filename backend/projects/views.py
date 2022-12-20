@@ -20,7 +20,7 @@ from django_celery_results.models import TaskResult
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from users.models import User
-
+import ast
 from projects.serializers import ProjectSerializer, ProjectUsersSerializer
 from tasks.models import Annotation as Annotation_model
 from tasks.models import *
@@ -1009,34 +1009,43 @@ class ProjectViewSet(viewsets.ModelViewSet):
         user_obj = User.objects.get(pk=user.id)
         project_id = pk
 
-        if userRole == 1 and not user_obj.is_superuser:
-            if project_id:
-                ann = Annotation_model.objects.filter(
-                    task__project_id=project_id,
-                    completed_by=user.id,
-                    parent_annotation__isnull=True,
-                    annotation_status="unlabeled",
-                )
+        if "annotation_status" in dict(request.query_params).keys():
+            annotation_status = request.query_params["annotation_status"]
+            annotation_status = ast.literal_eval(annotation_status)
+        else:
+            return Response(
+                {"message": "please provide the annotation_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        try:
+            project_obj = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            final_result = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(final_result, status=ret_status)
+        if project_obj and user in project_obj.annotators.all():
+            ann = Annotation_model.objects.filter(
+                task__project_id=project_id,
+                completed_by=user.id,
+                parent_annotation__isnull=True,
+                annotation_status__in=annotation_status,
+            )
 
-                tas_ids = [an.task_id for an in ann]
-                ann.delete()
+            tas_ids = [an.task_id for an in ann]
+            ann.delete()
 
-                tasks = Task.objects.filter(id__in=tas_ids)
-                if tasks.count() > 0:
-                    for task in tasks:
-                        task.unassign(user_obj)
-                    return Response(
-                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
-                    )
+            tasks = Task.objects.filter(id__in=tas_ids)
+            if tasks.count() > 0:
+                for task in tasks:
+                    task.unassign(user_obj)
                 return Response(
                     {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
             return Response(
-                {"message": "No tasks to unassign"},
-                status=status.HTTP_404_NOT_FOUND,
+                {"message": "No tasks to unassign"}, status=status.HTTP_200_OK
             )
         return Response(
-            {"message": "Project id not provided"},
+            {"message": "Only annotators can unassign tasks"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -1188,6 +1197,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
         user = request.user
         project_id = pk
 
+        if "review_status" in dict(request.query_params).keys():
+            review_status = request.query_params["review_status"]
+            review_status = ast.literal_eval(review_status)
+        else:
+            return Response(
+                {"message": "please provide the review_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         if project_id:
             project_obj = Project.objects.get(pk=project_id)
             if project_obj and user in project_obj.annotation_reviewers.all():
@@ -1196,7 +1214,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=project_id,
                     completed_by=user.id,
                     parent_annotation__isnull=False,
-                    annotation_status="unreviewed",
+                    annotation_status__in=review_status,
                 )
                 tas_ids = [an.task_id for an in ann]
 
