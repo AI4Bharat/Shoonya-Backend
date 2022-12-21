@@ -808,19 +808,16 @@ class AnnotationViewSet(
         return annotation_response
 
     def partial_update(self, request, pk=None):
-        # task_id = request.data["task"]
-        # task = Task.objects.get(pk=task_id)
-        # if request.user not in task.annotation_users.all():
-        #     ret_dict = {"message": "You are trying to impersonate another user :("}
-        #     ret_status = status.HTTP_403_FORBIDDEN
-        #     return Response(ret_dict, status=ret_status)
 
-        annotation_response = super().partial_update(request)
-        annotation_id = annotation_response.data["id"]
-        annotation = Annotation.objects.get(pk=annotation_id)
-        task = annotation.task
+        try:
+            annotation_obj = Annotation.objects.get(id=pk)
+            task = annotation_obj.task
+        except:
+            final_result = {"message": "annotation object does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(final_result, status=ret_status)
 
-        if not annotation.parent_annotation:
+        if not annotation_obj.parent_annotation:
             is_review = False
         else:
             is_review = True
@@ -831,6 +828,27 @@ class AnnotationViewSet(
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
+            # need to add few filters here
+
+            if "annotation_status" in dict(request.data) and request.data[
+                "annotation_status"
+            ] in [
+                UNLABELED,
+                LABELED,
+                DRAFT,
+                SKIPPED,
+            ]:
+                annotation_status = request.data["annotation_status"]
+            else:
+                ret_dict = {"message": "Missing param : annotation_status!"}
+                ret_status = status.HTTP_400_BAD_REQUEST
+                return Response(ret_dict, status=ret_status)
+
+            annotation_response = super().partial_update(request)
+            annotation_id = annotation_response.data["id"]
+            annotation = Annotation.objects.get(pk=annotation_id)
+            task = annotation.task
+
             no_of_annotations = task.annotations.filter(
                 parent_annotation_id=None, annotation_status="labeled"
             ).count()
@@ -840,15 +858,19 @@ class AnnotationViewSet(
                 if not task.project_id.enable_task_reviews:
                     if no_of_annotations == 1:
                         task.correct_annotation = annotation
-                    else:
-                        task.correct_annotation = None
 
                 task.save()
 
         # Review annotation update
         else:
-            if "review_status" in dict(request.data) and request.data[
-                "review_status"
+
+            if request.user != task.review_user:
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+
+            if "annotation_status" in dict(request.data) and request.data[
+                "annotation_status"
             ] in [
                 ACCEPTED,
                 UNREVIEWED,
@@ -858,16 +880,28 @@ class AnnotationViewSet(
                 SKIPPED,
                 TO_BE_REVISED,
             ]:
-                review_status = request.data["review_status"]
+                review_status = request.data["annotation_status"]
             else:
-                ret_dict = {"message": "Missing param : review_status"}
+                ret_dict = {"message": "Missing param : annotation_status!"}
                 ret_status = status.HTTP_400_BAD_REQUEST
                 return Response(ret_dict, status=ret_status)
 
-            if request.user != task.review_user:
-                ret_dict = {"message": "You are trying to impersonate another user :("}
-                ret_status = status.HTTP_403_FORBIDDEN
-                return Response(ret_dict, status=ret_status)
+            if (
+                review_status == ACCEPTED
+                or review_status == ACCEPTED_WITH_MINOR_CHANGES
+                or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+                or review_status == TO_BE_REVISED
+            ):
+
+                if not "parent_annotation" in dict(request.data):
+                    ret_dict = {"message": "Missing param : parent_annotation!"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
+
+            annotation_response = super().partial_update(request)
+            annotation_id = annotation_response.data["id"]
+            annotation = Annotation.objects.get(pk=annotation_id)
+            task = annotation.task
 
             if (
                 review_status == ACCEPTED
