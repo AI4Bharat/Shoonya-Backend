@@ -2,6 +2,8 @@ import re
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
+import ast
+
 from django.core.files import File
 from django.db.models import Count, Q
 from django.forms.models import model_to_dict
@@ -916,16 +918,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all unlabeled tasks from an annotator.
         """
+
         user = request.user
+        if "task_status" in dict(request.query_params).keys():
+            task_status = request.query_params["task_status"]
+            task_status = ast.literal_eval(task_status)
+        else:
+            return Response(
+                {"message": "please provide the task_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         userRole = user.role
         user_obj = User.objects.get(pk=user.id)
         project_id = pk
-
         if project_id:
             tasks = (
                 Task.objects.filter(project_id__exact=project_id)
                 .filter(annotation_users=user.id)
-                .filter(task_status=UNLABELED)
+                .filter(task_status__in=task_status)
             )
             if tasks.count() > 0:
                 for task in tasks:
@@ -1078,12 +1089,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
         user = request.user
         project_id = pk
 
+        if "task_status" in dict(request.query_params).keys():
+            task_status = request.query_params["task_status"]
+            task_status = ast.literal_eval(task_status)
+        else:
+            return Response(
+                {"message": "please provide the task_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         if project_id:
             project_obj = Project.objects.get(pk=project_id)
             if project_obj and user in project_obj.annotation_reviewers.all():
                 tasks = (
                     Task.objects.filter(project_id__exact=project_id)
-                    .filter(task_status=LABELED)
+                    .filter(task_status__in=task_status)
                     .filter(review_user=user.id)
                 )
                 if tasks.count() > 0:
