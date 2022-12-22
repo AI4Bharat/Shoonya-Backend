@@ -28,7 +28,7 @@ import csv
 from django.http import StreamingHttpResponse
 from tasks.views import SentenceOperationViewSet
 from users.views import get_role_name
-from projects.utils import minor_major_accepted_task
+from projects.utils import minor_major_accepted_task, convert_seconds_to_hours
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -144,6 +144,16 @@ def un_pack_annotation_tasks(
 
         total_word_count = sum(total_word_count_list)
 
+    total_duration = "00:00:00"
+    if project_type == "SingleSpeakerAudioTranscriptionEditing":
+        total_duration_list = []
+        for each_task in all_annotated_tasks:
+            try:
+                total_duration_list.append(each_task.task.data["audio_duration"])
+            except:
+                pass
+        total_duration = convert_seconds_to_hours(sum(total_duration_list))
+
     return (
         accepted.count(),
         to_be_revised.count(),
@@ -152,6 +162,7 @@ def un_pack_annotation_tasks(
         labeled.count(),
         avg_lead_time,
         total_word_count,
+        total_duration,
     )
 
 
@@ -223,6 +234,7 @@ def get_counts(
             labeled,
             avg_lead_time,
             total_word_count,
+            total_duration,
         ) = un_pack_annotation_tasks(
             proj_ids,
             annotator,
@@ -261,6 +273,16 @@ def get_counts(
 
             total_word_count = sum(total_word_count_list)
 
+        total_duration = "00:00:00"
+        if project_type == "SingleSpeakerAudioTranscriptionEditing":
+            total_duration_list = []
+            for each_task in annotated_labeled_tasks:
+                try:
+                    total_duration_list.append(each_task.task.data["audio_duration"])
+                except:
+                    pass
+            total_duration = convert_seconds_to_hours(sum(total_duration_list))
+
     total_skipped_tasks = get_task_count(proj_ids, ["skipped"], annotator)
     all_pending_tasks_in_project = get_task_count(proj_ids, ["unlabeled"], annotator)
     all_draft_tasks_in_project = get_task_count(proj_ids, ["draft"], annotator)
@@ -280,6 +302,7 @@ def get_counts(
         project_count,
         no_of_workspaces_objs,
         total_word_count,
+        total_duration,
     )
 
 
@@ -830,6 +853,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 no_of_projects,
                 no_of_workspaces_objs,
                 total_word_count,
+                total_duration,
             ) = get_counts(
                 pk,
                 annotator,
@@ -841,105 +865,59 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 None if tgt_language == None else tgt_language,
             )
 
-            if (
+            if only_review_proj:
+
+                temp_result = {
+                    "Annotator": name,
+                    "Email": email,
+                    "Language": selected_language,
+                    "No. of Workspaces": no_of_workspaces_objs,
+                    "No. of Projects": no_of_projects,
+                    "Assigned": total_no_of_tasks_count,
+                    "Labeled": labeled,
+                    "Accepted": accepted,
+                    "Accepted With Minor Changes": accepted_wt_minor_changes,
+                    "Accepted With Major Changes": accepted_wt_major_changes,
+                    "To Be Revised": to_be_revised,
+                    "Unlabeled": total_unlabeled_tasks_count,
+                    "Skipped": total_skipped_tasks_count,
+                    "Draft": total_draft_tasks_count,
+                    "Word Count": total_word_count,
+                    "Total Audio Duration": total_duration,
+                    "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
+                    "Participation Type": participation_type,
+                    "User Role": role,
+                }
+            else:
+                temp_result = {
+                    "Annotator": name,
+                    "Email": email,
+                    "Language": selected_language,
+                    "No. of Workspaces": no_of_workspaces_objs,
+                    "No. of Projects": no_of_projects,
+                    "Assigned": total_no_of_tasks_count,
+                    "Annotated": annotated_tasks_count,
+                    "Unlabeled": total_unlabeled_tasks_count,
+                    "Skipped": total_skipped_tasks_count,
+                    "Draft": total_draft_tasks_count,
+                    "Word Count": total_word_count,
+                    "Total Audio Duration": total_duration,
+                    "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
+                    "Participation Type": participation_type,
+                    "User Role": role,
+                }
+
+            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+                del temp_result["Word Count"]
+            elif (
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-                if only_review_proj:
-
-                    result.append(
-                        {
-                            "Annotator": name,
-                            "Email": email,
-                            "Language": selected_language,
-                            "No. of Workspaces": no_of_workspaces_objs,
-                            "No. of Projects": no_of_projects,
-                            "Assigned": total_no_of_tasks_count,
-                            "Labeled": labeled,
-                            "Accepted": accepted,
-                            "Accepted With Minor Changes": accepted_wt_minor_changes,
-                            "Accepted With Major Changes": accepted_wt_major_changes,
-                            "To Be Revised": to_be_revised,
-                            "Unlabeled": total_unlabeled_tasks_count,
-                            "Skipped": total_skipped_tasks_count,
-                            "Draft": total_draft_tasks_count,
-                            "Word Count": total_word_count,
-                            "Average Annotation Time (In Seconds)": round(
-                                avg_lead_time, 2
-                            ),
-                            "Participation Type": participation_type,
-                            "User Role": role,
-                        }
-                    )
-                else:
-                    result.append(
-                        {
-                            "Annotator": name,
-                            "Email": email,
-                            "Language": selected_language,
-                            "No. of Workspaces": no_of_workspaces_objs,
-                            "No. of Projects": no_of_projects,
-                            "Assigned": total_no_of_tasks_count,
-                            "Annotated": annotated_tasks_count,
-                            "Unlabeled": total_unlabeled_tasks_count,
-                            "Skipped": total_skipped_tasks_count,
-                            "Draft": total_draft_tasks_count,
-                            "Word Count": total_word_count,
-                            "Average Annotation Time (In Seconds)": round(
-                                avg_lead_time, 2
-                            ),
-                            "Participation Type": participation_type,
-                            "User Role": role,
-                        }
-                    )
-
+                del temp_result["Total Audio Duration"]
             else:
-                if only_review_proj:
-
-                    result.append(
-                        {
-                            "Annotator": name,
-                            "Email": email,
-                            "Language": selected_language,
-                            "No. of Workspaces": no_of_workspaces_objs,
-                            "No. of Projects": no_of_projects,
-                            "Assigned": total_no_of_tasks_count,
-                            "Labeled": labeled,
-                            "Accepted": accepted,
-                            "Accepted With Minor Changes": accepted_wt_minor_changes,
-                            "Accepted With Major Changes": accepted_wt_major_changes,
-                            "To Be Revised": to_be_revised,
-                            "Unlabeled": total_unlabeled_tasks_count,
-                            "Skipped": total_skipped_tasks_count,
-                            "Draft": total_draft_tasks_count,
-                            "Average Annotation Time (In Seconds)": round(
-                                avg_lead_time, 2
-                            ),
-                            "Participation Type": participation_type,
-                            "User Role": role,
-                        }
-                    )
-                else:
-                    result.append(
-                        {
-                            "Annotator": name,
-                            "Email": email,
-                            "Language": selected_language,
-                            "No. of Workspaces": no_of_workspaces_objs,
-                            "No. of Projects": no_of_projects,
-                            "Assigned": total_no_of_tasks_count,
-                            "Annotated": annotated_tasks_count,
-                            "Unlabeled": total_unlabeled_tasks_count,
-                            "Skipped": total_skipped_tasks_count,
-                            "Draft": total_draft_tasks_count,
-                            "Average Annotation Time (In Seconds)": round(
-                                avg_lead_time, 2
-                            ),
-                            "Participation Type": participation_type,
-                            "User Role": role,
-                        }
-                    )
-
+                del temp_result["Word Count"]
+                del temp_result["Total Audio Duration"]
+            result.append(temp_result)
         final_result = sorted(
             result, key=lambda x: x[sort_by_column_name], reverse=descending_order
         )

@@ -47,7 +47,12 @@ from .decorators import (
     project_is_archived,
     project_is_published,
 )
-from .utils import is_valid_date, no_of_words, minor_major_accepted_task
+from .utils import (
+    is_valid_date,
+    no_of_words,
+    minor_major_accepted_task,
+    convert_seconds_to_hours,
+)
 
 from workspaces.decorators import is_particular_workspace_manager
 
@@ -1204,6 +1209,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_type = proj_obj.project_type
         project_type_lower = project_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
+        is_audio_project = (
+            True if project_type == "SingleSpeakerAudioTranscriptionEditing" else False
+        )
         users_id = request.user.id
 
         reports_type = request.data.get("reports_type")
@@ -1353,6 +1361,39 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             pass
                     total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
+
+            if is_audio_project:
+                if proj.enable_task_reviews:
+                    all_annotated_tasks = (
+                        list(annotated_accept_tasks)
+                        + list(accepted_wt_tasks)
+                        + list(labeled_tasks)
+                        + list(to_be_revised_tasks)
+                    )
+                    total_duration_list = []
+
+                    for each_task in all_annotated_tasks:
+                        try:
+                            total_duration_list.append(
+                                each_task.task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+                    total_duration = sum(total_duration_list)
+                else:
+                    total_duration_list = []
+
+                    for each_task in annotated_accept_tasks:
+                        try:
+                            total_duration_list.append(
+                                each_task.task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+                    total_duration = sum(total_duration_list)
+                total_time = convert_seconds_to_hours(total_duration)
+                items.append(("Total Audio Duration", total_time))
+
             if proj.enable_task_reviews:
                 all_annotated_tasks = (
                     list(annotated_accept_tasks)
