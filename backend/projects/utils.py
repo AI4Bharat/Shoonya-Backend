@@ -4,9 +4,18 @@ import re
 import nltk
 from tasks.models import Annotation
 from tasks.views import SentenceOperationViewSet
+import datetime
 
 
 nltk.download("punkt")
+
+
+def convert_seconds_to_hours(seconds):
+    hour = seconds // 3600
+    seconds %= 3600
+    minutes = seconds // 60
+    seconds %= 60
+    return "%d:%02d:%02d" % (hour, minutes, seconds)
 
 
 def no_of_words(string):

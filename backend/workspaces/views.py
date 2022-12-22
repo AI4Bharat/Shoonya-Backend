@@ -17,7 +17,7 @@ from projects.utils import is_valid_date
 from datetime import datetime
 from users.serializers import UserFetchSerializer
 from users.views import get_role_name
-from projects.utils import minor_major_accepted_task
+from projects.utils import minor_major_accepted_task, convert_seconds_to_hours
 
 
 from .serializers import (
@@ -244,6 +244,15 @@ def un_pack_annotation_tasks(
                 pass
 
         total_word_count = sum(total_word_count_list)
+    total_duration = "00:00:00"
+    if project_type == "SingleSpeakerAudioTranscriptionEditing":
+        total_duration_list = []
+        for each_task in all_annotated_tasks:
+            try:
+                total_duration_list.append(each_task.task.data["audio_duration"])
+            except:
+                pass
+        total_duration = convert_seconds_to_hours(sum(total_duration_list))
 
     return (
         accepted.count(),
@@ -253,6 +262,7 @@ def un_pack_annotation_tasks(
         labeled.count(),
         avg_lead_time,
         total_word_count,
+        total_duration,
     )
 
 
@@ -843,6 +853,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     labeled,
                     avg_lead_time,
                     total_word_count,
+                    total_duration,
                 ) = un_pack_annotation_tasks(
                     proj_ids,
                     each_annotation_user,
@@ -870,6 +881,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     avg_lead_time = sum(lead_time_annotated_tasks) / len(
                         lead_time_annotated_tasks
                     )
+                total_word_count = 0
                 if (
                     is_translation_project
                     or project_type == "SemanticTextualSimilarity_Scale5"
@@ -885,6 +897,19 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                     total_word_count = sum(total_word_count_list)
 
+                total_duration = "00:00:00"
+                if project_type == "SingleSpeakerAudioTranscriptionEditing":
+                    total_duration_list = []
+                    for each_task in annotated_labeled_tasks:
+                        try:
+                            total_duration_list.append(
+                                each_task.task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+                    total_duration = convert_seconds_to_hours(sum(total_duration_list))
+                # items.append(("Total Audio Duration", total_duration))
+
             total_skipped_tasks = get_task_count(
                 proj_ids, ["skipped"], each_annotation_user
             )
@@ -895,75 +920,52 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 proj_ids, ["draft"], each_annotation_user
             )
 
-            if (
+            if only_review_proj:
+                result = {
+                    "Annotator": name,
+                    "Email": email,
+                    "Language": selected_language,
+                    "No.of Projects": project_count,
+                    "Assigned": assigned_tasks,
+                    "Labeled": labeled,
+                    "Accepted": accepted,
+                    "Accepted With Minor Changes": accepted_wt_minor_changes,
+                    "Accepted With Major Changes": accepted_wt_major_changes,
+                    "To Be Revised": to_be_revised,
+                    "Unlabeled": all_pending_tasks_in_project,
+                    "Skipped": total_skipped_tasks,
+                    "Draft": all_draft_tasks_in_project,
+                    "Word Count": total_word_count,
+                    "Total Audio Duration": total_duration,
+                    "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
+                }
+            else:
+                result = {
+                    "Annotator": name,
+                    "Email": email,
+                    "Language": selected_language,
+                    "No.of Projects": project_count,
+                    "Assigned": assigned_tasks,
+                    "Annotated": annotated_tasks,
+                    "Unlabeled": all_pending_tasks_in_project,
+                    "Skipped": total_skipped_tasks,
+                    "Draft": all_draft_tasks_in_project,
+                    "Word Count": total_word_count,
+                    "Total Audio Duration": total_duration,
+                    "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
+                }
+
+            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+                del result["Word Count"]
+            elif (
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-                if only_review_proj:
-                    result = {
-                        "Annotator": name,
-                        "Email": email,
-                        "Language": selected_language,
-                        "No.of Projects": project_count,
-                        "Assigned": assigned_tasks,
-                        "Labeled": labeled,
-                        "Accepted": accepted,
-                        "Accepted With Minor Changes": accepted_wt_minor_changes,
-                        "Accepted With Major Changes": accepted_wt_major_changes,
-                        "To Be Revised": to_be_revised,
-                        "Unlabeled": all_pending_tasks_in_project,
-                        "Skipped": total_skipped_tasks,
-                        "Draft": all_draft_tasks_in_project,
-                        "Word Count": total_word_count,
-                        "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
-                    }
-                else:
-                    result = {
-                        "Annotator": name,
-                        "Email": email,
-                        "Language": selected_language,
-                        "No.of Projects": project_count,
-                        "Assigned": assigned_tasks,
-                        "Annotated": annotated_tasks,
-                        "Unlabeled": all_pending_tasks_in_project,
-                        "Skipped": total_skipped_tasks,
-                        "Draft": all_draft_tasks_in_project,
-                        "Word Count": total_word_count,
-                        "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
-                    }
+                del result["Total Audio Duration"]
             else:
-                if only_review_proj:
-                    result = {
-                        "Annotator": name,
-                        "Email": email,
-                        "Language": selected_language,
-                        "No.of Projects": project_count,
-                        "Assigned": assigned_tasks,
-                        "Labeled": labeled,
-                        "Accepted": accepted,
-                        "Accepted With Minor Changes": accepted_wt_minor_changes,
-                        "Accepted With Major Changes": accepted_wt_major_changes,
-                        "To Be Revised": to_be_revised,
-                        "Unlabeled": all_pending_tasks_in_project,
-                        "Skipped": total_skipped_tasks,
-                        "Draft": all_draft_tasks_in_project,
-                        "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
-                    }
+                del result["Word Count"]
+                del result["Total Audio Duration"]
 
-                else:
-
-                    result = {
-                        "Annotator": name,
-                        "Email": email,
-                        "Language": selected_language,
-                        "No.of Projects": project_count,
-                        "Assigned": assigned_tasks,
-                        "Annotated": annotated_tasks,
-                        "Unlabeled": all_pending_tasks_in_project,
-                        "Skipped": total_skipped_tasks,
-                        "Draft": all_draft_tasks_in_project,
-                        "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
-                    }
             final_result.append(result)
         return Response(final_result)
 
