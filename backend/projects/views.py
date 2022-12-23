@@ -51,7 +51,12 @@ from .decorators import (
     project_is_archived,
     project_is_published,
 )
-from .utils import is_valid_date, no_of_words, minor_major_accepted_task
+from .utils import (
+    is_valid_date,
+    no_of_words,
+    minor_major_accepted_task,
+    convert_seconds_to_hours,
+)
 
 from workspaces.decorators import is_particular_workspace_manager
 
@@ -1097,7 +1102,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all unlabeled tasks from an annotator.
         """
+
         user = request.user
+        if "task_status" in dict(request.query_params).keys():
+            task_status = request.query_params["task_status"]
+            task_status = ast.literal_eval(task_status)
+        else:
+            return Response(
+                {"message": "please provide the task_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         userRole = user.role
         user_obj = User.objects.get(pk=user.id)
         project_id = pk
@@ -1420,6 +1435,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_type = proj_obj.project_type
         project_type_lower = project_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
+        is_audio_project = (
+            True if project_type == "SingleSpeakerAudioTranscriptionEditing" else False
+        )
         users_id = request.user.id
 
         reports_type = request.data.get("reports_type")
