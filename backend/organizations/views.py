@@ -986,6 +986,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 project_id = proj.id
                 project_name = proj.title
                 project_type = proj.project_type
+
+                project_type_lower = project_type.lower()
+                is_translation_project = (
+                    True if "translation" in project_type_lower else False
+                )
                 all_tasks = Task.objects.filter(project_id=proj.id)
                 total_tasks = all_tasks.count()
                 annotators_list = [
@@ -1020,6 +1025,79 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 )
                 exported_count = exported_tasks.count()
 
+                total_word_annotated_count_list = []
+                total_word_reviewed_count_list = []
+                total_word_exported_count_list = []
+                if (
+                    is_translation_project
+                    or project_type == "SemanticTextualSimilarity_Scale5"
+                ):
+
+                    for each_task in labeled_tasks:
+                        try:
+                            total_word_annotated_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+
+                    for each_task in reviewed_tasks:
+                        try:
+                            total_word_reviewed_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+                    for each_task in exported_tasks:
+                        try:
+                            total_word_exported_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+                total_word_annotated_count = sum(total_word_annotated_count_list)
+                total_word_reviewed_count = sum(total_word_reviewed_count_list)
+                total_word_exported_count = sum(total_word_exported_count_list)
+
+                total_duration_annotated_count_list = []
+                total_duration_reviewed_count_list = []
+                total_duration_exported_count_list = []
+                if project_type in get_audio_project_types():
+
+                    for each_task in labeled_tasks:
+                        try:
+                            total_duration_annotated_count_list.append(
+                                each_task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+
+                    for each_task in reviewed_tasks:
+                        try:
+                            total_duration_reviewed_count_list.append(
+                                each_task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+
+                    for each_task in exported_tasks:
+                        try:
+                            total_duration_exported_count_list.append(
+                                each_task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+
+                total_duration_annotated_count = convert_seconds_to_hours(
+                    sum(total_duration_annotated_count_list)
+                )
+                total_duration_reviewed_count = convert_seconds_to_hours(
+                    sum(total_duration_reviewed_count_list)
+                )
+                total_duration_exported_count = convert_seconds_to_hours(
+                    sum(total_duration_exported_count_list)
+                )
+
                 if total_tasks == 0:
                     project_progress = 0.0
                 else:
@@ -1035,8 +1113,35 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Incomplete": incomplete_count,
                     "Reviewed": reviewed_count,
                     "Exported": exported_count,
+                    "Annotated Tasks Audio Duration": total_duration_annotated_count,
+                    "Reviewed Tasks Audio Duration": total_duration_reviewed_count,
+                    "Exported Tasks Audio Duration": total_duration_exported_count,
+                    "Annotated Tasks Word Count": total_word_annotated_count,
+                    "Reviewed Tasks Word Count": total_word_reviewed_count,
+                    "Exported Tasks Word Count": total_word_exported_count,
                     "Project Progress(Reviewed/Total)": round(project_progress, 3),
                 }
+
+                if project_type in get_audio_project_types():
+                    del result["Annotated Tasks Word Count"]
+                    del result["Reviewed Tasks Word Count"]
+                    del result["Exported Tasks Word Count"]
+
+                elif (
+                    is_translation_project
+                    or project_type == "SemanticTextualSimilarity_Scale5"
+                ):
+                    del result["Annotated Tasks Audio Duration"]
+                    del result["Reviewed Tasks Audio Duration"]
+                    del result["Exported Tasks Audio Duration"]
+                else:
+                    del result["Annotated Tasks Word Count"]
+                    del result["Reviewed Tasks Word Count"]
+                    del result["Exported Tasks Word Count"]
+                    del result["Annotated Tasks Audio Duration"]
+                    del result["Reviewed Tasks Audio Duration"]
+                    del result["Exported Tasks Audio Duration"]
+
                 final_result.append(result)
         return Response(final_result)
 
