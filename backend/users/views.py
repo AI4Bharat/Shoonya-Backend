@@ -27,7 +27,12 @@ from projects.models import Project
 from tasks.models import Annotation
 from organizations.models import Organization
 from django.db.models import Q
-from projects.utils import no_of_words, is_valid_date, convert_seconds_to_hours
+from projects.utils import (
+    no_of_words,
+    is_valid_date,
+    convert_seconds_to_hours,
+    get_audio_project_types,
+)
 from datetime import datetime
 from django.conf import settings
 from django.core.mail import send_mail
@@ -523,7 +528,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             all_tasks_word_count += total_word_count
 
             total_duration = "00:00:00"
-            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+            if project_type in get_audio_project_types():
                 total_duration_list = []
                 for each_task in annotated_labeled_tasks:
                     try:
@@ -549,7 +554,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 ): avg_lead_time,
             }
 
-            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+            if project_type in get_audio_project_types():
                 del result["Word Count"]
             elif (
                 is_translation_project
@@ -594,7 +599,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 else "Avg Annotation Time (sec)"
             ): round(all_annotated_lead_time_count, 2),
         }
-        if project_type == "SingleSpeakerAudioTranscriptionEditing":
+        if project_type in get_audio_project_types():
             del total_result["Word Count"]
         elif (
             is_translation_project or project_type == "SemanticTextualSimilarity_Scale5"

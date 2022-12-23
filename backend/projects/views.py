@@ -14,7 +14,6 @@ from rest_framework.response import Response
 from users.models import LANG_CHOICES
 from users.serializers import UserEmailSerializer
 from dataset.serializers import TaskResultSerializer
-
 from utils.search import process_search_query
 from django_celery_results.models import TaskResult
 from drf_yasg import openapi
@@ -35,6 +34,8 @@ from tasks.serializers import TaskSerializer
 from .models import *
 from .registry_helper import ProjectRegistry
 from dataset.models import DatasetInstance
+from dataset import models as dataset_models
+
 
 # Import celery tasks
 from .tasks import (
@@ -56,11 +57,13 @@ from .utils import (
     no_of_words,
     minor_major_accepted_task,
     convert_seconds_to_hours,
+    get_audio_project_types,
 )
 
 from workspaces.decorators import is_particular_workspace_manager
 
 # Create your views here.
+
 
 EMAIL_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
@@ -1104,15 +1107,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
 
         user = request.user
-        if "task_status" in dict(request.query_params).keys():
-            task_status = request.query_params["task_status"]
-            task_status = ast.literal_eval(task_status)
-        else:
-            return Response(
-                {"message": "please provide the task_status to unassign tasks"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
         userRole = user.role
         user_obj = User.objects.get(pk=user.id)
         project_id = pk
@@ -1435,9 +1429,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_type = proj_obj.project_type
         project_type_lower = project_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
-        is_audio_project = (
-            True if project_type == "SingleSpeakerAudioTranscriptionEditing" else False
-        )
+
         users_id = request.user.id
 
         reports_type = request.data.get("reports_type")
@@ -1647,6 +1639,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
+
+            elif project_type in get_audio_project_types():
+                total_duration_list = []
+
+                for each_task in labeled_annotations:
+                    try:
+                        total_duration_list.append(
+                            each_task.task.data["audio_duration"]
+                        )
+                    except:
+                        pass
+                total_duration = sum(total_duration_list)
+                total_time = convert_seconds_to_hours(total_duration)
+                items.append(("Total Audio Duration", total_time))
 
             lead_time_annotated_tasks = [
                 annot.lead_time for annot in labeled_annotations

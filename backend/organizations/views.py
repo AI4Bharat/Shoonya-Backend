@@ -28,7 +28,11 @@ import csv
 from django.http import StreamingHttpResponse
 from tasks.views import SentenceOperationViewSet
 from users.views import get_role_name
-from projects.utils import minor_major_accepted_task, convert_seconds_to_hours
+from projects.utils import (
+    minor_major_accepted_task,
+    convert_seconds_to_hours,
+    get_audio_project_types,
+)
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -187,6 +191,16 @@ def get_counts(
                     pass
 
             total_word_count = sum(total_word_count_list)
+
+        total_duration = "0:00:00"
+        if project_type in get_audio_project_types():
+            total_duration_list = []
+            for each_task in labeled_annotations:
+                try:
+                    total_duration_list.append(each_task.task.data["audio_duration"])
+                except:
+                    pass
+            total_duration = convert_seconds_to_hours(sum(total_duration_list))
 
     total_skipped_tasks = Annotation.objects.filter(
         task__project_id__in=proj_ids,
@@ -874,7 +888,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "User Role": role,
                 }
 
-            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+            if project_type in get_audio_project_types():
                 del temp_result["Word Count"]
             elif (
                 is_translation_project

@@ -5,9 +5,19 @@ import nltk
 from tasks.models import Annotation
 from tasks.views import SentenceOperationViewSet
 import datetime
+import yaml
+from yaml.loader import SafeLoader
 
 
 nltk.download("punkt")
+
+
+def get_audio_project_types():
+    with open("projects/project_registry.yaml") as f:
+        project_registry_details = yaml.load(f, Loader=SafeLoader)
+
+    audio_project_types = project_registry_details["Audio"]["project_types"].keys()
+    return audio_project_types
 
 
 def convert_seconds_to_hours(seconds):

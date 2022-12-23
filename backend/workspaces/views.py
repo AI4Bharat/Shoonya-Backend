@@ -17,7 +17,11 @@ from projects.utils import is_valid_date
 from datetime import datetime
 from users.serializers import UserFetchSerializer
 from users.views import get_role_name
-from projects.utils import minor_major_accepted_task, convert_seconds_to_hours
+from projects.utils import (
+    minor_major_accepted_task,
+    convert_seconds_to_hours,
+    get_audio_project_types,
+)
 
 
 from .serializers import (
@@ -34,6 +38,7 @@ from .decorators import (
     is_organization_owner_or_workspace_manager,
     is_workspace_creator,
 )
+
 
 # Create your views here.
 
@@ -303,10 +308,10 @@ def un_pack_annotation_tasks(
                 pass
 
         total_word_count = sum(total_word_count_list)
-    total_duration = "00:00:00"
-    if project_type == "SingleSpeakerAudioTranscriptionEditing":
+    total_duration = "0:00:00"
+    if project_type in get_audio_project_types():
         total_duration_list = []
-        for each_task in all_annotated_tasks:
+        for each_task in labeled_annotations:
             try:
                 total_duration_list.append(each_task.task.data["audio_duration"])
             except:
@@ -941,6 +946,19 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             pass
 
                     total_word_count = sum(total_word_count_list)
+                total_duration = "0:00:00"
+                if project_type in get_audio_project_types():
+
+                    total_duration_list = []
+
+                    for each_task in labeled_annotations:
+                        try:
+                            total_duration_list.append(
+                                each_task.task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+                    total_duration = convert_seconds_to_hours(sum(total_duration_list))
 
             total_skipped_tasks = Annotation.objects.filter(
                 task__project_id__in=proj_ids,
@@ -1000,7 +1018,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                 }
 
-            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+            if project_type in get_audio_project_types():
                 del result["Word Count"]
             elif (
                 is_translation_project
