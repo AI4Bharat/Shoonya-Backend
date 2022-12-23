@@ -27,7 +27,7 @@ from projects.models import Project
 from tasks.models import Annotation
 from organizations.models import Organization
 from django.db.models import Q
-from projects.utils import no_of_words, is_valid_date
+from projects.utils import no_of_words, is_valid_date, convert_seconds_to_hours
 from datetime import datetime
 from django.conf import settings
 from django.core.mail import send_mail
@@ -444,7 +444,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
         all_annotated_lead_time_count = 0
         total_annotated_tasks_count = 0
         all_tasks_word_count = 0
-
+        all_projects_total_duration = 0
         project_wise_summary = []
         for proj in project_objs:
 
@@ -518,34 +518,44 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 total_word_count = sum(total_word_count_list)
             all_tasks_word_count += total_word_count
 
-            if (
+            total_duration = "00:00:00"
+            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+                total_duration_list = []
+                for each_task in annotated_labeled_tasks:
+                    try:
+                        total_duration_list.append(
+                            each_task.task.data["audio_duration"]
+                        )
+                    except:
+                        pass
+                total_duration = convert_seconds_to_hours(sum(total_duration_list))
+                all_projects_total_duration += sum(total_duration_list)
+
+            result = {
+                "Project Name": project_name,
+                (
+                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                ): annotated_tasks_count,
+                "Word Count": total_word_count,
+                "Total Audio Duration": total_duration,
+                (
+                    "Avg Review Time (sec)"
+                    if review_reports
+                    else "Avg Annotation Time (sec)"
+                ): avg_lead_time,
+            }
+
+            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+                del result["Word Count"]
+            elif (
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-                result = {
-                    "Project Name": project_name,
-                    (
-                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
-                    ): annotated_tasks_count,
-                    "Word Count": total_word_count,
-                    (
-                        "Avg Review Time (sec)"
-                        if review_reports
-                        else "Avg Annotation Time (sec)"
-                    ): avg_lead_time,
-                }
+                del result["Total Audio Duration"]
             else:
-                result = {
-                    "Project Name": project_name,
-                    (
-                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
-                    ): annotated_tasks_count,
-                    (
-                        "Avg Review Time (sec)"
-                        if review_reports
-                        else "Avg Annotation Time (sec)"
-                    ): avg_lead_time,
-                }
+                del result["Word Count"]
+                del result["Total Audio Duration"]
+
             if result[("Reviewed Tasks" if review_reports else "Annotated Tasks")] > 0:
                 project_wise_summary.append(result)
 
@@ -563,35 +573,34 @@ class AnalyticsViewSet(viewsets.ViewSet):
             )
             all_annotated_lead_time_count = round(all_annotated_lead_time_count, 2)
 
-        total_summary = {}
-        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-            total_summary = [
-                {
-                    (
-                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
-                    ): total_annotated_tasks_count,
-                    "Word Count": all_tasks_word_count,
-                    (
-                        "Avg Review Time (sec)"
-                        if review_reports
-                        else "Avg Annotation Time (sec)"
-                    ): round(all_annotated_lead_time_count, 2),
-                }
-            ]
+        # total_summary = {}
+        # if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
 
+        total_result = {
+            (
+                "Reviewed Tasks" if review_reports else "Annotated Tasks"
+            ): total_annotated_tasks_count,
+            "Word Count": all_tasks_word_count,
+            "Total Audio Duration": convert_seconds_to_hours(
+                all_projects_total_duration
+            ),
+            (
+                "Avg Review Time (sec)"
+                if review_reports
+                else "Avg Annotation Time (sec)"
+            ): round(all_annotated_lead_time_count, 2),
+        }
+        if project_type == "SingleSpeakerAudioTranscriptionEditing":
+            del total_result["Word Count"]
+        elif (
+            is_translation_project or project_type == "SemanticTextualSimilarity_Scale5"
+        ):
+            del total_result["Total Audio Duration"]
         else:
-            total_summary = [
-                {
-                    (
-                        "Reviewed Tasks" if review_reports else "Annotated Tasks"
-                    ): total_annotated_tasks_count,
-                    (
-                        "Avg Review Time (sec)"
-                        if review_reports
-                        else "Avg Annotation Time (sec)"
-                    ): round(all_annotated_lead_time_count, 2),
-                }
-            ]
+            del total_result["Word Count"]
+            del total_result["Total Audio Duration"]
+
+        total_summary = [total_result]
 
         final_result = {
             "total_summary": total_summary,

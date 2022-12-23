@@ -2,6 +2,7 @@ import re
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
+import ast
 
 from django.core.files import File
 from django.db.models import Count, Q
@@ -46,7 +47,12 @@ from .decorators import (
     project_is_archived,
     project_is_published,
 )
-from .utils import is_valid_date, no_of_words, minor_major_accepted_task
+from .utils import (
+    is_valid_date,
+    no_of_words,
+    minor_major_accepted_task,
+    convert_seconds_to_hours,
+)
 
 from workspaces.decorators import is_particular_workspace_manager
 
@@ -912,16 +918,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all unlabeled tasks from an annotator.
         """
+
         user = request.user
+        if "task_status" in dict(request.query_params).keys():
+            task_status = request.query_params["task_status"]
+            task_status = ast.literal_eval(task_status)
+        else:
+            return Response(
+                {"message": "please provide the task_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         userRole = user.role
         user_obj = User.objects.get(pk=user.id)
         project_id = pk
-
         if project_id:
             tasks = (
                 Task.objects.filter(project_id__exact=project_id)
                 .filter(annotation_users=user.id)
-                .filter(task_status=UNLABELED)
+                .filter(task_status__in=task_status)
             )
             if tasks.count() > 0:
                 for task in tasks:
@@ -1074,12 +1089,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
         user = request.user
         project_id = pk
 
+        if "task_status" in dict(request.query_params).keys():
+            task_status = request.query_params["task_status"]
+            task_status = ast.literal_eval(task_status)
+        else:
+            return Response(
+                {"message": "please provide the task_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         if project_id:
             project_obj = Project.objects.get(pk=project_id)
             if project_obj and user in project_obj.annotation_reviewers.all():
                 tasks = (
                     Task.objects.filter(project_id__exact=project_id)
-                    .filter(task_status=LABELED)
+                    .filter(task_status__in=task_status)
                     .filter(review_user=user.id)
                 )
                 if tasks.count() > 0:
@@ -1185,6 +1209,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_type = proj_obj.project_type
         project_type_lower = project_type.lower()
         is_translation_project = True if "translation" in project_type_lower else False
+        is_audio_project = (
+            True if project_type == "SingleSpeakerAudioTranscriptionEditing" else False
+        )
         users_id = request.user.id
 
         reports_type = request.data.get("reports_type")
@@ -1334,6 +1361,39 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             pass
                     total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
+
+            if is_audio_project:
+                if proj.enable_task_reviews:
+                    all_annotated_tasks = (
+                        list(annotated_accept_tasks)
+                        + list(accepted_wt_tasks)
+                        + list(labeled_tasks)
+                        + list(to_be_revised_tasks)
+                    )
+                    total_duration_list = []
+
+                    for each_task in all_annotated_tasks:
+                        try:
+                            total_duration_list.append(
+                                each_task.task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+                    total_duration = sum(total_duration_list)
+                else:
+                    total_duration_list = []
+
+                    for each_task in annotated_accept_tasks:
+                        try:
+                            total_duration_list.append(
+                                each_task.task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+                    total_duration = sum(total_duration_list)
+                total_time = convert_seconds_to_hours(total_duration)
+                items.append(("Total Audio Duration", total_time))
+
             if proj.enable_task_reviews:
                 all_annotated_tasks = (
                     list(annotated_accept_tasks)
