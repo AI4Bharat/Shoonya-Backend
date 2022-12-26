@@ -23,6 +23,12 @@ logger = get_task_logger(__name__)
 
 
 ## Utility functions for the tasks
+def stringify_json(json):
+    string = ""
+    for key,value in json.items():
+        string += f"{key}: {value}, "
+    return string[0:-1]
+
 def create_tasks_from_dataitems(items, project):
     project_type = project.project_type
     registry_helper = ProjectRegistry.get_instance()
@@ -33,6 +39,7 @@ def create_tasks_from_dataitems(items, project):
     is_translation_project = "translation" in project_type_lower
     is_conversation_project = "conversation" in project_type_lower
     is_editing_project = "editing" in project_type_lower
+    is_audio_project = "audio" in project_type_lower
 
     data_object = dataset_models.DatasetBase.objects.get(pk=items[0]["id"])
     insta_id = data_object.instance_id_id
@@ -90,6 +97,13 @@ def create_tasks_from_dataitems(items, project):
                 )
             else:
                 task.data["word_count"] = no_of_words(task.data["input_text"])
+        if is_audio_project:
+            indx = 0
+            for speaker in speakers_json:
+                field_name = "Speaker " + str(indx) + " Details"
+                task.data[field_name] = stringify_json(speakers_json[indx])
+                indx += 1
+            del task["speakers_json"]
         tasks.append(task)
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
