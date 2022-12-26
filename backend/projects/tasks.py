@@ -99,11 +99,11 @@ def create_tasks_from_dataitems(items, project):
                 task.data["word_count"] = no_of_words(task.data["input_text"])
         if is_audio_project:
             indx = 0
-            for speaker in speakers_json:
+            for speaker in task.data["speakers_json"]:
                 field_name = "Speaker " + str(indx) + " Details"
-                task.data[field_name] = stringify_json(speakers_json[indx])
+                task.data[field_name] = stringify_json(task.data["speakers_json"][indx])
                 indx += 1
-            del task["speakers_json"]
+            del task.data["speakers_json"]
         tasks.append(task)
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
