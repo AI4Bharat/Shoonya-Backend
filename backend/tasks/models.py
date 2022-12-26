@@ -48,7 +48,7 @@ INCOMPLETE = "incomplete"
 ANNOTATED = "annotated"
 REVIEWED = "reviewed"
 UNREVIEWED = "unreviewed"
-EXPORTED = "Exported"
+EXPORTED = "exported"
 ACCEPTED_WITH_MINOR_CHANGES = "accepted_with_minor_changes"
 ACCEPTED_WITH_MAJOR_CHANGES = "accepted_with_major_changes"
 
@@ -57,7 +57,7 @@ TASK_STATUS = (
     (INCOMPLETE, "incomplete"),
     (ANNOTATED, "annotated"),
     (REVIEWED, "reviewed"),
-    (EXPORTED, "Exported"),
+    (EXPORTED, "exported"),
     (FREEZED, "freezed"),
 )
 

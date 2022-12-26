@@ -314,7 +314,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 tas_status = request.query_params["task_status"]
                 tas_status = ast.literal_eval(tas_status)
 
-            if view == "managerial_view":
+            if user.role == 3 or user.role == 2:
                 if not ("req_user" in dict(request.query_params)):
 
                     tasks = Task.objects.filter(
@@ -909,11 +909,13 @@ class AnnotationViewSet(
                 or review_status == ACCEPTED_WITH_MAJOR_CHANGES
                 or review_status == TO_BE_REVISED
             ):
-                if review_status != TO_BE_REVISED:
-                    task.correct_annotation = annotation
-                    parent = annotation.parent_annotation
-                    parent.review_notes = annotation.review_notes
-                    parent.save()
+
+                task.correct_annotation = annotation
+                parent = annotation.parent_annotation
+                parent.review_notes = annotation.review_notes
+                if review_status == TO_BE_REVISED:
+                    parent.annotation_status = TO_BE_REVISED
+                parent.save()
                 task.task_status = REVIEWED
                 task.save()
 

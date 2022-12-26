@@ -327,6 +327,8 @@ def export_project_in_place(
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
+    tasks.update(task_status=EXPORTED)
+
     return f"Exported {len(data_items)} items."
 
 
@@ -435,6 +437,7 @@ def export_project_new_record(
             data_item.save()
             task.output_data = data_item
             task.save()
+    tasks.update(task_status=EXPORTED)
 
 
 @shared_task
