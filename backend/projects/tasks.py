@@ -103,7 +103,6 @@ def create_tasks_from_dataitems(items, project):
                 field_name = "Speaker " + str(indx) + " Details"
                 task.data[field_name] = stringify_json(task.data["speakers_json"][indx])
                 indx += 1
-            del task.data["speakers_json"]
         tasks.append(task)
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
