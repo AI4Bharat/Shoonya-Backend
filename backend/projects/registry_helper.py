@@ -136,17 +136,19 @@ class ProjectRegistry:
         # Note: `value` attrib is essenital for label-studio frontend to read value from tasks object
         input_nodes = doc.xpath("//*[@value and @name]")
         for input_node in input_nodes:
+            ignore_assertion = output_node.attrib.get("className", "assertion")
             if "toName" in input_node.attrib:
                 continue
-            assert (
-                input_node.attrib["name"] in input_fields
-            ), f'[{label_studio_jsx_file}]: Input field `{input_node.attrib["name"]}` not found in dataset model'
-            assert input_node.attrib["value"].startswith(
-                "$"
-            ), f"[{label_studio_jsx_file}]: Input variable `{input_node.attrib['value']}` should begin with $"
-            assert (
-                input_node.attrib["value"][1:] in input_fields
-            ), f"[{label_studio_jsx_file}]: Input variable `{input_node.attrib['value']}` not found in dataset model"
+            if ignore_assertion != "ignore_assertion":
+                assert (
+                    input_node.attrib["name"] in input_fields
+                ), f'[{label_studio_jsx_file}]: Input field `{input_node.attrib["name"]}` not found in dataset model'
+                assert input_node.attrib["value"].startswith(
+                    "$"
+                ), f"[{label_studio_jsx_file}]: Input variable `{input_node.attrib['value']}` should begin with $"
+                assert (
+                    input_node.attrib["value"][1:] in input_fields
+                ), f"[{label_studio_jsx_file}]: Input variable `{input_node.attrib['value']}` not found in dataset model"
 
         # Check if output fields are properly named
         # Note: `toName` attrib is essential for label-studio-frontend to create annotation json
