@@ -136,7 +136,7 @@ class ProjectRegistry:
         # Note: `value` attrib is essenital for label-studio frontend to read value from tasks object
         input_nodes = doc.xpath("//*[@value and @name]")
         for input_node in input_nodes:
-            ignore_assertion = output_node.attrib.get("className", "assertion")
+            ignore_assertion = input_node.attrib.get("className", "assertion")
             if "toName" in input_node.attrib:
                 continue
             if ignore_assertion != "ignore_assertion":
