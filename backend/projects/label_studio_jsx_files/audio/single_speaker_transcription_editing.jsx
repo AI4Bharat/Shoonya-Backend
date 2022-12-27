@@ -1,11 +1,4 @@
 <View> 
-   <Header value="Speaker Details" />          
-   {speaker_0_details ?
-   <Text name="speaker_0_details" className="ignore_assertion"
-    value="$speaker_0_details"/> : null} 
-   {speaker_1_details ?
-   <Text name="speaker_1_details" className="ignore_assertion"
-    value="$speaker_1_details"/> : null} 
 
 
   <Labels name="labels" toName="audio_url" className="ignore_assertion"> 
@@ -24,7 +17,15 @@
               
   {reference_raw_transcript ? <Header value="Reference Transcript" /> 
    <Text name="reference_raw_transcript" 
-    value="$reference_raw_transcript"/> : null} 
+    value="$reference_raw_transcript"/> : null}
+
+   <Header value="Speaker Details" />          
+   {speaker_0_details ?
+   <Text name="speaker_0_details" className="ignore_assertion"
+    value="$speaker_0_details"/> : null} 
+   {speaker_1_details ?
+   <Text name="speaker_1_details" className="ignore_assertion"
+    value="$speaker_1_details"/> : null}
    
 </View> 
  
