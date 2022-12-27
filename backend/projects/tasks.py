@@ -100,7 +100,7 @@ def create_tasks_from_dataitems(items, project):
         if is_audio_project:
             indx = 0
             for speaker in task.data["speakers_json"]:
-                field_name = "Speaker " + str(indx) + " Details"
+                field_name = "speaker_" + str(indx) + "_details"
                 task.data[field_name] = stringify_json(task.data["speakers_json"][indx])
                 indx += 1
         tasks.append(task)
