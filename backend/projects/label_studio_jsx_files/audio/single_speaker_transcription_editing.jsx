@@ -1,10 +1,10 @@
 <View> 
    <Header value="Speaker Details" />          
    {$speaker_0_details ?
-   <Text name="Speaker 0 Details" 
+   <Text name="speaker_0_details" 
     value="$speaker_0_details"/> : null} 
    {$speaker_1_details ?
-   <Text name="Speaker 1 Details" 
+   <Text name="speaker_1_details" 
     value="$speaker_1_details"/> : null} 
 
 
