@@ -1,10 +1,10 @@
 <View> 
    <Header value="Speaker Details" />          
    {speaker_0_details ?
-   <Text name="speaker_0_details" 
+   <Text name="speaker_0_details" className="ignore_assertion"
     value="$speaker_0_details"/> : null} 
    {speaker_1_details ?
-   <Text name="speaker_1_details" 
+   <Text name="speaker_1_details" className="ignore_assertion"
     value="$speaker_1_details"/> : null} 
 
 
