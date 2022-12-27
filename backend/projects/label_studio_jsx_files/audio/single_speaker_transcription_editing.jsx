@@ -9,9 +9,8 @@
 
 
   <Labels name="labels" toName="audio_url" className="ignore_assertion"> 
-    {speaker_0_details ? <Label value="$speaker_0_details.split(",")[0].split(": ")[1]" />  : null} 
-    {speaker_1_details ? <Label value="$speaker_1_details.split(",")[0].split(": ")[1]" />  : null}
-    <Label value="Noise" />
+    {speaker_0_details ? <Label value="Speaker 0" />  : null} 
+    {speaker_1_details ? <Label value="Speaker 1" />  : null}
   </Labels> 
   <AudioPlus name="audio_url" value="$audio_url"/> 
   
