@@ -25,9 +25,10 @@ logger = get_task_logger(__name__)
 ## Utility functions for the tasks
 def stringify_json(json):
     string = ""
-    for key,value in json.items():
+    for key, value in json.items():
         string += f"{key}: {value}, "
     return string[0:-1]
+
 
 def create_tasks_from_dataitems(items, project):
     project_type = project.project_type
@@ -113,7 +114,6 @@ def create_tasks_from_dataitems(items, project):
         predictions = []
         prediction_field = input_dataset_info["prediction"]
         for task, item in zip(tasks, items):
-
             if project_type == "SentenceSplitting":
                 item[prediction_field] = [
                     {
