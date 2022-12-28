@@ -926,8 +926,10 @@ class AnnotationViewSet(
                 parent.review_notes = annotation.review_notes
                 if review_status == TO_BE_REVISED:
                     parent.annotation_status = TO_BE_REVISED
+                    task.task_status = INCOMPLETE
+                else:
+                    task.task_status = REVIEWED
                 parent.save()
-                task.task_status = REVIEWED
                 task.save()
 
         return annotation_response
