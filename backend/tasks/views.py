@@ -839,6 +839,10 @@ class AnnotationViewSet(
                 SKIPPED,
             ]:
                 annotation_status = request.data["annotation_status"]
+                is_to_be_revised_task = (
+                    True if annotation_obj.annotation_status == TO_BE_REVISED else False
+                )
+
             else:
                 ret_dict = {"message": "Missing param : annotation_status!"}
                 ret_status = status.HTTP_400_BAD_REQUEST
@@ -848,6 +852,13 @@ class AnnotationViewSet(
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
             task = annotation.task
+
+            if annotation_status == LABELED and is_to_be_revised_task:
+                review_annotation = Annotation.objects.get(
+                    task=task, parent_annotation__isnull=False
+                )
+                review_annotation.annotation_status = UNREVIEWED
+                review_annotation.save()
 
             no_of_annotations = task.annotations.filter(
                 parent_annotation_id=None, annotation_status="labeled"
