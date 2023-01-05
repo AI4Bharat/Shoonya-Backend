@@ -941,7 +941,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if tasks.count() > 0:
                 for task in tasks:
                     task.unassign(user_obj)
-                    task.update(task_status=UNLABELED)
+                tasks.update(task_status="unlabeled")
                 return Response(
                     {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
