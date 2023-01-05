@@ -215,7 +215,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             queryset = queryset.filter(task_status=request.query_params["task_status"])
             task_status = request.query_params["task_status"]
 
-            if task_status == "accepted_with_changes" or task_status == "to_be_revised":
+            if task_status in {ACCEPTED_WITH_CHANGES, TO_BE_REVISED, ACCEPTED}:
                 accepted_wt_changes_or_to_be_revised_task = True
 
         else:
