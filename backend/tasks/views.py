@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from django.core.paginator import Paginator
 
 
 from tasks.models import *
@@ -139,6 +140,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
         user_id = request.user.id
         user = request.user
+        page_number = None
+        if "page" in dict(request.query_params):
+            page_number = request.query_params["page"]
 
         if "project_id" in dict(request.query_params):
             proj_id = request.query_params["project_id"]
@@ -190,17 +194,31 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
-
+                        final_dict = {}
                         ordered_tasks = []
-
                         for idx, ids in enumerate(task_ids):
                             tas = Task.objects.filter(id=ids)
                             tas = tas.values()[0]
                             tas["annotation_status"] = annotation_status[idx]
                             tas["user_mail"] = user_mail[idx]
                             ordered_tasks.append(tas)
+                        if page_number is not None:
+                            page_object = Paginator(ordered_tasks, 10)
+                            try:
+                                final_dict["total_count"] = len(ordered_tasks)
+                                page_items = page_object.page(page_number)
+                                ordered_tasks = page_items.object_list
+                                final_dict["result"] = ordered_tasks
+                                return Response(final_dict)
+                            except:
+                                return Response(
+                                    {"message": "page not available"},
+                                    status=status.HTTP_400_BAD_REQUEST,
+                                )
 
-                        return Response(ordered_tasks)
+                        final_dict["total_count"] = len(ordered_tasks)
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
                 ann = Annotation.objects.filter(
                     task__project_id_id=proj_id,
                     annotation_status__in=ann_status,
@@ -222,7 +240,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids = [an.task_id for an in ann_filter1]
                 annotation_status = [an.annotation_status for an in ann_filter1]
                 user_mail = [an.completed_by.email for an in ann_filter1]
-
+                final_dict = {}
                 ordered_tasks = []
 
                 for idx, ids in enumerate(task_ids):
@@ -232,7 +250,24 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["user_mail"] = user_mail[idx]
                     ordered_tasks.append(tas)
 
-                return Response(ordered_tasks)
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, 10)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
 
             if "review_status" in dict(request.query_params):
                 rew_status = request.query_params["review_status"]
@@ -261,7 +296,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
                         ordered_tasks = []
-
+                        final_dict = {}
                         for idx, ids in enumerate(task_ids):
                             tas = Task.objects.filter(id=ids)
                             tas = tas.values()[0]
@@ -269,7 +304,24 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas["user_mail"] = user_mail[idx]
                             ordered_tasks.append(tas)
 
-                        return Response(ordered_tasks)
+                        if page_number is not None:
+                            page_object = Paginator(ordered_tasks, 10)
+
+                            try:
+                                final_dict["total_count"] = len(ordered_tasks)
+                                page_items = page_object.page(page_number)
+                                ordered_tasks = page_items.object_list
+                                final_dict["result"] = ordered_tasks
+                                return Response(final_dict)
+                            except:
+                                return Response(
+                                    {"message": "page not available"},
+                                    status=status.HTTP_400_BAD_REQUEST,
+                                )
+
+                        final_dict["total_count"] = len(ordered_tasks)
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
 
                 ann = Annotation.objects.filter(
                     task__project_id_id=proj_id,
@@ -299,7 +351,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ]
 
                 ordered_tasks = []
-
+                final_dict = {}
                 for idx, ids in enumerate(task_ids):
                     tas = Task.objects.filter(id=ids)
                     tas = tas.values()[0]
@@ -307,7 +359,24 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["user_mail"] = user_mail[idx]
                     tas["annotator_mail"] = annotator_mail[idx]
                     ordered_tasks.append(tas)
-                return Response(ordered_tasks)
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, 10)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
 
             tas_status = ["incomplete"]
             if "task_status" in dict(request.query_params):
@@ -330,9 +399,26 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             )
                         )
 
-                    tasks = tasks.values()
-                    return Response(tasks)
+                    ordered_tasks = list(tasks.values())
+                    final_dict = {}
+                    if page_number is not None:
+                        page_object = Paginator(ordered_tasks, 10)
 
+                        try:
+                            final_dict["total_count"] = len(ordered_tasks)
+                            page_items = page_object.page(page_number)
+                            ordered_tasks = page_items.object_list
+                            final_dict["result"] = ordered_tasks
+                            return Response(final_dict)
+                        except:
+                            return Response(
+                                {"message": "page not available"},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+
+                    final_dict["total_count"] = len(ordered_tasks)
+                    final_dict["result"] = ordered_tasks
+                    return Response(final_dict)
             proj_annotators_ids = [an.id for an in proj_annotators]
             proj_reviewers_ids = [an.id for an in proj_reviewers]
 
@@ -352,8 +438,26 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         )
                     )
 
-                tasks = tasks.values()
-                return Response(tasks)
+                ordered_tasks = list(tasks.values())
+                final_dict = {}
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, 10)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
 
             if user_id in proj_reviewers_ids:
                 tasks = Task.objects.filter(
@@ -370,8 +474,26 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         )
                     )
 
-                tasks = tasks.values()
-                return Response(tasks)
+                ordered_tasks = list(tasks.values())
+                final_dict = {}
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, 10)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
 
             return Response(
                 {"message": " this user not part of this project"},
