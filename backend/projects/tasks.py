@@ -429,29 +429,64 @@ def export_project_new_record(
         # export_stream, content_type, filename = DataExport.generate_export_file(
         #     project, tasks_list, 'CSV', download_resources, request.GET
         # )
+        if dataset_model == getattr(dataset_models, "Conversation"):
+            for task in tasks_list:
+                if task["output_data"] is not None:
+                    data_item = dataset_model.objects.get(id__exact=task["output_data"])
+                else:
+                    data_item = dataset_model()
+                    data_item.instance_id = export_dataset_instance
+                    data_item.parent_data = dataset_model.objects.get(
+                        id__exact=task["input_data"]
+                    )
+                for field in annotation_fields:
+                    if field == "conversation_json":
+                        conversation_json = dataset_model.objects.get(
+                            id__exact=task["input_data"]
+                        ).conversation_json
+                        for idx1 in range(len(conversation_json)):
+                            for idx2 in range(
+                                len(conversation_json[idx1]["sentences"])
+                            ):
+                                conversation_json[idx1]["sentences"][idx2] = ""
+                        for result in task["annotations"][0]["result"]:
+                            to_name_list = result["to_name"].split("_")
+                            idx1 = int(to_name_list[1])
+                            idx2 = int(to_name_list[2])
+                            conversation_json[idx1]["sentences"][idx2] = ".".join(
+                                map(str, result["value"]["text"])
+                            )
+                        setattr(data_item, field, conversation_json)
 
-        tasks_df = DataExport.export_csv_file(
-            project, tasks_list, download_resources, get_request_data
-        )
-        tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
+                for field in task_annotation_fields:
+                    setattr(data_item, field, task["data"][field])
 
-        for (ta, task) in zip(tasks_annotations, annotated_tasks):
-            # data_item = dataset_model.objects.get(id__exact=task.id.id)
-            if task.output_data is not None:
-                data_item = dataset_model.objects.get(id__exact=task.output_data.id)
-            else:
-                data_item = dataset_model()
-                data_item.instance_id = export_dataset_instance
-                data_item.parent_data = task.input_data
-            for field in annotation_fields:
-                setattr(data_item, field, ta[field])
-            for field in task_annotation_fields:
-                setattr(data_item, field, ta[field])
-            data_item.save()
-            task.output_data = data_item
-            task.save()
+                task_instance = Task.objects.get(id=task["id"])
+                data_item.save()
+                task_instance.output_data = data_item
+                task_instance.save()
+
+        else:
+            tasks_df = DataExport.export_csv_file(
+                project, tasks_list, download_resources, get_request_data
+            )
+            tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
+            for (ta, task) in zip(tasks_annotations, annotated_tasks):
+                # data_item = dataset_model.objects.get(id__exact=task.id.id)
+                if task.output_data is not None:
+                    data_item = dataset_model.objects.get(id__exact=task.output_data.id)
+                else:
+                    data_item = dataset_model()
+                    data_item.instance_id = export_dataset_instance
+                    data_item.parent_data = task.input_data
+                for field in annotation_fields:
+                    setattr(data_item, field, ta[field])
+                for field in task_annotation_fields:
+                    setattr(data_item, field, ta[field])
+                data_item.save()
+                task.output_data = data_item
+                task.save()
     tasks.update(task_status=EXPORTED)
-
 
 @shared_task
 def add_new_data_items_into_project(project_id, items):
