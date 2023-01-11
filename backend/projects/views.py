@@ -515,8 +515,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ).delete()  # delete all draft annotations by the user
                 for task in tasks:
                     task.annotation_users.remove(user)
+                    task.task_status=UNLABELED
                     task.save()
-                tasks.update(task_status="unlabeled")  # unassign user from tasks
                 project.annotators.remove(user)
                 project.frozen_users.add(user)
                 project.save()
