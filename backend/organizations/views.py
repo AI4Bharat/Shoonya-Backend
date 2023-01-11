@@ -32,6 +32,8 @@ from projects.utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_translation_dataset_project_types,
+    convert_hours_to_seconds
 )
 
 
@@ -1462,6 +1464,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
+        metainfo = False
+        if "metainfo" in dict(request.query_params):
+            metainfo = request.query_params["metainfo"]
         project_types = [
             "ContextualTranslationEditing",
             "ContextualSentenceVerification",
@@ -1482,47 +1487,154 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 proj_lang_filter = proj_objs.filter(tgt_language=lang)
                 annotation_tasks_count = 0
                 reviewer_task_count = 0
-                reviewer_task_count = Task.objects.filter(
+                reviewer_tasks = Task.objects.filter(
                     project_id__in=proj_lang_filter,
                     project_id__enable_task_reviews=True,
                     task_status__in=["reviewed", "exported"],
-                ).count()
-                annotation_tasks_count = Task.objects.filter(
+                )
+
+                annotation_tasks = Task.objects.filter(
                     project_id__in=proj_lang_filter,
                     task_status__in=[
                         "annotated",
                         "reviewed",
                         "exported",
                     ],
-                ).count()
+                )
+                
+                if metainfo == True:
+                    result = {}
 
-                result = {
-                    "language": lang,
-                    "ann_cumulative_tasks_count": annotation_tasks_count,
-                    "rew_cumulative_tasks_count": reviewer_task_count,
-                }
+                    if project_type in get_audio_project_types():
+
+                        # review audio duration calclation
+                        total_rev_duration_list = []
+
+                        for each_task in reviewer_tasks:
+                            try:
+                                total_rev_duration_list.append(
+                                    each_task.data["audio_duration"]
+                                )
+                            except:
+                                pass
+                        rev_total_duration = sum(total_rev_duration_list)
+                        rev_total_time = convert_seconds_to_hours(rev_total_duration)
+
+                        # annotation audio duration calclation
+
+                        total_ann_duration_list = []
+
+                        for each_task in annotation_tasks:
+                            try:
+                                total_ann_duration_list.append(
+                                    each_task.data["audio_duration"]
+                                )
+                            except:
+                                pass
+                        ann_total_duration = sum(total_ann_duration_list)
+                        ann_total_time = convert_seconds_to_hours(ann_total_duration)
+
+
+                        result = {
+                            "language": lang,
+                            "ann_cumulative_aud_duration": ann_total_time,
+                            "rew_cumulative_aud_duration": rev_total_time,
+                        }
+
+
+                    elif project_type in  get_translation_dataset_project_types() or project_type == "ConversationTranslationEditing":
+                        total_rev_word_count_list=[]
+                        for reviewer_tas in reviewer_tasks:
+                            try:
+                                total_rev_word_count_list.append(reviewer_tas.data["word_count"])
+                            except:
+                                pass
+
+                        total_ann_word_count_list =[]
+
+                        for annotation_tas in annotation_tasks:
+                            try:
+                                total_ann_word_count_list.append(annotation_tas.data["word_count"])
+                            except:
+                                pass
+
+                        result = {
+                            "language": lang,
+                            "ann_cumulative_word_count": sum(total_ann_word_count_list),
+                            "rew_cumulative_word_count": sum(total_rev_word_count_list),
+                        }
+
+                else:
+                    reviewer_task_count =reviewer_tasks.count()
+                   
+                    annotation_tasks_count = annotation_tasks.count()
+
+                    result = {
+                        "language": lang,
+                        "ann_cumulative_tasks_count": annotation_tasks_count,
+                        "rew_cumulative_tasks_count": reviewer_task_count,
+                    }
 
                 if lang == None or lang == "":
                     other_lang.append(result)
                 else:
                     general_lang.append(result)
 
-            ann_count = 0
-            rew_count = 0
+            ann_task_count = 0
+            rew_task_count = 0
+            ann_word_count = 0
+            rew_word_count = 0
+            ann_aud_dur = 0
+            rew_aud_dur = 0
             for dat in other_lang:
-                ann_count += dat["ann_cumulative_tasks_count"]
-                rew_count += dat["rew_cumulative_tasks_count"]
+                if  metainfo != True:
+                    ann_task_count += dat["ann_cumulative_tasks_count"]
+                    rew_task_count += dat["rew_cumulative_tasks_count"]
+                else:
+                    if project_type in get_audio_project_types():
+                        ann_aud_dur +=convert_hours_to_seconds(dat["ann_cumulative_aud_duration"])
+                        rew_aud_dur +=convert_hours_to_seconds(dat["rew_cumulative_aud_duration"])
+                    elif project_type in  get_translation_dataset_project_types() or project_type == "ConversationTranslationEditing":
+
+                        ann_word_count +=dat["ann_cumulative_word_count"]
+                        rew_word_count +=dat["rew_cumulative_word_count"]
+
+
             if len(other_lang) > 0:
-                other_language = {
-                    "language": "Others",
-                    "ann_cumulative_tasks_count": ann_count,
-                    "rew_cumulative_tasks_count": rew_count,
-                }
+                if  metainfo != True:
+                    other_language = {
+                        "language": "Others",
+                        "ann_cumulative_tasks_count": ann_count,
+                        "rew_cumulative_tasks_count": rew_count,
+                    }
+                else:
+                    if project_type in get_audio_project_types():
+
+                        other_language = {
+                        "language": "Others",
+                        "ann_cumulative_aud_duration": convert_seconds_to_hours(ann_aud_dur),
+                        "rew_cumulative_aud_duration": convert_seconds_to_hours(rew_aud_dur),
+                        }
+
+                    elif project_type in  get_translation_dataset_project_types() or project_type == "ConversationTranslationEditing":
+                        
+                        other_language = {
+                        "language": "Others",
+                        "ann_cumulative_word_count": ann_word_count,
+                        "rew_cumulative_word_count": rew_word_count,
+                        }
+
                 general_lang.append(other_language)
+            try:
+                final_result = sorted(
+                    general_lang, key=lambda x: x["language"], reverse=False
+                )
+            except:
+                final_result = []
 
-            final_result = sorted(
-                general_lang, key=lambda x: x["language"], reverse=False
-            )
 
-            final_result_for_all_types[project_type] = final_result
+            if metainfo == True and   not ((project_type in get_audio_project_types()) or (project_type in  get_translation_dataset_project_types() or project_type == "ConversationTranslationEditing") ) :
+                pass
+            else:
+                final_result_for_all_types[project_type] = final_result
         return Response(final_result_for_all_types)
