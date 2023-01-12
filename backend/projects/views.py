@@ -2038,7 +2038,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 anns = Annotation_model.objects.filter(
                     task_id=tas.id, parent_annotation__isnull=True
                 )
-                tas.correct_annotation = anns[0]
+                if len(anns) >0:
+                    tas.correct_annotation = anns[0]
                 tas.save()
             project.enable_task_reviews = False
             project.save()
