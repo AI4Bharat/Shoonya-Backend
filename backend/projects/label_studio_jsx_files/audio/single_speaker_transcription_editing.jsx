@@ -17,10 +17,11 @@
   <View visibleWhen="region-selected"> 
     <Header value="Provide Transcription" /> 
   </View> 
-  
+  <View style="overflow: auto; width: 50%;">
   <TextArea name="transcribed_json" toName="audio_url" 
             rows="2" editable="true" 
             perRegion="true" required="true" /> 
+  </View>
               
   {reference_raw_transcript ? <Header value="Reference Transcript" /> 
    <Text name="reference_raw_transcript" 
