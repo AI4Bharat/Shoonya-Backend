@@ -1604,8 +1604,8 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 if  metainfo != True:
                     other_language = {
                         "language": "Others",
-                        "ann_cumulative_tasks_count": ann_count,
-                        "rew_cumulative_tasks_count": rew_count,
+                        "ann_cumulative_tasks_count": ann_task_count,
+                        "rew_cumulative_tasks_count": rew_task_count,
                     }
                 else:
                     if project_type in get_audio_project_types():
