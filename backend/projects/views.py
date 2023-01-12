@@ -331,7 +331,7 @@ def get_task_count(pk, status):
 #     return annotated_objs
 
 
-def process_conversation_for_csv_tsv_export(tasks_list):
+def process_conversation_for_csv_tsv_export(tasks_list,project_type):
     conversation_tasks_list = []
     for task in tasks_list:
         task_dict = OrderedDict()
@@ -344,7 +344,10 @@ def process_conversation_for_csv_tsv_export(tasks_list):
         task_dict["speaker_count"] = task["data"]["speaker_count"]
         task_dict["speakers_json"] = task["data"]["speakers_json"]
         task_dict["sentence_count"] = task["data"]["sentence_count"]
-        task_dict["conversation_json"] = task["data"]["conversation_json"]
+        if project_type=="ConversationTranslation":
+            task_dict["conversation_json"] = task["data"]["conversation_json"]
+        else:
+            task_dict["conversation_json"] = task["data"]["source_conversation_json"]
         task_dict["machine_translated_conversation_json"] = task["data"][
             "machine_translated_conversation_json"
         ]
@@ -2199,9 +2202,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 or project_type == "ConversationTranslationEditing"
             ):
                 for task in tasks_list:
-                    conversation_json = Conversation.objects.get(
-                        id__exact=task["input_data"]
-                    ).conversation_json
+                    if project_type=="ConversationTranslation":
+                        conversation_json = Conversation.objects.get(
+                            id__exact=task["input_data"]
+                        ).conversation_json
+                    else:
+                        conversation_json = Conversation.objects.get(
+                            id__exact=task["input_data"]
+                        ).machine_translated_conversation_json
                     for idx1 in range(len(conversation_json)):
                         for idx2 in range(len(conversation_json[idx1]["sentences"])):
                             conversation_json[idx1]["sentences"][idx2] = ""
@@ -2216,7 +2224,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 if export_type != "JSON":
                     conversation_tasks_list = process_conversation_for_csv_tsv_export(
-                        tasks_list
+                        tasks_list,project_type
                     )
                     if export_type == "CSV":
                         content_type = "text/csv"
@@ -2306,11 +2314,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # If save_type is 'in_place'
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
+                
+                if project.enable_task_reviews:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[REVIEWED]
+                    ).exclude(correct_annotation__annotation_status="to_be_revised")
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[ANNOTATED]
+                    )
 
-                tasks = Task.objects.filter(
-                    project_id__exact=project,
-                    task_status__in=[REVIEWED],
-                ).exclude(correct_annotation__annotation_status="to_be_revised")
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
