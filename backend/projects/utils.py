@@ -19,11 +19,14 @@ def get_audio_project_types():
     audio_project_types = project_registry_details["Audio"]["project_types"].keys()
     return audio_project_types
 
+
 def get_translation_dataset_project_types():
     with open("projects/project_registry.yaml") as f:
         project_registry_details = yaml.load(f, Loader=SafeLoader)
 
-    translation_project_types = project_registry_details["Translation"]["project_types"].keys()
+    translation_project_types = project_registry_details["Translation"][
+        "project_types"
+    ].keys()
     return translation_project_types
 
 
@@ -34,11 +37,12 @@ def convert_seconds_to_hours(seconds):
     seconds %= 60
     return "%d:%02d:%02d" % (hour, minutes, seconds)
 
+
 # here this function  take input param  as string and  in   hh:mm:ss format (ex : 54:12:45)
 def convert_hours_to_seconds(str1):
-    hours_in_sec = int(str1.split(':')[0]) * 60 * 60
-    min_in_sec = int(str1.split(':')[1]) *60
-    sec = int(str1.split(':')[2])
+    hours_in_sec = int(str1.split(":")[0]) * 60 * 60
+    min_in_sec = int(str1.split(":")[1]) * 60
+    sec = int(str1.split(":")[2])
     return hours_in_sec + min_in_sec + sec
 
 
