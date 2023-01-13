@@ -331,7 +331,7 @@ def get_task_count(pk, status):
 #     return annotated_objs
 
 
-def process_conversation_for_csv_tsv_export(tasks_list,project_type):
+def process_conversation_for_csv_tsv_export(tasks_list, project_type):
     conversation_tasks_list = []
     for task in tasks_list:
         task_dict = OrderedDict()
@@ -344,7 +344,7 @@ def process_conversation_for_csv_tsv_export(tasks_list,project_type):
         task_dict["speaker_count"] = task["data"]["speaker_count"]
         task_dict["speakers_json"] = task["data"]["speakers_json"]
         task_dict["sentence_count"] = task["data"]["sentence_count"]
-        if project_type=="ConversationTranslation":
+        if project_type == "ConversationTranslation":
             task_dict["conversation_json"] = task["data"]["conversation_json"]
         else:
             task_dict["conversation_json"] = task["data"]["source_conversation_json"]
@@ -1170,7 +1170,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             review_annotations = []
             for ann1 in ann:
                 try:
-                    review_annotation_obj = Annotation.object.get(parent_annotation = ann1)
+                    review_annotation_obj = Annotation.object.get(
+                        parent_annotation=ann1
+                    )
                     review_annotations.append(review_annotation_obj)
                 except:
                     pass
@@ -2041,7 +2043,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 anns = Annotation_model.objects.filter(
                     task_id=tas.id, parent_annotation__isnull=True
                 )
-                if len(anns) >0:
+                if len(anns) > 0:
                     tas.correct_annotation = anns[0]
                 tas.save()
             project.enable_task_reviews = False
@@ -2202,7 +2204,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 or project_type == "ConversationTranslationEditing"
             ):
                 for task in tasks_list:
-                    if project_type=="ConversationTranslation":
+                    if project_type == "ConversationTranslation":
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
                         ).conversation_json
@@ -2224,7 +2226,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 if export_type != "JSON":
                     conversation_tasks_list = process_conversation_for_csv_tsv_export(
-                        tasks_list,project_type
+                        tasks_list, project_type
                     )
                     if export_type == "CSV":
                         content_type = "text/csv"
@@ -2314,7 +2316,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # If save_type is 'in_place'
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
-                
+
                 if project.enable_task_reviews:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[REVIEWED]

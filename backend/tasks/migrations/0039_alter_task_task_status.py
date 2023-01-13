@@ -6,13 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tasks', '0038_alter_task_status'),
+        ("tasks", "0038_alter_task_status"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='task',
-            name='task_status',
-            field=models.CharField(choices=[('incomplete', 'incomplete'), ('annotated', 'annotated'), ('reviewed', 'reviewed'), ('exported', 'exported'), ('freezed', 'freezed')], default='incomplete', max_length=100, verbose_name='task_status'),
+            model_name="task",
+            name="task_status",
+            field=models.CharField(
+                choices=[
+                    ("incomplete", "incomplete"),
+                    ("annotated", "annotated"),
+                    ("reviewed", "reviewed"),
+                    ("exported", "exported"),
+                    ("freezed", "freezed"),
+                ],
+                default="incomplete",
+                max_length=100,
+                verbose_name="task_status",
+            ),
         ),
     ]
