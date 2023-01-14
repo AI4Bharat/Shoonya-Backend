@@ -308,8 +308,12 @@ def export_project_in_place(
                 for idx, result in enumerate(task_dict["annotations"][0]["result"]):
                     if result["from_name"] == "domain":
                         task_dict["annotations"][0]["result"][idx]["value"][
-                            "taxonomy"
+                            "choices"
                         ] = result["value"]["taxonomy"][0]
+                        task_dict["annotations"][0]["result"][idx]["type"] = "choices"
+                        del task_dict["annotations"][0]["result"][idx]["value"][
+                            "taxonomy"
+                        ]
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
