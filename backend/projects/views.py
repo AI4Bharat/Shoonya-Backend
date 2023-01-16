@@ -1167,16 +1167,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 parent_annotation__isnull=True,
                 annotation_status__in=annotation_status,
             )
-            review_annotations = []
+            review_annotations_ids = []
             for ann1 in ann:
                 try:
-                    review_annotation_obj = Annotation.object.get(
+                    review_annotation_obj = Annotation_model.object.get(
                         parent_annotation=ann1
                     )
-                    review_annotations.append(review_annotation_obj)
+                    review_annotations_ids.append(review_annotation_obj.id)
                 except:
                     pass
             tas_ids = [an.task_id for an in ann]
+            review_annotations = Annotation_model.object.filter(
+                id__in=review_annotations_ids
+            )
             review_annotations.delete()
             ann.delete()
 
