@@ -300,10 +300,10 @@ def export_project_in_place(
             # annotation_dict['result'] = annotation_dict['result_json']
             # del annotation_dict['result_json']
             task_dict["annotations"] = [OrderedDict(annotation_dict)]
+
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
-
     if output_dataset_info["dataset_type"] == "Conversation":
         tasks_annotations = tasks_list
     else:
@@ -314,6 +314,7 @@ def export_project_in_place(
         tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
 
     for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
+        print(ta)
         if output_dataset_info["dataset_type"] == "SpeechConversation":
             ta_labels = json.loads(ta["labels"])
             ta_transcribed_json = json.loads(ta["transcribed_json"])
@@ -350,6 +351,8 @@ def export_project_in_place(
                         map(str, result["value"]["text"])
                     )
                 setattr(data_item, field, conversation_json)
+            elif field == "domain":
+                setattr(data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0])
             else:
                 setattr(data_item, field, ta[field])
         data_items.append(data_item)
