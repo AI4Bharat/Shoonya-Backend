@@ -1167,17 +1167,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 parent_annotation__isnull=True,
                 annotation_status__in=annotation_status,
             )
-            review_annotations = []
+            review_annotations_ids = []
+            reviewer_pulled_tasks = []
             for ann1 in ann:
                 try:
-                    review_annotation_obj = Annotation.object.get(
+                    review_annotation_obj = Annotation_model.object.get(
                         parent_annotation=ann1
                     )
-                    review_annotations.append(review_annotation_obj)
+                    review_annotations_ids.append(review_annotation_obj.id)
+                    reviewer_pulled_tasks.append(review_annotation_obj.task_id)
                 except:
                     pass
             tas_ids = [an.task_id for an in ann]
+            review_annotations = Annotation_model.objects.filter(
+                id__in=review_annotations_ids
+            )
             review_annotations.delete()
+            reviewed_tasks = Task.objects.filter(id__in=reviewer_pulled_tasks)
+            if reviewed_tasks.count() > 0:
+                reviewed_tasks.update(review_user=None)
+
             ann.delete()
 
             tasks = Task.objects.filter(id__in=tas_ids)
