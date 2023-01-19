@@ -331,8 +331,6 @@ def get_task_count(pk, status):
 #     return annotated_objs
 
 
-
-
 class ProjectViewSet(viewsets.ModelViewSet):
     """
     Project ViewSet
@@ -2242,7 +2240,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-
 
     @swagger_auto_schema(method="get", responses={200: "No tasks to export!"})
     @swagger_auto_schema(
