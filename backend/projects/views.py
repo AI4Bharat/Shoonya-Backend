@@ -331,36 +331,6 @@ def get_task_count(pk, status):
 #     return annotated_objs
 
 
-def process_conversation_for_csv_tsv_export(tasks_list, project_type):
-    conversation_tasks_list = []
-    for task in tasks_list:
-        task_dict = OrderedDict()
-        task_dict["topic"] = task["data"]["topic"]
-        task_dict["domain"] = task["data"]["domain"]
-        task_dict["prompt"] = task["data"]["prompt"]
-        task_dict["language"] = task["data"]["language"]
-        task_dict["scenario"] = task["data"]["scenario"]
-        task_dict["word_count"] = task["data"]["word_count"]
-        task_dict["speaker_count"] = task["data"]["speaker_count"]
-        task_dict["speakers_json"] = task["data"]["speakers_json"]
-        task_dict["sentence_count"] = task["data"]["sentence_count"]
-        if project_type == "ConversationTranslation":
-            task_dict["conversation_json"] = task["data"]["conversation_json"]
-        else:
-            task_dict["conversation_json"] = task["data"]["source_conversation_json"]
-        task_dict["machine_translated_conversation_json"] = task["data"][
-            "machine_translated_conversation_json"
-        ]
-        task_dict["task_status"] = task["data"]["task_status"]
-        task_dict["id"] = task["id"]
-        task_dict["annotator"] = task["annotations"][0].get("completed_by", None)
-        task_dict["annotation_id"] = task["correct_annotation"]
-        task_dict["created_at"] = task["annotations"][0].get("created_at", None)
-        task_dict["updated_at"] = task["annotations"][0].get("updated_at", None)
-        task_dict["lead_time"] = task["annotations"][0].get("lead_time", None)
-        task_dict["translated_conversation_json"] = task["translated_conversation_json"]
-        conversation_tasks_list.append(task_dict)
-    return conversation_tasks_list
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -2162,6 +2132,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
             project_type = dict(PROJECT_TYPE_CHOICES)[project.project_type]
+
+            include_input_data_metadata_json = request.query_params.get(
+                "include_input_data_metadata_json", False
+            )
+            if include_input_data_metadata_json == "true":
+                include_input_data_metadata_json = True
+            else:
+                include_input_data_metadata_json = False
+
             if "export_type" in dict(request.query_params):
                 export_type = request.query_params["export_type"]
             else:
@@ -2204,6 +2183,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
                     task_dict["annotations"] = [OrderedDict({"result": {}})]
+
+                if include_input_data_metadata_json:
+                    dataset_type = project.dataset_id.all()[0].dataset_type
+                    dataset_model = getattr(dataset_models, dataset_type)
+                    task_dict["data"][
+                        "input_data_metadata_json"
+                    ] = dataset_model.objects.get(
+                        pk=task_dict["input_data"]
+                    ).metadata_json
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
                 tasks_list.append(OrderedDict(task_dict))
@@ -2231,39 +2219,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         conversation_json[idx1]["sentences"][idx2] = ".".join(
                             map(str, result["value"]["text"])
                         )
-                    task["translated_conversation_json"] = conversation_json
-
-                if export_type != "JSON":
-                    conversation_tasks_list = process_conversation_for_csv_tsv_export(
-                        tasks_list, project_type
-                    )
-                    if export_type == "CSV":
-                        content_type = "text/csv"
-                        filename = "data.csv"
-                    elif export_type == "TSV":
-                        content_type = "application/.tsv"
-                        filename = "data.tsv"
-
-                    response = HttpResponse(content_type=content_type)
-                    response["Content-Disposition"] = (
-                        'attachment; filename="%s"' % filename
-                    )
-                    response["filename"] = filename
-                    if export_type == "TSV":
-                        writer = csv.DictWriter(
-                            response,
-                            fieldnames=conversation_tasks_list[0].keys(),
-                            delimiter="\t",
-                        )
-                    else:
-                        writer = csv.DictWriter(
-                            response, fieldnames=conversation_tasks_list[0].keys()
-                        )
-                    writer.writeheader()
-                    for task in conversation_tasks_list:
-                        writer.writerow(task)
-
-                    return response
+                    task["data"]["translated_conversation_json"] = conversation_json
 
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
@@ -2286,6 +2242,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "User does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
 
     @swagger_auto_schema(method="get", responses={200: "No tasks to export!"})
     @swagger_auto_schema(
