@@ -2499,3 +2499,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer.data[i]["time"] = all_times[i]
             serializer.data[i]["status"] = status_list[i]
         return Response(serializer.data)
+
+
+@is_organization_owner_or_workspace_manager
+@action(
+    detail=True,
+    methods=["GET"],
+    name="Update language field of task data to Project's target language",
+    url_name="change_task_language_field_to_project_target_language",
+)
+def change_task_language_field_to_project_target_language(self, request, pk):
+    project = Project.objects.get(pk=pk)
+    tasks = Task.objects.filter(project_id=project)
+    tasks_list = []
+    for task in tasks:
+        task_data = task.data
+        task_data["output_language"] = project.tgt_language
+        setattr(task, "data", task_data)
+        tasks_list.append(task)
+
+    Task.objects.bulk_update(tasks_list, ["data"])
+
+    return Response(
+        {"message": "language field of task data succesfully updated!"},
+        status=status.HTTP_200_OK,
+    )
