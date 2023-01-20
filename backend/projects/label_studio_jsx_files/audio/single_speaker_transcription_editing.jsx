@@ -18,9 +18,9 @@
     <Header value="Provide Transcription" /> 
   </View> 
   <View style="overflow: auto; width: 50%;">
-<TextArea name="transcribed_json" enableTags="true" toName="audio_url" 
+<TextArea name="transcribed_json" transcription="false" toName="audio_url" 
             rows="2" editable="true" 
-            perRegion="true" required="true" /> 
+            perRegion="true" required="false" /> 
   </View>
               
   {reference_raw_transcript ? <Header value="Reference Transcript" /> 
