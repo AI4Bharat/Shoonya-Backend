@@ -18,7 +18,7 @@
     <Header value="Provide Transcription" /> 
   </View> 
   <View style="overflow: auto; width: 50%;">
-  <TextArea name="transcribed_json" toName="audio_url" 
+<TextArea name="transcribed_json" class="tags_enabled" toName="audio_url" 
             rows="2" editable="true" 
             perRegion="true" required="true" /> 
   </View>
