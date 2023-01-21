@@ -36,14 +36,6 @@ services:
       - ./:/workdir:ro
     restart: unless-stopped
     
-  db:
-    restart: always
-    image: "postgres:11"
-    environment:
-      - "POSTGRES_HOST_AUTH_METHOD=trust"
-      - "POSTGRES_DB=main"
-    volumes:
-      - ./postgres_data:/var/lib/postgresql/data/
   web:
     build: ./backend
     command: gunicorn --bind 0.0.0.0:8000 --workers 4 shoonya_backend.wsgi --timeout 300
@@ -53,7 +45,6 @@ services:
     ports:
       - 8000:8000
     depends_on:
-      - db
       - redis
   redis:
     container_name: redis
@@ -69,7 +60,6 @@ services:
     volumes:
       - ./backend/:/usr/src/backend/
     depends_on:
-      - db
       - redis
       - web 
 
@@ -82,7 +72,6 @@ services:
     volumes:
       - ./backend/:/usr/src/backend/
     depends_on:
-      - db
       - redis
       - web
 
@@ -93,7 +82,6 @@ services:
     volumes:
       - ./backend/:/usr/src/backend
     depends_on:
-      - db
       - redis
       - web
 
@@ -103,5 +91,4 @@ volumes:
   letsencrypt_certs:
     external: true
   certbot_acme_challenge:
-  postgres_data:
   static_volume:
