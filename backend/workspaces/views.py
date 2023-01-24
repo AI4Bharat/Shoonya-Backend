@@ -17,7 +17,11 @@ from projects.utils import is_valid_date
 from datetime import datetime
 from users.serializers import UserFetchSerializer
 from users.views import get_role_name
-from projects.utils import minor_major_accepted_task, convert_seconds_to_hours
+from projects.utils import (
+    minor_major_accepted_task,
+    convert_seconds_to_hours,
+    get_audio_project_types,
+)
 
 
 from .serializers import (
@@ -34,6 +38,7 @@ from .decorators import (
     is_organization_owner_or_workspace_manager,
     is_workspace_creator,
 )
+
 
 # Create your views here.
 
@@ -117,53 +122,70 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
 
     total_task_count = total_tasks.count()
 
-    accepted_tasks = Task.objects.filter(
-        project_id__in=proj_ids, review_user=userid, task_status="accepted"
-    )
-
-    accepted_tasks_objs_ids = list(accepted_tasks.values_list("id", flat=True))
-    accepted_objs = Annotation.objects.filter(
-        task_id__in=accepted_tasks_objs_ids,
+    accepted_tasks = Annotation.objects.filter(
+        annotation_status="accepted",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     )
 
-    accepted_objs_count = accepted_objs.count()
+    accepted_objs_count = accepted_tasks.count()
 
-    acceptedwtchange_tasks = Task.objects.filter(
-        project_id__in=proj_ids,
-        review_user=userid,
-        task_status="accepted_with_changes",
-    )
-
-    acceptedwtchange_tasks_objs_ids = list(
-        acceptedwtchange_tasks.values_list("id", flat=True)
-    )
-    acceptedwtchange_objs = Annotation.objects.filter(
-        task_id__in=acceptedwtchange_tasks_objs_ids,
+    acceptedwt_minor_change_tasks = Annotation.objects.filter(
+        annotation_status="accepted_with_minor_changes",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     )
-    minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
-    # acceptedwtchange_objs_count = acceptedwtchange_objs.count()
+
+    minor_changes = acceptedwt_minor_change_tasks.count()
+
+    acceptedwt_major_change_tasks = Annotation.objects.filter(
+        annotation_status="accepted_with_major_changes",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    major_changes = acceptedwt_major_change_tasks.count()
 
     labeled_tasks = Task.objects.filter(
-        project_id__in=proj_ids, review_user=userid, task_status="labeled"
+        project_id__in=proj_ids, review_user=userid, task_status="annotated"
     )
     labeled_tasks_count = labeled_tasks.count()
 
-    to_be_revised_tasks = Task.objects.filter(
-        project_id__in=proj_ids, review_user=userid, task_status="to_be_revised"
-    )
-    to_be_revised_tasks_objs_ids = list(
-        to_be_revised_tasks.values_list("id", flat=True)
-    )
-    to_be_revised_objs = Annotation.objects.filter(
-        task_id__in=to_be_revised_tasks_objs_ids,
+    to_be_revised_tasks = Annotation.objects.filter(
+        annotation_status="to_be_revised",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     )
-    to_be_revised_tasks_count = to_be_revised_objs.count()
+
+    to_be_revised_tasks_count = to_be_revised_tasks.count()
+
+    skipped_tasks = Annotation.objects.filter(
+        annotation_status="skipped",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    skipped_tasks_count = skipped_tasks.count()
+
+    draft_tasks = Annotation.objects.filter(
+        annotation_status="draft",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    draft_tasks_count = draft_tasks.count()
 
     result = {
         "Reviewer Name": userName,
@@ -177,6 +199,8 @@ def get_review_reports(proj_ids, userid, start_date, end_date):
         "Accepted With Major Changes": major_changes,
         "Unreviewed": labeled_tasks_count,
         "To Be Revised": to_be_revised_tasks_count,
+        "Skipped": skipped_tasks_count,
+        "Draft": draft_tasks_count,
     }
     return result
 
@@ -190,46 +214,86 @@ def un_pack_annotation_tasks(
     project_type,
 ):
 
-    accepted = get_annotated_tasks(
-        proj_ids,
-        each_annotation_user,
-        ["accepted"],
-        start_date,
-        end_date,
+    annotations_of_reviewer_accepted = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="accepted",
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+    parent_anno_ids = [
+        ann.parent_annotation_id for ann in annotations_of_reviewer_accepted
+    ]
+    accepted = Annotation.objects.filter(
+        id__in=parent_anno_ids,
+        completed_by=each_annotation_user,
     )
 
-    to_be_revised = get_annotated_tasks(
-        proj_ids,
-        each_annotation_user,
-        ["to_be_revised"],
-        start_date,
-        end_date,
+    annotations_of_reviewer_to_be_revised = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="to_be_revised",
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
     )
-    accepted_with_changes = get_annotated_tasks(
-        proj_ids,
-        each_annotation_user,
-        ["accepted_with_changes"],
-        start_date,
-        end_date,
-    )
-    accepted_wt_minor_changes, accepted_wt_major_changes = minor_major_accepted_task(
-        accepted_with_changes
-    )
-    labeled = get_annotated_tasks(
-        proj_ids,
-        each_annotation_user,
-        ["labeled"],
-        start_date,
-        end_date,
+    parent_anno_ids_of_to_be_revised = [
+        ann.parent_annotation_id for ann in annotations_of_reviewer_to_be_revised
+    ]
+    to_be_revised = Annotation.objects.filter(
+        id__in=parent_anno_ids_of_to_be_revised,
+        completed_by=each_annotation_user,
     )
 
-    all_annotated_tasks = (
-        list(accepted)
-        + list(to_be_revised)
-        + list(accepted_with_changes)
-        + list(labeled)
+    # accepted with minor change
+
+    annotations_of_reviewer_minor = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="accepted_with_minor_changes",
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
     )
-    lead_time_annotated_tasks = [eachtask.lead_time for eachtask in all_annotated_tasks]
+
+    parent_anno_ids_of_minor = [
+        ann.parent_annotation_id for ann in annotations_of_reviewer_minor
+    ]
+    accepted_wt_minor_changes = Annotation.objects.filter(
+        id__in=parent_anno_ids_of_minor,
+        completed_by=each_annotation_user,
+    )
+
+    # accepted with Major changes
+
+    annotations_of_reviewer_major = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="accepted_with_major_changes",
+        parent_annotation_id__isnull=False,
+        created_at__range=[start_date, end_date],
+    )
+
+    parent_anno_ids_of_major = [
+        ann.parent_annotation_id for ann in annotations_of_reviewer_major
+    ]
+    accepted_wt_major_changes = Annotation.objects.filter(
+        id__in=parent_anno_ids_of_major,
+        completed_by=each_annotation_user,
+    )
+
+    # labeled task count
+
+    labeled_annotations = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="labeled",
+        parent_annotation_id__isnull=True,
+        created_at__range=[start_date, end_date],
+        completed_by=each_annotation_user,
+    )
+    labeled_annotation_ids = [ann.id for ann in labeled_annotations]
+
+    reviewed_ann = Annotation.objects.filter(
+        parent_annotation_id__in=labeled_annotation_ids
+    ).count()
+
+    labeled = len(labeled_annotations) - reviewed_ann
+
+    lead_time_annotated_tasks = [eachtask.lead_time for eachtask in labeled_annotations]
     avg_lead_time = 0
     if len(lead_time_annotated_tasks) > 0:
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
@@ -237,17 +301,17 @@ def un_pack_annotation_tasks(
     if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
 
         total_word_count_list = []
-        for each_task in all_annotated_tasks:
+        for each_task in labeled_annotations:
             try:
                 total_word_count_list.append(each_task.task.data["word_count"])
             except:
                 pass
 
         total_word_count = sum(total_word_count_list)
-    total_duration = "00:00:00"
-    if project_type == "SingleSpeakerAudioTranscriptionEditing":
+    total_duration = "0:00:00"
+    if project_type in get_audio_project_types():
         total_duration_list = []
-        for each_task in all_annotated_tasks:
+        for each_task in labeled_annotations:
             try:
                 total_duration_list.append(each_task.task.data["audio_duration"])
             except:
@@ -259,7 +323,7 @@ def un_pack_annotation_tasks(
         to_be_revised.count(),
         accepted_wt_minor_changes,
         accepted_wt_major_changes,
-        labeled.count(),
+        labeled,
         avg_lead_time,
         total_word_count,
         total_duration,
@@ -567,32 +631,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             org_owner = org_obj.created_by.get_username()
         except:
             org_owner = ""
-        from_date = request.data.get("from_date")
-        to_date = request.data.get("to_date")
-        from_date = from_date + " 00:00"
-        to_date = to_date + " 23:59"
+
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         # enable_task_reviews = request.data.get("enable_task_reviews")
-
-        cond, invalid_message = is_valid_date(from_date)
-        if not cond:
-            return Response(
-                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
-            )
-        cond, invalid_message = is_valid_date(to_date)
-        if not cond:
-            return Response(
-                {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
-            )
-        start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
-        end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
-
-        if start_date > end_date:
-            return Response(
-                {"message": "'To' Date should be after 'From' Date"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         selected_language = "-"
         if tgt_language == None:
             projects_objs = Project.objects.filter(
@@ -610,6 +652,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 project_id = proj.id
                 project_name = proj.title
                 project_type = proj.project_type
+                project_type_lower = project_type.lower()
+                is_translation_project = (
+                    True if "translation" in project_type_lower else False
+                )
+
                 all_tasks = Task.objects.filter(project_id=proj.id)
                 total_tasks = all_tasks.count()
                 annotators_list = [
@@ -627,25 +674,105 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         if annotator not in owners
                     ]
                 )
-                labeled_tasks = get_annotated_tasks_project_analytics(
-                    proj.id,
-                    ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
-                    start_date,
-                    end_date,
-                )
 
+                incomplete_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="incomplete"
+                )
+                incomplete_count = incomplete_tasks.count()
+
+                labeled_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="annotated"
+                )
                 labeled_count = labeled_tasks.count()
 
-                un_labeled_count = get_task_count_project_analytics(
-                    proj.id, ["unlabeled"]
+                reviewed_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="reviewed"
                 )
-                skipped_count = get_task_count_project_analytics(proj.id, ["skipped"])
-                dropped_tasks = get_task_count_project_analytics(proj.id, ["draft"])
+
+                reviewed_count = reviewed_tasks.count()
+
+                exported_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="exported"
+                )
+                exported_count = exported_tasks.count()
+
+                total_word_annotated_count_list = []
+                total_word_reviewed_count_list = []
+                total_word_exported_count_list = []
+                if (
+                    is_translation_project
+                    or project_type == "SemanticTextualSimilarity_Scale5"
+                ):
+
+                    for each_task in labeled_tasks:
+                        try:
+                            total_word_annotated_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+
+                    for each_task in reviewed_tasks:
+                        try:
+                            total_word_reviewed_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+                    for each_task in exported_tasks:
+                        try:
+                            total_word_exported_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+                total_word_annotated_count = sum(total_word_annotated_count_list)
+                total_word_reviewed_count = sum(total_word_reviewed_count_list)
+                total_word_exported_count = sum(total_word_exported_count_list)
+
+                total_duration_annotated_count_list = []
+                total_duration_reviewed_count_list = []
+                total_duration_exported_count_list = []
+                if project_type in get_audio_project_types():
+
+                    for each_task in labeled_tasks:
+                        try:
+                            total_duration_annotated_count_list.append(
+                                each_task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+
+                    for each_task in reviewed_tasks:
+                        try:
+                            total_duration_reviewed_count_list.append(
+                                each_task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+
+                    for each_task in exported_tasks:
+                        try:
+                            total_duration_exported_count_list.append(
+                                each_task.data["audio_duration"]
+                            )
+                        except:
+                            pass
+
+                total_duration_annotated_count = convert_seconds_to_hours(
+                    sum(total_duration_annotated_count_list)
+                )
+                total_duration_reviewed_count = convert_seconds_to_hours(
+                    sum(total_duration_reviewed_count_list)
+                )
+                total_duration_exported_count = convert_seconds_to_hours(
+                    sum(total_duration_exported_count_list)
+                )
 
                 if total_tasks == 0:
                     project_progress = 0.0
                 else:
-                    project_progress = (labeled_count / total_tasks) * 100
+                    project_progress = (reviewed_count / total_tasks) * 100
                 result = {
                     "Project Id": project_id,
                     "Project Name": project_name,
@@ -654,11 +781,38 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "No .of Annotators Assigned": no_of_annotators_assigned,
                     "Total": total_tasks,
                     "Annotated": labeled_count,
-                    "Unlabeled": un_labeled_count,
-                    "Skipped": skipped_count,
-                    "Draft": dropped_tasks,
-                    "Project Progress": round(project_progress, 3),
+                    "Incomplete": incomplete_count,
+                    "Reviewed": reviewed_count,
+                    "Exported": exported_count,
+                    "Annotated Tasks Audio Duration": total_duration_annotated_count,
+                    "Reviewed Tasks Audio Duration": total_duration_reviewed_count,
+                    "Exported Tasks Audio Duration": total_duration_exported_count,
+                    "Annotated Tasks Word Count": total_word_annotated_count,
+                    "Reviewed Tasks Word Count": total_word_reviewed_count,
+                    "Exported Tasks Word Count": total_word_exported_count,
+                    "Project Progress(Reviewed/Total)": round(project_progress, 3),
                 }
+
+                if project_type in get_audio_project_types():
+                    del result["Annotated Tasks Word Count"]
+                    del result["Reviewed Tasks Word Count"]
+                    del result["Exported Tasks Word Count"]
+
+                elif (
+                    is_translation_project
+                    or project_type == "SemanticTextualSimilarity_Scale5"
+                ):
+                    del result["Annotated Tasks Audio Duration"]
+                    del result["Reviewed Tasks Audio Duration"]
+                    del result["Exported Tasks Audio Duration"]
+                else:
+                    del result["Annotated Tasks Word Count"]
+                    del result["Reviewed Tasks Word Count"]
+                    del result["Exported Tasks Word Count"]
+                    del result["Annotated Tasks Audio Duration"]
+                    del result["Reviewed Tasks Audio Duration"]
+                    del result["Exported Tasks Audio Duration"]
+
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
@@ -864,17 +1018,18 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 )
 
             else:
-                annotated_labeled_tasks = get_annotated_tasks(
-                    proj_ids,
-                    each_annotation_user,
-                    ["accepted", "to_be_revised", "accepted_with_changes", "labeled"],
-                    start_date,
-                    end_date,
+
+                labeled_annotations = Annotation.objects.filter(
+                    task__project_id__in=proj_ids,
+                    annotation_status="labeled",
+                    parent_annotation_id__isnull=True,
+                    created_at__range=[start_date, end_date],
+                    completed_by=each_annotation_user,
                 )
 
-                annotated_tasks = annotated_labeled_tasks.count()
+                annotated_tasks = labeled_annotations.count()
                 lead_time_annotated_tasks = [
-                    eachtask.lead_time for eachtask in annotated_labeled_tasks
+                    eachtask.lead_time for eachtask in labeled_annotations
                 ]
                 avg_lead_time = 0
                 if len(lead_time_annotated_tasks) > 0:
@@ -887,7 +1042,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     or project_type == "SemanticTextualSimilarity_Scale5"
                 ):
                     total_word_count_list = []
-                    for each_task in annotated_labeled_tasks:
+                    for each_task in labeled_annotations:
                         try:
                             total_word_count_list.append(
                                 each_task.task.data["word_count"]
@@ -896,11 +1051,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             pass
 
                     total_word_count = sum(total_word_count_list)
+                total_duration = "0:00:00"
+                if project_type in get_audio_project_types():
 
-                total_duration = "00:00:00"
-                if project_type == "SingleSpeakerAudioTranscriptionEditing":
                     total_duration_list = []
-                    for each_task in annotated_labeled_tasks:
+
+                    for each_task in labeled_annotations:
                         try:
                             total_duration_list.append(
                                 each_task.task.data["audio_duration"]
@@ -908,16 +1064,28 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         except:
                             pass
                     total_duration = convert_seconds_to_hours(sum(total_duration_list))
-                # items.append(("Total Audio Duration", total_duration))
 
-            total_skipped_tasks = get_task_count(
-                proj_ids, ["skipped"], each_annotation_user
+            total_skipped_tasks = Annotation.objects.filter(
+                task__project_id__in=proj_ids,
+                annotation_status="skipped",
+                parent_annotation_id__isnull=True,
+                created_at__range=[start_date, end_date],
+                completed_by=each_annotation_user,
             )
-            all_pending_tasks_in_project = get_task_count(
-                proj_ids, ["unlabeled"], each_annotation_user
+            all_pending_tasks_in_project = Annotation.objects.filter(
+                task__project_id__in=proj_ids,
+                annotation_status="unlabeled",
+                parent_annotation_id__isnull=True,
+                created_at__range=[start_date, end_date],
+                completed_by=each_annotation_user,
             )
-            all_draft_tasks_in_project = get_task_count(
-                proj_ids, ["draft"], each_annotation_user
+
+            all_draft_tasks_in_project = Annotation.objects.filter(
+                task__project_id__in=proj_ids,
+                annotation_status="draft",
+                parent_annotation_id__isnull=True,
+                created_at__range=[start_date, end_date],
+                completed_by=each_annotation_user,
             )
 
             if only_review_proj:
@@ -955,7 +1123,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                 }
 
-            if project_type == "SingleSpeakerAudioTranscriptionEditing":
+            if project_type in get_audio_project_types():
                 del result["Word Count"]
             elif (
                 is_translation_project
