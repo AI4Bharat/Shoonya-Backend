@@ -17,15 +17,7 @@ class Migration(migrations.Migration):
         )
 
         for project in projects:
-            tasks = Task.objects.filter(project_id=project)
-            task_ids = [task.id for task in tasks]
-            annotations = Annotation.objects.filter(task__id__in=task_ids)
-            annotations = annotations.order_by("created_at")
-            if len(annotations) == 0:
-                project.published_at = project.created_at
-            else:
-                project.published_at = annotations[0].created_at
-
+            project.published_at = project.created_at
             project.save()
 
     operations = [
