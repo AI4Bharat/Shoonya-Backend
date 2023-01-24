@@ -37,6 +37,35 @@ QUALITY_CHOICES = (
     ("Corrupt", "Corrupt"),
 )
 
+SENTENCE_TEXT_DOMAIN_CHOICES = (
+    ("None", "None"),
+    ("General", "General"),
+    ("News", "News"),
+    ("Education", "Education"),
+    ("Legal", "Legal"),
+    ("Government-Press-Release", "Government-Press-Release"),
+    ("Healthcare", "Healthcare"),
+    ("Agriculture", "Agriculture"),
+    ("Automobile", "Automobile"),
+    ("Tourism", "Tourism"),
+    ("Financial", "Financial"),
+    ("Movies", "Movies"),
+    ("Subtitles", "Subtitles"),
+    ("Sports", "Sports"),
+    ("Technology", "Technology"),
+    ("Lifestyle", "Lifestyle"),
+    ("Entertainment", "Entertainment"),
+    ("Parliamentary", "Parliamentary"),
+    ("Art-and-Culture", "Art-and-Culture"),
+    ("Economy", "Economy"),
+    ("History", "History"),
+    ("Philosophy", "Philosophy"),
+    ("Religion", "Religion"),
+    ("National-Security-and-Defence", "National-Security-and-Defence"),
+    ("Literature", "Literature"),
+    ("Geography", "Geography"),
+)
+
 # List of async functions pertaining to the dataset models
 ALLOWED_CELERY_TASKS = [
     "dataset.tasks.upload_data_to_data_instance",
@@ -133,10 +162,10 @@ class SentenceText(DatasetBase):
     )
     domain = models.CharField(
         verbose_name="domain",
+        default="None",
         max_length=1024,
+        choices=SENTENCE_TEXT_DOMAIN_CHOICES,
         help_text=("Domain of the Sentence"),
-        null=True,
-        blank=True,
     )
     quality_status = models.CharField(
         verbose_name="quality_status",

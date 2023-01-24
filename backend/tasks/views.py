@@ -1,5 +1,6 @@
 from locale import normalize
 from urllib.parse import unquote
+import ast
 
 from rest_framework import viewsets
 from rest_framework import mixins
@@ -7,6 +8,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from django.core.paginator import Paginator
 
 
 from tasks.models import *
@@ -99,16 +101,28 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         task = self.get_object()
         annotations = Annotation.objects.filter(task=task)
         project = Project.objects.get(id=task.project_id.id)
-        user = request.user
+        annotator = request.user
+        annotators_of_this_project = project.annotators.all()
+        if (annotator.role == 1) or (
+            (annotator.role == 2 or annotator.role == 3)
+            and (annotator in annotators_of_this_project)
+        ):
+            if annotator != task.review_user:
+                if annotator in annotators_of_this_project:
+                    ann_annotations = annotations.filter(completed_by=annotator)
+                    annotations1 = list(ann_annotations)
+                    if len(ann_annotations) > 0:
+                        review_annotation = annotations.filter(
+                            parent_annotation_id__isnull=False
+                        )
 
-        if user != task.review_user:
-            if user in project.annotators.all():
-                annotations = annotations.filter(completed_by=user)
-            elif user.role == User.ANNOTATOR:
-                return Response(
-                    {"message": "You are not a part of this project"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                        annotations1.extend(list(review_annotation))
+                    annotations = annotations1
+                else:
+                    return Response(
+                        {"message": "You are not a part of this project"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
@@ -123,226 +137,373 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
-        if "project_id" in dict(request.query_params):
-            # Step 1: get the logged-in user details
-            # Step 2: if - he is NOT (superuser, or manager or org owner), filter based on logged in user.
-            # Step 3: else - if user_filter passed, filter based on user
-            # Step 4: else - else don't filter
 
-            user = request.user
-            user_obj = User.objects.get(pk=user.id)
-            is_review_mode = (
-                "mode" in dict(request.query_params)
-                and request.query_params["mode"] == "review"
-            )
-
-            if is_review_mode:
-                if (
-                    request.user
-                    in Project.objects.get(
-                        id=request.query_params["project_id"]
-                    ).annotation_reviewers.all()
-                ):
-                    queryset = Task.objects.filter(
-                        project_id__exact=request.query_params["project_id"]
-                    ).filter(review_user=user.id)
-
-                elif (
-                    request.user.role == User.WORKSPACE_MANAGER
-                    or request.user.role == User.ORGANIZATION_OWNER
-                ):
-                    if "user_filter" in dict(request.query_params):
-                        queryset = Task.objects.filter(
-                            project_id__exact=request.query_params["project_id"]
-                        ).filter(review_user=request.query_params["user_filter"])
-                    else:
-                        queryset = Task.objects.filter(
-                            project_id__exact=request.query_params["project_id"]
-                        )
-                else:
-                    return Response(
-                        {"message": "You do not have access!"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            else:
-                if (
-                    request.user
-                    in Project.objects.get(
-                        id=request.query_params["project_id"]
-                    ).annotators.all()
-                ):
-                    queryset = Task.objects.filter(
-                        project_id__exact=request.query_params["project_id"]
-                    ).filter(annotation_users=user.id)
-                else:
-                    if "user_filter" in dict(request.query_params):
-                        queryset = Task.objects.filter(
-                            project_id__exact=request.query_params["project_id"]
-                        ).filter(annotation_users=request.query_params["user_filter"])
-                    else:
-                        queryset = Task.objects.filter(
-                            project_id__exact=request.query_params["project_id"]
-                        )
-
-        else:
-            is_review_mode = (
-                "mode" in dict(request.query_params)
-                and request.query_params["mode"] == "review"
-            )
-            queryset = Task.objects.all()
-
-        # Handle search query (if any)
-        if len(queryset):
-            queryset = queryset.filter(
-                **process_search_query(
-                    request.GET, "data", list(queryset.first().data.keys())
-                )
-            )
-
-        if "page" in dict(request.query_params):
-            page = request.query_params["page"]
-            if int(page) == 0:
-                queryset = queryset.order_by("id")
-                serializer = TaskSerializer(queryset, many=True)
-                data = serializer.data
-                return Response(data)
-
-        task_status = UNLABELED
-        accepted_wt_changes_or_to_be_revised_task = False
-        if is_review_mode:
-            task_status = LABELED
-        if "task_status" in dict(request.query_params):
-            queryset = queryset.filter(task_status=request.query_params["task_status"])
-            task_status = request.query_params["task_status"]
-
-            if task_status == "accepted_with_changes" or task_status == "to_be_revised":
-                accepted_wt_changes_or_to_be_revised_task = True
-
-        else:
-            queryset = queryset.filter(task_status=task_status)
-
-        queryset = queryset.order_by("id")
-
-        page = request.GET.get("page")
-        try:
-            page = self.paginate_queryset(queryset)
-        except Exception:
-            page = []
-            data = page
-            return Response(
-                {
-                    "status": status.HTTP_200_OK,
-                    "message": "No more record.",
-                    # TODO: should be results. Needs testing to be sure.
-                    "data": data,
-                }
-            )
-        if "project_id" in dict(request.query_params):
-            project_details = Project.objects.filter(
-                id=request.query_params["project_id"]
-            )
-            project_type = project_details[0].project_type
-            project_type = project_type.lower()
-            is_conversation_project = True if "conversation" in project_type else False
-            is_translation_project = True if "translation" in project_type else False
-        else:
-
-            page = self.paginate_queryset(queryset)
-            serializer = TaskAnnotationSerializer(page, many=True)
-            data = serializer.data
-
-            for index, each_data in enumerate(data):
-                if accepted_wt_changes_or_to_be_revised_task and is_review_mode:
-                    ann = Annotation.objects.filter(
-                        task_id=data[index]["id"], parent_annotation__isnull=True
-                    )
-                    email = ann[0].completed_by.email
-                    data[index]["email"] = email
-
-            return self.get_paginated_response(data)
-
+        user_id = request.user.id
         user = request.user
+        page_number = None
+        if "page" in dict(request.query_params):
+            page_number = request.query_params["page"]
 
-        if (
-            (is_translation_project)
-            and (not is_conversation_project)
-            and (page is not None)
-            and (task_status in {DRAFT, LABELED, TO_BE_REVISED})
-            and (not is_review_mode)
-        ):
-            serializer = TaskAnnotationSerializer(page, many=True)
-            data = serializer.data
-            task_ids = []
-            for index, each_data in enumerate(data):
-                task_ids.append(each_data["id"])
+        if "project_id" in dict(request.query_params):
+            proj_id = request.query_params["project_id"]
+            proj_objs = Project.objects.filter(id=proj_id)
+            if len(proj_objs) == 0:
+                return Response(
+                    {"message": " this project not  exist"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            proj_annotators = proj_objs[0].annotators.all()
+            proj_reviewers = proj_objs[0].annotation_reviewers.all()
 
-            if (
-                user
-                in Project.objects.get(
-                    id=request.query_params["project_id"]
-                ).annotators.all()
-            ):
-                annotation_queryset = Annotation.objects.filter(
-                    completed_by=request.user
-                ).filter(task__id__in=task_ids)
+            view = "user_view"
+            exist_req_user = 0
+            if user.role == 3 or user.role == 2:
+                if not ((user in proj_annotators) or (user in proj_reviewers)):
+                    view = "managerial_view"
 
-                for index, each_data in enumerate(data):
-                    annotation_queryset_instance = annotation_queryset.filter(
-                        task__id=each_data["id"]
+                    if "req_user" in dict(request.query_params):
+                        exist_req_user = 1
+                        req_user = request.query_params["req_user"]
+
+            if exist_req_user:
+                user_id = int(req_user)
+
+            if "annotation_status" in dict(request.query_params):
+                ann_status = request.query_params["annotation_status"]
+                ann_status = ast.literal_eval(ann_status)
+
+                if view == "managerial_view":
+                    if not ("req_user" in dict(request.query_params)):
+                        ann = Annotation.objects.filter(
+                            task__project_id_id=proj_id,
+                            annotation_status__in=ann_status,
+                            parent_annotation_id__isnull=True,
+                        )
+
+                        tasks = Task.objects.filter(annotations__in=ann)
+                        tasks = tasks.distinct()
+                        # Handle search query (if any)
+                        if len(tasks):
+                            tasks = tasks.filter(
+                                **process_search_query(
+                                    request.GET, "data", list(tasks.first().data.keys())
+                                )
+                            )
+                        ann_filter1 = ann.filter(task__in=tasks)
+
+                        task_ids = [an.task_id for an in ann_filter1]
+                        annotation_status = [an.annotation_status for an in ann_filter1]
+                        user_mail = [an.completed_by.email for an in ann_filter1]
+                        final_dict = {}
+                        ordered_tasks = []
+                        for idx, ids in enumerate(task_ids):
+                            tas = Task.objects.filter(id=ids)
+                            tas = tas.values()[0]
+                            tas["annotation_status"] = annotation_status[idx]
+                            tas["user_mail"] = user_mail[idx]
+                            ordered_tasks.append(tas)
+                        if page_number is not None:
+                            page_object = Paginator(ordered_tasks, 10)
+                            try:
+                                final_dict["total_count"] = len(ordered_tasks)
+                                page_items = page_object.page(page_number)
+                                ordered_tasks = page_items.object_list
+                                final_dict["result"] = ordered_tasks
+                                return Response(final_dict)
+                            except:
+                                return Response(
+                                    {"message": "page not available"},
+                                    status=status.HTTP_400_BAD_REQUEST,
+                                )
+
+                        final_dict["total_count"] = len(ordered_tasks)
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                ann = Annotation.objects.filter(
+                    task__project_id_id=proj_id,
+                    annotation_status__in=ann_status,
+                    parent_annotation_id__isnull=True,
+                    completed_by=user_id,
+                )
+
+                tasks = Task.objects.filter(annotations__in=ann)
+                tasks = tasks.distinct()
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
                     )
-                    if len(annotation_queryset_instance) != 0:
-                        annotation_queryset_instance = annotation_queryset_instance[0]
-                        data[index]["data"][
-                            "output_text"
-                        ] = annotation_queryset_instance.result[0]["value"]["text"][0]
-                        each_data["machine_translation"] = each_data["data"][
-                            "machine_translation"
-                        ]
-                        del each_data["data"]["machine_translation"]
-                return self.get_paginated_response(data)
+                ann_filter1 = ann.filter(task__in=tasks)
 
-        if (
-            (is_translation_project)
-            and (not is_conversation_project)
-            and (page is not None)
-            and (task_status in {ACCEPTED, ACCEPTED_WITH_CHANGES})
-        ):
-            # Shows annotations for review_mode
-            serializer = TaskAnnotationSerializer(page, many=True)
-            data = serializer.data
-            for index, each_data in enumerate(data):
+                task_ids = [an.task_id for an in ann_filter1]
+                annotation_status = [an.annotation_status for an in ann_filter1]
+                user_mail = [an.completed_by.email for an in ann_filter1]
+                final_dict = {}
+                ordered_tasks = []
 
-                if accepted_wt_changes_or_to_be_revised_task and is_review_mode:
-                    ann = Annotation.objects.filter(
-                        task_id=data[index]["id"], parent_annotation__isnull=True
+                for idx, ids in enumerate(task_ids):
+                    tas = Task.objects.filter(id=ids)
+                    tas = tas.values()[0]
+                    tas["annotation_status"] = annotation_status[idx]
+                    tas["user_mail"] = user_mail[idx]
+                    ordered_tasks.append(tas)
+
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, 10)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
+
+            if "review_status" in dict(request.query_params):
+                rew_status = request.query_params["review_status"]
+                rew_status = ast.literal_eval(rew_status)
+
+                if view == "managerial_view":
+                    if not ("req_user" in dict(request.query_params)):
+
+                        ann = Annotation.objects.filter(
+                            task__project_id_id=proj_id,
+                            annotation_status__in=rew_status,
+                            parent_annotation_id__isnull=False,
+                        )
+                        tasks = Task.objects.filter(annotations__in=ann)
+                        tasks = tasks.distinct()
+                        # Handle search query (if any)
+                        if len(tasks):
+                            tasks = tasks.filter(
+                                **process_search_query(
+                                    request.GET, "data", list(tasks.first().data.keys())
+                                )
+                            )
+                        ann_filter1 = ann.filter(task__in=tasks)
+
+                        task_ids = [an.task_id for an in ann_filter1]
+                        annotation_status = [an.annotation_status for an in ann_filter1]
+                        user_mail = [an.completed_by.email for an in ann_filter1]
+                        ordered_tasks = []
+                        final_dict = {}
+                        for idx, ids in enumerate(task_ids):
+                            tas = Task.objects.filter(id=ids)
+                            tas = tas.values()[0]
+                            tas["review_status"] = annotation_status[idx]
+                            tas["user_mail"] = user_mail[idx]
+                            ordered_tasks.append(tas)
+
+                        if page_number is not None:
+                            page_object = Paginator(ordered_tasks, 10)
+
+                            try:
+                                final_dict["total_count"] = len(ordered_tasks)
+                                page_items = page_object.page(page_number)
+                                ordered_tasks = page_items.object_list
+                                final_dict["result"] = ordered_tasks
+                                return Response(final_dict)
+                            except:
+                                return Response(
+                                    {"message": "page not available"},
+                                    status=status.HTTP_400_BAD_REQUEST,
+                                )
+
+                        final_dict["total_count"] = len(ordered_tasks)
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+
+                ann = Annotation.objects.filter(
+                    task__project_id_id=proj_id,
+                    annotation_status__in=rew_status,
+                    parent_annotation_id__isnull=False,
+                    completed_by=user_id,
+                )
+                tasks = Task.objects.filter(annotations__in=ann)
+                tasks = tasks.distinct()
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
                     )
-                    email = ann[0].completed_by.email
-                    data[index]["email"] = email
-                data[index]["data"]["output_text"] = each_data["correct_annotation"][
-                    "result"
-                ][0]["value"]["text"][0]
-                each_data["correct_annotation"] = each_data["correct_annotation"]["id"]
-                each_data["machine_translation"] = each_data["data"][
-                    "machine_translation"
+                ann_filter1 = ann.filter(task__in=tasks)
+
+                task_ids = [an.task_id for an in ann_filter1]
+                annotation_status = [an.annotation_status for an in ann_filter1]
+                user_mail = [an.completed_by.email for an in ann_filter1]
+                annotator_mail = [
+                    Annotation.objects.filter(id=an.parent_annotation_id)[
+                        0
+                    ].completed_by.email
+                    for an in ann_filter1
                 ]
-                del each_data["data"]["machine_translation"]
-            return self.get_paginated_response(data)
-        elif page is not None:
-            serializer = TaskSerializer(page, many=True)
-            data = serializer.data
 
-            for index, each_data in enumerate(data):
+                ordered_tasks = []
+                final_dict = {}
+                for idx, ids in enumerate(task_ids):
+                    tas = Task.objects.filter(id=ids)
+                    tas = tas.values()[0]
+                    tas["review_status"] = annotation_status[idx]
+                    tas["user_mail"] = user_mail[idx]
+                    tas["annotator_mail"] = annotator_mail[idx]
+                    ordered_tasks.append(tas)
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, 10)
 
-                if accepted_wt_changes_or_to_be_revised_task and is_review_mode:
-                    ann = Annotation.objects.filter(
-                        task_id=data[index]["id"], parent_annotation__isnull=True
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
+
+            tas_status = ["incomplete"]
+            if "task_status" in dict(request.query_params):
+                tas_status = request.query_params["task_status"]
+                tas_status = ast.literal_eval(tas_status)
+
+            if user.role == 3 or user.role == 2:
+                if not ("req_user" in dict(request.query_params)):
+
+                    tasks = Task.objects.filter(
+                        project_id__exact=proj_id,
+                        task_status__in=tas_status,
                     )
-                    email = ann[0].completed_by.email
-                    data[index]["email"] = email
-            return self.get_paginated_response(data)
 
-        # serializer = TaskSerializer(queryset, many=True)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+                    # Handle search query (if any)
+                    if len(tasks):
+                        tasks = tasks.filter(
+                            **process_search_query(
+                                request.GET, "data", list(tasks.first().data.keys())
+                            )
+                        )
+
+                    ordered_tasks = list(tasks.values())
+                    final_dict = {}
+                    if page_number is not None:
+                        page_object = Paginator(ordered_tasks, 10)
+
+                        try:
+                            final_dict["total_count"] = len(ordered_tasks)
+                            page_items = page_object.page(page_number)
+                            ordered_tasks = page_items.object_list
+                            final_dict["result"] = ordered_tasks
+                            return Response(final_dict)
+                        except:
+                            return Response(
+                                {"message": "page not available"},
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+
+                    final_dict["total_count"] = len(ordered_tasks)
+                    final_dict["result"] = ordered_tasks
+                    return Response(final_dict)
+            proj_annotators_ids = [an.id for an in proj_annotators]
+            proj_reviewers_ids = [an.id for an in proj_reviewers]
+
+            if user_id in proj_annotators_ids:
+
+                tasks = Task.objects.filter(
+                    project_id__exact=proj_id,
+                    task_status__in=tas_status,
+                    annotation_users=user_id,
+                )
+
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
+                    )
+
+                ordered_tasks = list(tasks.values())
+                final_dict = {}
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, 10)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
+
+            if user_id in proj_reviewers_ids:
+                tasks = Task.objects.filter(
+                    project_id__exact=proj_id,
+                    task_status__in=tas_status,
+                    review_user_id=user_id,
+                )
+
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
+                    )
+
+                ordered_tasks = list(tasks.values())
+                final_dict = {}
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, 10)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
+
+            return Response(
+                {"message": " this user not part of this project"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        else:
+            return Response(
+                {"message": "please provide project_id as a query_param "},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     def partial_update(self, request, pk=None):
         task_response = super().partial_update(request)
@@ -357,8 +518,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             properties={
                 "project_task_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
                 "project_task_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_task_ids": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
             },
-            required=["project_task_start_id", "project_task_end_id"],
+            description="Either pass the project_task_start_id and project_task_end_id or the project_task_ids in request body",
         ),
         manual_parameters=[
             openapi.Parameter(
@@ -398,31 +563,49 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     }
                 )
 
-            project_task_start_id = request.data.get("project_task_start_id")
-            project_task_end_id = request.data.get("project_task_end_id")
+            if "project_task_ids" in request.data:
+                project_task_ids = request.data.get("project_task_ids")
+                if len(project_task_ids) == 0:
+                    return Response(
+                        {
+                            "status": status.HTTP_400_BAD_REQUEST,
+                            "message": "Please enter valid values",
+                        }
+                    )
+            else:
+                project_task_start_id = request.data.get("project_task_start_id")
+                project_task_end_id = request.data.get("project_task_end_id")
 
-            if (
-                project_task_start_id == ""
-                or project_task_end_id == ""
-                or project_task_start_id == None
-                or project_task_end_id == None
-            ):
-                return Response(
-                    {
-                        "status": status.HTTP_400_BAD_REQUEST,
-                        "message": "Please enter valid values",
-                    }
-                )
+                if (
+                    project_task_start_id == ""
+                    or project_task_end_id == ""
+                    or project_task_start_id == None
+                    or project_task_end_id == None
+                ):
+                    return Response(
+                        {
+                            "status": status.HTTP_400_BAD_REQUEST,
+                            "message": "Please enter valid values",
+                        }
+                    )
 
-            project_task_ids = [
-                id for id in range(project_task_start_id, project_task_end_id + 1)
-            ]
+                project_task_ids = [
+                    id for id in range(project_task_start_id, project_task_end_id + 1)
+                ]
 
             project_tasks = Task.objects.filter(project_id=project).filter(
                 id__in=project_task_ids
             )
 
+            related_annotation_task_ids = [
+                project_task.id for project_task in project_tasks
+            ]
+            related_annotations = Annotation.objects.filter(
+                task__id__in=related_annotation_task_ids
+            ).order_by("-id")
+
             num_project_tasks = len(project_tasks)
+            num_related_annotations = len(related_annotations)
 
             if num_project_tasks == 0:
                 return Response(
@@ -432,13 +615,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     }
                 )
 
+            for related_annotation in related_annotations:
+                related_annotation.delete()
             project_tasks.delete()
             return Response(
                 {
                     "status": status.HTTP_200_OK,
-                    "message": f"Deleted {num_project_tasks} data items successfully!",
+                    "message": f"Deleted {num_project_tasks} project tasks and {num_related_annotations} related annotations successfully!",
                 }
             )
+
         except Exception as error:
             return Response(
                 {
@@ -659,26 +845,30 @@ class AnnotationViewSet(
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
         # project = Project.objects.get(pk=task.project_id.id)
-        if task.project_id.required_annotators_per_task == task.annotations.count():
+        no_of_annotations = task.annotations.filter(
+            parent_annotation_id=None, annotation_status="labeled"
+        ).count()
+        if task.project_id.required_annotators_per_task == no_of_annotations:
             # if True:
-            task.task_status = request.data["task_status"]
-            # TODO: Support accepting annotations manually
-            # if task.annotations.count() == 1:
+            task.task_status = ANNOTATED
             if not task.project_id.enable_task_reviews:
-                task.correct_annotation = annotation
-                if task.task_status == LABELED:
-                    task.task_status = ACCEPTED
+                if no_of_annotations == 1:
+                    task.correct_annotation = annotation
+                else:
+                    task.correct_annotation = None
 
-        else:
-            # To-Do : Fix the Labeled for required_annotators_per_task
-            task.task_status = request.data["task_status"]
-        task.save()
+            task.save()
         return annotation_response
 
     def create_review_annotation(self, request):
         task_id = request.data["task"]
         if "review_status" in dict(request.data) and request.data["review_status"] in [
             ACCEPTED,
+            UNREVIEWED,
+            ACCEPTED_WITH_MINOR_CHANGES,
+            ACCEPTED_WITH_MAJOR_CHANGES,
+            DRAFT,
+            SKIPPED,
             TO_BE_REVISED,
         ]:
             review_status = request.data["review_status"]
@@ -708,7 +898,7 @@ class AnnotationViewSet(
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
 
-        if task.task_status == ACCEPTED:
+        if task.task_status == REVIEWED:
             ret_dict = {"message": "Task is already reviewed and accepted!"}
             ret_status = status.HTTP_403_FORBIDDEN
             return Response(ret_dict, status=ret_status)
@@ -724,34 +914,32 @@ class AnnotationViewSet(
         annotation_response = super().create(request)
         annotation_id = annotation_response.data["id"]
         annotation = Annotation.objects.get(pk=annotation_id)
-        if review_status == ACCEPTED:
-            task.correct_annotation = annotation
-            is_modified = annotation_result_compare(
-                annotation.parent_annotation.result, annotation.result
-            )
-            if is_modified:
-                review_status = ACCEPTED_WITH_CHANGES
-        task.task_status = review_status
-        task.save()
-        parent_annotation.review_notes = annotation.review_notes
-        parent_annotation.save()
+        if (
+            review_status == ACCEPTED
+            or review_status == ACCEPTED_WITH_MINOR_CHANGES
+            or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+            or review_status == TO_BE_REVISED
+        ):
+            if review_status != TO_BE_REVISED:
+                task.correct_annotation = annotation
+                parent_annotation.review_notes = annotation.review_notes
+                parent_annotation.save()
+            task.task_status = REVIEWED
+            task.save()
 
         return annotation_response
 
     def partial_update(self, request, pk=None):
-        # task_id = request.data["task"]
-        # task = Task.objects.get(pk=task_id)
-        # if request.user not in task.annotation_users.all():
-        #     ret_dict = {"message": "You are trying to impersonate another user :("}
-        #     ret_status = status.HTTP_403_FORBIDDEN
-        #     return Response(ret_dict, status=ret_status)
 
-        annotation_response = super().partial_update(request)
-        annotation_id = annotation_response.data["id"]
-        annotation = Annotation.objects.get(pk=annotation_id)
-        task = annotation.task
+        try:
+            annotation_obj = Annotation.objects.get(id=pk)
+            task = annotation_obj.task
+        except:
+            final_result = {"message": "annotation object does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(final_result, status=ret_status)
 
-        if not annotation.parent_annotation:
+        if not annotation_obj.parent_annotation:
             is_review = False
         else:
             is_review = True
@@ -762,51 +950,110 @@ class AnnotationViewSet(
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
+            # need to add few filters here
 
-            if task.project_id.required_annotators_per_task == task.annotations.count():
-                # if True:
-                task.task_status = request.data["task_status"]
-                # TODO: Support accepting annotations manually
-                # if task.annotations.count() == 1:
-                if not task.project_id.enable_task_reviews:
-                    task.correct_annotation = annotation
-                    if task.task_status == LABELED:
-                        task.task_status = ACCEPTED
+            if "annotation_status" in dict(request.data) and request.data[
+                "annotation_status"
+            ] in [
+                UNLABELED,
+                LABELED,
+                DRAFT,
+                SKIPPED,
+            ]:
+                annotation_status = request.data["annotation_status"]
+                is_to_be_revised_task = (
+                    True if annotation_obj.annotation_status == TO_BE_REVISED else False
+                )
+
             else:
-                task.task_status = request.data["task_status"]
-        # Review annotation update
-        else:
-            if "review_status" in dict(request.data) and request.data[
-                "review_status"
-            ] in [ACCEPTED, TO_BE_REVISED]:
-                review_status = request.data["review_status"]
-            else:
-                ret_dict = {"message": "Missing param : review_status"}
+                ret_dict = {"message": "Missing param : annotation_status!"}
                 ret_status = status.HTTP_400_BAD_REQUEST
                 return Response(ret_dict, status=ret_status)
+
+            annotation_response = super().partial_update(request)
+            annotation_id = annotation_response.data["id"]
+            annotation = Annotation.objects.get(pk=annotation_id)
+            task = annotation.task
+
+            if annotation_status == LABELED and is_to_be_revised_task:
+                review_annotation = Annotation.objects.get(
+                    task=task, parent_annotation__isnull=False
+                )
+                review_annotation.annotation_status = UNREVIEWED
+                review_annotation.save()
+
+            no_of_annotations = task.annotations.filter(
+                parent_annotation_id=None, annotation_status="labeled"
+            ).count()
+            if task.project_id.required_annotators_per_task == no_of_annotations:
+                # if True:
+                task.task_status = ANNOTATED
+                if not task.project_id.enable_task_reviews:
+                    if no_of_annotations == 1:
+                        task.correct_annotation = annotation
+
+                task.save()
+
+        # Review annotation update
+        else:
 
             if request.user != task.review_user:
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
 
-            if review_status == ACCEPTED:
-                task.correct_annotation = annotation
-                is_modified = annotation_result_compare(
-                    annotation.parent_annotation.result, annotation.result
-                )
-                if is_modified:
-                    review_status = ACCEPTED_WITH_CHANGES
+            if "annotation_status" in dict(request.data) and request.data[
+                "annotation_status"
+            ] in [
+                ACCEPTED,
+                UNREVIEWED,
+                ACCEPTED_WITH_MINOR_CHANGES,
+                ACCEPTED_WITH_MAJOR_CHANGES,
+                DRAFT,
+                SKIPPED,
+                TO_BE_REVISED,
+            ]:
+                review_status = request.data["annotation_status"]
             else:
-                task.correct_annotation = None
+                ret_dict = {"message": "Missing param : annotation_status!"}
+                ret_status = status.HTTP_400_BAD_REQUEST
+                return Response(ret_dict, status=ret_status)
 
-            task.task_status = review_status
+            if (
+                review_status == ACCEPTED
+                or review_status == ACCEPTED_WITH_MINOR_CHANGES
+                or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+                or review_status == TO_BE_REVISED
+            ):
 
-            parent = annotation.parent_annotation
-            parent.review_notes = annotation.review_notes
-            parent.save()
+                if not "parent_annotation" in dict(request.data):
+                    ret_dict = {"message": "Missing param : parent_annotation!"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
 
-        task.save()
+            annotation_response = super().partial_update(request)
+            annotation_id = annotation_response.data["id"]
+            annotation = Annotation.objects.get(pk=annotation_id)
+            task = annotation.task
+
+            if (
+                review_status == ACCEPTED
+                or review_status == ACCEPTED_WITH_MINOR_CHANGES
+                or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+                or review_status == TO_BE_REVISED
+            ):
+
+                task.correct_annotation = annotation
+                parent = annotation.parent_annotation
+                parent.review_notes = annotation.review_notes
+                if review_status == TO_BE_REVISED:
+                    parent.annotation_status = TO_BE_REVISED
+                    task.task_status = INCOMPLETE
+                else:
+                    task.task_status = REVIEWED
+                parent.save()
+                task.save()
+
         return annotation_response
 
     def destroy(self, request, pk=None):
@@ -815,7 +1062,7 @@ class AnnotationViewSet(
         annotation_id = instance.id
         annotation = Annotation.objects.get(pk=annotation_id)
         task = annotation.task
-        task.task_status = UNLABELED
+        task.task_status = INCOMPLETE
         task.save()
 
         annotation_response = super().destroy(request)
