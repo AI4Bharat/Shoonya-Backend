@@ -918,11 +918,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all unlabeled tasks from an annotator.
         """
+        if "annotator_id" in dict(request.query_params).keys():
+            annotator_id = request.query_params["annotator_id"]
+            project = Project.objects.get(pk=pk)
+            annotator = User.objects.get(pk=annotator_id)
+            workspace = project.workspace_id
+            if request.user in workspace.managers.all():
+                user = annotator
+            else:
+                return Response(
+                    {
+                        "message": "Only workspace managers can unassign tasks from other annotators."
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            user = request.user
+        userRole = user.role
+        user_obj = User.objects.get(pk=user.id)
+        project_id = pk
 
-        user = request.user
-        if "task_status" in dict(request.query_params).keys():
-            task_status = request.query_params["task_status"]
-            task_status = ast.literal_eval(task_status)
+        if "annotation_status" in dict(request.query_params).keys():
+            annotation_status = request.query_params["annotation_status"]
+            annotation_status = ast.literal_eval(annotation_status)
         else:
             return Response(
                 {"message": "please provide the task_status to unassign tasks"},
@@ -1086,7 +1104,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all labeled tasks from a reviewer.
         """
-        user = request.user
+        if "reviewer_id" in dict(request.query_params).keys():
+            reviewer_id = request.query_params["reviewer_id"]
+            reviewer = User.objects.get(pk=reviewer_id)
+            project = Project.objects.get(pk=pk)
+            workspace = project.workspace_id
+            if request.user in workspace.managers.all():
+                user = reviewer
+            else:
+                return Response(
+                    {
+                        "message": "Only workspace managers can unassign tasks from other reviewers"
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            user = request.user
         project_id = pk
 
         if "task_status" in dict(request.query_params).keys():
