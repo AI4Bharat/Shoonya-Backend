@@ -1,6 +1,41 @@
-version: '3.8'
+version: '3.3'
 
 services:
+  nginx:
+    build: ./nginx
+    image: evgeniy-khyst/nginx
+    env_file:
+      - ./config.env
+    volumes:
+      - nginx_conf:/etc/nginx/sites
+      - letsencrypt_certs:/etc/letsencrypt
+      - certbot_acme_challenge:/var/www/certbot
+      - ./vhosts:/etc/nginx/vhosts
+      - static_volume:/backend/static
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+
+  certbot:
+    build: ./certbot
+    image: evgeniy-khyst/certbot
+    env_file:
+      - ./config.env
+    volumes:
+      - letsencrypt_certs:/etc/letsencrypt
+      - certbot_acme_challenge:/var/www/certbot
+
+  cron:
+    build: ./cron
+    image: evgeniy-khyst/cron
+    environment:
+      COMPOSE_PROJECT_NAME: "${COMPOSE_PROJECT_NAME}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workdir:ro
+    restart: unless-stopped
+    
   db:
     restart: always
     image: "postgres:11"
@@ -63,5 +98,10 @@ services:
       - web
 
 volumes:
+  nginx_conf:
+    external: true
+  letsencrypt_certs:
+    external: true
+  certbot_acme_challenge:
   postgres_data:
   static_volume:

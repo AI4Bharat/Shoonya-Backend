@@ -1,0 +1,19 @@
+name: Automated Deployment Pipeline
+on: [workflow_dispatch]
+jobs:
+  build:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Building and Deploying containers on VM
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DEV2_HOST }}
+        username: ${{ secrets.DEV2_USERNAME }}
+        password: ${{ secrets.DEV2_PASSWORD }}
+        script: |
+          cd Shoonya-Backend
+          git checkout develop2
+          git pull
+          newgrp docker
+          docker-compose -f docker-compose-prod.yml up --build -d
