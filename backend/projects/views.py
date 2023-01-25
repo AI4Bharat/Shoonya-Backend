@@ -295,17 +295,39 @@ def get_project_creation_status(pk) -> str:
         return "Draft"
 
 
-def get_task_count(pk, status):
+def get_task_count_unassigned(pk, user):
+
     project = Project.objects.get(pk=pk)
-    tasks = (
-        Task.objects.filter(project_id=pk)
-        .filter(task_status=status)
-        .annotate(annotator_count=Count("annotation_users"))
-    )
-    task_count = tasks.filter(
-        annotator_count__lt=project.required_annotators_per_task
-    ).count()
-    return task_count
+    required_annotators_per_task = project.required_annotators_per_task
+
+    proj_tasks = Task.objects.filter(project_id=pk)
+
+    no_of_annotators_per_task = [len(tas.annotation_users.all()) for tas in proj_tasks]
+    total_pendng_tasks = 0
+    for num in no_of_annotators_per_task:
+        if num == 0:
+            total_pendng_tasks += 1
+
+    partially_done_tasks = [
+        tas
+        for tas in proj_tasks
+        if (len(tas.annotation_users.all()) != required_annotators_per_task)
+        and (len(tas.annotation_users.all()) != 0)
+    ]
+
+    partially_done_tasks_ids = [tas.id for tas in partially_done_tasks]
+
+    annotated_objs = Annotation_model.objects.filter(
+        task__project_id=pk,
+        task_id__in=partially_done_tasks_ids,
+        parent_annotation_id__isnull=True,
+    ).exclude(completed_by=user.id)
+
+    final_partial_unique_tasks = len(list(set([ann.task_id for ann in annotated_objs])))
+
+    total_unassigned_tasks = total_pendng_tasks + final_partial_unique_tasks
+
+    return total_unassigned_tasks
 
 
 # def get_tasks_count(pk, annotator, status, return_task_count=True):
@@ -380,7 +402,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_pull_result"] = last_project_export_result
 
         # Add a field to specify the no. of available tasks to be assigned
-        project_response.data["unassigned_task_count"] = get_task_count(pk, INCOMPLETE)
+
+        project_response.data["unassigned_task_count"] = get_task_count_unassigned(
+            pk, request.user
+        )
 
         # Add a field to specify the no. of labeled tasks
         project_response.data["labeled_task_count"] = (
@@ -390,7 +415,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=request.user.id)
             .count()
         )
-
         return project_response
 
     def list(self, request, *args, **kwargs):
