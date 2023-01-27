@@ -402,10 +402,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_pull_result"] = last_project_export_result
 
         # Add a field to specify the no. of available tasks to be assigned
-
-        project_response.data["unassigned_task_count"] = get_task_count_unassigned(
-            pk, request.user
-        )
+        project_response.data["unassigned_task_count"] = 0
+        # project_response.data["unassigned_task_count"] = get_task_count_unassigned(
+        #     pk, request.user
+        # )
 
         # Add a field to specify the no. of labeled tasks
         project_response.data["labeled_task_count"] = (
