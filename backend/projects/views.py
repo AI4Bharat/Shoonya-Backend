@@ -294,64 +294,15 @@ def get_project_creation_status(pk) -> str:
     else:
         return "Draft"
 
-
 def get_task_count_unassigned(pk, user):
 
     project = Project.objects.get(pk=pk)
     required_annotators_per_task = project.required_annotators_per_task
-
-    proj_tasks = Task.objects.filter(project_id=pk)
-
-    no_of_annotators_per_task = [len(tas.annotation_users.all()) for tas in proj_tasks]
-    total_pendng_tasks = 0
-    for num in no_of_annotators_per_task:
-        if num == 0:
-            total_pendng_tasks += 1
-
-    partially_done_tasks = [
-        tas
-        for tas in proj_tasks
-        if (len(tas.annotation_users.all()) != required_annotators_per_task)
-        and (len(tas.annotation_users.all()) != 0)
-    ]
-
-    partially_done_tasks_ids = [tas.id for tas in partially_done_tasks]
-
-    annotated_objs = Annotation_model.objects.filter(
-        task__project_id=pk,
-        task_id__in=partially_done_tasks_ids,
-        parent_annotation_id__isnull=True,
-    ).exclude(completed_by=user.id)
-
-    final_partial_unique_tasks = len(list(set([ann.task_id for ann in annotated_objs])))
-
-    total_unassigned_tasks = total_pendng_tasks + final_partial_unique_tasks
-
-    return total_unassigned_tasks
-
-
-# def get_tasks_count(pk, annotator, status, return_task_count=True):
-#     Task_objs = Task.objects.filter(
-#         project_id=pk, annotation_users=annotator, task_status=status
-#     )
-#     if return_task_count == True:
-#         Task_objs_count = Task_objs.count()
-#         return Task_objs_count
-#     else:
-#         return Task_objs
-
-
-# def get_annotated_tasks(pk, annotator, status, start_date, end_date):
-
-#     annotated_objs = Annotation_model.objects.filter(
-#         annotation_status=status,
-#         task__project_id=pk,
-#         parent_annotation_id__isnull=True,
-#         created_at__range=[start_date, end_date],
-#         completed_by=annotator,
-#     )
-#     return annotated_objs
-
+    
+    proj_tasks=Task.objects.filter(project_id=pk).exclude(annotation_users=user)
+    proj_tasks_unassigned = (proj_tasks.annotate(num_annotators=Count('annotation_users'))).filter(num_annotators__lt=required_annotators_per_task)
+    
+    return len(proj_tasks_unassigned)
 
 class ProjectViewSet(viewsets.ModelViewSet):
     """
