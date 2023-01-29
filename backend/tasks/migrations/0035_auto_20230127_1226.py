@@ -31,9 +31,12 @@ def change_task_status(apps, schema_editor):
     task3 = taskobj.filter(task_status__in=["accepted", "accepted_with_changes"])
     task3_list = []
     for tas3 in task3:
-        if tas3.project_id.enable_task_reviews:
-            setattr(tas3, "task_status", "reviewed")
-        else:
+        try:
+            if tas3.project_id.enable_task_reviews:
+                setattr(tas3, "task_status", "reviewed")
+            else:
+                setattr(tas3, "task_status", "annotated")
+        except:
             setattr(tas3, "task_status", "annotated")
         task3_list.append(tas3)
     Task.objects.bulk_update(task3_list, ["task_status"], 512)
