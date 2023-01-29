@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED 1
 
 RUN pip install --upgrade pip
 COPY ./deploy/requirements.txt /usr/src/backend/requirements.txt
-RUN pip install -r requirements.txt
+RUN pip install --default-timeout=100 -r requirements.txt
 
 COPY ./entrypoint.sh /usr/src/backend/entrypoint.sh
 
