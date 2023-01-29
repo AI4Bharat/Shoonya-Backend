@@ -23,7 +23,7 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
     for ann1 in annot1:
         setattr(ann1, "annotation_status", "unlabeled")
         ann1_list.append(ann1)
-    Annotation.objects.bulk_update(ann1_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(ann1_list, ["annotation_status"], 512)
 
     annot2 = annotator_annotobj.filter(
         task__task_status__in=[
@@ -37,21 +37,21 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
     for ann2 in annot2:
         setattr(ann2, "annotation_status", "labeled")
         annot2_list.append(ann2)
-    Annotation.objects.bulk_update(annot2_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot2_list, ["annotation_status"], 512)
 
     annot3 = annotator_annotobj.filter(task__task_status="skipped")
     annot3_list = []
     for ann3 in annot3:
         setattr(ann3, "annotation_status", "skipped")
         annot3_list.append(ann3)
-    Annotation.objects.bulk_update(annot3_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot3_list, ["annotation_status"], 512)
 
     annot4 = annotator_annotobj.filter(task__task_status="draft")
     annot4_list = []
     for ann4 in annot4:
         setattr(ann4, "annotation_status", "draft")
         annot4_list.append(ann4)
-    Annotation.objects.bulk_update(annot4_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot4_list, ["annotation_status"], 512)
 
     # reviewer annotation objects status update
     annot5 = reviewer_annotobj.filter(
@@ -61,28 +61,28 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
     for ann5 in annot5:
         setattr(ann5, "annotation_status", "unreviewed")
         annot5_list.append(ann5)
-    Annotation.objects.bulk_update(annot5_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot5_list, ["annotation_status"], 512)
 
     annot6 = reviewer_annotobj.filter(task__task_status="accepted")
     annot6_list = []
     for ann6 in annot6:
         setattr(ann6, "annotation_status", "accepted")
         annot6_list.append(ann6)
-    Annotation.objects.bulk_update(annot6_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot6_list, ["annotation_status"], 512)
 
     annot7 = reviewer_annotobj.filter(task__task_status="skipped")
     annot7_list = []
     for ann7 in annot7:
         setattr(ann7, "annotation_status", "skipped")
         annot7_list.append(ann7)
-    Annotation.objects.bulk_update(annot7_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot7_list, ["annotation_status"], 512)
 
     annot8 = reviewer_annotobj.filter(task__task_status="draft")
     annot8_list = []
     for ann8 in annot8:
         setattr(ann8, "annotation_status", "draft")
         annot8_list.append(ann8)
-    Annotation.objects.bulk_update(annot8_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot8_list, ["annotation_status"], 512)
 
     annot9 = reviewer_annotobj.filter(task__task_status="to_be_revised")
     annot9_list = []
@@ -92,14 +92,14 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
         parent = ann9.parent_annotation
         setattr(parent, "annotation_status", "to_be_revised")
         annot9_list.append(parent)
-    Annotation.objects.bulk_update(annot9_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot9_list, ["annotation_status"], 512)
 
     annot10 = reviewer_annotobj.filter(task__task_status="accepted_with_changes")
     annot10_list = []
     for ann10 in annot10:
         setattr(ann10, "annotation_status", "accepted_with_minor_changes")
         annot10_list.append(ann10)
-    Annotation.objects.bulk_update(annot10_list, ["annotation_status"], 128)
+    Annotation.objects.bulk_update(annot10_list, ["annotation_status"], 512)
 
 
 class Migration(migrations.Migration):
