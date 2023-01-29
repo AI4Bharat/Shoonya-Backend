@@ -10,7 +10,7 @@ from tasks.views import SentenceOperationViewSet
 def change_task_status(apps, schema_editor):
     # tasks objects status update
     tasks = apps.get_model("tasks", "Task")
-    proj = apps.get_model("projects","Project")
+    proj = apps.get_model("projects", "Project")
     db_alias = schema_editor.connection.alias
     taskobj = tasks.objects.using(db_alias).all()
     task1 = taskobj.filter(
@@ -33,11 +33,14 @@ def change_task_status(apps, schema_editor):
         task2_list.append(tas2)
     Task.objects.bulk_update(task2_list, ["task_status"], 512)
 
-
-    
-
-    task_rev_en = taskobj.filter(task_status__in=["accepted", "accepted_with_changes"], project_id__in=proj_rev_en)
-    task_rev_dis = taskobj.filter(task_status__in=["accepted", "accepted_with_changes"], project_id__in=proj_rev_dis)
+    task_rev_en = taskobj.filter(
+        task_status__in=["accepted", "accepted_with_changes"],
+        project_id__in=proj_rev_en,
+    )
+    task_rev_dis = taskobj.filter(
+        task_status__in=["accepted", "accepted_with_changes"],
+        project_id__in=proj_rev_dis,
+    )
 
     task_rev_en_list = []
     task_rev_dis_list = []
@@ -53,8 +56,9 @@ def change_task_status(apps, schema_editor):
 
     Task.objects.bulk_update(task_rev_dis_list, ["task_status"], 512)
 
-
-    task_orphans = Task.objects.filter(task_status__in=["accepted", "accepted_with_changes"])
+    task_orphans = Task.objects.filter(
+        task_status__in=["accepted", "accepted_with_changes"]
+    )
 
     task_orphan_list = []
 
@@ -62,7 +66,6 @@ def change_task_status(apps, schema_editor):
         setattr(tas, "task_status", "annotated")
         task_orphan_list.append(tas)
     Task.objects.bulk_update(task_orphan_list, ["task_status"], 512)
-
 
     task4 = taskobj.filter(task_status="freezed")
     task4_list = []
