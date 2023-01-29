@@ -10,11 +10,16 @@ from tasks.views import SentenceOperationViewSet
 def change_task_status(apps, schema_editor):
     # tasks objects status update
     tasks = apps.get_model("tasks", "Task")
+    proj = apps.get_model("projects","Project")
     db_alias = schema_editor.connection.alias
     taskobj = tasks.objects.using(db_alias).all()
     task1 = taskobj.filter(
         task_status__in=["unlabeled", "skipped", "draft", "to_be_revised"]
     )
+
+    proj_rev_en = proj.objects.using(db.alias).filter(enable_task_reviews=True)
+    proj_rev_dis = proj.objects.using(db.alias).filter(enable_task_reviews=False)
+
     task1_list = []
     for tas1 in task1:
         setattr(tas1, "task_status", "incomplete")
@@ -28,18 +33,36 @@ def change_task_status(apps, schema_editor):
         task2_list.append(tas2)
     Task.objects.bulk_update(task2_list, ["task_status"], 512)
 
-    task3 = taskobj.filter(task_status__in=["accepted", "accepted_with_changes"])
-    task3_list = []
-    for tas3 in task3:
-        try:
-            if tas3.project_id.enable_task_reviews:
-                setattr(tas3, "task_status", "reviewed")
-            else:
-                setattr(tas3, "task_status", "annotated")
-        except:
-            setattr(tas3, "task_status", "annotated")
-        task3_list.append(tas3)
-    Task.objects.bulk_update(task3_list, ["task_status"], 512)
+
+    
+
+    task_rev_en = taskobj.filter(task_status__in=["accepted", "accepted_with_changes"], project_id__in=proj_rev_en)
+    task_rev_dis = taskobj.filter(task_status__in=["accepted", "accepted_with_changes"], project_id__in=proj_rev_dis)
+
+    task_rev_en_list = []
+    task_rev_dis_list = []
+
+    for tas_rev_en in task_rev_en:
+        setattr(tas_rev_en, "task_status", "reviewed")
+        task_rev_en_list.append(tas_rev_en)
+    Task.objects.bulk_update(task_rev_en_list, ["task_status"], 512)
+
+    for tas_rev_dis in task_rev_dis:
+        setattr(tas_rev_dis, "task_status", "annotated")
+        task_rev_dis_list.append(tas_rev_dis)
+
+    Task.objects.bulk_update(task_rev_dis_list, ["task_status"], 512)
+
+
+    task_orphans = Task.objects.filter(task_status__in=["accepted", "accepted_with_changes"])
+
+    task_orphan_list = []
+
+    for tas in task_orphans:
+        setattr(tas, "task_status", "annotated")
+        task_orphan_list.append(tas)
+    Task.objects.bulk_update(task_orphan_list, ["task_status"], 512)
+
 
     task4 = taskobj.filter(task_status="freezed")
     task4_list = []
