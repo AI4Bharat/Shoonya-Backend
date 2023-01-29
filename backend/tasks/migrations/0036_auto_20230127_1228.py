@@ -5,35 +5,41 @@ from django.db import migrations, models
 from projects.utils import no_of_words
 from dataset.models import DatasetInstance
 from dataset import models as dataset_models
+from tasks.models import Task
+from tqdm import tqdm
 
 
 def add_word_count(apps, schema_editor):
     tasks = apps.get_model("tasks", "Task")
     db_alias = schema_editor.connection.alias
     taskobj = tasks.objects.using(db_alias).all()
-    for tas in taskobj:
+    taskobj_list = []
+    for tas in tqdm(taskobj):
+        data = tas.data
         try:
             if "word_count" in tas.data.keys():
                 pass
             else:
                 if "input_text" in tas.data.keys():
                     try:
-                        tas.data["word_count"] = no_of_words(tas.data["input_text"])
+                        data["word_count"] = no_of_words(tas.data["input_text"])
                     except TypeError:
                         pass
                     except:
-                        tas.data["word_count"] = 0
-                    tas.save()
+                        data["word_count"] = 0
                 elif "text" in tas.data.keys():
                     try:
-                        tas.data["word_count"] = no_of_words(tas.data["text"])
+                        data["word_count"] = no_of_words(tas.data["text"])
                     except TypeError:
                         pass
                     except:
-                        tas.data["word_count"] = 0
-                    tas.save()
+                        data["word_count"] = 0
+                setattr(tas, "data", data)
+                taskobj_list.append(tas)
         except:
             pass
+
+    Task.objects.bulk_update(taskobj_list, ["data"], 512)
 
 
 class Migration(migrations.Migration):

@@ -4,6 +4,7 @@
 from django.db import migrations, models
 from django.db.models import Q
 from tasks.models import Annotation
+from tqdm import tqdm
 
 
 def change_existing_task_annotation_status_in_db(apps, schema_editor):
@@ -20,7 +21,7 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
     # annotator annotation objects status update
     annot1 = annotator_annotobj.filter(task__task_status__in=["unlabeled", "freezed"])
     ann1_list = []
-    for ann1 in annot1:
+    for ann1 in tqdm(annot1):
         setattr(ann1, "annotation_status", "unlabeled")
         ann1_list.append(ann1)
     Annotation.objects.bulk_update(ann1_list, ["annotation_status"], 512)
@@ -34,21 +35,21 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
         ]
     )
     annot2_list = []
-    for ann2 in annot2:
+    for ann2 in tqdm(annot2):
         setattr(ann2, "annotation_status", "labeled")
         annot2_list.append(ann2)
     Annotation.objects.bulk_update(annot2_list, ["annotation_status"], 512)
 
     annot3 = annotator_annotobj.filter(task__task_status="skipped")
     annot3_list = []
-    for ann3 in annot3:
+    for ann3 in tqdm(annot3):
         setattr(ann3, "annotation_status", "skipped")
         annot3_list.append(ann3)
     Annotation.objects.bulk_update(annot3_list, ["annotation_status"], 512)
 
     annot4 = annotator_annotobj.filter(task__task_status="draft")
     annot4_list = []
-    for ann4 in annot4:
+    for ann4 in tqdm(annot4):
         setattr(ann4, "annotation_status", "draft")
         annot4_list.append(ann4)
     Annotation.objects.bulk_update(annot4_list, ["annotation_status"], 512)
@@ -58,35 +59,35 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
         task__task_status__in=["labeled", "unlabeled", "freezed"]
     )
     annot5_list = []
-    for ann5 in annot5:
+    for ann5 in tqdm(annot5):
         setattr(ann5, "annotation_status", "unreviewed")
         annot5_list.append(ann5)
     Annotation.objects.bulk_update(annot5_list, ["annotation_status"], 512)
 
     annot6 = reviewer_annotobj.filter(task__task_status="accepted")
     annot6_list = []
-    for ann6 in annot6:
+    for ann6 in tqdm(annot6):
         setattr(ann6, "annotation_status", "accepted")
         annot6_list.append(ann6)
     Annotation.objects.bulk_update(annot6_list, ["annotation_status"], 512)
 
     annot7 = reviewer_annotobj.filter(task__task_status="skipped")
     annot7_list = []
-    for ann7 in annot7:
+    for ann7 in tqdm(annot7):
         setattr(ann7, "annotation_status", "skipped")
         annot7_list.append(ann7)
     Annotation.objects.bulk_update(annot7_list, ["annotation_status"], 512)
 
     annot8 = reviewer_annotobj.filter(task__task_status="draft")
     annot8_list = []
-    for ann8 in annot8:
+    for ann8 in tqdm(annot8):
         setattr(ann8, "annotation_status", "draft")
         annot8_list.append(ann8)
     Annotation.objects.bulk_update(annot8_list, ["annotation_status"], 512)
 
     annot9 = reviewer_annotobj.filter(task__task_status="to_be_revised")
     annot9_list = []
-    for ann9 in annot9:
+    for ann9 in tqdm(annot9):
         setattr(ann9, "annotation_status", "to_be_revised")
         annot9_list.append(ann9)
         parent = ann9.parent_annotation
@@ -96,7 +97,7 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
 
     annot10 = reviewer_annotobj.filter(task__task_status="accepted_with_changes")
     annot10_list = []
-    for ann10 in annot10:
+    for ann10 in tqdm(annot10):
         setattr(ann10, "annotation_status", "accepted_with_minor_changes")
         annot10_list.append(ann10)
     Annotation.objects.bulk_update(annot10_list, ["annotation_status"], 512)
