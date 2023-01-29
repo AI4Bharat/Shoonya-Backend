@@ -17,8 +17,8 @@ def change_task_status(apps, schema_editor):
         task_status__in=["unlabeled", "skipped", "draft", "to_be_revised"]
     )
 
-    proj_rev_en = proj.objects.using(db.alias).filter(enable_task_reviews=True)
-    proj_rev_dis = proj.objects.using(db.alias).filter(enable_task_reviews=False)
+    proj_rev_en = proj.objects.using(db_alias).filter(enable_task_reviews=True)
+    proj_rev_dis = proj.objects.using(db_alias).filter(enable_task_reviews=False)
 
     task1_list = []
     for tas1 in task1:
