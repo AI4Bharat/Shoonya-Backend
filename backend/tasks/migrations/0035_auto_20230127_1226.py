@@ -19,14 +19,14 @@ def change_task_status(apps, schema_editor):
     for tas1 in task1:
         setattr(tas1, "task_status", "incomplete")
         task1_list.append(tas1)
-    Task.objects.bulk_update(task1_list, ["task_status"], 128)
+    Task.objects.bulk_update(task1_list, ["task_status"], 512)
 
     task2 = taskobj.filter(task_status="labeled")
     task2_list = []
     for tas2 in task2:
         setattr(tas2, "task_status", "annotated")
         task2_list.append(tas2)
-    Task.objects.bulk_update(task2_list, ["task_status"], 128)
+    Task.objects.bulk_update(task2_list, ["task_status"], 512)
 
     task3 = taskobj.filter(task_status__in=["accepted", "accepted_with_changes"])
     task3_list = []
@@ -36,14 +36,14 @@ def change_task_status(apps, schema_editor):
         else:
             setattr(tas3, "task_status", "annotated")
         task3_list.append(tas3)
-    Task.objects.bulk_update(task3_list, ["task_status"], 128)
+    Task.objects.bulk_update(task3_list, ["task_status"], 512)
 
     task4 = taskobj.filter(task_status="freezed")
     task4_list = []
     for tas4 in task4:
         setattr(tas4, "task_status", "freezed")
         task4_list.append(tas4)
-    Task.objects.bulk_update(task4_list, ["task_status"], 128)
+    Task.objects.bulk_update(task4_list, ["task_status"], 512)
 
 
 class Migration(migrations.Migration):
