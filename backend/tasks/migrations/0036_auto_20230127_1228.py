@@ -16,7 +16,7 @@ def add_word_count(apps, schema_editor):
             if "word_count" in tas.data.keys():
                 pass
             else:
-                if "input_text" in tas.data.keys()
+                if "input_text" in tas.data.keys():
                     try:
                         tas.data["word_count"] = no_of_words(tas.data["input_text"])
                     except TypeError:
@@ -24,7 +24,7 @@ def add_word_count(apps, schema_editor):
                     except:
                         tas.data["word_count"] = 0
                     tas.save()
-                elif "text" in tas.data.keys()
+                elif "text" in tas.data.keys():
                     try:
                         tas.data["word_count"] = no_of_words(tas.data["text"])
                     except TypeError:
