@@ -30,7 +30,7 @@ def add_word_count(apps, schema_editor):
                     except:
                         tas.data["word_count"] = 0
                     tas.save()
-        except AttributeError:
+        except:
             pass
 
 
