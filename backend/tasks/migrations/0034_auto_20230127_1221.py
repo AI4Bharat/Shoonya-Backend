@@ -18,6 +18,20 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
     reviewer_annotobj = annotations.objects.using(db_alias).filter(
         parent_annotation_id__isnull=False
     )
+
+    # #create empty annotations for  unlabeled and skipped  pulled tasks .
+
+    # pulled_unlabeled_skipped_tasks = taskobj.filter(task_status__in = ["unlabeled", "skipped"],annotation_users__isnull = False)
+
+    # for tas in pulled_unlabeled_skipped_tasks:
+    #     for user1 in tas.annotation_users:
+    #         base_annotation_obj=Annotation(
+    #                     result=[],
+    #                     task=tas,
+    #                     completed_by=user1,
+    #                 )
+    #         base_annotation_obj.save()
+
     # annotator annotation objects status update
     annot1 = annotator_annotobj.filter(task__task_status__in=["unlabeled", "freezed"])
     ann1_list = []
