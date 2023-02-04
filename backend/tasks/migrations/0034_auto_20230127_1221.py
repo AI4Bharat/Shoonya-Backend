@@ -3,7 +3,7 @@
 
 from django.db import migrations, models
 from django.db.models import Q
-from tasks.models import Annotation
+from tasks.models import Annotation , Task
 from tqdm import tqdm
 
 
@@ -21,7 +21,7 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
 
     # #create empty annotations for  unlabeled and skipped  pulled tasks .
 
-    pulled_unlabeled_skipped_tasks = taskobj.filter(
+    pulled_unlabeled_skipped_tasks = Task.objects.filter(
         task_status__in=["unlabeled", "skipped"], annotation_users__isnull=False
     )
 
