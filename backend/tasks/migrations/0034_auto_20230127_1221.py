@@ -3,21 +3,11 @@
 
 from django.db import migrations, models
 from django.db.models import Q
-from tasks.models import Annotation , Task
+from tasks.models import Annotation, Task
 from tqdm import tqdm
 
 
 def change_existing_task_annotation_status_in_db(apps, schema_editor):
-    tasks = apps.get_model("tasks", "Task")
-    annotations = apps.get_model("tasks", "Annotation")
-    db_alias = schema_editor.connection.alias
-    taskobj = tasks.objects.using(db_alias).all()
-    annotator_annotobj = annotations.objects.using(db_alias).filter(
-        parent_annotation_id=None
-    )
-    reviewer_annotobj = annotations.objects.using(db_alias).filter(
-        parent_annotation_id__isnull=False
-    )
 
     # #create empty annotations for  unlabeled and skipped  pulled tasks .
 
@@ -36,6 +26,18 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
             pulled_tasks_list.append(base_annotation_obj)
 
     Annotation.objects.bulk_create(pulled_tasks_list, 512)
+
+    #  getting task and annotation  data from database
+    tasks = apps.get_model("tasks", "Task")
+    annotations = apps.get_model("tasks", "Annotation")
+    db_alias = schema_editor.connection.alias
+    taskobj = tasks.objects.using(db_alias).all()
+    annotator_annotobj = annotations.objects.using(db_alias).filter(
+        parent_annotation_id=None
+    )
+    reviewer_annotobj = annotations.objects.using(db_alias).filter(
+        parent_annotation_id__isnull=False
+    )
 
     # annotator annotation objects status update
     annot1 = annotator_annotobj.filter(task__task_status__in=["unlabeled", "freezed"])
