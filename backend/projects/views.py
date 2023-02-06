@@ -466,7 +466,34 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ),
                 type=openapi.TYPE_STRING,
                 required=False,
-            )
+            ),
+            openapi.Parameter(
+                "project_type",
+                openapi.IN_QUERY,
+                description=("A string that denotes the type of project"),
+                type=openapi.TYPE_STRING,
+                enum=PROJECT_TYPE_LIST,
+                required=False,
+            ),
+            openapi.Parameter(
+                "project_user_type",
+                openapi.IN_QUERY,
+                description=(
+                    "A string that denotes the type of the user in the project"
+                ),
+                type=openapi.TYPE_STRING,
+                enum=["annotator", "reviewer"],
+                required=False,
+            ),
+            openapi.Parameter(
+                "archived_projects",
+                openapi.IN_QUERY,
+                description=(
+                    "A flag that denotes whether the project is archived or not"
+                ),
+                type=openapi.TYPE_BOOLEAN,
+                required=False,
+            ),
         ],
         responses={
             200: ProjectSerializerOptimized,
@@ -505,6 +532,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
                 projects = projects.filter(is_published=True).filter(is_archived=False)
+
+            if "project_user_type" in request.query_params:
+                project_user_type = request.query_params["project_user_type"]
+                if project_user_type == "annotator":
+                    projects = projects.filter(annotators=request.user)
+                elif project_user_type == "reviewer":
+                    projects = projects.filter(annotation_reviewers=request.user)
+
+            if "project_type" in request.query_params:
+                project_type = request.query_params["project_type"]
+                projects = projects.filter(project_type=project_type)
+
+            if ("archived_projects" in request.query_params) and (
+                (request.user.role == User.ORGANIZATION_OWNER)
+                or (request.user.role == User.WORKSPACE_MANAGER)
+            ):
+                archived_projects = request.query_params["archived_projects"]
+                archived_projects = True if archived_projects == "true" else False
+                projects = projects.filter(is_archived=archived_projects)
+
             projects = projects.distinct()
 
             if (
