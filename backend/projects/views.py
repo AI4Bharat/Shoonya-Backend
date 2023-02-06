@@ -128,7 +128,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     ).count()
-    unreviewed_count = unreviewed.count()
+    unreviewed_count = unreviewed
 
     draft = Annotation_model.objects.filter(
         annotation_status="draft",
