@@ -176,6 +176,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ann_status = ast.literal_eval(ann_status)
 
                 if view == "managerial_view":
+
                     if not ("req_user" in dict(request.query_params)):
                         ann = Annotation.objects.filter(
                             task__project_id_id=proj_id,
@@ -243,14 +244,22 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_ids = [an.task_id for an in ann_filter1]
                 annotation_status = [an.annotation_status for an in ann_filter1]
                 user_mail = [an.completed_by.email for an in ann_filter1]
+                annotation_result_json = [an.result for an in ann_filter1]
                 final_dict = {}
                 ordered_tasks = []
-
+                proj_type = proj_objs[0].project_type
                 for idx, ids in enumerate(task_ids):
                     tas = Task.objects.filter(id=ids)
                     tas = tas.values()[0]
                     tas["annotation_status"] = annotation_status[idx]
                     tas["user_mail"] = user_mail[idx]
+                    if (annotation_status[idx] in ["labeled", "draft"]) and (
+                        proj_type == "ContextualTranslationEditing"
+                    ):
+                        tas["data"]["output_text"] = annotation_result_json[idx][0][
+                            "value"
+                        ]["text"][0]
+                        del tas["data"]["machine_translation"]
                     ordered_tasks.append(tas)
 
                 if page_number is not None:
