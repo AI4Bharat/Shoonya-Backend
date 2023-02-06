@@ -144,7 +144,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         if "page" in dict(request.query_params):
             page_number = request.query_params["page"]
         records = 10
-        if "records" in dict(request.query_param):
+        if "records" in dict(request.query_params):
             records = request.query_params["records"]
 
         if "project_id" in dict(request.query_params):
@@ -504,7 +504,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
         else:
             return Response(
-                {"message": "please provide project_id as a query_param "},
+                {"message": "please provide project_id as a query_params "},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
