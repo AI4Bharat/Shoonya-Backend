@@ -121,32 +121,29 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     ).count()
     # minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
-    unreviewed = Annotation_model.objects.filter(
+    unreviewed_count = Annotation_model.objects.filter(
         annotation_status="unreviewed",
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     ).count()
-    unreviewed_count = unreviewed
 
-    draft = Annotation_model.objects.filter(
+    draft_count = Annotation_model.objects.filter(
         annotation_status="draft",
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     ).count()
-    draft_count = draft.count()
 
-    skipped = Annotation_model.objects.filter(
+    skipped_count = Annotation_model.objects.filter(
         annotation_status="skipped",
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
         created_at__range=[start_date, end_date],
     ).count()
-    skipped_count = skipped.count()
 
     to_be_revised_tasks_count = Annotation_model.objects.filter(
         annotation_status="to_be_revised",
