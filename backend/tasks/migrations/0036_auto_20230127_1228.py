@@ -23,15 +23,11 @@ def add_word_count(apps, schema_editor):
                 if "input_text" in tas.data.keys():
                     try:
                         data["word_count"] = no_of_words(tas.data["input_text"])
-                    except TypeError:
-                        pass
                     except:
                         data["word_count"] = 0
                 elif "text" in tas.data.keys():
                     try:
                         data["word_count"] = no_of_words(tas.data["text"])
-                    except TypeError:
-                        pass
                     except:
                         data["word_count"] = 0
                 setattr(tas, "data", data)
