@@ -1815,10 +1815,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for an in ann:
                 user_details = {}
-                text_json = an.result[0]["value"]
-                text_json["completed_by"] = an.completed_by.id
-                text_json["email"] = an.completed_by.email
-                text_json["first_name"] = an.completed_by.first_name
+                try:
+                    text_json = an.result[0]["value"]
+                    text_json["completed_by"] = an.completed_by.id
+                    text_json["email"] = an.completed_by.email
+                    text_json["first_name"] = an.completed_by.first_name
+                except:
+                    text_json = {}
                 annotation_text.append(text_json)
 
                 user_details["id"] = an.completed_by.id
@@ -1832,10 +1835,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for an in rew:
                 user_details = {}
-                text_json = an.result[0]["value"]
-                text_json["completed_by"] = an.completed_by.id
-                text_json["email"] = an.completed_by.email
-                text_json["first_name"] = an.completed_by.first_name
+                try:
+                    text_json = an.result[0]["value"]
+                    text_json["completed_by"] = an.completed_by.id
+                    text_json["email"] = an.completed_by.email
+                    text_json["first_name"] = an.completed_by.first_name
+                except:
+                    text_json = {}
                 reviewer_text.append(text_json)
 
                 user_details["id"] = an.completed_by.id
