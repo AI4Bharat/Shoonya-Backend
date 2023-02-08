@@ -1620,7 +1620,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted",
                     parent_annotation_id__isnull=False,
-                    updated_at__range=[start_date, end_date],
+                    parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_accepted
@@ -1637,7 +1637,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted_with_minor_changes",
                     parent_annotation_id__isnull=False,
-                    updated_at__range=[start_date, end_date],
+                    parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_minor = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_minor
@@ -1659,7 +1659,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted_with_major_changes",
                     parent_annotation_id__isnull=False,
-                    updated_at__range=[start_date, end_date],
+                    parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_major = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_major
@@ -1680,7 +1680,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="to_be_revised",
                     parent_annotation_id__isnull=False,
-                    updated_at__range=[start_date, end_date],
+                    parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_to_be_revised = [
                     ann.parent_annotation_id
