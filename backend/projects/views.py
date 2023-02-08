@@ -1085,7 +1085,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         pending_tasks = (
             Task.objects.filter(project_id=pk)
             .filter(annotation_users=cur_user.id)
-            .filter(task_status__in=[INCOMPLETE, UNLABELED])
+            .filter(task_status__exact=INCOMPLETE)
             .count()
         )
         # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
@@ -1120,7 +1120,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks = Task.objects.filter(project_id=pk)
         tasks = tasks.order_by("id")
         tasks = (
-            tasks.filter(task_status=INCOMPLETE)
+            tasks.filter(task_status__in=[INCOMPLETE, UNLABELED)
             .exclude(annotation_users=cur_user.id)
             .annotate(annotator_count=Count("annotation_users"))
         )
