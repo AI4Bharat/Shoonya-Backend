@@ -99,7 +99,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     accepted_objs_count = accepted_objs.count()
@@ -109,7 +109,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
 
     major_changes = Annotation_model.objects.filter(
@@ -117,7 +117,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
     # minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
@@ -126,7 +126,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
 
     draft_count = Annotation_model.objects.filter(
@@ -134,7 +134,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
 
     skipped_count = Annotation_model.objects.filter(
@@ -142,7 +142,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
 
     to_be_revised_tasks_count = Annotation_model.objects.filter(
@@ -150,7 +150,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
     result = {
         "Reviewer Name": userName,
@@ -1221,7 +1221,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if tasks.count() > 0:
                 for task in tasks:
                     task.unassign(user_obj)
-                    task.task_status = UNLABELED
+                    task.task_status = INCOMPLETE
                     task.save()
                 return Response(
                     {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
@@ -1600,7 +1600,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="labeled",
                 parent_annotation_id__isnull=True,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             )
             labeled_annotation_ids = [ann.id for ann in labeled_annotations]
@@ -1620,7 +1620,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted",
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_accepted
@@ -1637,7 +1637,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted_with_minor_changes",
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_minor = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_minor
@@ -1659,7 +1659,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted_with_major_changes",
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_major = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_major
@@ -1680,7 +1680,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="to_be_revised",
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_to_be_revised = [
                     ann.parent_annotation_id
@@ -1696,7 +1696,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="unlabeled",
                 parent_annotation_id__isnull=True,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
             items.append(("Unlabeled", total_unlabeled_tasks_count))
@@ -1706,7 +1706,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="skipped",
                 parent_annotation_id__isnull=True,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
 
@@ -1717,7 +1717,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="draft",
                 parent_annotation_id__isnull=True,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
 
