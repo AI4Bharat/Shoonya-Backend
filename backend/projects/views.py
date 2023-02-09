@@ -1611,7 +1611,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             labeled_annotation_ids = [ann.id for ann in labeled_annotations]
 
             reviewed_ann = Annotation_model.objects.filter(
-                parent_annotation_id__in=labeled_annotation_ids
+                parent_annotation_id__in=labeled_annotation_ids,
+                annotation_status__in=[
+                    ACCEPTED,
+                    ACCEPTED_WITH_MAJOR_CHANGES,
+                    ACCEPTED_WITH_MINOR_CHANGES,
+                ],
             ).count()
 
             labeled_only_annotations = len(labeled_annotations) - reviewed_ann
