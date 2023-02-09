@@ -473,9 +473,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
-                ).exclude(annotation_status="to_be_revised")
+                ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
             else:
                 labeld_tasks_objs = Task.objects.filter(
                     Q(project_id=proj.id)
@@ -494,7 +494,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     parent_annotation_id=None,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )
 
