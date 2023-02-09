@@ -1082,7 +1082,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # check if user has pending tasks
         # the below logic will work only for required_annotators_per_task=1
         # TO-DO Modify and use the commented logic to cover all cases
-        proj_annotations = Annotation.objects.filter(task__project_id=pk).filter(
+        proj_annotations = Annotation_model.objects.filter(task__project_id=pk).filter(
             annotation_status__exact=UNLABELED
         )
         annotation_tasks = [anno.task.id for anno in proj_annotations]
