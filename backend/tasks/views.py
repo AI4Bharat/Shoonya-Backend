@@ -1063,7 +1063,7 @@ class AnnotationViewSet(
                     task.task_status = INCOMPLETE
                 else:
                     task.task_status = REVIEWED
-                parent.save()
+                parent.save(update_fields=["review_notes", "annotation_status"])
                 task.save()
 
         return annotation_response
