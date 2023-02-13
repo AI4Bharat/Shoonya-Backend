@@ -4,6 +4,6 @@
     <Header size="3" value="Source sentence"/>
     <Header size="3" value="$output_language translation"/>
     <Text name="input_text" value="$input_text"/>
-    <TextArea name="output_text" toName="input_text" rows="5" transcription="false" showSubmitButton="true" maxSubmissions="1" editable="true" required="true"/>
+    <TextArea name="output_text" toName="input_text" rows="5" transcription="true" showSubmitButton="true" maxSubmissions="1" editable="false" required="true"/>
   </View>
 </View>
