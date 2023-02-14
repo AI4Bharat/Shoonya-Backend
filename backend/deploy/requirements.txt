@@ -12,7 +12,7 @@ python-dotenv
 pillow
 pyyaml
 label-studio>=1.7.1
-label-studio-converter>=0.0.50
+label-studio-converter>=0.0.48rc0
 label-studio-tools
 pandas
 mosestokenizer
