@@ -259,3 +259,24 @@ Audio:
         fields: 
           annotations: 
             - transcribed_json
+    AudioSegmentation:
+      project_mode: "Annotation" 
+      label_studio_jsx_file: "audio/audio_segmentation.jsx" 
+      input_dataset: 
+        class: SpeechConversation 
+        fields: 
+          - audio_url  
+          - audio_duration 
+          - scenario 
+          - domain 
+          - speakers_json
+        display_fields: 
+          - scenario 
+          - audio_url 
+        prediction: machine_transcribed_json 
+      output_dataset:  
+        class: SpeechConversation 
+        save_type: in_place 
+        fields: 
+          annotations: 
+            - transcribed_json
