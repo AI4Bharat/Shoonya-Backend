@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("projects", "0036_update_xml_template_config"),
+        ("projects", "0035_alter_project_project_type"),
     ]
 
     operations = [
