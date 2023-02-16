@@ -1071,14 +1071,14 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 parent_annotation_id__isnull=True,
                 created_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
-            )
+            ).count()
             all_pending_tasks_in_project = Annotation.objects.filter(
                 task__project_id__in=proj_ids,
                 annotation_status="unlabeled",
                 parent_annotation_id__isnull=True,
                 created_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
-            )
+            ).count()
 
             all_draft_tasks_in_project = Annotation.objects.filter(
                 task__project_id__in=proj_ids,
@@ -1086,7 +1086,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 parent_annotation_id__isnull=True,
                 created_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
-            )
+            ).count()
 
             if only_review_proj:
                 result = {
