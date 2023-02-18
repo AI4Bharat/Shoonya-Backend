@@ -237,9 +237,9 @@ Conversation:
 Audio: 
   description: "Projects related to audio-processing" 
   project_types: 
-    SingleSpeakerAudioTranscriptionEditing: 
+    AudioTranscription: 
       project_mode: "Annotation" 
-      label_studio_jsx_file: "audio/single_speaker_transcription_editing.jsx" 
+      label_studio_jsx_file: "audio/audio_transcription.jsx" 
       input_dataset: 
         class: SpeechConversation 
         fields: 

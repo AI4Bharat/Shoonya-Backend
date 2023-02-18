@@ -314,13 +314,14 @@ def export_project_in_place(
         tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
 
     for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
-
+        print(tl["annotations"])
         if output_dataset_info["dataset_type"] == "SpeechConversation":
             ta_labels = json.loads(ta["labels"])
             try:
                 ta_transcribed_json = json.loads(ta["transcribed_json"])
             except:
                 ta_transcribed_json = len(ta_labels) * [""]
+                annotation_fields.append("prediction_json")
         task.output_data = task.input_data
         task.save()
         data_item = dataset_model.objects.get(id__exact=tl["input_data"])
@@ -354,6 +355,8 @@ def export_project_in_place(
                         map(str, result["value"]["text"])
                     )
                 setattr(data_item, field, conversation_json)
+            elif field=="prediction_json":
+                setattr(data_item,field,tl["annotations"][0]["result"])
             elif field == "domain":
                 setattr(data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0])
             else:
