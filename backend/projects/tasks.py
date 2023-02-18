@@ -355,8 +355,8 @@ def export_project_in_place(
                         map(str, result["value"]["text"])
                     )
                 setattr(data_item, field, conversation_json)
-            elif field=="prediction_json":
-                setattr(data_item,field,tl["annotations"][0]["result"])
+            elif field == "prediction_json":
+                setattr(data_item, field, tl["annotations"][0]["result"])
             elif field == "domain":
                 setattr(data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0])
             else:

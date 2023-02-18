@@ -38,7 +38,7 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
 
-from dataset.models import DatasetInstance, Conversation,SpeechConversation
+from dataset.models import DatasetInstance, Conversation, SpeechConversation
 
 # Import celery tasks
 from .tasks import (
@@ -1141,9 +1141,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
-            result=[]
-            if project.project_type=="AudioTranscription":
-                result=SpeechConversation.objects.get(id=task.input_data.id).prediction_json
+            result = []
+            if project.project_type == "AudioTranscription":
+                result = SpeechConversation.objects.get(
+                    id=task.input_data.id
+                ).prediction_json
             base_annotation_obj = Annotation_model(
                 result=result,
                 task=task,
