@@ -64,6 +64,7 @@ from .utils import (
 )
 
 from workspaces.decorators import is_particular_workspace_manager
+from users.views import generate_random_string
 
 # Create your views here.
 
@@ -327,6 +328,57 @@ def get_task_count_unassigned(pk, user):
     ).filter(num_annotators__lt=required_annotators_per_task)
 
     return len(proj_tasks_unassigned)
+
+
+def convert_prediction_json_to_annotation_result(pk):
+    data_item = SpeechConversation.objects.get(pk=pk)
+    prediction_json = data_item.prediction_json
+    speakers_json = data_item.speakers_json
+    audio_duration = data_item.audio_duration
+
+    result = []
+    if prediction_json == None:
+        return result
+
+    for idx, val in enumerate(prediction_json):
+        label_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "labels",
+            "original_length": audio_duration,
+        }
+        text_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "transcribed_json",
+            "original_length": audio_duration,
+        }
+        id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+        label_dict["id"] = id
+        text_dict["id"] = id
+        label_dict["type"] = "labels"
+        text_dict["type"] = "textarea"
+
+        value_labels = {
+            "start": val["start"],
+            "end": val["end"],
+            "labels": [
+                next(
+                    speaker
+                    for speaker in speakers_json
+                    if speaker["speaker_id"] == val["speaker_id"]
+                )["name"]
+            ],
+        }
+        value_text = {"start": val["start"], "end": val["end"], "text": [val["text"]]}
+
+        label_dict["value"] = value_labels
+        text_dict["value"] = value_text
+
+        result.append(label_dict)
+        result.append(text_dict)
+
+    return result
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -1142,10 +1194,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task.annotation_users.add(cur_user)
             task.save()
             result = []
-            if project.project_type == "AudioTranscription":
-                result = SpeechConversation.objects.get(
-                    id=task.input_data.id
-                ).prediction_json
+            if project.project_type == "AudioTranscriptionEditing":
+                result = convert_prediction_json_to_annotation_result(
+                    task.input_data.id
+                )
             base_annotation_obj = Annotation_model(
                 result=result,
                 task=task,

@@ -20,7 +20,7 @@
   <View style="overflow: auto; width: 50%;">
 <TextArea name="transcribed_json" transcription="true" toName="audio_url" 
             rows="2" editable="false" maxSubmissions="1"
-            perRegion="true" required="false" /> 
+            perRegion="true" required="true" /> 
   </View>
               
   {reference_raw_transcript ? <Header value="Reference Transcript" /> 
