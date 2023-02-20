@@ -313,6 +313,8 @@ def export_project_in_place(
         )
         tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
 
+    export_excluded_task_ids=[]
+    
     for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
         print(tl["annotations"])
         if output_dataset_info["dataset_type"] == "SpeechConversation":
@@ -321,6 +323,10 @@ def export_project_in_place(
                 ta_transcribed_json = json.loads(ta["transcribed_json"])
             except:
                 ta_transcribed_json = len(ta_labels) * [""]
+            if len(ta_labels)!=len(ta_transcribed_json):
+                export_excluded_task_ids.append(task.id)
+                continue
+
         task.output_data = task.input_data
         task.save()
         data_item = dataset_model.objects.get(id__exact=tl["input_data"])
@@ -361,7 +367,8 @@ def export_project_in_place(
         data_items.append(data_item)
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
-
+    
+    tasks=tasks.exclude(id__in=export_excluded_task_ids)
     tasks.update(task_status=EXPORTED)
 
     return f"Exported {len(data_items)} items."
