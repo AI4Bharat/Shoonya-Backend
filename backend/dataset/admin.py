@@ -34,8 +34,13 @@ class ConversationAdmin(ImportExportActionModelAdmin):
     resource_class = ConversationResource
 
 
+class SpeechConversationAdmin(ImportExportActionModelAdmin):
+    resource_class = SpeechConversationResource
+
+
 admin.site.register(SentenceText, SentenceTextAdmin)
 admin.site.register(TranslationPair, TranslationPairAdmin)
 admin.site.register(OCRDocument, OCRDocumentAdmin)
 admin.site.register(BlockText, BlockTextAdmin)
 admin.site.register(Conversation, ConversationAdmin)
+admin.site.register(SpeechConversation, SpeechConversationAdmin)

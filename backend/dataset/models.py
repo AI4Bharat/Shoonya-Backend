@@ -14,6 +14,7 @@ DATASET_TYPE_CHOICES = [
     ("OCRDocument", "OCRDocument"),
     ("BlockText", "BlockText"),
     ("Conversation", "Conversation"),
+    ("SpeechConversation", "SpeechConversation"),
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
@@ -34,6 +35,35 @@ QUALITY_CHOICES = (
     ("Ambiguous sentence", "Ambiguous sentence"),
     ("Context incomplete", "Context incomplete"),
     ("Corrupt", "Corrupt"),
+)
+
+SENTENCE_TEXT_DOMAIN_CHOICES = (
+    ("None", "None"),
+    ("General", "General"),
+    ("News", "News"),
+    ("Education", "Education"),
+    ("Legal", "Legal"),
+    ("Government-Press-Release", "Government-Press-Release"),
+    ("Healthcare", "Healthcare"),
+    ("Agriculture", "Agriculture"),
+    ("Automobile", "Automobile"),
+    ("Tourism", "Tourism"),
+    ("Financial", "Financial"),
+    ("Movies", "Movies"),
+    ("Subtitles", "Subtitles"),
+    ("Sports", "Sports"),
+    ("Technology", "Technology"),
+    ("Lifestyle", "Lifestyle"),
+    ("Entertainment", "Entertainment"),
+    ("Parliamentary", "Parliamentary"),
+    ("Art-and-Culture", "Art-and-Culture"),
+    ("Economy", "Economy"),
+    ("History", "History"),
+    ("Philosophy", "Philosophy"),
+    ("Religion", "Religion"),
+    ("National-Security-and-Defence", "National-Security-and-Defence"),
+    ("Literature", "Literature"),
+    ("Geography", "Geography"),
 )
 
 # List of async functions pertaining to the dataset models
@@ -132,10 +162,10 @@ class SentenceText(DatasetBase):
     )
     domain = models.CharField(
         verbose_name="domain",
+        default="None",
         max_length=1024,
+        choices=SENTENCE_TEXT_DOMAIN_CHOICES,
         help_text=("Domain of the Sentence"),
-        null=True,
-        blank=True,
     )
     quality_status = models.CharField(
         verbose_name="quality_status",
@@ -330,6 +360,72 @@ class Conversation(DatasetBase):
         help_text=("Machine Translated Conversation"),
         null=True,
         blank=True,
+    )
+
+    def __str__(self):
+        return str(self.id)
+
+
+class SpeechConversation(DatasetBase):
+    domain = models.CharField(
+        verbose_name="domain",
+        max_length=1024,
+        help_text=("Domain of the speech conversation"),
+        null=True,
+        blank=True,
+    )
+    scenario = models.TextField(
+        verbose_name="scenario",
+        null=True,
+        blank=True,
+        help_text=("Scenario of the conversation"),
+    )
+    speaker_count = models.IntegerField(
+        verbose_name="speaker_count",
+        help_text=("Number of speakers involved in conversation"),
+    )
+    speakers_json = models.JSONField(
+        verbose_name="speakers_details",
+        help_text=("Details of the speakers involved in the conversation"),
+    )
+    language = models.CharField(
+        verbose_name="language", choices=LANG_CHOICES, max_length=15
+    )
+    transcribed_json = models.JSONField(
+        verbose_name="transcribed_json",
+        null=True,
+        blank=True,
+        help_text=("Conversation data comprising speaker_id and sentence/sentences"),
+    )
+    machine_transcribed_json = models.JSONField(
+        verbose_name="machine_transcribed_json",
+        null=True,
+        blank=True,
+        help_text=(
+            "Machine Transcribed output of conversation data, in same format as of transcribed_json"
+        ),
+    )
+    audio_url = models.URLField(
+        verbose_name="audio_url",
+        help_text=("Link to the audio-file"),
+    )
+    audio_duration = models.FloatField(
+        verbose_name="audio_play_duration",
+        help_text=("Length of the audio in seconds (float)"),
+    )
+    reference_raw_transcript = models.TextField(
+        verbose_name="reference_raw_transcript",
+        null=True,
+        blank=True,
+        help_text=(
+            "Optional field to store the plaintext transcription which was used by the speaker to read out"
+        ),
+    )
+    prediction_json = models.JSONField(
+        verbose_name="prediction_json",
+        null=True,
+        blank=True,
+        help_text=("Prepopulated prediction for the implemented models"),
     )
 
     def __str__(self):

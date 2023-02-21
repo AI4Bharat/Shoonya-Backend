@@ -150,6 +150,25 @@ Monolingual:
           annotations:
             - corrected_text
             - quality_status
+    ContextualSentenceVerificationAndDomainClassification: 
+      project_mode: "Annotation" 
+      label_studio_jsx_file: "monolingual/contextual_sentence_verification_and_domain_classifcation.jsx" 
+      input_dataset: 
+        class: SentenceText 
+        fields: 
+          - text 
+          - context 
+          - language 
+        display_fields: 
+          - text 
+      output_dataset: 
+        class: SentenceText 
+        save_type: in_place 
+        fields: 
+          annotations: 
+            - corrected_text 
+            - quality_status 
+            - domain 
 Conversation:
   description: "Translation of Conversation data"
   project_types:
@@ -213,3 +232,51 @@ Conversation:
             - language
           annotations:
             - conversation_json
+
+
+Audio: 
+  description: "Projects related to audio-processing" 
+  project_types: 
+    SingleSpeakerAudioTranscriptionEditing: 
+      project_mode: "Annotation" 
+      label_studio_jsx_file: "audio/single_speaker_transcription_editing.jsx" 
+      input_dataset: 
+        class: SpeechConversation 
+        fields: 
+          - audio_url 
+          - reference_raw_transcript 
+          - audio_duration 
+          - scenario 
+          - domain 
+          - speakers_json
+        display_fields: 
+          - scenario 
+          - audio_url 
+        prediction: machine_transcribed_json 
+      output_dataset:  
+        class: SpeechConversation 
+        save_type: in_place 
+        fields: 
+          annotations: 
+            - transcribed_json
+    AudioSegmentation:
+      project_mode: "Annotation" 
+      label_studio_jsx_file: "audio/audio_segmentation.jsx" 
+      input_dataset: 
+        class: SpeechConversation 
+        fields: 
+          - audio_url  
+          - audio_duration 
+          - scenario 
+          - domain 
+          - speakers_json
+        display_fields: 
+          - scenario 
+          - audio_url 
+        prediction: machine_transcribed_json 
+      output_dataset:  
+        class: SpeechConversation 
+        save_type: in_place 
+        fields: 
+          annotations: 
+            - transcribed_json

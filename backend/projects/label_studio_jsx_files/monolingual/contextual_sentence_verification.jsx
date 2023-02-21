@@ -5,7 +5,7 @@
     <Header size="3" value="Corrected Sentence"/>
     <Header size="3" value="Quality Status"/>
     <Text name="text" value="$text"/>
-    <TextArea name="corrected_text" toName="text" value="$text" rows="5" transcription="true" showSubmitButton="true" maxSubmissions="1" editable="true" required="true"/>
+    <TextArea name="corrected_text" toName="text" value="$text" rows="5" transcription="true" showSubmitButton="true" maxSubmissions="1" editable="false" required="true"/>
   	<Choices name="quality_status" toName="text" choice="single-radio" required="true">
     	<Choice value="Clean" selected="true"/>
     	<Choice value="Profane" />
