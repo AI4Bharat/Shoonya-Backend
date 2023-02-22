@@ -2370,7 +2370,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
                 tasks_list.append(OrderedDict(task_dict))
-
+            print(tasks_list[0]["data"])
+            print()
+            print(tasks_list[0]["annotations"])
+            dataset_type = project.dataset_id.all()[0].dataset_type
             if (
                 project_type == "ConversationTranslation"
                 or project_type == "ConversationTranslationEditing"
@@ -2395,6 +2398,57 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             map(str, result["value"]["text"])
                         )
                     task["data"]["translated_conversation_json"] = conversation_json
+            elif dataset_type=="SpeechConversation":
+                transcribed_json=[]
+                annotation_result=tasks_list[0]["annotations"][0]["result"]
+                speakers_json=tasks_list[0]["data"]["speakers_json"]
+                ids_formatted={}
+                for idx1 in range(len(annotation_result)):
+                    formatted_result_dict={}
+                    labels_dict={}
+                    text_dict={}
+                    if annotation_result[idx1]["type"]=="labels":
+                        labels_dict=annotation_result[idx1]
+                    else:
+                        text_dict=annotation_result[idx1]
+                    for idx2 in range(idx1+1,len(annotation_result)):
+                        if annotation_result[idx1]["id"]==annotation_result[idx2]["id"]:
+                            
+                            
+                            if annotation_result[idx2]["type"]=="labels":
+                                labels_dict=annotation_result[idx2]
+                            else:
+                                text_dict=annotation_result[idx2]
+                            break;
+                    
+                    if annotation_result[idx1]["id"] not in ids_formatted:
+                        print(annotation_result[idx1]["id"])
+                        print(ids_formatted)
+                        ids_formatted[annotation_result[idx1]["id"]]="formatted"
+                        if not labels_dict:
+                            formatted_result_dict["speaker_id"]=None
+                        else:
+                            formatted_result_dict["speaker_id"]=next(
+                                speaker
+                                for speaker in speakers_json
+                                if speaker["name"] == labels_dict["value"]["labels"][0]
+                            )["speaker_id"]
+                            formatted_result_dict["start"]=labels_dict["value"]["start"]
+                            formatted_result_dict["end"]=labels_dict["value"]["end"]
+
+                        if not text_dict:
+                            formatted_result_dict["text"]=""
+                        else:
+                            formatted_result_dict["text"]=text_dict["value"]["text"][0]
+                            formatted_result_dict["start"]=text_dict["value"]["start"]
+                            formatted_result_dict["end"]=text_dict["value"]["end"]
+                        transcribed_json.append(formatted_result_dict)
+                tasks_list[0]["annotations"][0]["result"]=[]
+                tasks_list[0]["data"]["transcribed_json"]=transcribed_json
+
+
+
+
 
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
