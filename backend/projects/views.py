@@ -748,6 +748,35 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
+    @action(detail=True, methods=["post"], url_name="remove_frozen_user")
+    def remove_frozen_user(self, request, pk=None):
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            if not project:
+                return Response(
+                    {"message": "Project does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            for user_id in ids:
+                user = User.objects.get(pk=user_id)
+                project.frozen_users.remove(user)
+                project.save()
+            return Response(
+                {"message": "Frozen User removed from the project"},
+                status=status.HTTP_200_OK,
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
     @swagger_auto_schema(
         method="post",
         manual_parameters=[
