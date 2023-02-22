@@ -318,7 +318,11 @@ def export_project_in_place(
     for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
         print(tl["annotations"])
         if output_dataset_info["dataset_type"] == "SpeechConversation":
-            ta_labels = json.loads(ta["labels"])
+            try:
+                ta_labels = json.loads(ta["labels"])
+            except:
+                export_excluded_task_ids.append(task.id)
+                continue
             try:
                 ta_transcribed_json = json.loads(ta["transcribed_json"])
             except:
