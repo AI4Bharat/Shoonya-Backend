@@ -687,7 +687,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.annotation_users.remove(user)
                     task.save()
                 tasks.update(task_status="incomplete")  # unassign user from tasks
-                project.annotators.remove(user)
+                # project.annotators.remove(user)
                 project.frozen_users.add(user)
                 project.save()
             return Response(
