@@ -61,6 +61,7 @@ from .utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_audio_transcription_duration,
 )
 
 from workspaces.decorators import is_particular_workspace_manager
@@ -1811,7 +1812,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 for each_task in labeled_annotations:
                     try:
                         total_duration_list.append(
-                            each_task.task.data["audio_duration"]
+                            get_audio_transcription_duration(each_task.result)
                         )
                     except:
                         pass
