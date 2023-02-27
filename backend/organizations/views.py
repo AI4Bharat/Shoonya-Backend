@@ -1488,7 +1488,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             "ContextualTranslationEditing",
             "ContextualSentenceVerification",
             "SemanticTextualSimilarity_Scale5",
-            "SingleSpeakerAudioTranscriptionEditing",
+            "AudioTranscriptionEditing",
+            "AudioTranscription",
+            "AudioSegmentation",
         ]
         final_result_for_all_types = {}
         for project_type in project_types:
