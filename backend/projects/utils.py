@@ -125,11 +125,11 @@ def minor_major_accepted_task(annotation_objs):
 
 
 def get_audio_transcription_duration(annotation_result):
-    audio_duration=0
+    audio_duration = 0
     for result in annotation_result:
-        if result["type"]=="labels":
-            start=result["value"]["start"]
-            end=result["value"]["end"]
-            audio_duration+=end-start
+        if result["type"] == "labels":
+            start = result["value"]["start"]
+            end = result["value"]["end"]
+            audio_duration += end - start
 
     return audio_duration

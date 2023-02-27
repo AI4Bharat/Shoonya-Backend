@@ -21,7 +21,7 @@ from projects.utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,
     get_audio_project_types,
-    get_audio_transcription_duration
+    get_audio_transcription_duration,
 )
 
 
@@ -314,7 +314,9 @@ def un_pack_annotation_tasks(
         total_duration_list = []
         for each_task in labeled_annotations:
             try:
-                total_duration_list.append(get_audio_transcription_duration(each_task.result))
+                total_duration_list.append(
+                    get_audio_transcription_duration(each_task.result)
+                )
             except:
                 pass
         total_duration = convert_seconds_to_hours(sum(total_duration_list))
@@ -738,18 +740,26 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                     for each_task in labeled_tasks:
                         try:
-                            annotate_annotation=Annotation.objects.filter(task=each_task,parent_annotation_id__isnull=True)[0]
+                            annotate_annotation = Annotation.objects.filter(
+                                task=each_task, parent_annotation_id__isnull=True
+                            )[0]
                             total_duration_annotated_count_list.append(
-                                get_audio_transcription_duration(annotate_annotation.result)
+                                get_audio_transcription_duration(
+                                    annotate_annotation.result
+                                )
                             )
                         except:
                             pass
 
                     for each_task in reviewed_tasks:
                         try:
-                            review_annotation=Annotation.objects.filter(task=each_task,parent_annotation_id__isnull=False)[0]
+                            review_annotation = Annotation.objects.filter(
+                                task=each_task, parent_annotation_id__isnull=False
+                            )[0]
                             total_duration_reviewed_count_list.append(
-                                get_audio_transcription_duration(review_annotation.result)
+                                get_audio_transcription_duration(
+                                    review_annotation.result
+                                )
                             )
                         except:
                             pass
@@ -757,7 +767,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     for each_task in exported_tasks:
                         try:
                             total_duration_exported_count_list.append(
-                                get_audio_transcription_duration(each_task.correct_annotation.result)
+                                get_audio_transcription_duration(
+                                    each_task.correct_annotation.result
+                                )
                             )
                         except:
                             pass

@@ -200,7 +200,9 @@ def get_counts(
             total_duration_list = []
             for each_task in labeled_annotations:
                 try:
-                    total_duration_list.append(get_audio_transcription_duration(each_task.result))
+                    total_duration_list.append(
+                        get_audio_transcription_duration(each_task.result)
+                    )
                 except:
                     pass
             total_duration = convert_seconds_to_hours(sum(total_duration_list))
@@ -1069,18 +1071,26 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
                     for each_task in labeled_tasks:
                         try:
-                            annotate_annotation=Annotation.objects.filter(task=each_task,parent_annotation_id__isnull=True)[0]
+                            annotate_annotation = Annotation.objects.filter(
+                                task=each_task, parent_annotation_id__isnull=True
+                            )[0]
                             total_duration_annotated_count_list.append(
-                                get_audio_transcription_duration(annotate_annotation.result)
+                                get_audio_transcription_duration(
+                                    annotate_annotation.result
+                                )
                             )
                         except:
                             pass
 
                     for each_task in reviewed_tasks:
                         try:
-                            review_annotation=Annotation.objects.filter(task=each_task,parent_annotation_id__isnull=False)[0]
+                            review_annotation = Annotation.objects.filter(
+                                task=each_task, parent_annotation_id__isnull=False
+                            )[0]
                             total_duration_reviewed_count_list.append(
-                                get_audio_transcription_duration(review_annotation.result)
+                                get_audio_transcription_duration(
+                                    review_annotation.result
+                                )
                             )
                         except:
                             pass
@@ -1088,7 +1098,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     for each_task in exported_tasks:
                         try:
                             total_duration_exported_count_list.append(
-                                get_audio_transcription_duration(each_task.correct_annotation.result)
+                                get_audio_transcription_duration(
+                                    each_task.correct_annotation.result
+                                )
                             )
                         except:
                             pass
@@ -1517,10 +1529,13 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
                         for each_task in reviewer_tasks:
                             try:
-                                if each_task.task_status=="reviewed":
-                                    anno=Annotation.objects.filter(task=each_task,parent_annotation_id__isnull=False)[0]
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        parent_annotation_id__isnull=False,
+                                    )[0]
                                 else:
-                                    anno=each_task.correct_annotation
+                                    anno = each_task.correct_annotation
                                 total_rev_duration_list.append(
                                     get_audio_transcription_duration(anno.result)
                                 )
@@ -1535,12 +1550,18 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
                         for each_task in annotation_tasks:
                             try:
-                                if each_task.task_status=="reviewed":
-                                    anno=Annotation.objects.filter(task=each_task,parent_annotation_id__isnull=False)[0]
-                                elif each_task.task_status=="exported":
-                                    anno=each_task.correct_annotation
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        parent_annotation_id__isnull=False,
+                                    )[0]
+                                elif each_task.task_status == "exported":
+                                    anno = each_task.correct_annotation
                                 else:
-                                    anno=Annotation.objects.filter(task=each_task,parent_annotation_id__isnull=True)[0]
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        parent_annotation_id__isnull=True,
+                                    )[0]
                                 total_ann_duration_list.append(
                                     get_audio_transcription_duration(anno.result)
                                 )
