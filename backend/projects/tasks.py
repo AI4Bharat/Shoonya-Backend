@@ -326,7 +326,9 @@ def export_project_in_place(
                 continue
             try:
                 ta_transcribed_json = json.loads(ta["transcribed_json"])
-            except:
+            except json.JSONDecodeError:
+                ta_transcribed_json = [ta["transcribed_json"]]
+            except KeyError:
                 ta_transcribed_json = len(ta_labels) * [""]
             if len(ta_labels) != len(ta_transcribed_json):
                 export_excluded_task_ids.append(task.id)

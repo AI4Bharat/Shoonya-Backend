@@ -381,6 +381,52 @@ def convert_prediction_json_to_annotation_result(pk):
     return result
 
 
+def convert_annotation_result_to_formatted_json(annotation_result, speakers_json):
+    transcribed_json = []
+    ids_formatted = {}
+    for idx1 in range(len(annotation_result)):
+        formatted_result_dict = {}
+        labels_dict = {}
+        text_dict = {}
+        if annotation_result[idx1]["type"] == "labels":
+            labels_dict = annotation_result[idx1]
+        else:
+            text_dict = annotation_result[idx1]
+        for idx2 in range(idx1 + 1, len(annotation_result)):
+            if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
+
+                if annotation_result[idx2]["type"] == "labels":
+                    labels_dict = annotation_result[idx2]
+                else:
+                    text_dict = annotation_result[idx2]
+                break
+
+        if annotation_result[idx1]["id"] not in ids_formatted:
+            print(annotation_result[idx1]["id"])
+            print(ids_formatted)
+            ids_formatted[annotation_result[idx1]["id"]] = "formatted"
+            if not labels_dict:
+                formatted_result_dict["speaker_id"] = None
+            else:
+                formatted_result_dict["speaker_id"] = next(
+                    speaker
+                    for speaker in speakers_json
+                    if speaker["name"] == labels_dict["value"]["labels"][0]
+                )["speaker_id"]
+                formatted_result_dict["start"] = labels_dict["value"]["start"]
+                formatted_result_dict["end"] = labels_dict["value"]["end"]
+
+            if not text_dict:
+                formatted_result_dict["text"] = ""
+            else:
+                formatted_result_dict["text"] = text_dict["value"]["text"][0]
+                formatted_result_dict["start"] = text_dict["value"]["start"]
+                formatted_result_dict["end"] = text_dict["value"]["end"]
+            transcribed_json.append(formatted_result_dict)
+
+    return transcribed_json
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     """
     Project ViewSet
@@ -742,6 +788,35 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.save()
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=True, methods=["post"], url_name="remove_frozen_user")
+    def remove_frozen_user(self, request, pk=None):
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            if not project:
+                return Response(
+                    {"message": "Project does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            for user_id in ids:
+                user = User.objects.get(pk=user_id)
+                project.frozen_users.remove(user)
+                project.save()
+            return Response(
+                {"message": "Frozen User removed from the project"},
+                status=status.HTTP_200_OK,
             )
         except User.DoesNotExist:
             return Response(
@@ -2342,6 +2417,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 del task_dict["review_user"]
                 tasks_list.append(OrderedDict(task_dict))
 
+            dataset_type = project.dataset_id.all()[0].dataset_type
             if (
                 project_type == "ConversationTranslation"
                 or project_type == "ConversationTranslationEditing"
@@ -2366,6 +2442,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             map(str, result["value"]["text"])
                         )
                     task["data"]["translated_conversation_json"] = conversation_json
+            elif dataset_type == "SpeechConversation":
+                for task in tasks_list:
+                    annotation_result = task["annotations"][0]["result"]
+                    speakers_json = task["data"]["speakers_json"]
+                    task["annotations"][0]["result"] = []
+                    if project_type == "AudioSegmentation":
+                        task["data"][
+                            "prediction_json"
+                        ] = convert_annotation_result_to_formatted_json(
+                            annotation_result, speakers_json
+                        )
+                    else:
+                        task["data"][
+                            "transcribed_json"
+                        ] = convert_annotation_result_to_formatted_json(
+                            annotation_result, speakers_json
+                        )
 
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
