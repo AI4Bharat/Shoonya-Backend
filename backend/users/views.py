@@ -32,6 +32,7 @@ from projects.utils import (
     is_valid_date,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_audio_transcription_duration,
 )
 from datetime import datetime
 from django.conf import settings
@@ -533,7 +534,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 for each_task in annotated_labeled_tasks:
                     try:
                         total_duration_list.append(
-                            each_task.task.data["audio_duration"]
+                            get_audio_transcription_duration(each_task.result)
                         )
                     except:
                         pass
