@@ -324,8 +324,8 @@ def un_pack_annotation_tasks(
     return (
         accepted.count(),
         to_be_revised.count(),
-        accepted_wt_minor_changes,
-        accepted_wt_major_changes,
+        accepted_wt_minor_changes.count(),
+        accepted_wt_major_changes.count(),
         labeled,
         avg_lead_time,
         total_word_count,
