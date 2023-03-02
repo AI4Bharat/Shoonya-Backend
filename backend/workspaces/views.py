@@ -21,6 +21,7 @@ from projects.utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_audio_transcription_duration,
 )
 
 
@@ -313,7 +314,9 @@ def un_pack_annotation_tasks(
         total_duration_list = []
         for each_task in labeled_annotations:
             try:
-                total_duration_list.append(each_task.task.data["audio_duration"])
+                total_duration_list.append(
+                    get_audio_transcription_duration(each_task.result)
+                )
             except:
                 pass
         total_duration = convert_seconds_to_hours(sum(total_duration_list))
@@ -321,8 +324,8 @@ def un_pack_annotation_tasks(
     return (
         accepted.count(),
         to_be_revised.count(),
-        accepted_wt_minor_changes,
-        accepted_wt_major_changes,
+        accepted_wt_minor_changes.count(),
+        accepted_wt_major_changes.count(),
         labeled,
         avg_lead_time,
         total_word_count,
@@ -737,16 +740,26 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                     for each_task in labeled_tasks:
                         try:
+                            annotate_annotation = Annotation.objects.filter(
+                                task=each_task, parent_annotation_id__isnull=True
+                            )[0]
                             total_duration_annotated_count_list.append(
-                                each_task.data["audio_duration"]
+                                get_audio_transcription_duration(
+                                    annotate_annotation.result
+                                )
                             )
                         except:
                             pass
 
                     for each_task in reviewed_tasks:
                         try:
+                            review_annotation = Annotation.objects.filter(
+                                task=each_task, parent_annotation_id__isnull=False
+                            )[0]
                             total_duration_reviewed_count_list.append(
-                                each_task.data["audio_duration"]
+                                get_audio_transcription_duration(
+                                    review_annotation.result
+                                )
                             )
                         except:
                             pass
@@ -754,7 +767,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     for each_task in exported_tasks:
                         try:
                             total_duration_exported_count_list.append(
-                                each_task.data["audio_duration"]
+                                get_audio_transcription_duration(
+                                    each_task.correct_annotation.result
+                                )
                             )
                         except:
                             pass
@@ -1059,7 +1074,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     for each_task in labeled_annotations:
                         try:
                             total_duration_list.append(
-                                each_task.task.data["audio_duration"]
+                                get_audio_transcription_duration(each_task.result)
                             )
                         except:
                             pass
@@ -1071,14 +1086,14 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 parent_annotation_id__isnull=True,
                 created_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
-            )
+            ).count()
             all_pending_tasks_in_project = Annotation.objects.filter(
                 task__project_id__in=proj_ids,
                 annotation_status="unlabeled",
                 parent_annotation_id__isnull=True,
                 created_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
-            )
+            ).count()
 
             all_draft_tasks_in_project = Annotation.objects.filter(
                 task__project_id__in=proj_ids,
@@ -1086,7 +1101,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 parent_annotation_id__isnull=True,
                 created_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
-            )
+            ).count()
 
             if only_review_proj:
                 result = {

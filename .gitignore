@@ -23,6 +23,7 @@ postgres_data/
 
 # Database
 db.sqlite3
+*.sql
 
 # Static folder at project root
 /static/

@@ -32,6 +32,7 @@ from projects.utils import (
     is_valid_date,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_audio_transcription_duration,
 )
 from datetime import datetime
 from django.conf import settings
@@ -473,9 +474,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
-                ).exclude(annotation_status="to_be_revised")
+                ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
             else:
                 labeld_tasks_objs = Task.objects.filter(
                     Q(project_id=proj.id)
@@ -494,7 +495,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     parent_annotation_id=None,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )
 
@@ -533,7 +534,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 for each_task in annotated_labeled_tasks:
                     try:
                         total_duration_list.append(
-                            each_task.task.data["audio_duration"]
+                            get_audio_transcription_duration(each_task.result)
                         )
                     except:
                         pass

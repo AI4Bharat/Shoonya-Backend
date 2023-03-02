@@ -313,52 +313,74 @@ def export_project_in_place(
         )
         tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
 
+    export_excluded_task_ids = []
+
     for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
-        print(ta)
         if output_dataset_info["dataset_type"] == "SpeechConversation":
-            ta_labels = json.loads(ta["labels"])
-            ta_transcribed_json = json.loads(ta["transcribed_json"])
+            try:
+                ta_labels = json.loads(ta["labels"])
+            except Exception as error:
+                print(task.id)
+                print(error)
+                export_excluded_task_ids.append(task.id)
+                continue
+            try:
+                ta_transcribed_json = json.loads(ta["transcribed_json"])
+            except json.JSONDecodeError:
+                ta_transcribed_json = [ta["transcribed_json"]]
+            except KeyError:
+                ta_transcribed_json = len(ta_labels) * [""]
+            if len(ta_labels) != len(ta_transcribed_json):
+                export_excluded_task_ids.append(task.id)
+                continue
+
         task.output_data = task.input_data
         task.save()
         data_item = dataset_model.objects.get(id__exact=tl["input_data"])
-        for field in annotation_fields:
-            # Check being done for rating as Label studio stores all the data in string format
-            # We need to store the rating in integer format
-            if field == "rating":
-                setattr(data_item, field, int(ta[field]))
-            elif field == "transcribed_json":
-                speakers_details = data_item.speakers_json
-                for idx in range(len(ta_transcribed_json)):
-                    ta_labels[idx]["text"] = ta_transcribed_json[idx]
-                    speaker_id = next(
-                        speaker
-                        for speaker in speakers_details
-                        if speaker["name"] == ta_labels[idx]["labels"][0]
-                    )["speaker_id"]
-                    ta_labels[idx]["speaker_id"] = speaker_id
-                    del ta_labels[idx]["labels"]
-                setattr(data_item, field, ta_labels)
-            elif field == "conversation_json":
-                conversation_json = data_item.machine_translated_conversation_json
-                for idx1 in range(len(conversation_json)):
-                    for idx2 in range(len(conversation_json[idx1]["sentences"])):
-                        conversation_json[idx1]["sentences"][idx2] = ""
-                for result in tl["annotations"][0]["result"]:
-                    to_name_list = result["to_name"].split("_")
-                    idx1 = int(to_name_list[1])
-                    idx2 = int(to_name_list[2])
-                    conversation_json[idx1]["sentences"][idx2] = ".".join(
-                        map(str, result["value"]["text"])
+        try:
+            for field in annotation_fields:
+                # Check being done for rating as Label studio stores all the data in string format
+                # We need to store the rating in integer format
+                if field == "rating":
+                    setattr(data_item, field, int(ta[field]))
+                elif field == "transcribed_json" or field == "prediction_json":
+                    speakers_details = data_item.speakers_json
+                    for idx in range(len(ta_transcribed_json)):
+                        ta_labels[idx]["text"] = ta_transcribed_json[idx]
+                        speaker_id = next(
+                            speaker
+                            for speaker in speakers_details
+                            if speaker["name"] == ta_labels[idx]["labels"][0]
+                        )["speaker_id"]
+                        ta_labels[idx]["speaker_id"] = speaker_id
+                        del ta_labels[idx]["labels"]
+                    setattr(data_item, field, ta_labels)
+                elif field == "conversation_json":
+                    conversation_json = data_item.machine_translated_conversation_json
+                    for idx1 in range(len(conversation_json)):
+                        for idx2 in range(len(conversation_json[idx1]["sentences"])):
+                            conversation_json[idx1]["sentences"][idx2] = ""
+                    for result in tl["annotations"][0]["result"]:
+                        to_name_list = result["to_name"].split("_")
+                        idx1 = int(to_name_list[1])
+                        idx2 = int(to_name_list[2])
+                        conversation_json[idx1]["sentences"][idx2] = ".".join(
+                            map(str, result["value"]["text"])
+                        )
+                    setattr(data_item, field, conversation_json)
+                elif field == "domain":
+                    setattr(
+                        data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0]
                     )
-                setattr(data_item, field, conversation_json)
-            elif field == "domain":
-                setattr(data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0])
-            else:
-                setattr(data_item, field, ta[field])
-        data_items.append(data_item)
+                else:
+                    setattr(data_item, field, ta[field])
+            data_items.append(data_item)
+        except:
+            export_excluded_task_ids.append(task.id)
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
+    tasks = tasks.exclude(id__in=export_excluded_task_ids)
     tasks.update(task_status=EXPORTED)
 
     return f"Exported {len(data_items)} items."

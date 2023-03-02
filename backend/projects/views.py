@@ -38,7 +38,7 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
 
-from dataset.models import DatasetInstance, Conversation
+from dataset.models import DatasetInstance, Conversation, SpeechConversation
 
 # Import celery tasks
 from .tasks import (
@@ -61,9 +61,11 @@ from .utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_audio_transcription_duration,
 )
 
 from workspaces.decorators import is_particular_workspace_manager
+from users.views import generate_random_string
 
 # Create your views here.
 
@@ -99,7 +101,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     accepted_objs_count = accepted_objs.count()
@@ -109,7 +111,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
 
     major_changes = Annotation_model.objects.filter(
@@ -117,21 +119,40 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
     # minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
-    labeled_tasks = Task.objects.filter(
-        project_id=proj_id, review_user=userid, task_status="annotated"
-    )
-    labeled_tasks_count = labeled_tasks.count()
+    unreviewed_count = Annotation_model.objects.filter(
+        annotation_status="unreviewed",
+        task__project_id=proj_id,
+        task__review_user=userid,
+        parent_annotation_id__isnull=False,
+        updated_at__range=[start_date, end_date],
+    ).count()
+
+    draft_count = Annotation_model.objects.filter(
+        annotation_status="draft",
+        task__project_id=proj_id,
+        task__review_user=userid,
+        parent_annotation_id__isnull=False,
+        updated_at__range=[start_date, end_date],
+    ).count()
+
+    skipped_count = Annotation_model.objects.filter(
+        annotation_status="skipped",
+        task__project_id=proj_id,
+        task__review_user=userid,
+        parent_annotation_id__isnull=False,
+        updated_at__range=[start_date, end_date],
+    ).count()
 
     to_be_revised_tasks_count = Annotation_model.objects.filter(
         annotation_status="to_be_revised",
         task__project_id=proj_id,
         task__review_user=userid,
         parent_annotation_id__isnull=False,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     ).count()
     result = {
         "Reviewer Name": userName,
@@ -140,7 +161,9 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         "Accepted": accepted_objs_count,
         "Accepted With Minor Changes": minor_changes,
         "Accepted With Major Changes": major_changes,
-        "Labeled": labeled_tasks_count,
+        "Un Reviewed": unreviewed_count,
+        "Draft": draft_count,
+        "Skipped": skipped_count,
         "To Be Revised": to_be_revised_tasks_count,
     }
     return result
@@ -295,40 +318,117 @@ def get_project_creation_status(pk) -> str:
         return "Draft"
 
 
-def get_task_count(pk, status):
+def get_task_count_unassigned(pk, user):
+
     project = Project.objects.get(pk=pk)
-    tasks = (
-        Task.objects.filter(project_id=pk)
-        .filter(task_status=status)
-        .annotate(annotator_count=Count("annotation_users"))
-    )
-    task_count = tasks.filter(
-        annotator_count__lt=project.required_annotators_per_task
-    ).count()
-    return task_count
+    required_annotators_per_task = project.required_annotators_per_task
+
+    proj_tasks = Task.objects.filter(project_id=pk).exclude(annotation_users=user)
+    proj_tasks_unassigned = (
+        proj_tasks.annotate(num_annotators=Count("annotation_users"))
+    ).filter(num_annotators__lt=required_annotators_per_task)
+
+    return len(proj_tasks_unassigned)
 
 
-# def get_tasks_count(pk, annotator, status, return_task_count=True):
-#     Task_objs = Task.objects.filter(
-#         project_id=pk, annotation_users=annotator, task_status=status
-#     )
-#     if return_task_count == True:
-#         Task_objs_count = Task_objs.count()
-#         return Task_objs_count
-#     else:
-#         return Task_objs
+def convert_prediction_json_to_annotation_result(pk):
+    data_item = SpeechConversation.objects.get(pk=pk)
+    prediction_json = data_item.prediction_json
+    speakers_json = data_item.speakers_json
+    audio_duration = data_item.audio_duration
+
+    result = []
+    if prediction_json == None:
+        return result
+
+    for idx, val in enumerate(prediction_json):
+        label_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "labels",
+            "original_length": audio_duration,
+        }
+        text_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "transcribed_json",
+            "original_length": audio_duration,
+        }
+        id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+        label_dict["id"] = id
+        text_dict["id"] = id
+        label_dict["type"] = "labels"
+        text_dict["type"] = "textarea"
+
+        value_labels = {
+            "start": val["start"],
+            "end": val["end"],
+            "labels": [
+                next(
+                    speaker
+                    for speaker in speakers_json
+                    if speaker["speaker_id"] == val["speaker_id"]
+                )["name"]
+            ],
+        }
+        value_text = {"start": val["start"], "end": val["end"], "text": [val["text"]]}
+
+        label_dict["value"] = value_labels
+        text_dict["value"] = value_text
+
+        result.append(label_dict)
+        result.append(text_dict)
+
+    return result
 
 
-# def get_annotated_tasks(pk, annotator, status, start_date, end_date):
+def convert_annotation_result_to_formatted_json(annotation_result, speakers_json):
+    transcribed_json = []
+    ids_formatted = {}
+    for idx1 in range(len(annotation_result)):
+        formatted_result_dict = {}
+        labels_dict = {}
+        text_dict = {}
+        if annotation_result[idx1]["type"] == "labels":
+            labels_dict = annotation_result[idx1]
+        else:
+            text_dict = annotation_result[idx1]
+        for idx2 in range(idx1 + 1, len(annotation_result)):
+            if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
 
-#     annotated_objs = Annotation_model.objects.filter(
-#         annotation_status=status,
-#         task__project_id=pk,
-#         parent_annotation_id__isnull=True,
-#         created_at__range=[start_date, end_date],
-#         completed_by=annotator,
-#     )
-#     return annotated_objs
+                if annotation_result[idx2]["type"] == "labels":
+                    labels_dict = annotation_result[idx2]
+                else:
+                    text_dict = annotation_result[idx2]
+                break
+
+        if annotation_result[idx1]["id"] not in ids_formatted:
+            print(annotation_result[idx1]["id"])
+            print(ids_formatted)
+            ids_formatted[annotation_result[idx1]["id"]] = "formatted"
+            if not labels_dict:
+                formatted_result_dict["speaker_id"] = None
+            else:
+                try:
+                    formatted_result_dict["speaker_id"] = next(
+                        speaker
+                        for speaker in speakers_json
+                        if speaker["name"] == labels_dict["value"]["labels"][0]
+                    )["speaker_id"]
+                except KeyError:
+                    formatted_result_dict["speaker_id"] = None
+                formatted_result_dict["start"] = labels_dict["value"]["start"]
+                formatted_result_dict["end"] = labels_dict["value"]["end"]
+
+            if not text_dict:
+                formatted_result_dict["text"] = ""
+            else:
+                formatted_result_dict["text"] = text_dict["value"]["text"][0]
+                formatted_result_dict["start"] = text_dict["value"]["start"]
+                formatted_result_dict["end"] = text_dict["value"]["end"]
+            transcribed_json.append(formatted_result_dict)
+
+    return transcribed_json
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -380,7 +480,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["last_pull_result"] = last_project_export_result
 
         # Add a field to specify the no. of available tasks to be assigned
-        project_response.data["unassigned_task_count"] = get_task_count(pk, INCOMPLETE)
+        project_response.data["unassigned_task_count"] = get_task_count_unassigned(
+            pk, request.user
+        )
 
         # Add a field to specify the no. of labeled tasks
         project_response.data["labeled_task_count"] = (
@@ -390,7 +492,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=request.user.id)
             .count()
         )
-
         return project_response
 
     def list(self, request, *args, **kwargs):
@@ -467,7 +568,34 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ),
                 type=openapi.TYPE_STRING,
                 required=False,
-            )
+            ),
+            openapi.Parameter(
+                "project_type",
+                openapi.IN_QUERY,
+                description=("A string that denotes the type of project"),
+                type=openapi.TYPE_STRING,
+                enum=PROJECT_TYPE_LIST,
+                required=False,
+            ),
+            openapi.Parameter(
+                "project_user_type",
+                openapi.IN_QUERY,
+                description=(
+                    "A string that denotes the type of the user in the project"
+                ),
+                type=openapi.TYPE_STRING,
+                enum=["annotator", "reviewer"],
+                required=False,
+            ),
+            openapi.Parameter(
+                "archived_projects",
+                openapi.IN_QUERY,
+                description=(
+                    "A flag that denotes whether the project is archived or not"
+                ),
+                type=openapi.TYPE_BOOLEAN,
+                required=False,
+            ),
         ],
         responses={
             200: ProjectSerializerOptimized,
@@ -506,6 +634,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
                 projects = projects.filter(is_published=True).filter(is_archived=False)
+
+            if "project_user_type" in request.query_params:
+                project_user_type = request.query_params["project_user_type"]
+                if project_user_type == "annotator":
+                    projects = projects.filter(annotators=request.user)
+                elif project_user_type == "reviewer":
+                    projects = projects.filter(annotation_reviewers=request.user)
+
+            if "project_type" in request.query_params:
+                project_type = request.query_params["project_type"]
+                projects = projects.filter(project_type=project_type)
+
+            if ("archived_projects" in request.query_params) and (
+                (request.user.role == User.ORGANIZATION_OWNER)
+                or (request.user.role == User.WORKSPACE_MANAGER)
+            ):
+                archived_projects = request.query_params["archived_projects"]
+                archived_projects = True if archived_projects == "true" else False
+                projects = projects.filter(is_archived=archived_projects)
+
             projects = projects.distinct()
 
             if (
@@ -589,7 +737,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.annotation_users.remove(user)
                     task.save()
                 tasks.update(task_status="incomplete")  # unassign user from tasks
-                project.annotators.remove(user)
+                # project.annotators.remove(user)
                 project.frozen_users.add(user)
                 project.save()
             return Response(
@@ -644,6 +792,35 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.save()
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=True, methods=["post"], url_name="remove_frozen_user")
+    def remove_frozen_user(self, request, pk=None):
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            if not project:
+                return Response(
+                    {"message": "Project does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            for user_id in ids:
+                user = User.objects.get(pk=user_id)
+                project.frozen_users.remove(user)
+                project.save()
+            return Response(
+                {"message": "Frozen User removed from the project"},
+                status=status.HTTP_200_OK,
             )
         except User.DoesNotExist:
             return Response(
@@ -1036,10 +1213,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # check if user has pending tasks
         # the below logic will work only for required_annotators_per_task=1
         # TO-DO Modify and use the commented logic to cover all cases
+        proj_annotations = Annotation_model.objects.filter(task__project_id=pk).filter(
+            annotation_status__exact=UNLABELED
+        )
+        annotation_tasks = [anno.task.id for anno in proj_annotations]
         pending_tasks = (
             Task.objects.filter(project_id=pk)
             .filter(annotation_users=cur_user.id)
-            .filter(task_status__exact=INCOMPLETE)
+            .filter(task_status__in=[INCOMPLETE, UNLABELED])
+            .filter(id__in=annotation_tasks)
             .count()
         )
         # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
@@ -1074,7 +1256,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks = Task.objects.filter(project_id=pk)
         tasks = tasks.order_by("id")
         tasks = (
-            tasks.filter(task_status=INCOMPLETE)
+            tasks.filter(task_status__in=[INCOMPLETE, UNLABELED])
             .exclude(annotation_users=cur_user.id)
             .annotate(annotator_count=Count("annotation_users"))
         )
@@ -1090,8 +1272,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
+            result = []
+            if project.project_type == "AudioTranscriptionEditing":
+                result = convert_prediction_json_to_annotation_result(
+                    task.input_data.id
+                )
             base_annotation_obj = Annotation_model(
-                result=[],
+                result=result,
                 task=task,
                 completed_by=cur_user,
             )
@@ -1175,7 +1362,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if tasks.count() > 0:
                 for task in tasks:
                     task.unassign(user_obj)
-                    task.task_status = UNLABELED
+                    task.task_status = INCOMPLETE
                     task.save()
                 return Response(
                     {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
@@ -1554,13 +1741,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="labeled",
                 parent_annotation_id__isnull=True,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             )
             labeled_annotation_ids = [ann.id for ann in labeled_annotations]
 
             reviewed_ann = Annotation_model.objects.filter(
-                parent_annotation_id__in=labeled_annotation_ids
+                parent_annotation_id__in=labeled_annotation_ids,
+                annotation_status__in=[
+                    ACCEPTED,
+                    ACCEPTED_WITH_MAJOR_CHANGES,
+                    ACCEPTED_WITH_MINOR_CHANGES,
+                ],
             ).count()
 
             labeled_only_annotations = len(labeled_annotations) - reviewed_ann
@@ -1574,7 +1766,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted",
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_accepted
@@ -1591,7 +1783,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted_with_minor_changes",
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_minor = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_minor
@@ -1613,7 +1805,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted_with_major_changes",
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_major = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_major
@@ -1634,7 +1826,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="to_be_revised",
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_to_be_revised = [
                     ann.parent_annotation_id
@@ -1650,7 +1842,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="unlabeled",
                 parent_annotation_id__isnull=True,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
             items.append(("Unlabeled", total_unlabeled_tasks_count))
@@ -1660,7 +1852,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="skipped",
                 parent_annotation_id__isnull=True,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
 
@@ -1671,7 +1863,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="draft",
                 parent_annotation_id__isnull=True,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
 
@@ -1698,7 +1890,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 for each_task in labeled_annotations:
                     try:
                         total_duration_list.append(
-                            each_task.task.data["audio_duration"]
+                            get_audio_transcription_duration(each_task.result)
                         )
                     except:
                         pass
@@ -1769,10 +1961,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for an in ann:
                 user_details = {}
-                text_json = an.result[0]["value"]
-                text_json["completed_by"] = an.completed_by.id
-                text_json["email"] = an.completed_by.email
-                text_json["first_name"] = an.completed_by.first_name
+                try:
+                    text_json = an.result[0]["value"]
+                    text_json["completed_by"] = an.completed_by.id
+                    text_json["email"] = an.completed_by.email
+                    text_json["first_name"] = an.completed_by.first_name
+                except:
+                    text_json = {}
                 annotation_text.append(text_json)
 
                 user_details["id"] = an.completed_by.id
@@ -1786,10 +1981,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             for an in rew:
                 user_details = {}
-                text_json = an.result[0]["value"]
-                text_json["completed_by"] = an.completed_by.id
-                text_json["email"] = an.completed_by.email
-                text_json["first_name"] = an.completed_by.first_name
+                try:
+                    text_json = an.result[0]["value"]
+                    text_json["completed_by"] = an.completed_by.id
+                    text_json["email"] = an.completed_by.email
+                    text_json["first_name"] = an.completed_by.first_name
+                except:
+                    text_json = {}
                 reviewer_text.append(text_json)
 
                 user_details["id"] = an.completed_by.id
@@ -2223,6 +2421,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 del task_dict["review_user"]
                 tasks_list.append(OrderedDict(task_dict))
 
+            dataset_type = project.dataset_id.all()[0].dataset_type
             if (
                 project_type == "ConversationTranslation"
                 or project_type == "ConversationTranslationEditing"
@@ -2247,6 +2446,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             map(str, result["value"]["text"])
                         )
                     task["data"]["translated_conversation_json"] = conversation_json
+            elif dataset_type == "SpeechConversation":
+                for task in tasks_list:
+                    annotation_result = task["annotations"][0]["result"]
+                    speakers_json = task["data"]["speakers_json"]
+                    task["annotations"][0]["result"] = []
+                    if project_type == "AudioSegmentation":
+                        task["data"][
+                            "prediction_json"
+                        ] = convert_annotation_result_to_formatted_json(
+                            annotation_result, speakers_json
+                        )
+                    else:
+                        task["data"][
+                            "transcribed_json"
+                        ] = convert_annotation_result_to_formatted_json(
+                            annotation_result, speakers_json
+                        )
 
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
