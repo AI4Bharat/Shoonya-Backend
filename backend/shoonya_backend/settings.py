@@ -37,7 +37,11 @@ DEBUG = os.getenv("ENV") == "dev"
 if DEBUG:
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
 else:
-    ALLOWED_HOSTS = ["shoonya.ai4bharat.org", "0.0.0.0", "backend.shoonya.ai4bharat.org"]
+    ALLOWED_HOSTS = [
+        "shoonya.ai4bharat.org",
+        "0.0.0.0",
+        "backend.shoonya.ai4bharat.org",
+    ]
 
 # Application definition
 
