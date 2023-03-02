@@ -239,9 +239,9 @@ def get_counts(
         accepted_wt_major_changes,
         labeled,
         avg_lead_time,
-        total_skipped_tasks,
-        all_pending_tasks_in_project,
-        all_draft_tasks_in_project,
+        total_skipped_tasks.count(),
+        all_pending_tasks_in_project.count(),
+        all_draft_tasks_in_project.count(),
         project_count,
         no_of_workspaces_objs,
         total_word_count,
@@ -716,6 +716,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         if reports_type == "review":
 
             proj_objs = Project.objects.filter(organization_id=pk)
+            if project_type != None:
+                proj_objs = proj_objs.filter(project_type=project_type)
             review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
 
             org_reviewer_list = []
@@ -742,6 +744,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     reviewer_projs = Project.objects.filter(
                         organization_id=pk, annotation_reviewers=id
                     )
+                    if project_type != None:
+                        reviewer_projs = reviewer_projs.filter(
+                            project_type=project_type
+                        )
                     reviewer_projs_ids = [
                         review_proj.id for review_proj in reviewer_projs
                     ]
@@ -754,6 +760,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 reviewer_projs = Project.objects.filter(
                     organization_id=pk, annotation_reviewers=user_id
                 )
+                if project_type != None:
+                    reviewer_projs = reviewer_projs.filter(project_type=project_type)
                 reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
 
                 result = get_review_reports(

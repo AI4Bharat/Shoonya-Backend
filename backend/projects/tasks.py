@@ -369,7 +369,9 @@ def export_project_in_place(
                         )
                     setattr(data_item, field, conversation_json)
                 elif field == "domain":
-                    setattr(data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0])
+                    setattr(
+                        data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0]
+                    )
                 else:
                     setattr(data_item, field, ta[field])
             data_items.append(data_item)
