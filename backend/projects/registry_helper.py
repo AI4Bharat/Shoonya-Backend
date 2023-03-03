@@ -174,7 +174,6 @@ class ProjectRegistry:
 
         for domain in self.data.keys():
             for project_key, project_type in self.data[domain]["project_types"].items():
-
                 assert project_type["project_mode"] in {"Collection", "Annotation"}
 
                 # Check if dataset classes are valid
@@ -223,7 +222,7 @@ class ProjectRegistry:
                 # Check if input-output mapping is proper
                 assert output_dataset["save_type"] in {"new_record", "in_place"}
                 if "copy_from_input" in output_dataset["fields"]:
-                    for (input_field, output_field) in output_dataset["fields"][
+                    for input_field, output_field in output_dataset["fields"][
                         "copy_from_input"
                     ].items():
                         assert (
@@ -234,7 +233,6 @@ class ProjectRegistry:
                         ), f'copy_from_input field "{output_field}" not present in Output Dataset "{output_dataset["class"]}"'
 
                 if project_type["project_mode"] == "Annotation":
-
                     # Check if the designed frontend UI is proper
                     ui_input_fields = []
                     if output_dataset["save_type"] == "in_place":

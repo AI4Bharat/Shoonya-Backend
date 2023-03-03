@@ -34,6 +34,7 @@ from projects.utils import (
     get_audio_project_types,
     get_translation_dataset_project_types,
     convert_hours_to_seconds,
+    get_audio_transcription_duration,
 )
 
 
@@ -52,7 +53,6 @@ def get_task_count(proj_ids, status, annotator, return_count=True):
 
 
 def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
-
     annotated_tasks_objs = get_task_count(
         proj_ids, status_list, annotator, return_count=False
     )
@@ -71,7 +71,6 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
 def get_reviewd_tasks(
     proj_ids, annotator, status_list, start_date, end_date, parent_annotation_bool
 ):
-
     annotated_tasks_objs = get_task_count(
         proj_ids, status_list, annotator, return_count=False
     )
@@ -96,7 +95,6 @@ def get_counts(
     only_review_proj,
     tgt_language=None,
 ):
-
     annotated_tasks = 0
     accepted = 0
     to_be_revised = 0
@@ -145,7 +143,6 @@ def get_counts(
     assigned_tasks = all_tasks_in_project.count()
 
     if only_review_proj:
-
         (
             accepted,
             to_be_revised,
@@ -165,7 +162,6 @@ def get_counts(
         )
 
     else:
-
         labeled_annotations = Annotation.objects.filter(
             task__project_id__in=proj_ids,
             annotation_status="labeled",
@@ -199,7 +195,9 @@ def get_counts(
             total_duration_list = []
             for each_task in labeled_annotations:
                 try:
-                    total_duration_list.append(each_task.task.data["audio_duration"])
+                    total_duration_list.append(
+                        get_audio_transcription_duration(each_task.result)
+                    )
                 except:
                     pass
             total_duration = convert_seconds_to_hours(sum(total_duration_list))
@@ -236,9 +234,9 @@ def get_counts(
         accepted_wt_major_changes,
         labeled,
         avg_lead_time,
-        total_skipped_tasks,
-        all_pending_tasks_in_project,
-        all_draft_tasks_in_project,
+        total_skipped_tasks.count(),
+        all_pending_tasks_in_project.count(),
+        all_draft_tasks_in_project.count(),
         project_count,
         no_of_workspaces_objs,
         total_word_count,
@@ -255,7 +253,6 @@ def get_translation_quality_reports(
     is_translation_project,
     tgt_language=None,
 ):
-
     if not is_translation_project:
         return Response(
             {
@@ -382,7 +379,6 @@ def get_translation_quality_reports(
 
         data = {"sentence1": str1[0], "sentence2": str2[0]}
         try:
-
             bleu_score = sentence_operation.calculate_bleu_score(data)
             total_bleu_score += float(bleu_score.data["bleu_score"])
         except:
@@ -400,7 +396,6 @@ def get_translation_quality_reports(
             char_score_error_count += 1
 
     if len(accepted_with_changes_tasks) > 0:
-
         accepted_with_change_minus_bleu_score_error = (
             len(accepted_with_changes_tasks) - bleu_score_error_count
         )
@@ -711,8 +706,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             )
 
         if reports_type == "review":
-
             proj_objs = Project.objects.filter(organization_id=pk)
+            if project_type != None:
+                proj_objs = proj_objs.filter(project_type=project_type)
             review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
 
             org_reviewer_list = []
@@ -734,11 +730,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 or request.user.role == User.WORKSPACE_MANAGER
                 or request.user.is_superuser
             ):
-
                 for id in org_reviewer_list:
                     reviewer_projs = Project.objects.filter(
                         organization_id=pk, annotation_reviewers=id
                     )
+                    if project_type != None:
+                        reviewer_projs = reviewer_projs.filter(
+                            project_type=project_type
+                        )
                     reviewer_projs_ids = [
                         review_proj.id for review_proj in reviewer_projs
                     ]
@@ -751,6 +750,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 reviewer_projs = Project.objects.filter(
                     organization_id=pk, annotation_reviewers=user_id
                 )
+                if project_type != None:
+                    reviewer_projs = reviewer_projs.filter(project_type=project_type)
                 reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
 
                 result = get_review_reports(
@@ -849,7 +850,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             )
 
             if only_review_proj:
-
                 temp_result = {
                     "Annotator": name,
                     "Email": email,
@@ -1034,7 +1034,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     is_translation_project
                     or project_type == "SemanticTextualSimilarity_Scale5"
                 ):
-
                     for each_task in labeled_tasks:
                         try:
                             total_word_annotated_count_list.append(
@@ -1065,19 +1064,28 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 total_duration_reviewed_count_list = []
                 total_duration_exported_count_list = []
                 if project_type in get_audio_project_types():
-
                     for each_task in labeled_tasks:
                         try:
+                            annotate_annotation = Annotation.objects.filter(
+                                task=each_task, parent_annotation_id__isnull=True
+                            )[0]
                             total_duration_annotated_count_list.append(
-                                each_task.data["audio_duration"]
+                                get_audio_transcription_duration(
+                                    annotate_annotation.result
+                                )
                             )
                         except:
                             pass
 
                     for each_task in reviewed_tasks:
                         try:
+                            review_annotation = Annotation.objects.filter(
+                                task=each_task, parent_annotation_id__isnull=False
+                            )[0]
                             total_duration_reviewed_count_list.append(
-                                each_task.data["audio_duration"]
+                                get_audio_transcription_duration(
+                                    review_annotation.result
+                                )
                             )
                         except:
                             pass
@@ -1085,7 +1093,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     for each_task in exported_tasks:
                         try:
                             total_duration_exported_count_list.append(
-                                each_task.data["audio_duration"]
+                                get_audio_transcription_duration(
+                                    each_task.correct_annotation.result
+                                )
                             )
                         except:
                             pass
@@ -1241,7 +1251,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         url_name="periodical_tasks_count",
     )
     def periodical_tasks_count(self, request, pk=None):
-
         try:
             organization = Organization.objects.get(pk=pk)
         except Organization.DoesNotExist:
@@ -1279,7 +1288,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         if periodical_type == "weekly":
             periodical_list.append(org_created_date)
             while org_created_date <= present_date:
-
                 org_created_date = org_created_date + timedelta(days=7)
                 if org_created_date <= present_date:
                     periodical_list.append(org_created_date)
@@ -1287,7 +1295,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     periodical_list.append(present_date + timedelta(days=1))
 
         elif periodical_type == "monthly":
-
             start_date = org_created_date
             end_date = present_date
 
@@ -1295,7 +1302,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             count = 1
             start = start_date
             while start <= end_date:
-
                 start = start_date + relativedelta.relativedelta(months=count)
                 if (
                     start_date.day == 29
@@ -1321,7 +1327,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             count = 1
             start = start_date
             while start <= end_date:
-
                 start = start_date + relativedelta.relativedelta(years=count)
                 if (
                     start_date.day == 29
@@ -1473,7 +1478,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             "ContextualTranslationEditing",
             "ContextualSentenceVerification",
             "SemanticTextualSimilarity_Scale5",
-            "SingleSpeakerAudioTranscriptionEditing",
+            "AudioTranscriptionEditing",
+            "AudioTranscription",
+            "AudioSegmentation",
         ]
         final_result_for_all_types = {}
         for project_type in project_types:
@@ -1508,14 +1515,20 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     result = {}
 
                     if project_type in get_audio_project_types():
-
                         # review audio duration calclation
                         total_rev_duration_list = []
 
                         for each_task in reviewer_tasks:
                             try:
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        parent_annotation_id__isnull=False,
+                                    )[0]
+                                else:
+                                    anno = each_task.correct_annotation
                                 total_rev_duration_list.append(
-                                    each_task.data["audio_duration"]
+                                    get_audio_transcription_duration(anno.result)
                                 )
                             except:
                                 pass
@@ -1528,8 +1541,20 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
                         for each_task in annotation_tasks:
                             try:
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        parent_annotation_id__isnull=False,
+                                    )[0]
+                                elif each_task.task_status == "exported":
+                                    anno = each_task.correct_annotation
+                                else:
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        parent_annotation_id__isnull=True,
+                                    )[0]
                                 total_ann_duration_list.append(
-                                    each_task.data["audio_duration"]
+                                    get_audio_transcription_duration(anno.result)
                                 )
                             except:
                                 pass
@@ -1609,7 +1634,6 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         project_type in get_translation_dataset_project_types()
                         or project_type == "ConversationTranslationEditing"
                     ):
-
                         ann_word_count += dat["ann_cumulative_word_count"]
                         rew_word_count += dat["rew_cumulative_word_count"]
 
@@ -1622,7 +1646,6 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     }
                 else:
                     if project_type in get_audio_project_types():
-
                         other_language = {
                             "language": "Others",
                             "ann_cumulative_aud_duration": convert_seconds_to_hours(
@@ -1637,7 +1660,6 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         project_type in get_translation_dataset_project_types()
                         or project_type == "ConversationTranslationEditing"
                     ):
-
                         other_language = {
                             "language": "Others",
                             "ann_cumulative_word_count": ann_word_count,

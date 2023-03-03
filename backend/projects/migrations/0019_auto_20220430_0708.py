@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("dataset", "0021_datasetbase_parent_data"),
         ("projects", "0018_auto_20220404_0604"),

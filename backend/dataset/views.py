@@ -119,7 +119,6 @@ def get_dataset_upload_status(dataset_instance_pk):
 
     # If the celery TaskResults table returns data
     if task_queryset:
-
         (
             task_status,
             task_date,
@@ -209,15 +208,49 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         return dataset_instance_response
 
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                "dataset_visibility",
+                openapi.IN_QUERY,
+                description=("A string that denotes the visibility of dataset"),
+                type=openapi.TYPE_STRING,
+                enum=["all_public_datasets", "my_datasets"],
+                required=False,
+            ),
+            openapi.Parameter(
+                "dataset_type",
+                openapi.IN_QUERY,
+                description=("A string that denotes the type of dataset"),
+                enum=[dataset_type[0] for dataset_type in DATASET_TYPE_CHOICES],
+                type=openapi.TYPE_STRING,
+                required=False,
+            ),
+        ],
+    )
     def list(self, request, *args, **kwargs):
         # Org Owners and superusers see all datasets
-        if request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser:
+        if request.user.is_superuser:
             queryset = DatasetInstance.objects.all()
+        elif request.user.role == User.ORGANIZATION_OWNER:
+            queryset = DatasetInstance.objects.filter(
+                organisation_id=request.user.organization
+            )
         # Managers only see datasets that they are added to and public datasets
         else:
             queryset = DatasetInstance.objects.filter(
-                Q(public_to_managers=True) | Q(users__id=request.user.id)
-            )
+                organisation_id=request.user.organization
+            ).filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
+
+        if "dataset_visibility" in request.query_params:
+            dataset_visibility = request.query_params["dataset_visibility"]
+            if dataset_visibility == "all_public_datasets":
+                if (request.user.role == User.WORKSPACE_MANAGER) and (
+                    request.user.is_superuser == False
+                ):
+                    queryset = queryset.filter(public_to_managers=True)
+            elif dataset_visibility == "my_datasets":
+                queryset = queryset.filter(users__id=request.user.id)
 
         # Filter the queryset based on the query params
         if "dataset_type" in dict(request.query_params):
@@ -417,7 +450,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Check if the task name has the word projects in it
         if "projects" in task_name:
-
             # Get the IDs of the projects associated with the dataset instance
             project_ids = (
                 apps.get_model("projects", "Project")
@@ -494,7 +526,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Add the project ID from the task kwargs to the serializer data
         if "projects" in task_name:
             for i in range(len(serializer.data)):
-
                 try:
                     # Apply regex query to task kwargs and get the project ID string
                     project_id_list = re.findall(
@@ -568,7 +599,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             )
 
         try:
-
             dataset = DatasetInstance.objects.get(pk=pk)
             for user_id in ids:
                 user = User.objects.get(id=user_id)
@@ -644,7 +674,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-
             dataset = DatasetInstance.objects.get(pk=pk)
 
             for user_id in ids:

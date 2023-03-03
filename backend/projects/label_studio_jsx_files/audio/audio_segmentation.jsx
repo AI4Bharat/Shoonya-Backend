@@ -13,20 +13,6 @@
     {speaker_1_details ? <Label value="Speaker 1" />  : null}
   </Labels> 
   <AudioPlus name="audio_url" value="$audio_url"/> 
-  
-  <View visibleWhen="region-selected"> 
-    <Header value="Provide Transcription" /> 
-  </View> 
-  <View style="overflow: auto; width: 50%;">
-<TextArea name="transcribed_json" transcription="false" toName="audio_url" 
-            rows="2" editable="true" maxSubmissions="1"
-            perRegion="true" required="false" /> 
-  </View>
-              
-  {reference_raw_transcript ? <Header value="Reference Transcript" /> 
-   <Text name="reference_raw_transcript" 
-    value="$reference_raw_transcript"/> : null}
 
    
 </View> 
- 

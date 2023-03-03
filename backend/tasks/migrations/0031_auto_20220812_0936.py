@@ -7,7 +7,6 @@ reverse_query = "UPDATE tasks_task SET task_status = 'rejected'  WHERE task_stat
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("tasks", "0030_auto_20220707_0959"),
     ]

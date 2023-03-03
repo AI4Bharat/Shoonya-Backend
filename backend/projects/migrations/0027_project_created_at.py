@@ -16,7 +16,6 @@ def reverse_func(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("projects", "0026_alter_project_src_language_and_more"),
     ]

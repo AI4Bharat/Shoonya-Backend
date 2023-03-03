@@ -47,7 +47,6 @@ def convert_hours_to_seconds(str1):
 
 
 def no_of_words(string):
-
     list_words = nltk.tokenize.word_tokenize(string)
     list_tokens = [word for word in list_words if len(word) > 1]
     length_of_sent = len(list_tokens)
@@ -122,3 +121,14 @@ def minor_major_accepted_task(annotation_objs):
             pass
 
     return len(minor), len(major)
+
+
+def get_audio_transcription_duration(annotation_result):
+    audio_duration = 0
+    for result in annotation_result:
+        if result["type"] == "labels":
+            start = result["value"]["start"]
+            end = result["value"]["end"]
+            audio_duration += end - start
+
+    return audio_duration

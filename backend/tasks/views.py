@@ -137,12 +137,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
-
         user_id = request.user.id
         user = request.user
         page_number = None
         if "page" in dict(request.query_params):
             page_number = request.query_params["page"]
+        records = 10
+        if "records" in dict(request.query_params):
+            records = request.query_params["records"]
 
         if "project_id" in dict(request.query_params):
             proj_id = request.query_params["project_id"]
@@ -189,7 +191,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks)
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
 
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
@@ -203,7 +205,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas["user_mail"] = user_mail[idx]
                             ordered_tasks.append(tas)
                         if page_number is not None:
-                            page_object = Paginator(ordered_tasks, 10)
+                            page_object = Paginator(ordered_tasks, records)
                             try:
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
@@ -235,23 +237,31 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks)
+                ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
 
                 task_ids = [an.task_id for an in ann_filter1]
                 annotation_status = [an.annotation_status for an in ann_filter1]
                 user_mail = [an.completed_by.email for an in ann_filter1]
+                annotation_result_json = [an.result for an in ann_filter1]
                 final_dict = {}
                 ordered_tasks = []
-
+                proj_type = proj_objs[0].project_type
                 for idx, ids in enumerate(task_ids):
                     tas = Task.objects.filter(id=ids)
                     tas = tas.values()[0]
                     tas["annotation_status"] = annotation_status[idx]
                     tas["user_mail"] = user_mail[idx]
+                    if (annotation_status[idx] in ["labeled", "draft"]) and (
+                        proj_type == "ContextualTranslationEditing"
+                    ):
+                        tas["data"]["output_text"] = annotation_result_json[idx][0][
+                            "value"
+                        ]["text"][0]
+                        del tas["data"]["machine_translation"]
                     ordered_tasks.append(tas)
 
                 if page_number is not None:
-                    page_object = Paginator(ordered_tasks, 10)
+                    page_object = Paginator(ordered_tasks, records)
 
                     try:
                         final_dict["total_count"] = len(ordered_tasks)
@@ -275,7 +285,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                 if view == "managerial_view":
                     if not ("req_user" in dict(request.query_params)):
-
                         ann = Annotation.objects.filter(
                             task__project_id_id=proj_id,
                             annotation_status__in=rew_status,
@@ -290,7 +299,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks)
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
 
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
@@ -305,7 +314,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             ordered_tasks.append(tas)
 
                         if page_number is not None:
-                            page_object = Paginator(ordered_tasks, 10)
+                            page_object = Paginator(ordered_tasks, records)
 
                             try:
                                 final_dict["total_count"] = len(ordered_tasks)
@@ -338,7 +347,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks)
+                ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
 
                 task_ids = [an.task_id for an in ann_filter1]
                 annotation_status = [an.annotation_status for an in ann_filter1]
@@ -360,7 +369,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["annotator_mail"] = annotator_mail[idx]
                     ordered_tasks.append(tas)
                 if page_number is not None:
-                    page_object = Paginator(ordered_tasks, 10)
+                    page_object = Paginator(ordered_tasks, records)
 
                     try:
                         final_dict["total_count"] = len(ordered_tasks)
@@ -385,7 +394,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             if user.role == 3 or user.role == 2:
                 if not ("req_user" in dict(request.query_params)):
-
                     tasks = Task.objects.filter(
                         project_id__exact=proj_id,
                         task_status__in=tas_status,
@@ -402,7 +410,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     ordered_tasks = list(tasks.values())
                     final_dict = {}
                     if page_number is not None:
-                        page_object = Paginator(ordered_tasks, 10)
+                        page_object = Paginator(ordered_tasks, records)
 
                         try:
                             final_dict["total_count"] = len(ordered_tasks)
@@ -423,7 +431,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             proj_reviewers_ids = [an.id for an in proj_reviewers]
 
             if user_id in proj_annotators_ids:
-
                 tasks = Task.objects.filter(
                     project_id__exact=proj_id,
                     task_status__in=tas_status,
@@ -441,7 +448,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ordered_tasks = list(tasks.values())
                 final_dict = {}
                 if page_number is not None:
-                    page_object = Paginator(ordered_tasks, 10)
+                    page_object = Paginator(ordered_tasks, records)
 
                     try:
                         final_dict["total_count"] = len(ordered_tasks)
@@ -477,7 +484,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ordered_tasks = list(tasks.values())
                 final_dict = {}
                 if page_number is not None:
-                    page_object = Paginator(ordered_tasks, 10)
+                    page_object = Paginator(ordered_tasks, records)
 
                     try:
                         final_dict["total_count"] = len(ordered_tasks)
@@ -501,7 +508,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
         else:
             return Response(
-                {"message": "please provide project_id as a query_param "},
+                {"message": "please provide project_id as a query_params "},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -930,7 +937,6 @@ class AnnotationViewSet(
         return annotation_response
 
     def partial_update(self, request, pk=None):
-
         try:
             annotation_obj = Annotation.objects.get(id=pk)
             task = annotation_obj.task
@@ -996,7 +1002,6 @@ class AnnotationViewSet(
 
         # Review annotation update
         else:
-
             if request.user != task.review_user:
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
@@ -1025,7 +1030,6 @@ class AnnotationViewSet(
                 or review_status == ACCEPTED_WITH_MAJOR_CHANGES
                 or review_status == TO_BE_REVISED
             ):
-
                 if not "parent_annotation" in dict(request.data):
                     ret_dict = {"message": "Missing param : parent_annotation!"}
                     ret_status = status.HTTP_400_BAD_REQUEST
@@ -1042,7 +1046,6 @@ class AnnotationViewSet(
                 or review_status == ACCEPTED_WITH_MAJOR_CHANGES
                 or review_status == TO_BE_REVISED
             ):
-
                 task.correct_annotation = annotation
                 parent = annotation.parent_annotation
                 parent.review_notes = annotation.review_notes
@@ -1051,13 +1054,12 @@ class AnnotationViewSet(
                     task.task_status = INCOMPLETE
                 else:
                     task.task_status = REVIEWED
-                parent.save()
+                parent.save(update_fields=["review_notes", "annotation_status"])
                 task.save()
 
         return annotation_response
 
     def destroy(self, request, pk=None):
-
         instance = self.get_object()
         annotation_id = instance.id
         annotation = Annotation.objects.get(pk=annotation_id)
@@ -1143,7 +1145,6 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         try:
-
             character_level_edit_distance = Levenshtein.distance(sentence1, sentence2)
             normalized_character_level_edit_distance = (
                 character_level_edit_distance / len(sentence1)

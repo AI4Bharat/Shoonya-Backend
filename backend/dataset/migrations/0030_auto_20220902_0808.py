@@ -19,7 +19,6 @@ def add_default_speaker_count_where_null(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("dataset", "0029_auto_20220901_0844"),
         ("dataset", "0028_auto_20220617_1309"),

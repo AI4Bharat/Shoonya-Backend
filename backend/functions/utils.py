@@ -16,6 +16,8 @@ try:
     from utils.azure_translate import translator_object
 except:
     pass
+
+
 ### Utility Functions
 def check_if_particular_organization_owner(request):
     if request.user.role != User.ORGANIZATION_OWNER and not request.user.is_superuser:
@@ -84,7 +86,6 @@ def check_conversation_translation_function_inputs(
 def check_translation_function_inputs(
     input_dataset_instance_id, output_dataset_instance_id
 ):
-
     """Function to check the input parameters for the translation function.
     This performs checks on input dataset instance and output dataset instance.
 
@@ -138,7 +139,6 @@ def get_batch_translations_using_indictrans_nmt_api(
     target_language,
     checks_for_particular_languages=False,
 ):
-
     """Function to get the translation for the input sentences using the IndicTrans NMT API.
 
     Args:
@@ -344,7 +344,6 @@ def get_batch_translations(
 
     # Check the API type
     if api_type == "indic-trans":
-
         # Get the translation using the Indictrans NMT API
         translations_output = get_batch_translations_using_indictrans_nmt_api(
             sentence_list=sentences_to_translate,
@@ -363,7 +362,6 @@ def get_batch_translations(
         )
 
     elif api_type == "azure":
-
         # Get the translation using the Azure Translate API
         translations_output = get_batch_translations_using_azure_translate(
             sentence_list=sentences_to_translate,

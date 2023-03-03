@@ -32,6 +32,7 @@ from projects.utils import (
     is_valid_date,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_audio_transcription_duration,
 )
 from datetime import datetime
 from django.conf import settings
@@ -48,7 +49,6 @@ def generate_random_string(length=12):
 
 
 def get_role_name(num):
-
     if num == 1:
         return "Annotator"
     elif num == 2:
@@ -452,7 +452,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
         all_projects_total_duration = 0
         project_wise_summary = []
         for proj in project_objs:
-
             project_name = proj.title
             annotated_labeled_tasks = []
             if review_reports:
@@ -473,9 +472,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     parent_annotation_id__isnull=False,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
-                ).exclude(annotation_status="to_be_revised")
+                ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
             else:
                 labeld_tasks_objs = Task.objects.filter(
                     Q(project_id=proj.id)
@@ -494,7 +493,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     parent_annotation_id=None,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )
 
@@ -533,7 +532,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 for each_task in annotated_labeled_tasks:
                     try:
                         total_duration_list.append(
-                            each_task.task.data["audio_duration"]
+                            get_audio_transcription_duration(each_task.result)
                         )
                     except:
                         pass

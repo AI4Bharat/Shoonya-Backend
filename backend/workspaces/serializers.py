@@ -34,7 +34,6 @@ class WorkspaceManagerSerializer(serializers.ModelSerializer):
 
 
 class UnAssignManagerSerializer(serializers.Serializer):
-
     ids = serializers.IntegerField(required=True)
 
     def validate_user_id(self, value):
