@@ -242,7 +242,6 @@ def schedule_sentence_text_translate_job(request):
     # Check if the user is the organization owner
     result = check_if_particular_organization_owner(request)
     if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
-
         return Response({"error": result["error"]}, status=result["status"])
 
     # Get the post request data
@@ -389,7 +388,6 @@ def schedule_conversation_translation_job(request):
     # Check if the user is the organization owner
     result = check_if_particular_organization_owner(request)
     if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
-
         return Response({"error": result["error"]}, status=result["status"])
 
     # Get the post request data

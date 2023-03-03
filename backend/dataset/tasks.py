@@ -61,7 +61,6 @@ def upload_data_to_data_instance(
 
     # If checks are failed, check which lines have an issue
     except:
-
         # Add row numbers to the dataset
         imported_data.append_col(range(1, len(imported_data) + 1), header="row_number")
 
@@ -70,7 +69,6 @@ def upload_data_to_data_instance(
 
         # Iterate through the dataset and upload each row to the database
         for row in imported_data.dict:
-
             # Remove row number column from the row being uploaded
             row_number = row["row_number"]
             del row["row_number"]

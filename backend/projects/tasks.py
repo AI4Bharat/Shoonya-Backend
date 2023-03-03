@@ -315,7 +315,7 @@ def export_project_in_place(
 
     export_excluded_task_ids = []
 
-    for (ta, tl, task) in zip(tasks_annotations, tasks_list, annotated_tasks):
+    for ta, tl, task in zip(tasks_annotations, tasks_list, annotated_tasks):
         if output_dataset_info["dataset_type"] == "SpeechConversation":
             try:
                 ta_labels = json.loads(ta["labels"])
@@ -451,7 +451,7 @@ def export_project_new_record(
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
     if project.project_mode == Collection:
-        for (tl, task) in zip(tasks_list, annotated_tasks):
+        for tl, task in zip(tasks_list, annotated_tasks):
             if task.output_data is not None:
                 data_item = dataset_model.objects.get(id__exact=task.output_data.id)
             else:
@@ -465,7 +465,6 @@ def export_project_new_record(
             task.output_data = data_item
             task.save()
     elif project.project_mode == Annotation:
-
         download_resources = True
         # export_stream, content_type, filename = DataExport.generate_export_file(
         #     project, tasks_list, 'CSV', download_resources, request.GET
@@ -512,7 +511,7 @@ def export_project_new_record(
                 project, tasks_list, download_resources, get_request_data
             )
             tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
-            for (ta, task) in zip(tasks_annotations, annotated_tasks):
+            for ta, task in zip(tasks_annotations, annotated_tasks):
                 # data_item = dataset_model.objects.get(id__exact=task.id.id)
                 if task.output_data is not None:
                     data_item = dataset_model.objects.get(id__exact=task.output_data.id)

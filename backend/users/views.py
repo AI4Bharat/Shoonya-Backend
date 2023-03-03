@@ -49,7 +49,6 @@ def generate_random_string(length=12):
 
 
 def get_role_name(num):
-
     if num == 1:
         return "Annotator"
     elif num == 2:
@@ -453,7 +452,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
         all_projects_total_duration = 0
         project_wise_summary = []
         for proj in project_objs:
-
             project_name = proj.title
             annotated_labeled_tasks = []
             if review_reports:

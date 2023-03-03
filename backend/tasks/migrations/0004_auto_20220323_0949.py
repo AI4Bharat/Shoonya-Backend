@@ -5,7 +5,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("projects", "0008_project_variable_parameters"),
         ("tasks", "0003_auto_20220318_0809"),

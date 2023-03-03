@@ -77,7 +77,6 @@ def change_task_status(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("tasks", "0034_auto_20230127_1221"),
     ]
