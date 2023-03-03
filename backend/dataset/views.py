@@ -119,7 +119,6 @@ def get_dataset_upload_status(dataset_instance_pk):
 
     # If the celery TaskResults table returns data
     if task_queryset:
-
         (
             task_status,
             task_date,
@@ -451,7 +450,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Check if the task name has the word projects in it
         if "projects" in task_name:
-
             # Get the IDs of the projects associated with the dataset instance
             project_ids = (
                 apps.get_model("projects", "Project")
@@ -528,7 +526,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Add the project ID from the task kwargs to the serializer data
         if "projects" in task_name:
             for i in range(len(serializer.data)):
-
                 try:
                     # Apply regex query to task kwargs and get the project ID string
                     project_id_list = re.findall(
@@ -602,7 +599,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             )
 
         try:
-
             dataset = DatasetInstance.objects.get(pk=pk)
             for user_id in ids:
                 user = User.objects.get(id=user_id)
@@ -678,7 +674,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-
             dataset = DatasetInstance.objects.get(pk=pk)
 
             for user_id in ids:

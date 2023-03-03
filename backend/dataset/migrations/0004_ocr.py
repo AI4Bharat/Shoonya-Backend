@@ -5,7 +5,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("dataset", "0003_alter_translationpair_input_lang_id_and_more"),
     ]

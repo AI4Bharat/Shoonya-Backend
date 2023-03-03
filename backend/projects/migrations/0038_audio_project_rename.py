@@ -16,7 +16,6 @@ def audio_proj_rename(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("projects", "0037_alter_project_project_type"),
     ]
