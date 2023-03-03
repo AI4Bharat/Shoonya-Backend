@@ -86,7 +86,6 @@ def batch(iterable, n=1):
 
 
 def get_review_reports(proj_id, userid, start_date, end_date):
-
     user = User.objects.get(id=userid)
     userName = user.username
     email = user.email
@@ -217,7 +216,6 @@ def get_project_pull_status(pk):
 
     # If the celery TaskResults table returns
     if taskresult_queryset:
-
         # Sort the tasks by newest items first by date
         taskresult_queryset = taskresult_queryset.order_by("-date_done")
 
@@ -266,7 +264,6 @@ def get_project_export_status(pk):
 
     # If the celery TaskResults table returns
     if taskresult_queryset:
-
         return extract_latest_status_date_time_from_taskresult_queryset(
             taskresult_queryset
         )
@@ -319,7 +316,6 @@ def get_project_creation_status(pk) -> str:
 
 
 def get_task_count_unassigned(pk, user):
-
     project = Project.objects.get(pk=pk)
     required_annotators_per_task = project.required_annotators_per_task
 
@@ -395,7 +391,6 @@ def convert_annotation_result_to_formatted_json(annotation_result, speakers_json
             text_dict = annotation_result[idx1]
         for idx2 in range(idx1 + 1, len(annotation_result)):
             if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
-
                 if annotation_result[idx2]["type"] == "labels":
                     labels_dict = annotation_result[idx2]
                 else:
@@ -881,12 +876,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
         if annotation_status != None:
-
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
             ):
-
                 if is_review_mode:
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
@@ -1041,7 +1034,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_mode = request.data.get("project_mode")
 
         if project_mode == Collection:
-
             # Create project object
             project_response = super().create(request, *args, **kwargs)
 
@@ -1053,7 +1045,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 proj.save()
 
         else:
-
             # Collect the POST request parameters
             dataset_instance_ids = request.data.get("dataset_id")
             if type(dataset_instance_ids) != list:
@@ -1550,7 +1541,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if project_id:
             project_obj = Project.objects.get(pk=project_id)
             if project_obj and user in project_obj.annotation_reviewers.all():
-
                 ann = Annotation_model.objects.filter(
                     task__project_id=project_id,
                     completed_by=user.id,
@@ -1683,7 +1673,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     or request.user.role == User.WORKSPACE_MANAGER
                     or request.user.is_superuser
                 ):
-
                     for id in reviewer_ids:
                         result = get_review_reports(pk, id, start_date, end_date)
                         final_reports.append(result)
@@ -1717,7 +1706,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ]
             user_names = [annotator.username for annotator in proj_obj.annotators.all()]
         elif request.user.role == User.ANNOTATOR:
-
             users_ids = [request.user.id]
             user_names = [request.user.username]
             user_mails = [request.user.email]
@@ -1873,7 +1861,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-
                 total_word_count_list = []
                 for each_task in labeled_annotations:
                     try:
@@ -2021,12 +2008,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ]
 
         if export_type == "csv" or export_type == "CSV":
-
             content = df.to_csv(index=False)
             content_type = "application/.csv"
             filename = "project_details.csv"
         elif export_type == "tsv" or export_type == "TSV":
-
             content = df.to_csv(sep="\t", index=False)
             content_type = "application/.tsv"
             filename = "project_details.tsv"
@@ -2334,7 +2319,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ids_to_exclude,
                 )
                 if items:
-
                     # Pull new data items in to the project asynchronously
                     add_new_data_items_into_project.delay(project_id=pk, items=items)
                     ret_dict = {"message": "Adding new tasks to the project."}
@@ -2704,7 +2688,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
         # Handle 'create_parameter' task separately
         if task_name == "projects.tasks.create_parameters_for_task_creation":
-
             # Create the keyword argument for dataset instance ID
             project_id_keyword_arg = "'project_id': " + str(pk) + "}"
         else:

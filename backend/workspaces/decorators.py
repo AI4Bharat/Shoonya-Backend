@@ -12,6 +12,7 @@ WORKSPACE_ERROR = {"message": "Workspace does not exist"}
 WORKSPACE_IS_ARCHIVED_ERROR = {"message": "This Workspace is archived!"}
 NOT_IN_WORKSPACE_ERROR = {"message": "You do not belong to this workspace!"}
 
+
 # Only allow workspace managers and organization owners to create workspaces.
 def is_organization_owner_or_workspace_manager(f):
     @wraps(f)

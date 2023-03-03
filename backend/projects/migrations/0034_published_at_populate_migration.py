@@ -6,7 +6,6 @@ from tasks.models import Task, Annotation
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("projects", "0033_project_published_at"),
     ]

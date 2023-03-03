@@ -65,7 +65,6 @@ def sentence_text_translate_and_save_translation_pairs(
 
     # Check if the dataframe is empty
     if input_sentences_df.shape[0] == 0:
-
         # Update the task status
         self.update_state(
             state="FAILURE",
@@ -89,10 +88,8 @@ def sentence_text_translate_and_save_translation_pairs(
 
     # Iterate through the languages
     for output_language in languages:
-
         # Loop through all the sentences to be translated in batch format
         for i in range(0, len(all_sentences_to_be_translated), batch_size):
-
             # Create a TranslationPair object list
             translation_pair_objects = []
 
@@ -110,7 +107,6 @@ def sentence_text_translate_and_save_translation_pairs(
             )
 
             if translations_output["status"] == "failure":
-
                 # Update the task status and raise an exception
                 self.update_state(
                     state="FAILURE",
@@ -128,7 +124,6 @@ def sentence_text_translate_and_save_translation_pairs(
 
             # Check if the translated sentences are equal to the input sentences
             if len(translated_sentences) != len(batch_of_input_sentences):
-
                 # Update the task status and raise an exception
                 self.update_state(
                     state="FAILURE",
@@ -142,7 +137,6 @@ def sentence_text_translate_and_save_translation_pairs(
 
             # Iterate through the dataframe
             for index, row in input_sentences_df[i : i + batch_size].iterrows():
-
                 # Get the values for the TranslationPair model
                 sentence_text_id = row["sentence_text_id"]
                 input_sentence = row["corrected_text"]
@@ -216,7 +210,6 @@ def conversation_data_machine_translation(
 
     # Check if the dataframe is empty
     if conversation_dataitems_df.shape[0] == 0:
-
         # Update the task status
         self.update_state(
             state="FAILURE",
@@ -229,11 +222,9 @@ def conversation_data_machine_translation(
 
     # Iterate through the languages
     for output_language in languages:
-
         all_translated_conversation_objects = []
         # Iterate through the conversation dataitems
         for index, row in conversation_dataitems_df.iterrows():
-
             # Get the instance of the Conversation dataitem
             conversation_dataitem = dataset_models.Conversation.objects.get(
                 id=row["id"]
@@ -243,7 +234,6 @@ def conversation_data_machine_translation(
             conversation_json = row["conversation_json"]
             translated_conversation_json = []
             for conversation in conversation_json:
-
                 # Get the sentence list, scenario and prompt
                 sentences_to_translate = dict(conversation).get("sentences", [])
                 speaker_id = dict(conversation).get("speaker_id")

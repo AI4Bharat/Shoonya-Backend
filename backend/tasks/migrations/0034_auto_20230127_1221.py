@@ -8,7 +8,6 @@ from tqdm import tqdm
 
 
 def change_existing_task_annotation_status_in_db(apps, schema_editor):
-
     # #create empty annotations for  unlabeled and skipped  pulled tasks .
 
     pulled_unlabeled_skipped_tasks = Task.objects.filter(
@@ -125,7 +124,6 @@ def change_existing_task_annotation_status_in_db(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("tasks", "0033_delete_tasklock"),
     ]
