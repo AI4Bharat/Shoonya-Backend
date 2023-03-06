@@ -29,7 +29,7 @@ from users.models import User
 from . import resources
 from .models import *
 from .serializers import *
-from .tasks import upload_data_to_data_instance
+from .tasks import upload_data_to_data_instance, deduplicate_dataset_instance_items
 import dataset
 from tasks.models import Task, Annotation
 
@@ -722,6 +722,47 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     @action(methods=["GET"], detail=False, name="List all Accepted Upload Filetypes")
     def accepted_filetypes(self, request):
         return Response(DatasetInstanceViewSet.ACCEPTED_FILETYPES)
+
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "deduplicate_fields_list",
+                openapi.IN_QUERY,
+                description=(
+                    "A list of fields based on which dataset items need to be deduplicated"
+                ),
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Items(type=openapi.TYPE_STRING),
+                required=True,
+            )
+        ],
+        responses={200: "Duplicate removal started"},
+    )
+    @action(
+        methods=["GET"],
+        detail=True,
+        url_path="remove_duplicates_from_dataset_instance",
+        url_name="remove_duplicates_from_dataset_instance",
+    )
+    def remove_duplicates(self, request, pk=None):
+        try:
+            deduplicate_fields_list = request.query_params["deduplicate_fields_list"]
+        except:
+            return Response(
+                {"message": "deduplicate_fields_list is a required query parameter"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        deduplicate_fields_list = deduplicate_fields_list.split(",")
+        if len(deduplicate_fields_list) == 0:
+            return Response(
+                {"message": "Fields list cannot be empty."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        deduplicate_dataset_instance_items.delay(pk, deduplicate_fields_list)
+        ret_dict = {"message": "Duplicate removal started"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
 
 
 class DatasetItemsViewSet(viewsets.ModelViewSet):

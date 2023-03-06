@@ -5,6 +5,10 @@ from tablib import Dataset
 
 from .resources import RESOURCE_MAP
 
+from dataset.models import DatasetInstance
+from django.apps import apps
+from tasks.models import Task, Annotation
+
 #### CELERY SHARED TASKS
 
 
@@ -96,3 +100,66 @@ def upload_data_to_data_instance(
             },
         )
         raise Exception(f"Upload failed for lines: {failed_rows}")
+
+
+@shared_task(bind=True)
+def deduplicate_dataset_instance_items(self, pk, deduplicate_field_list):
+    if len(deduplicate_field_list) == 0:
+        return "Field list cannot be empty"
+    try:
+        dataset_instance = DatasetInstance.objects.get(pk=pk)
+    except Exception as error:
+        return error
+    dataset_type = dataset_instance.dataset_type
+    dataset_model = apps.get_model("dataset", dataset_type)
+    dataset_items = dataset_model.objects.filter(instance_id=dataset_instance)
+    duplicate_data_tracking_dict = {}
+    tasks_count = 0
+    annotations_count = 0
+    dataset_items_count = 0
+    for dataset_item in dataset_items:
+        dataset_item_field_value = []
+        for field in deduplicate_field_list:
+            dataset_item_field_value.append(getattr(dataset_item, field))
+        dict_key = tuple(dataset_item_field_value)
+        if dict_key not in duplicate_data_tracking_dict:
+            related_tasks = Task.objects.filter(input_data__id=dataset_item.id)
+            related_tasks_ids = [task.id for task in related_tasks]
+            related_annos = Annotation.objects.filter(
+                task__id__in=related_tasks_ids
+            ).order_by("-id")
+            duplicate_data_tracking_dict[dict_key] = [
+                related_annos,
+                dataset_item,
+                len(related_tasks_ids),
+            ]
+        else:
+            print(duplicate_data_tracking_dict[dict_key])
+            related_tasks = Task.objects.filter(input_data=dataset_item.id)
+            related_tasks_ids = [task.id for task in related_tasks]
+            related_annos1 = Annotation.objects.filter(
+                task__id__in=related_tasks_ids
+            ).order_by("-id")
+            related_annos2 = duplicate_data_tracking_dict[dict_key][0]
+            if related_annos1.count() <= related_annos2.count():
+                annotations_count += related_annos1.count()
+                tasks_count += len(related_tasks_ids)
+                for anno in related_annos1:
+                    anno.delete()
+                dataset_item.delete()
+                dataset_items_count += 1
+            else:
+                dataset_item2 = duplicate_data_tracking_dict[dict_key][1]
+                annotations_count += related_annos2.count()
+                tasks_count += duplicate_data_tracking_dict[dict_key][2]
+                for anno in related_annos2:
+                    anno.delete()
+                dataset_item2.delete()
+                dataset_items_count += 1
+                duplicate_data_tracking_dict[dict_key] = [
+                    related_annos1,
+                    dataset_item,
+                    len(related_tasks_ids),
+                ]
+
+    return f"Deleted {dataset_items_count} duplicate dataset items and {tasks_count} related tasks and {annotations_count} related annotations"
