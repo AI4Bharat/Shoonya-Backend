@@ -70,7 +70,6 @@ def get_task_count_project_analytics(proj_id, status_list, return_count=True):
 
 
 def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
-
     annotated_tasks_objs = get_task_count(
         proj_ids, status_list, annotator, return_count=False
     )
@@ -87,7 +86,6 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
 
 
 def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_date):
-
     labeled_tasks = get_task_count_project_analytics(
         proj_id, status_list, return_count=False
     )
@@ -103,7 +101,6 @@ def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_
 
 
 def get_review_reports(proj_ids, userid, start_date, end_date):
-
     user = User.objects.get(id=userid)
     participation_type = user.participation_type
     participation_type = (
@@ -214,7 +211,6 @@ def un_pack_annotation_tasks(
     is_translation_project,
     project_type,
 ):
-
     annotations_of_reviewer_accepted = Annotation.objects.filter(
         task__project_id__in=proj_ids,
         annotation_status="accepted",
@@ -300,7 +296,6 @@ def un_pack_annotation_tasks(
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
     total_word_count = 0
     if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-
         total_word_count_list = []
         for each_task in labeled_annotations:
             try:
@@ -529,7 +524,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-
             workspace = Workspace.objects.get(pk=pk)
 
             for id1 in ids:
@@ -706,7 +700,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     is_translation_project
                     or project_type == "SemanticTextualSimilarity_Scale5"
                 ):
-
                     for each_task in labeled_tasks:
                         try:
                             total_word_annotated_count_list.append(
@@ -737,7 +730,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 total_duration_reviewed_count_list = []
                 total_duration_exported_count_list = []
                 if project_type in get_audio_project_types():
-
                     for each_task in labeled_tasks:
                         try:
                             annotate_annotation = Annotation.objects.filter(
@@ -892,7 +884,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
 
         if reports_type == "review":
-
             proj_objs = Project.objects.filter(workspace_id=pk)
             review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
 
@@ -910,7 +901,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 or request.user.role == User.WORKSPACE_MANAGER
                 or request.user.is_superuser
             ):
-
                 for id in workspace_reviewer_list:
                     reviewer_projs = Project.objects.filter(
                         workspace_id=pk, annotation_reviewers=id
@@ -962,7 +952,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         selected_language = "-"
         final_result = []
         for index, each_annotation_user in enumerate(users_id):
-
             name = user_name[index]
             email = user_mail[index]
             list_of_user_languages = user_obj[index].languages
@@ -1013,7 +1002,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             assigned_tasks = all_tasks_in_project.count()
 
             if only_review_proj:
-
                 (
                     accepted,
                     to_be_revised,
@@ -1033,7 +1021,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 )
 
             else:
-
                 labeled_annotations = Annotation.objects.filter(
                     task__project_id__in=proj_ids,
                     annotation_status="labeled",
@@ -1068,7 +1055,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     total_word_count = sum(total_word_count_list)
                 total_duration = "0:00:00"
                 if project_type in get_audio_project_types():
-
                     total_duration_list = []
 
                     for each_task in labeled_annotations:
