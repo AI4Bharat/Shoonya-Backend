@@ -196,7 +196,7 @@ DOMAIN = "shoonya.ai4bharat.org"
 SITE_NAME = "shoonya.ai4bharat.org"
 
 DJOSER = {
-    "PASSWORD_RESET_CONFIRM_URL": "forget-password/confirm/{uid}/{token}",
+    "PASSWORD_RESET_CONFIRM_URL": "#/forget-password/confirm/{uid}/{token}",
     "USERNAME_RESET_CONFIRM_URL": "users/auth/users/username/reset/confirm/{uid}/{token}",
     "ACTIVATION_URL": "users/auth/users/activation/{uid}/{token}",
     "SEND_ACTIVATION_EMAIL": True,
