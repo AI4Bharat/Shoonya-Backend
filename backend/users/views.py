@@ -94,7 +94,7 @@ class InviteViewSet(viewsets.ViewSet):
                 try:
                     user = User(
                         username=generate_random_string(12),
-                        email=email,
+                        email=email.lower(),
                         organization_id=org.id,
                         role=request.data.get("role"),
                     )
