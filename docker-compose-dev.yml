@@ -1,30 +1,57 @@
-version: '3.8'
+version: '3.3'
 
 services:
-  db:
-    restart: always
-    image: "postgres:11"
-    environment:
-      - "POSTGRES_HOST_AUTH_METHOD=trust"
-      - "POSTGRES_DB=main"
+  nginx:
+    build: ./nginx
+    image: evgeniy-khyst/nginx
+    env_file:
+      - ./config.env
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data/
+      - nginx_conf:/etc/nginx/sites
+      - letsencrypt_certs:/etc/letsencrypt
+      - certbot_acme_challenge:/var/www/certbot
+      - ./vhosts:/etc/nginx/vhosts
+      - static_volume:/backend/static
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+
+  certbot:
+    build: ./certbot
+    image: evgeniy-khyst/certbot
+    env_file:
+      - ./config.env
+    volumes:
+      - letsencrypt_certs:/etc/letsencrypt
+      - certbot_acme_challenge:/var/www/certbot
+
+  cron:
+    build: ./cron
+    image: evgeniy-khyst/cron
+    environment:
+      COMPOSE_PROJECT_NAME: "${COMPOSE_PROJECT_NAME}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workdir:ro
+    restart: unless-stopped
+    
   web:
     build: ./backend
-    command: python manage.py runserver 0.0.0.0:8000
+    command: gunicorn --bind 0.0.0.0:8000 --workers 4 shoonya_backend.wsgi --timeout 300
     volumes:
       - ./backend/:/usr/src/backend/
+      - static_volume:/usr/src/backend/static
     ports:
       - 8000:8000
     depends_on:
-      - db
       - redis
   redis:
     container_name: redis
     image: "redis"
     ports:
       - 6379:6379
-
+  
   celery:
     container_name: celery-default
     restart: always
@@ -33,7 +60,6 @@ services:
     volumes:
       - ./backend/:/usr/src/backend/
     depends_on:
-      - db
       - redis
       - web 
 
@@ -46,20 +72,23 @@ services:
     volumes:
       - ./backend/:/usr/src/backend/
     depends_on:
-      - db
       - redis
       - web
 
-  # Celery beats - for scheduling daily e-mails
-  celery-beat:
-    build: ./backend
-    command: celery -A shoonya_backend.celery beat --loglevel=info
-    volumes:
-      - ./backend/:/usr/src/backend
-    depends_on:
-      - db
-      - redis
-      - web
+  # Celery beats - for scheduling daily e-mails - commented out for dev hostings.
+  # celery-beat:
+  #  build: ./backend
+  #  command: celery -A shoonya_backend.celery beat --loglevel=info
+  #  volumes:
+  #    - ./backend/:/usr/src/backend
+  #  depends_on:
+  #    - redis
+  #    - web
 
 volumes:
-  postgres_data:
+  nginx_conf:
+    external: true
+  letsencrypt_certs:
+    external: true
+  certbot_acme_challenge:
+  static_volume:
