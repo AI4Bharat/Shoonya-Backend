@@ -23,7 +23,6 @@ def add_word_count(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("tasks", "0031_auto_20220812_0936"),
     ]

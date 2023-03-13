@@ -29,7 +29,7 @@ from users.models import User
 from . import resources
 from .models import *
 from .serializers import *
-from .tasks import upload_data_to_data_instance
+from .tasks import upload_data_to_data_instance, deduplicate_dataset_instance_items
 import dataset
 from tasks.models import Task, Annotation
 
@@ -119,7 +119,6 @@ def get_dataset_upload_status(dataset_instance_pk):
 
     # If the celery TaskResults table returns data
     if task_queryset:
-
         (
             task_status,
             task_date,
@@ -451,7 +450,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Check if the task name has the word projects in it
         if "projects" in task_name:
-
             # Get the IDs of the projects associated with the dataset instance
             project_ids = (
                 apps.get_model("projects", "Project")
@@ -528,7 +526,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         # Add the project ID from the task kwargs to the serializer data
         if "projects" in task_name:
             for i in range(len(serializer.data)):
-
                 try:
                     # Apply regex query to task kwargs and get the project ID string
                     project_id_list = re.findall(
@@ -602,7 +599,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             )
 
         try:
-
             dataset = DatasetInstance.objects.get(pk=pk)
             for user_id in ids:
                 user = User.objects.get(id=user_id)
@@ -678,7 +674,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
-
             dataset = DatasetInstance.objects.get(pk=pk)
 
             for user_id in ids:
@@ -727,6 +722,47 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     @action(methods=["GET"], detail=False, name="List all Accepted Upload Filetypes")
     def accepted_filetypes(self, request):
         return Response(DatasetInstanceViewSet.ACCEPTED_FILETYPES)
+
+    @swagger_auto_schema(
+        method="get",
+        manual_parameters=[
+            openapi.Parameter(
+                "deduplicate_fields_list",
+                openapi.IN_QUERY,
+                description=(
+                    "A list of fields based on which dataset items need to be deduplicated"
+                ),
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Items(type=openapi.TYPE_STRING),
+                required=True,
+            )
+        ],
+        responses={200: "Duplicate removal started"},
+    )
+    @action(
+        methods=["GET"],
+        detail=True,
+        url_path="remove_duplicates_from_dataset_instance",
+        url_name="remove_duplicates_from_dataset_instance",
+    )
+    def remove_duplicates(self, request, pk=None):
+        try:
+            deduplicate_fields_list = request.query_params["deduplicate_fields_list"]
+        except:
+            return Response(
+                {"message": "deduplicate_fields_list is a required query parameter"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        deduplicate_fields_list = deduplicate_fields_list.split(",")
+        if len(deduplicate_fields_list) == 0:
+            return Response(
+                {"message": "Fields list cannot be empty."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        deduplicate_dataset_instance_items.delay(pk, deduplicate_fields_list)
+        ret_dict = {"message": "Duplicate removal started"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
 
 
 class DatasetItemsViewSet(viewsets.ModelViewSet):

@@ -32,6 +32,7 @@ from projects.utils import (
     is_valid_date,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_audio_transcription_duration,
 )
 from datetime import datetime
 from django.conf import settings
@@ -48,7 +49,6 @@ def generate_random_string(length=12):
 
 
 def get_role_name(num):
-
     if num == 1:
         return "Annotator"
     elif num == 2:
@@ -98,7 +98,7 @@ class InviteViewSet(viewsets.ViewSet):
                 try:
                     user = User(
                         username=generate_random_string(12),
-                        email=email,
+                        email=email.lower(),
                         organization_id=org.id,
                         role=request.data.get("role"),
                     )
@@ -476,7 +476,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
         all_projects_total_duration = 0
         project_wise_summary = []
         for proj in project_objs:
-
             project_name = proj.title
             annotated_labeled_tasks = []
             if review_reports:
@@ -557,7 +556,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 for each_task in annotated_labeled_tasks:
                     try:
                         total_duration_list.append(
-                            each_task.task.data["audio_duration"]
+                            get_audio_transcription_duration(each_task.result)
                         )
                     except:
                         pass

@@ -37,7 +37,11 @@ DEBUG = os.getenv("ENV") == "dev"
 if DEBUG:
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
 else:
-    ALLOWED_HOSTS = ["shoonya.ai4bharat.org", "0.0.0.0"]
+    ALLOWED_HOSTS = [
+        "shoonya.ai4bharat.org",
+        "0.0.0.0",
+        "backend.shoonya.ai4bharat.org",
+    ]
 
 # Application definition
 
@@ -192,7 +196,7 @@ DOMAIN = "shoonya.ai4bharat.org"
 SITE_NAME = "shoonya.ai4bharat.org"
 
 DJOSER = {
-    "PASSWORD_RESET_CONFIRM_URL": "forget-password/confirm/{uid}/{token}",
+    "PASSWORD_RESET_CONFIRM_URL": "#/forget-password/confirm/{uid}/{token}",
     "USERNAME_RESET_CONFIRM_URL": "users/auth/users/username/reset/confirm/{uid}/{token}",
     "ACTIVATION_URL": "users/auth/users/activation/{uid}/{token}",
     "SEND_ACTIVATION_EMAIL": True,

@@ -38,7 +38,7 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
 
-from dataset.models import DatasetInstance, Conversation
+from dataset.models import DatasetInstance, Conversation, SpeechConversation
 
 # Import celery tasks
 from .tasks import (
@@ -61,9 +61,11 @@ from .utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,
     get_audio_project_types,
+    get_audio_transcription_duration,
 )
 
 from workspaces.decorators import is_particular_workspace_manager
+from users.views import generate_random_string
 
 # Create your views here.
 
@@ -84,7 +86,6 @@ def batch(iterable, n=1):
 
 
 def get_review_reports(proj_id, userid, start_date, end_date):
-
     user = User.objects.get(id=userid)
     userName = user.username
     email = user.email
@@ -215,7 +216,6 @@ def get_project_pull_status(pk):
 
     # If the celery TaskResults table returns
     if taskresult_queryset:
-
         # Sort the tasks by newest items first by date
         taskresult_queryset = taskresult_queryset.order_by("-date_done")
 
@@ -264,7 +264,6 @@ def get_project_export_status(pk):
 
     # If the celery TaskResults table returns
     if taskresult_queryset:
-
         return extract_latest_status_date_time_from_taskresult_queryset(
             taskresult_queryset
         )
@@ -317,7 +316,6 @@ def get_project_creation_status(pk) -> str:
 
 
 def get_task_count_unassigned(pk, user):
-
     project = Project.objects.get(pk=pk)
     required_annotators_per_task = project.required_annotators_per_task
 
@@ -327,6 +325,105 @@ def get_task_count_unassigned(pk, user):
     ).filter(num_annotators__lt=required_annotators_per_task)
 
     return len(proj_tasks_unassigned)
+
+
+def convert_prediction_json_to_annotation_result(pk):
+    data_item = SpeechConversation.objects.get(pk=pk)
+    prediction_json = data_item.prediction_json
+    speakers_json = data_item.speakers_json
+    audio_duration = data_item.audio_duration
+
+    result = []
+    if prediction_json == None:
+        return result
+
+    for idx, val in enumerate(prediction_json):
+        label_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "labels",
+            "original_length": audio_duration,
+        }
+        text_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "transcribed_json",
+            "original_length": audio_duration,
+        }
+        id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+        label_dict["id"] = id
+        text_dict["id"] = id
+        label_dict["type"] = "labels"
+        text_dict["type"] = "textarea"
+
+        value_labels = {
+            "start": val["start"],
+            "end": val["end"],
+            "labels": [
+                next(
+                    speaker
+                    for speaker in speakers_json
+                    if speaker["speaker_id"] == val["speaker_id"]
+                )["name"]
+            ],
+        }
+        value_text = {"start": val["start"], "end": val["end"], "text": [val["text"]]}
+
+        label_dict["value"] = value_labels
+        text_dict["value"] = value_text
+
+        result.append(label_dict)
+        result.append(text_dict)
+
+    return result
+
+
+def convert_annotation_result_to_formatted_json(annotation_result, speakers_json):
+    transcribed_json = []
+    ids_formatted = {}
+    for idx1 in range(len(annotation_result)):
+        formatted_result_dict = {}
+        labels_dict = {}
+        text_dict = {}
+        if annotation_result[idx1]["type"] == "labels":
+            labels_dict = annotation_result[idx1]
+        else:
+            text_dict = annotation_result[idx1]
+        for idx2 in range(idx1 + 1, len(annotation_result)):
+            if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
+                if annotation_result[idx2]["type"] == "labels":
+                    labels_dict = annotation_result[idx2]
+                else:
+                    text_dict = annotation_result[idx2]
+                break
+
+        if annotation_result[idx1]["id"] not in ids_formatted:
+            print(annotation_result[idx1]["id"])
+            print(ids_formatted)
+            ids_formatted[annotation_result[idx1]["id"]] = "formatted"
+            if not labels_dict:
+                formatted_result_dict["speaker_id"] = None
+            else:
+                try:
+                    formatted_result_dict["speaker_id"] = next(
+                        speaker
+                        for speaker in speakers_json
+                        if speaker["name"] == labels_dict["value"]["labels"][0]
+                    )["speaker_id"]
+                except KeyError:
+                    formatted_result_dict["speaker_id"] = None
+                formatted_result_dict["start"] = labels_dict["value"]["start"]
+                formatted_result_dict["end"] = labels_dict["value"]["end"]
+
+            if not text_dict:
+                formatted_result_dict["text"] = ""
+            else:
+                formatted_result_dict["text"] = text_dict["value"]["text"][0]
+                formatted_result_dict["start"] = text_dict["value"]["start"]
+                formatted_result_dict["end"] = text_dict["value"]["end"]
+            transcribed_json.append(formatted_result_dict)
+
+    return transcribed_json
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -641,7 +738,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.annotation_users.remove(user)
                     task.save()
                 tasks.update(task_status="incomplete")  # unassign user from tasks
-                project.annotators.remove(user)
+                # project.annotators.remove(user)
                 project.frozen_users.add(user)
                 project.save()
             return Response(
@@ -703,6 +800,35 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
 
+    @action(detail=True, methods=["post"], url_name="remove_frozen_user")
+    def remove_frozen_user(self, request, pk=None):
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            if not project:
+                return Response(
+                    {"message": "Project does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            for user_id in ids:
+                user = User.objects.get(pk=user_id)
+                project.frozen_users.remove(user)
+                project.save()
+            return Response(
+                {"message": "Frozen User removed from the project"},
+                status=status.HTTP_200_OK,
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
     @swagger_auto_schema(
         method="post",
         manual_parameters=[
@@ -757,12 +883,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
         if annotation_status != None:
-
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
             ):
-
                 if is_review_mode:
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
@@ -917,7 +1041,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_mode = request.data.get("project_mode")
 
         if project_mode == Collection:
-
             # Create project object
             project_response = super().create(request, *args, **kwargs)
 
@@ -929,7 +1052,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 proj.save()
 
         else:
-
             # Collect the POST request parameters
             dataset_instance_ids = request.data.get("dataset_id")
             if type(dataset_instance_ids) != list:
@@ -1148,8 +1270,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         for task in tasks:
             task.annotation_users.add(cur_user)
             task.save()
+            result = []
+            if project.project_type == "AudioTranscriptionEditing":
+                result = convert_prediction_json_to_annotation_result(
+                    task.input_data.id
+                )
             base_annotation_obj = Annotation_model(
-                result=[],
+                result=result,
                 task=task,
                 completed_by=cur_user,
             )
@@ -1422,7 +1549,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if project_id:
             project_obj = Project.objects.get(pk=project_id)
             if project_obj and user in project_obj.annotation_reviewers.all():
-
                 ann = Annotation_model.objects.filter(
                     task__project_id=project_id,
                     completed_by=user.id,
@@ -1555,7 +1681,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     or request.user.role == User.WORKSPACE_MANAGER
                     or request.user.is_superuser
                 ):
-
                     for id in reviewer_ids:
                         result = get_review_reports(pk, id, start_date, end_date)
                         final_reports.append(result)
@@ -1589,7 +1714,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ]
             user_names = [annotator.username for annotator in proj_obj.annotators.all()]
         elif request.user.role == User.ANNOTATOR:
-
             users_ids = [request.user.id]
             user_names = [request.user.username]
             user_mails = [request.user.email]
@@ -1745,7 +1869,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-
                 total_word_count_list = []
                 for each_task in labeled_annotations:
                     try:
@@ -1762,7 +1885,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 for each_task in labeled_annotations:
                     try:
                         total_duration_list.append(
-                            each_task.task.data["audio_duration"]
+                            get_audio_transcription_duration(each_task.result)
                         )
                     except:
                         pass
@@ -1893,12 +2016,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ]
 
         if export_type == "csv" or export_type == "CSV":
-
             content = df.to_csv(index=False)
             content_type = "application/.csv"
             filename = "project_details.csv"
         elif export_type == "tsv" or export_type == "TSV":
-
             content = df.to_csv(sep="\t", index=False)
             content_type = "application/.tsv"
             filename = "project_details.tsv"
@@ -2211,7 +2332,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ids_to_exclude,
                 )
                 if items:
-
                     # Pull new data items in to the project asynchronously
                     add_new_data_items_into_project.delay(project_id=pk, items=items)
                     ret_dict = {"message": "Adding new tasks to the project."}
@@ -2298,6 +2418,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 del task_dict["review_user"]
                 tasks_list.append(OrderedDict(task_dict))
 
+            dataset_type = project.dataset_id.all()[0].dataset_type
             if (
                 project_type == "ConversationTranslation"
                 or project_type == "ConversationTranslationEditing"
@@ -2322,6 +2443,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             map(str, result["value"]["text"])
                         )
                     task["data"]["translated_conversation_json"] = conversation_json
+            elif dataset_type == "SpeechConversation":
+                for task in tasks_list:
+                    annotation_result = task["annotations"][0]["result"]
+                    speakers_json = task["data"]["speakers_json"]
+                    task["annotations"][0]["result"] = []
+                    if project_type == "AudioSegmentation":
+                        task["data"][
+                            "prediction_json"
+                        ] = convert_annotation_result_to_formatted_json(
+                            annotation_result, speakers_json
+                        )
+                    else:
+                        task["data"][
+                            "transcribed_json"
+                        ] = convert_annotation_result_to_formatted_json(
+                            annotation_result, speakers_json
+                        )
 
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
@@ -2563,7 +2701,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
         # Handle 'create_parameter' task separately
         if task_name == "projects.tasks.create_parameters_for_task_creation":
-
             # Create the keyword argument for dataset instance ID
             project_id_keyword_arg = "'project_id': " + str(pk) + "}"
         else:

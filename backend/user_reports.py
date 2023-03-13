@@ -41,7 +41,6 @@ def calculate_reports():
 
     yest_date = f"{(datetime.now() - timedelta(days = 1) ):%Y-%m-%d}"
     for annotator in final_annot_unique_list:
-
         user1 = User.objects.get(id=annotator.id)
 
         if not user1.enable_mail:
@@ -65,7 +64,6 @@ def calculate_reports():
             continue
 
         if len(final_data["project_summary"]) > 0:
-
             df = pd.DataFrame.from_records(final_data["project_summary"])
             blankIndex = [""] * len(df)
             df.index = blankIndex
@@ -79,7 +77,6 @@ def calculate_reports():
             )
 
         else:
-
             html_table_df = ""
 
         df1 = pd.DataFrame.from_records(final_data["total_summary"])
@@ -122,7 +119,6 @@ def calculate_reports():
         )
 
     for reviewer in final_reviewer_unique_list:
-
         user1 = User.objects.get(id=reviewer.id)
 
         if not user1.enable_mail:
@@ -146,7 +142,6 @@ def calculate_reports():
             continue
 
         if len(final_data["project_summary"]) > 0:
-
             df = pd.DataFrame.from_records(final_data["project_summary"])
             blankIndex = [""] * len(df)
             df.index = blankIndex
@@ -160,7 +155,6 @@ def calculate_reports():
             )
 
         else:
-
             html_table_df = ""
 
         df1 = pd.DataFrame.from_records(final_data["total_summary"])
