@@ -344,7 +344,7 @@ def get_batch_translations(
 
     # Return a list of empty sentences if target language is None.
     if target_lang == "Blank":
-        return {"status": "success", "output": [""] * len(sentences_to_translate)}  #optimize this
+        return {"status": "success", "output": [""] * len(sentences_to_translate)}
 
     # Check the API type
     if api_type == "indic-trans":
