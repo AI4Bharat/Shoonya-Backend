@@ -51,7 +51,11 @@ UNREVIEWED = "unreviewed"
 EXPORTED = "exported"
 ACCEPTED_WITH_MINOR_CHANGES = "accepted_with_minor_changes"
 ACCEPTED_WITH_MAJOR_CHANGES = "accepted_with_major_changes"
-
+SUPER_CHECKED="super_checked"
+UNVALIDATED="unvalidated"
+VALIDATED="validated"
+VALIDATED_WITH_CHANGES="validated_with_changes"
+REJECTED="rejected"
 
 TASK_STATUS = (
     (INCOMPLETE, "incomplete"),
@@ -59,6 +63,7 @@ TASK_STATUS = (
     (REVIEWED, "reviewed"),
     (EXPORTED, "exported"),
     (FREEZED, "freezed"),
+    (SUPER_CHECKED,"super_checked"),
 )
 
 
@@ -72,6 +77,10 @@ ANNOTATION_STATUS = (
     (TO_BE_REVISED, "to_be_revised"),
     (ACCEPTED_WITH_MINOR_CHANGES, "accepted_with_minor_changes"),
     (ACCEPTED_WITH_MAJOR_CHANGES, "accepted_with_major_changes"),
+    (UNVALIDATED,"unvalidated"),
+    (VALIDATED,"validated"),
+    (VALIDATED_WITH_CHANGES,"validated_with_changes"),
+    (REJECTED,"rejected"),
 )
 
 

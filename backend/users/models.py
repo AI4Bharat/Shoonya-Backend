@@ -62,13 +62,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     ANNOTATOR = 1
     REVIEWER = 2
-    WORKSPACE_MANAGER = 3
-    ORGANIZATION_OWNER = 4
-    ADMIN = 5
+    SUPER_CHECKER=3
+    WORKSPACE_MANAGER = 4
+    ORGANIZATION_OWNER = 5
+    ADMIN = 6
 
     ROLE_CHOICES = (
         (ANNOTATOR, "Annotator"),
         (REVIEWER, "Reviewer"),
+        (SUPER_CHECKER,"Super Checker"),
         (WORKSPACE_MANAGER, "Workspace Manager"),
         (ORGANIZATION_OWNER, "Organization Owner"),
         (ADMIN, "Admin"),
