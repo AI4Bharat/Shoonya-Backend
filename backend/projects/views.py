@@ -93,6 +93,9 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     proj_type = project_obj.project_type
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
+    if user in project_obj.frozen_users.all():
+        userName = userName + "*"
+
     total_task_count = total_tasks.count()
 
     accepted_objs = Annotation_model.objects.filter(
@@ -1711,6 +1714,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             user_mails = [request.user.email]
         for index, each_annotator in enumerate(users_ids):
             user_name = user_names[index]
+            if (User.objects.get(id=each_annotator)) in (proj_obj.frozen_users.all()):
+                user_name = user_name + "*"
+
             usermail = user_mails[index]
             items = []
 
