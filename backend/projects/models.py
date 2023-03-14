@@ -43,10 +43,12 @@ PROJECT_STAGE_CHOICES=((ANNOTATION_STAGE,"Annotation Only"),(REVIEW_STAGE,"Revie
 
 ANNOTATION_LOCK = "annotation_task_pull_lock"
 REVIEW_LOCK = "review_task_pull_lock"
+SUPERCHECK_LOCK="supercheck_task_pull_lock"
 
 LOCK_CONTEXT = (
     (ANNOTATION_LOCK, "annotation_lock"),
     (REVIEW_LOCK, "review_lock"),
+    (SUPERCHECK_LOCK,"supercheck_lock")
 )
 
 # List of async functions pertaining to the dataset models
