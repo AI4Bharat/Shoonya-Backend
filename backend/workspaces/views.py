@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from projects.models import Project
+from projects.models import Project,ANNOTATION_STAGE,REVIEW_STAGE,SUPERCHECK_STAGE
 from users.models import User
 from users.serializers import UserProfileSerializer
 from tasks.models import Task
@@ -890,7 +890,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         if reports_type == "review":
             proj_objs = Project.objects.filter(workspace_id=pk)
-            review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
+            review_projects = [pro for pro in proj_objs if pro.project_stage==REVIEW_STAGE]
 
             workspace_reviewer_list = []
             for review_project in review_projects:
@@ -977,7 +977,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         workspace_id=pk,
                         annotators=each_annotation_user,
                         project_type=project_type,
-                        enable_task_reviews=only_review_proj,
+                        project_stage=REVIEW_STAGE,
                     )
 
             else:
@@ -995,7 +995,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         annotators=each_annotation_user,
                         project_type=project_type,
                         tgt_language=tgt_language,
-                        enable_task_reviews=only_review_proj,
+                        project_stage=REVIEW_STAGE,
                     )
 
             project_count = projects_objs.count()

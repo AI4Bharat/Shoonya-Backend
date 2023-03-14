@@ -878,7 +878,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         #     and request.query_params["mode"] == "review"
         # )
         if is_review_mode:
-            if not project.enable_task_reviews:
+            if project.project_stage!=REVIEW_STAGE:
                 resp_dict = {"message": "Task reviews are not enabled for this project"}
                 return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
@@ -1048,7 +1048,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             proj = Project.objects.get(id=project_id)
             if proj.required_annotators_per_task > 1:
-                proj.enable_task_reviews = True
+                proj.project_stage = REVIEW_STAGE
                 proj.save()
 
         else:
@@ -1067,7 +1067,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             proj = Project.objects.get(id=project_id)
             if proj.required_annotators_per_task > 1:
-                proj.enable_task_reviews = True
+                proj.project_stage = REVIEW_STAGE
                 proj.save()
 
             # Function call to create the paramters for the sampling and filtering of sentences
@@ -1436,7 +1436,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "This project is not yet published"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if not project.enable_task_reviews:
+        if not (project.project_stage==REVIEW_STAGE):
             return Response(
                 {"message": "Task reviews are disabled for this project"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1672,7 +1672,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         reports_type = request.data.get("reports_type")
 
         if reports_type == "review_reports":
-            if proj_obj.enable_task_reviews:
+            if proj_obj.project_stage==REVIEW_STAGE:
                 reviewer_names_list = proj_obj.annotation_reviewers.all()
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 final_reports = []
@@ -1756,7 +1756,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             items.append(("Labeled", labeled_only_annotations))
 
             proj = Project.objects.get(id=pk)
-            if proj.enable_task_reviews:
+            if proj.project_stage==REVIEW_STAGE:
                 # get accepted tasks
                 annotations_of_reviewer_accepted = Annotation_model.objects.filter(
                     task__project_id=pk,
@@ -2159,7 +2159,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def allow_task_reviews(self, request, pk):
         try:
             project = Project.objects.get(pk=pk)
-            if project.enable_task_reviews:
+            if project.project_stage==REVIEW_STAGE:
                 return Response(
                     {"message": "Task reviews are already enabled"},
                     status=status.HTTP_403_FORBIDDEN,
@@ -2194,7 +2194,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tas.save()
 
             # tasks.update(task_status=ANNOTATED)
-            project.enable_task_reviews = True
+            project.project_stage=REVIEW_STAGE
             project.save()
             return Response(
                 {"message": "Task reviews enabled"}, status=status.HTTP_200_OK
@@ -2227,7 +2227,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            if not project.enable_task_reviews:
+            if not (project.project_stage==REVIEW_STAGE):
                 return Response(
                     {"message": "Task reviews are already disabled"},
                     status=status.HTTP_403_FORBIDDEN,
@@ -2248,7 +2248,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if len(anns) > 0:
                     tas.correct_annotation = anns[0]
                 tas.save()
-            project.enable_task_reviews = False
+            project.project_stage=ANNOTATION_STAGE
             project.save()
             return Response(
                 {"message": "Task reviews disabled"}, status=status.HTTP_200_OK
@@ -2522,7 +2522,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
 
-                if project.enable_task_reviews:
+                if project.project_stage==REVIEW_STAGE:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[REVIEWED]
                     ).exclude(correct_annotation__annotation_status="to_be_revised")

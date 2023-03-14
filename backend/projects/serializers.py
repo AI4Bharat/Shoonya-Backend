@@ -41,7 +41,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "src_language",
             "tgt_language",
             "created_at",
-            "enable_task_reviews",
+            "project_stage",
         ]
 
 
@@ -92,5 +92,5 @@ class ProjectSerializerOptimized(serializers.ModelSerializer):
             "src_language",
             "tgt_language",
             "created_at",
-            "enable_task_reviews",
+            "project_stage",
         ]

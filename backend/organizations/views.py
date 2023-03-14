@@ -11,7 +11,7 @@ from .serializers import OrganizationSerializer
 from .decorators import is_organization_owner, is_particular_organization_owner
 from users.serializers import UserFetchSerializer
 from users.models import User
-from projects.models import Project
+from projects.models import Project,ANNOTATION_STAGE,REVIEW_STAGE,SUPERCHECK_STAGE
 from django.db.models import Avg, Count, F, FloatField, Q, Value, Subquery
 from django.db.models.functions import Cast, Coalesce
 from regex import R
@@ -112,7 +112,7 @@ def get_counts(
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
-                enable_task_reviews=only_review_proj,
+                project_stage=REVIEW_STAGE,
                 annotators=annotator,
             )
     else:
@@ -127,7 +127,7 @@ def get_counts(
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
-                enable_task_reviews=only_review_proj,
+                project_stage=REVIEW_STAGE,
                 tgt_language=tgt_language,
                 annotators=annotator,
             )
@@ -265,14 +265,14 @@ def get_translation_quality_reports(
         projects_objs = Project.objects.filter(
             organization_id_id=pk,
             project_type=project_type,
-            enable_task_reviews=True,
+            project_stage=REVIEW_STAGE,
             annotators=annotator,
         )
     else:
         projects_objs = Project.objects.filter(
             organization_id_id=pk,
             project_type=project_type,
-            enable_task_reviews=True,
+            project_stage=REVIEW_STAGE,
             tgt_language=tgt_language,
             annotators=annotator,
         )
@@ -709,7 +709,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             proj_objs = Project.objects.filter(organization_id=pk)
             if project_type != None:
                 proj_objs = proj_objs.filter(project_type=project_type)
-            review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
+            review_projects = [pro for pro in proj_objs if pro.project_stage==REVIEW_STAGE]
 
             org_reviewer_list = []
             for review_project in review_projects:
@@ -1175,7 +1175,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         proj_objs = []
         if reviewer_reports == True:
             proj_objs = Project.objects.filter(
-                organization_id=pk, project_type=project_type, enable_task_reviews=True
+                organization_id=pk, project_type=project_type, project_stage=REVIEW_STAGE
             )
         else:
             proj_objs = Project.objects.filter(
@@ -1343,7 +1343,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         proj_objs = []
         if reviewer_reports == True:
             proj_objs = Project.objects.filter(
-                organization_id=pk, project_type=project_type, enable_task_reviews=True
+                organization_id=pk, project_type=project_type, project_stage=REVIEW_STAGE
             )
         else:
             proj_objs = Project.objects.filter(
@@ -1498,7 +1498,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 reviewer_task_count = 0
                 reviewer_tasks = Task.objects.filter(
                     project_id__in=proj_lang_filter,
-                    project_id__enable_task_reviews=True,
+                    project_id__project_stage=REVIEW_STAGE,
                     task_status__in=["reviewed", "exported"],
                 )
 
