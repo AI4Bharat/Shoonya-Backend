@@ -41,7 +41,9 @@ def calculate_reports():
 
     yest_date = f"{(datetime.now() - timedelta(days = 1) ):%Y-%m-%d}"
 
-    final_user_unique_list = list(set(final_annot_unique_list + final_reviewer_unique_list)) # list of all annotators and reviewers
+    final_user_unique_list = list(
+        set(final_annot_unique_list + final_reviewer_unique_list)
+    )  # list of all annotators and reviewers
 
     for user in final_user_unique_list:
         user1 = User.objects.get(id=user.id)
@@ -51,7 +53,7 @@ def calculate_reports():
 
         userId = user.id
 
-        if(user in final_annot_unique_list):
+        if user in final_annot_unique_list:
             data = {
                 "user_id": userId,
                 "project_type": "ContextualTranslationEditing",
@@ -95,9 +97,9 @@ def calculate_reports():
                 text_align="left",
                 width="auto",
                 index=False,
-            )    
+            )
 
-        if(user in final_reviewer_unique_list):
+        if user in final_reviewer_unique_list:
             data = {
                 "user_id": userId,
                 "project_type": "ContextualTranslationEditing",
@@ -142,7 +144,7 @@ def calculate_reports():
                 width="auto",
                 index=False,
             )
-        
+
         message = (
             "Dear "
             + str(user.username)
@@ -151,7 +153,7 @@ def calculate_reports():
             + " are ready.\n Thanks for contributing on Shoonya!"
         )
 
-        if(user in final_annot_unique_list and user in final_reviewer_unique_list):
+        if user in final_annot_unique_list and user in final_reviewer_unique_list:
             email_to_send = (
                 "<p>"
                 + message
@@ -166,7 +168,7 @@ def calculate_reports():
                 + "<br><h>Project-wise Reports</h>"
                 + html_table_df_review
             )
-        elif(user in final_annot_unique_list):
+        elif user in final_annot_unique_list:
             email_to_send = (
                 "<p>"
                 + message
@@ -184,7 +186,7 @@ def calculate_reports():
                 + "<br><h>Project-wise Reports</h>"
                 + html_table_df_review
             )
-        
+
         send_mail(
             "Daily Annotation and Review Reports",
             message,
