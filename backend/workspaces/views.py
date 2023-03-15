@@ -861,7 +861,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
         to_date = to_date + " 23:59"
-        only_review_proj = request.data.get("only_review_projects")
+        project_progress_stage = request.data.get("project_progress_stage")
         reports_type = request.data.get("reports_type")
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
@@ -966,7 +966,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             if email == ws_owner or email == org_owner:
                 continue
             if tgt_language == None:
-                if only_review_proj == None:
+                if project_progress_stage == None:
                     projects_objs = Project.objects.filter(
                         workspace_id=pk,
                         annotators=each_annotation_user,
@@ -977,12 +977,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         workspace_id=pk,
                         annotators=each_annotation_user,
                         project_type=project_type,
-                        project_stage=REVIEW_STAGE,
+                        project_stage=project_progress_stage,
                     )
 
             else:
                 selected_language = tgt_language
-                if only_review_proj == None:
+                if project_progress_stage == None:
                     projects_objs = Project.objects.filter(
                         workspace_id=pk,
                         annotators=each_annotation_user,
@@ -995,7 +995,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         annotators=each_annotation_user,
                         project_type=project_type,
                         tgt_language=tgt_language,
-                        project_stage=REVIEW_STAGE,
+                        project_stage=project_progress_stage,
                     )
 
             project_count = projects_objs.count()
@@ -1006,7 +1006,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
             assigned_tasks = all_tasks_in_project.count()
 
-            if only_review_proj:
+            if project_progress_stage==REVIEW_STAGE:
                 (
                     accepted,
                     to_be_revised,
@@ -1094,7 +1094,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 completed_by=each_annotation_user,
             ).count()
 
-            if only_review_proj:
+            if project_progress_stage==REVIEW_STAGE:
                 result = {
                     "Annotator": name,
                     "Email": email,

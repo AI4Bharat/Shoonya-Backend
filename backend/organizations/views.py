@@ -92,7 +92,7 @@ def get_counts(
     start_date,
     end_date,
     is_translation_project,
-    only_review_proj,
+    project_progress_stage,
     tgt_language=None,
 ):
     annotated_tasks = 0
@@ -102,7 +102,7 @@ def get_counts(
     accepted_wt_major_changes = 0
     labeled = 0
     if tgt_language == None:
-        if only_review_proj == None:
+        if project_progress_stage == None:
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
@@ -112,11 +112,11 @@ def get_counts(
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
-                project_stage=REVIEW_STAGE,
+                project_stage=project_progress_stage,
                 annotators=annotator,
             )
     else:
-        if only_review_proj == None:
+        if project_progress_stage == None:
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
@@ -127,7 +127,7 @@ def get_counts(
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
-                project_stage=REVIEW_STAGE,
+                project_stage=project_progress_stage,
                 tgt_language=tgt_language,
                 annotators=annotator,
             )
@@ -142,7 +142,7 @@ def get_counts(
     )
     assigned_tasks = all_tasks_in_project.count()
 
-    if only_review_proj:
+    if project_progress_stage==REVIEW_STAGE:
         (
             accepted,
             to_be_revised,
@@ -670,7 +670,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
         to_date = to_date + " 23:59"
-        only_review_proj = request.data.get("only_review_projects")
+        project_progress_stage = request.data.get("project_progress_stage")
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         reports_type = request.data.get("reports_type")
@@ -845,11 +845,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 start_date,
                 end_date,
                 is_translation_project,
-                only_review_proj,
+                project_progress_stage,
                 None if tgt_language == None else tgt_language,
             )
 
-            if only_review_proj:
+            if project_progress_stage==REVIEW_STAGE:
                 temp_result = {
                     "Annotator": name,
                     "Email": email,
