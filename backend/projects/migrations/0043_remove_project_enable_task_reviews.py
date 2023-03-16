@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('projects', '0042_populate_project_stage_field'),
+        ("projects", "0042_populate_project_stage_field"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='project',
-            name='enable_task_reviews',
+            model_name="project",
+            name="enable_task_reviews",
         ),
     ]

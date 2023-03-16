@@ -51,11 +51,11 @@ UNREVIEWED = "unreviewed"
 EXPORTED = "exported"
 ACCEPTED_WITH_MINOR_CHANGES = "accepted_with_minor_changes"
 ACCEPTED_WITH_MAJOR_CHANGES = "accepted_with_major_changes"
-SUPER_CHECKED="super_checked"
-UNVALIDATED="unvalidated"
-VALIDATED="validated"
-VALIDATED_WITH_CHANGES="validated_with_changes"
-REJECTED="rejected"
+SUPER_CHECKED = "super_checked"
+UNVALIDATED = "unvalidated"
+VALIDATED = "validated"
+VALIDATED_WITH_CHANGES = "validated_with_changes"
+REJECTED = "rejected"
 
 TASK_STATUS = (
     (INCOMPLETE, "incomplete"),
@@ -63,7 +63,7 @@ TASK_STATUS = (
     (REVIEWED, "reviewed"),
     (EXPORTED, "exported"),
     (FREEZED, "freezed"),
-    (SUPER_CHECKED,"super_checked"),
+    (SUPER_CHECKED, "super_checked"),
 )
 
 
@@ -77,20 +77,20 @@ ANNOTATION_STATUS = (
     (TO_BE_REVISED, "to_be_revised"),
     (ACCEPTED_WITH_MINOR_CHANGES, "accepted_with_minor_changes"),
     (ACCEPTED_WITH_MAJOR_CHANGES, "accepted_with_major_changes"),
-    (UNVALIDATED,"unvalidated"),
-    (VALIDATED,"validated"),
-    (VALIDATED_WITH_CHANGES,"validated_with_changes"),
-    (REJECTED,"rejected"),
+    (UNVALIDATED, "unvalidated"),
+    (VALIDATED, "validated"),
+    (VALIDATED_WITH_CHANGES, "validated_with_changes"),
+    (REJECTED, "rejected"),
 )
 
-ANNOTATOR_ANNOTATION=1
-REVIEWER_ANNOTATION=2
-SUPER_CHECKER_ANNOTATION=3
+ANNOTATOR_ANNOTATION = 1
+REVIEWER_ANNOTATION = 2
+SUPER_CHECKER_ANNOTATION = 3
 
-ANNOTATION_TYPE=(
-    (ANNOTATOR_ANNOTATION,"Annotator's Annotation"),
-    (REVIEWER_ANNOTATION,"Reviewer's Annotation"),
-    (SUPER_CHECKER_ANNOTATION,"Super Checker's Annotation"),
+ANNOTATION_TYPE = (
+    (ANNOTATOR_ANNOTATION, "Annotator's Annotation"),
+    (REVIEWER_ANNOTATION, "Reviewer's Annotation"),
+    (SUPER_CHECKER_ANNOTATION, "Super Checker's Annotation"),
 )
 
 
@@ -219,8 +219,8 @@ class Annotation(models.Model):
         blank=True, null=True, verbose_name="annotation_notes"
     )
     review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
-    annotation_type=models.PositiveSmallIntegerField(
-        choices=ANNOTATION_TYPE,blank=False,null=False,default=ANNOTATOR_ANNOTATION
+    annotation_type = models.PositiveSmallIntegerField(
+        choices=ANNOTATION_TYPE, blank=False, null=False, default=ANNOTATOR_ANNOTATION
     )
 
     def __str__(self):

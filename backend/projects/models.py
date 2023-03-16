@@ -35,20 +35,24 @@ Annotation = "Annotation"
 
 PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
 
-ANNOTATION_STAGE=1
-REVIEW_STAGE=2
-SUPERCHECK_STAGE=3
+ANNOTATION_STAGE = 1
+REVIEW_STAGE = 2
+SUPERCHECK_STAGE = 3
 
-PROJECT_STAGE_CHOICES=((ANNOTATION_STAGE,"Annotation Only"),(REVIEW_STAGE,"Review Enabled"),(SUPERCHECK_STAGE,"Supercheck Enabled"))
+PROJECT_STAGE_CHOICES = (
+    (ANNOTATION_STAGE, "Annotation Only"),
+    (REVIEW_STAGE, "Review Enabled"),
+    (SUPERCHECK_STAGE, "Supercheck Enabled"),
+)
 
 ANNOTATION_LOCK = "annotation_task_pull_lock"
 REVIEW_LOCK = "review_task_pull_lock"
-SUPERCHECK_LOCK="supercheck_task_pull_lock"
+SUPERCHECK_LOCK = "supercheck_task_pull_lock"
 
 LOCK_CONTEXT = (
     (ANNOTATION_LOCK, "annotation_lock"),
     (REVIEW_LOCK, "review_lock"),
-    (SUPERCHECK_LOCK,"supercheck_lock")
+    (SUPERCHECK_LOCK, "supercheck_lock"),
 )
 
 # List of async functions pertaining to the dataset models
@@ -91,7 +95,7 @@ class Project(models.Model):
         blank=True,
         help_text=("Project Annotation Reviewers"),
     )
-    review_supercheckers=models.ManyToManyField(
+    review_supercheckers = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="supercheck_reviewed_projects",
         blank=True,
@@ -245,23 +249,23 @@ class Project(models.Model):
         ),
     )
 
-    project_stage=models.PositiveSmallIntegerField(
-        choices=PROJECT_STAGE_CHOICES,blank=False,null=False,default=ANNOTATION_STAGE
+    project_stage = models.PositiveSmallIntegerField(
+        choices=PROJECT_STAGE_CHOICES, blank=False, null=False, default=ANNOTATION_STAGE
     )
 
-    k_value=models.IntegerField(
+    k_value = models.IntegerField(
         verbose_name="Superchecking K% Value",
         default=100,
         help_text=(
-        "This will be used to pull k percent of tasks in a project for super-check"
+            "This will be used to pull k percent of tasks in a project for super-check"
         ),
     )
 
-    revision_loop_count=models.IntegerField(
+    revision_loop_count = models.IntegerField(
         verbose_name="revision loop count",
         default=3,
         help_text=(
-        "This will be used to keep track of the rejected/ reviewed-back loop count in Super check."
+            "This will be used to keep track of the rejected/ reviewed-back loop count in Super check."
         ),
     )
 

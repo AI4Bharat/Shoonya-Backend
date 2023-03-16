@@ -4,19 +4,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('users', '0020_user_participation_type'),
+        ("users", "0020_user_participation_type"),
     ]
 
     operations = [
         migrations.AddConstraint(
-            model_name='user',
-            constraint=models.UniqueConstraint(fields=('email', 'organization'), name='email_org_unique'),
+            model_name="user",
+            constraint=models.UniqueConstraint(
+                fields=("email", "organization"), name="email_org_unique"
+            ),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='role',
-            field=models.PositiveSmallIntegerField(choices=[(1, 'Annotator'), (2, 'Reviewer'), (3, 'Workspace Manager'), (4, 'Organization Owner'), (5, 'Admin')], default=1),
+            model_name="user",
+            name="role",
+            field=models.PositiveSmallIntegerField(
+                choices=[
+                    (1, "Annotator"),
+                    (2, "Reviewer"),
+                    (3, "Workspace Manager"),
+                    (4, "Organization Owner"),
+                    (5, "Admin"),
+                ],
+                default=1,
+            ),
         ),
     ]

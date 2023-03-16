@@ -345,7 +345,8 @@ class UserViewSet(viewsets.ViewSet):
         requested_id = request.data.get("user_id")
 
         if requested_id == request.user.id or (
-            request.user.role == User.ORGANIZATION_OWNER and request.user.organization == user.organization
+            request.user.role == User.ORGANIZATION_OWNER
+            and request.user.organization == user.organization
         ):
             user.enable_mail = enable_mail
             user.save()
@@ -366,18 +367,25 @@ class UserViewSet(viewsets.ViewSet):
             serializer = UserProfileSerializer(user_details, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            return Response({"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
+            )
 
     @swagger_auto_schema(request_body=UserUpdateSerializer)
     @action(detail=True, methods=["patch"], url_path="edit_user_details")
     def user_details_update(self, request, pk=None):
         if request.user.role != User.ADMIN:
-            return Response({"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
+            )
         user = User.objects.get(id=pk)
         serializer = UserUpdateSerializer(user, request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response({"message": "User details edited"}, status=status.HTTP_200_OK)
+            return Response(
+                {"message": "User details edited"}, status=status.HTTP_200_OK
+            )
+
 
 class AnalyticsViewSet(viewsets.ViewSet):
     permission_classes = (AllowAny,)

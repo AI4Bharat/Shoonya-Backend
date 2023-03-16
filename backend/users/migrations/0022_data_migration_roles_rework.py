@@ -3,6 +3,7 @@
 from django.db import migrations
 from users.models import User
 
+
 def restructure_user_roles(apps, schema_editor):
     User = apps.get_model("users", "User")
     for user in User.objects.all():
@@ -21,11 +22,10 @@ def change_user_email_to_lowercase(apps, schema_editor):
         users_list.append(user)
     User.objects.bulk_update(users_list, ["email"], 512)
 
-    
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
-        ('users', '0021_auto_20221124_1042'),
+        ("users", "0021_auto_20221124_1042"),
     ]
 
     operations = [

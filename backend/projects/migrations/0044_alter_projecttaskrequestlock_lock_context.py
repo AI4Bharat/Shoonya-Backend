@@ -4,15 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('projects', '0043_remove_project_enable_task_reviews'),
+        ("projects", "0043_remove_project_enable_task_reviews"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='projecttaskrequestlock',
-            name='lock_context',
-            field=models.CharField(choices=[('annotation_task_pull_lock', 'annotation_lock'), ('review_task_pull_lock', 'review_lock'), ('supercheck_task_pull_lock', 'supercheck_lock')], default='annotation_task_pull_lock', max_length=50, verbose_name='lock_context'),
+            model_name="projecttaskrequestlock",
+            name="lock_context",
+            field=models.CharField(
+                choices=[
+                    ("annotation_task_pull_lock", "annotation_lock"),
+                    ("review_task_pull_lock", "review_lock"),
+                    ("supercheck_task_pull_lock", "supercheck_lock"),
+                ],
+                default="annotation_task_pull_lock",
+                max_length=50,
+                verbose_name="lock_context",
+            ),
         ),
     ]

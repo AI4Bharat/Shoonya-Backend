@@ -2,6 +2,7 @@
 
 from django.db import migrations
 
+
 def restructure_user_roles(apps, schema_editor):
     User = apps.get_model("users", "User")
     for user in User.objects.all():
@@ -11,9 +12,8 @@ def restructure_user_roles(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('users', '0023_alter_user_role'),
+        ("users", "0023_alter_user_role"),
     ]
 
     operations = [
