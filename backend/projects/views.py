@@ -1502,6 +1502,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 completed_by=cur_user,
                 annotation_status="unreviewed",
                 parent_annotation=rec_ann[0],
+                annotation_type=REVIEWER_ANNOTATION,
             )
             base_annotation_obj.save()
         project.release_lock(REVIEW_LOCK)

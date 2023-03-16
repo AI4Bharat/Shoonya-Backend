@@ -83,6 +83,16 @@ ANNOTATION_STATUS = (
     (REJECTED,"rejected"),
 )
 
+ANNOTATOR_ANNOTATION=1
+REVIEWER_ANNOTATION=2
+SUPER_CHECKER_ANNOTATION=3
+
+ANNOTATION_TYPE=(
+    (ANNOTATOR_ANNOTATION,"Annotator's Annotation"),
+    (REVIEWER_ANNOTATION,"Reviewer's Annotation"),
+    (SUPER_CHECKER_ANNOTATION,"Super Checker's Annotation"),
+)
+
 
 class Task(models.Model):
     """
@@ -209,6 +219,9 @@ class Annotation(models.Model):
         blank=True, null=True, verbose_name="annotation_notes"
     )
     review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
+    annotation_type=models.PositiveSmallIntegerField(
+        choices=ANNOTATION_TYPE,blank=False,null=False,default=ANNOTATOR_ANNOTATION
+    )
 
     def __str__(self):
         return str(self.id)

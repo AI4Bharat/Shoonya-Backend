@@ -184,9 +184,6 @@ class User(AbstractBaseUser, PermissionsMixin):
             models.Index(fields=["username"]),
             models.Index(fields=["email"]),
         ]
-        constraints = [
-            models.UniqueConstraint(fields=['email', 'organization'], name='email_org_unique')
-        ]
 
     def clean(self):
         super().clean()
