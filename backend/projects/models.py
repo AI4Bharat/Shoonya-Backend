@@ -249,6 +249,12 @@ class Project(models.Model):
         ),
     )
 
+    enable_task_reviews = models.BooleanField(
+        verbose_name="enable_task_reviews",
+        default=False,
+        help_text=("Indicates whether the annotations need to be reviewed"),
+    )
+
     project_stage = models.PositiveSmallIntegerField(
         choices=PROJECT_STAGE_CHOICES, blank=False, null=False, default=ANNOTATION_STAGE
     )
