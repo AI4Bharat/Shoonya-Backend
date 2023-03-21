@@ -130,10 +130,10 @@ def create_tasks_from_dataitems(items, project):
                         "type": "textarea",
                     }
                 ]
-            prediction = Annotation_model(
-                result=item[prediction_field], task=task, completed_by=user_object
-            )
-            predictions.append(prediction)
+                prediction = Annotation_model(
+                    result=item[prediction_field], task=task, completed_by=user_object
+                )
+                predictions.append(prediction)
         #
         # Prediction.objects.bulk_create(predictions)
         Annotation_model.objects.bulk_create(predictions)
