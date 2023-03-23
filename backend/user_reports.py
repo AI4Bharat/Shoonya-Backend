@@ -17,6 +17,7 @@ import pandas as pd
 from django.core.mail import send_mail
 from django.conf import settings
 from pretty_html_table import build_table
+import numpy as np
 
 
 def calculate_reports():
@@ -56,7 +57,7 @@ def calculate_reports():
         if user in final_annot_unique_list:
             data = {
                 "user_id": userId,
-                "project_type": "ContextualTranslationEditing",
+                "project_type": "all",
                 "reports_type": "annotation",
                 "start_date": yest_date,
                 "end_date": yest_date,
@@ -102,7 +103,7 @@ def calculate_reports():
         if user in final_reviewer_unique_list:
             data = {
                 "user_id": userId,
-                "project_type": "ContextualTranslationEditing",
+                "project_type": "all",
                 "reports_type": "review",
                 "start_date": yest_date,
                 "end_date": yest_date,
@@ -157,33 +158,34 @@ def calculate_reports():
             email_to_send = (
                 "<p>"
                 + message
-                + "</p><br><h>Annotation Reports</h>"
-                + "<br><h>Total Reports</h>"
+                + "</p><br><h1><b>Annotation Reports</b></h1>"
+                + "<br><h2><b>Total Reports</b></h2>"
                 + html_table_df1_annotation
-                + "<br><h>Project-wise Reports</h>"
+                + "<br><h2><b>Project-wise Reports</b></h2>"
                 + html_table_df_annotation
-                + "</p><br><h>Review Reports</h>"
-                + "<br><h>Total Reports</h>"
+                + "<br><br><hr>"
+                + "</p><br><br><h1><b>Review Reports</b></h1>"
+                + "<br><h2><b>Total Reports</b></h2>"
                 + html_table_df1_review
-                + "<br><h>Project-wise Reports</h>"
+                + "<br><h2><b>Project-wise Reports</b></h2>"
                 + html_table_df_review
             )
         elif user in final_annot_unique_list:
             email_to_send = (
                 "<p>"
                 + message
-                + "</p><br><h>Total Reports</h>"
+                + "</p><br><h><b>Total Reports</b></h>"
                 + html_table_df1_annotation
-                + "<br><h>Project-wise Reports</h>"
+                + "<br><h><b>Project-wise Reports</b></h>"
                 + html_table_df_annotation
             )
         else:
             email_to_send = (
                 "<p>"
                 + message
-                + "</p><br><h>Total Reports</h>"
+                + "</p><br><h><b>Total Reports</b></h>"
                 + html_table_df1_review
-                + "<br><h>Project-wise Reports</h>"
+                + "<br><h><b>Project-wise Reports</b></h>"
                 + html_table_df_review
             )
 

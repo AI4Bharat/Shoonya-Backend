@@ -425,7 +425,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
             )
 
         project_type_lower = project_type.lower()
-        is_translation_project = True if "translation" in project_type_lower else False
+        is_textual_project = (
+            False if project_type in get_audio_project_types() else True
+        )  # flag for distinguishing between textual and audio projects
 
         try:
             user = User.objects.get(id=user_id)
@@ -435,15 +437,25 @@ class AnalyticsViewSet(viewsets.ViewSet):
             )
 
         if review_reports:
-            project_objs = Project.objects.filter(
-                annotation_reviewers=user_id,
-                project_type=project_type,
-            )
+            if project_type == "all":
+                project_objs = Project.objects.filter(  # Not using the project_type filter if it is set to "all"
+                    annotation_reviewers=user_id,
+                )
+            else:
+                project_objs = Project.objects.filter(
+                    annotation_reviewers=user_id,
+                    project_type=project_type,
+                )
         else:
-            project_objs = Project.objects.filter(
-                annotators=user_id,
-                project_type=project_type,
-            )
+            if project_type == "all":
+                project_objs = Project.objects.filter(
+                    annotators=user_id,
+                )
+            else:
+                project_objs = Project.objects.filter(
+                    annotators=user_id,
+                    project_type=project_type,
+                )
 
         all_annotated_lead_time_list = []
         all_annotated_lead_time_count = 0
@@ -453,6 +465,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
         project_wise_summary = []
         for proj in project_objs:
             project_name = proj.title
+            project_type = proj.project_type
+            is_textual_project = (
+                False if project_type in get_audio_project_types() else True
+            )
             annotated_labeled_tasks = []
             if review_reports:
                 labeld_tasks_objs = Task.objects.filter(
@@ -512,10 +528,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 avg_lead_time = round(avg_lead_time, 2)
 
             total_word_count = 0
-            if (
-                is_translation_project
-                or project_type == "SemanticTextualSimilarity_Scale5"
-            ):
+            if is_textual_project:
                 total_word_count_list = []
                 for each_task in annotated_labeled_tasks:
                     try:
@@ -555,10 +568,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
             if project_type in get_audio_project_types():
                 del result["Word Count"]
-            elif (
-                is_translation_project
-                or project_type == "SemanticTextualSimilarity_Scale5"
-            ):
+            elif is_textual_project:
                 del result["Total Audio Duration"]
             else:
                 del result["Word Count"]
@@ -598,13 +608,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 else "Avg Annotation Time (sec)"
             ): round(all_annotated_lead_time_count, 2),
         }
-        if project_type in get_audio_project_types():
+        if project_type_lower != "all" and project_type in get_audio_project_types():
             del total_result["Word Count"]
-        elif (
-            is_translation_project or project_type == "SemanticTextualSimilarity_Scale5"
-        ):
+        elif project_type_lower != "all" and is_textual_project:
             del total_result["Total Audio Duration"]
-        else:
+        elif project_type_lower != "all":
             del total_result["Word Count"]
             del total_result["Total Audio Duration"]
 
