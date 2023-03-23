@@ -94,6 +94,11 @@ ANNOTATION_TYPE = (
 )
 
 
+def default_revision_loop_count_value():
+    dict = {"super_check_count": 0, "review_count": 0}
+    return dict
+
+
 class Task(models.Model):
     """
     Task Model
@@ -155,6 +160,11 @@ class Task(models.Model):
     )
     metadata_json = models.JSONField(
         verbose_name="metadata json", null=True, blank=True
+    )
+    revision_loop_count = models.JSONField(
+        verbose_name="revision_loop_count",
+        default=default_revision_loop_count_value,
+        help_text=("Has the revision_loop_count of both supercheck and review"),
     )
 
     def assign(self, annotators):
