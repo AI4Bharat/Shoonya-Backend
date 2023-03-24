@@ -2255,9 +2255,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.project_stage = REVIEW_STAGE
                 project.save()
                 return Response(
-                    {
-                        "message": "Project moved to Review stage from Annotation stage"
-                    },
+                    {"message": "Project moved to Review stage from Annotation stage"},
                     status=status.HTTP_200_OK,
                 )
             else:
