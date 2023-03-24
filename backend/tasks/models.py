@@ -152,6 +152,14 @@ class Task(models.Model):
         verbose_name="review_user",
         blank=True,
     )
+    super_check_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="super_check_tasks",
+        verbose_name="supercheck_user",
+        blank=True,
+    )
     task_status = models.CharField(
         choices=TASK_STATUS,
         max_length=100,
