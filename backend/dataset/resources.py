@@ -109,5 +109,5 @@ RESOURCE_MAP = {
     "OCRDocument": OCRResource,
     "BlockText": BlockTextResource,
     "Conversation": ConversationResource,
-    "SpeechConversation": SpeechConversation,
+    "SpeechConversation": SpeechConversationResource,
 }

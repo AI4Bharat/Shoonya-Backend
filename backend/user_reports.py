@@ -17,6 +17,7 @@ import pandas as pd
 from django.core.mail import send_mail
 from django.conf import settings
 from pretty_html_table import build_table
+import numpy as np
 
 
 def calculate_reports():
@@ -40,158 +41,158 @@ def calculate_reports():
     ]
 
     yest_date = f"{(datetime.now() - timedelta(days = 1) ):%Y-%m-%d}"
-    for annotator in final_annot_unique_list:
-        user1 = User.objects.get(id=annotator.id)
+
+    final_user_unique_list = list(
+        set(final_annot_unique_list + final_reviewer_unique_list)
+    )  # list of all annotators and reviewers
+
+    for user in final_user_unique_list:
+        user1 = User.objects.get(id=user.id)
 
         if not user1.enable_mail:
             continue
 
-        userId = annotator.id
-        data = {
-            "user_id": userId,
-            "project_type": "ContextualTranslationEditing",
-            "reports_type": "annotation",
-            "start_date": yest_date,
-            "end_date": yest_date,
-        }
-        try:
-            res = analytics.get_user_analytics(data)
-        except:
-            continue
+        userId = user.id
 
-        final_data = res.data
-        if "total_summary" not in final_data or "project_summary" not in final_data:
-            continue
+        if user in final_annot_unique_list:
+            data = {
+                "user_id": userId,
+                "project_type": "all",
+                "reports_type": "annotation",
+                "start_date": yest_date,
+                "end_date": yest_date,
+            }
+            try:
+                res = analytics.get_user_analytics(data)
+            except:
+                continue
 
-        if len(final_data["project_summary"]) > 0:
-            df = pd.DataFrame.from_records(final_data["project_summary"])
-            blankIndex = [""] * len(df)
-            df.index = blankIndex
-            html_table_df = build_table(
-                df,
-                "orange_light",
+            final_data = res.data
+            if "total_summary" not in final_data or "project_summary" not in final_data:
+                continue
+
+            if len(final_data["project_summary"]) > 0:
+                df = pd.DataFrame.from_records(final_data["project_summary"])
+                blankIndex = [""] * len(df)
+                df.index = blankIndex
+                html_table_df_annotation = build_table(
+                    df,
+                    "orange_light",
+                    font_size="medium",
+                    text_align="left",
+                    width="auto",
+                    index=False,
+                )
+
+            else:
+                html_table_df_annotation = ""
+
+            df1 = pd.DataFrame.from_records(final_data["total_summary"])
+            blankIndex = [""] * len(df1)
+            df1.index = blankIndex
+
+            html_table_df1_annotation = build_table(
+                df1,
+                "orange_dark",
                 font_size="medium",
                 text_align="left",
                 width="auto",
                 index=False,
             )
 
-        else:
-            html_table_df = ""
+        if user in final_reviewer_unique_list:
+            data = {
+                "user_id": userId,
+                "project_type": "all",
+                "reports_type": "review",
+                "start_date": yest_date,
+                "end_date": yest_date,
+            }
+            try:
+                res = analytics.get_user_analytics(data)
+            except:
+                continue
 
-        df1 = pd.DataFrame.from_records(final_data["total_summary"])
-        blankIndex = [""] * len(df1)
-        df1.index = blankIndex
+            final_data = res.data
+            if "total_summary" not in final_data or "project_summary" not in final_data:
+                continue
 
-        html_table_df1 = build_table(
-            df1,
-            "orange_dark",
-            font_size="medium",
-            text_align="left",
-            width="auto",
-            index=False,
-        )
+            if len(final_data["project_summary"]) > 0:
+                df = pd.DataFrame.from_records(final_data["project_summary"])
+                blankIndex = [""] * len(df)
+                df.index = blankIndex
+                html_table_df_review = build_table(
+                    df,
+                    "green_light",
+                    font_size="medium",
+                    text_align="left",
+                    width="auto",
+                    index=False,
+                )
 
-        message = (
-            "Dear "
-            + str(annotator.username)
-            + ",\n Your progress reports for "
-            + f"{(datetime.now() - timedelta(days = 1) ):%d-%m-%Y}"
-            + " are ready.\n Thanks for contributing on Shoonya!"
-        )
-        email_to_send = (
-            "<p>"
-            + message
-            + "</p><br><h>Total Reports</h>"
-            + html_table_df1
-            + "<br><h>Project-wise Reports</h>"
-            + html_table_df
-        )
+            else:
+                html_table_df_review = ""
 
-        # print(email_to_send)
+            df1 = pd.DataFrame.from_records(final_data["total_summary"])
+            blankIndex = [""] * len(df1)
+            df1.index = blankIndex
 
-        send_mail(
-            "Daily Annotation Reports",
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [annotator.email],
-            html_message=email_to_send,
-        )
-
-    for reviewer in final_reviewer_unique_list:
-        user1 = User.objects.get(id=reviewer.id)
-
-        if not user1.enable_mail:
-            continue
-
-        userId = reviewer.id
-        data = {
-            "user_id": userId,
-            "project_type": "ContextualTranslationEditing",
-            "reports_type": "review",
-            "start_date": yest_date,
-            "end_date": yest_date,
-        }
-        try:
-            res = analytics.get_user_analytics(data)
-        except:
-            continue
-
-        final_data = res.data
-        if "total_summary" not in final_data or "project_summary" not in final_data:
-            continue
-
-        if len(final_data["project_summary"]) > 0:
-            df = pd.DataFrame.from_records(final_data["project_summary"])
-            blankIndex = [""] * len(df)
-            df.index = blankIndex
-            html_table_df = build_table(
-                df,
-                "green_light",
+            html_table_df1_review = build_table(
+                df1,
+                "green_dark",
                 font_size="medium",
                 text_align="left",
                 width="auto",
                 index=False,
             )
 
-        else:
-            html_table_df = ""
-
-        df1 = pd.DataFrame.from_records(final_data["total_summary"])
-        blankIndex = [""] * len(df1)
-        df1.index = blankIndex
-
-        html_table_df1 = build_table(
-            df1,
-            "green_dark",
-            font_size="medium",
-            text_align="left",
-            width="auto",
-            index=False,
-        )
-
         message = (
             "Dear "
-            + str(reviewer.username)
+            + str(user.username)
             + ",\n Your progress reports for "
             + f"{(datetime.now() - timedelta(days = 1) ):%d-%m-%Y}"
             + " are ready.\n Thanks for contributing on Shoonya!"
         )
-        email_to_send = (
-            "<p>"
-            + message
-            + "</p><br><h>Total Reports</h>"
-            + html_table_df1
-            + "<br><h>Project-wise Reports</h>"
-            + html_table_df
-        )
 
-        # print(email_to_send)
+        if user in final_annot_unique_list and user in final_reviewer_unique_list:
+            email_to_send = (
+                "<p>"
+                + message
+                + "</p><br><h1><b>Annotation Reports</b></h1>"
+                + "<br><h2><b>Total Reports</b></h2>"
+                + html_table_df1_annotation
+                + "<br><h2><b>Project-wise Reports</b></h2>"
+                + html_table_df_annotation
+                + "<br><br><hr>"
+                + "</p><br><br><h1><b>Review Reports</b></h1>"
+                + "<br><h2><b>Total Reports</b></h2>"
+                + html_table_df1_review
+                + "<br><h2><b>Project-wise Reports</b></h2>"
+                + html_table_df_review
+            )
+        elif user in final_annot_unique_list:
+            email_to_send = (
+                "<p>"
+                + message
+                + "</p><br><h><b>Total Reports</b></h>"
+                + html_table_df1_annotation
+                + "<br><h><b>Project-wise Reports</b></h>"
+                + html_table_df_annotation
+            )
+        else:
+            email_to_send = (
+                "<p>"
+                + message
+                + "</p><br><h><b>Total Reports</b></h>"
+                + html_table_df1_review
+                + "<br><h><b>Project-wise Reports</b></h>"
+                + html_table_df_review
+            )
 
         send_mail(
-            "Daily Review Reports",
+            "Daily Annotation and Review Reports",
             message,
             settings.DEFAULT_FROM_EMAIL,
-            [reviewer.email],
+            [user.email],
             html_message=email_to_send,
         )
