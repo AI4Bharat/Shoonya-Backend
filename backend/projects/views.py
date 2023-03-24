@@ -2169,7 +2169,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def change_project_stage(self, request, pk):
         # try:
         project = Project.objects.get(pk=pk)
-        new_project_stage = request.body.get("project_stage")
+        new_project_stage = request.data.get("project_stage")
         if new_project_stage == ANNOTATION_STAGE:
             if project.required_annotators_per_task > 1:
                 return Response(
