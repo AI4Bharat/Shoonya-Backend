@@ -342,7 +342,9 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             )
             serializer = WorkspaceSerializer(data, many=True)
             return Response(serializer.data)
-        elif int(request.user.role) == User.ORGANIZATION_OWNER:
+        elif (int(request.user.role) == User.ORGANIZATION_OWNER) or (
+            request.user.is_superuser
+        ):
             data = self.queryset.filter(organization=request.user.organization)
             serializer = WorkspaceSerializer(data, many=True)
             return Response(serializer.data)
