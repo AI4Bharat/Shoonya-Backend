@@ -1063,6 +1063,10 @@ class AnnotationViewSet(
                 parent.save(update_fields=["review_notes", "annotation_status"])
                 task.save()
 
+            if review_status in [UNREVIEWED, DRAFT, SKIPPED, TO_BE_REVISED]:
+                task.correct_annotation = None
+                task.save()
+
         return annotation_response
 
     def destroy(self, request, pk=None):
