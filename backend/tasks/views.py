@@ -988,11 +988,14 @@ class AnnotationViewSet(
             task = annotation.task
 
             if annotation_status == LABELED and is_to_be_revised_task:
-                review_annotation = Annotation.objects.get(
-                    task=task, parent_annotation__isnull=False
-                )
-                review_annotation.annotation_status = UNREVIEWED
-                review_annotation.save()
+                try:
+                    review_annotation = Annotation.objects.get(
+                        task=task, parent_annotation__isnull=False
+                    )
+                    review_annotation.annotation_status = UNREVIEWED
+                    review_annotation.save()
+                except:
+                    pass
 
             no_of_annotations = task.annotations.filter(
                 parent_annotation_id=None, annotation_status="labeled"
