@@ -95,7 +95,7 @@ def is_particular_organization_owner(f):
         if (
             request.user.organization == workspace.organization
             and request.user.role == User.ORGANIZATION_OWNER
-        ):
+        ) or (request.user.is_superuser):
             return f(self, request, pk, *args, **kwargs)
         else:
             return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
