@@ -1197,6 +1197,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                     (request.user.role == User.WORKSPACE_MANAGER)
                     and (request.user in workspace.managers.all())
                 )
+                or (request.user.is_superuser)
             ) == False:
                 return Response(
                     {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
@@ -1285,6 +1286,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                     (request.user.role == User.WORKSPACE_MANAGER)
                     and (request.user in workspace.managers.all())
                 )
+                or (request.user.is_superuser)
             ) == False:
                 return Response(
                     {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
