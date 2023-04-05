@@ -1,3 +1,4 @@
+import os
 import requests
 from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
@@ -194,6 +195,70 @@ def get_batch_translations_using_indictrans_nmt_api(
 
     except Exception as e:
         return str(e)
+    
+
+def get_batch_translations_using_indictransv2_nmt_api(
+    sentence_list,
+    source_language,
+    target_language,
+    checks_for_particular_languages=False,
+):
+    """Function to get the translation for the input sentences using the IndicTrans V2 NMT API.
+
+    Args:
+        sentence_list (str): List of sentences to be translated.
+        source_language (str): Original language of the sentence.
+        target_language (str): Final language of the sentence.
+        checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
+
+    Returns:
+        list: List of dictionaries containing the translated sentences.
+    """
+
+    # Get the translation model ID
+    model_id = LANG_TRANS_MODEL_CODES.get(
+        f"{source_language}-{target_language}", DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID
+    )
+
+    if checks_for_particular_languages:
+        # Checks for particular languages
+        if target_language in ["Bodo", "Maithili"]:
+            target_language = "Hindi"
+        elif target_language == "Kashmiri":
+            target_language = "Urdu"
+
+    # Convert language names to the language code
+    source_language = LANG_NAME_TO_CODE_ULCA[source_language]
+    target_language = LANG_NAME_TO_CODE_ULCA[target_language]
+
+    # Create the input sentences list
+    input_sentences = [{"source": sentence} for sentence in sentence_list]
+
+    json_data = {
+        "input": input_sentences,
+        "config": {
+            "modelId": model_id,
+            "language": {
+                "sourceLanguage": source_language,
+                "targetLanguage": target_language,
+            },
+        },
+    }
+ 
+    try:
+        response = requests.post(
+            "https://api.dhruva.ai4bharat.org/services/inference/translation?serviceId=ai4bharat/indictrans-v2-all-gpu--t4",
+            json=json_data,
+            headers={"authorization": os.getenv("INDIC_TRANS_V2_KEY")},
+        )
+
+        translations_output = response.json()["output"]
+
+        # Collect the translated sentences
+        return [translation["target"] for translation in translations_output]
+
+    except Exception as e:
+        return str(e)
 
 
 def get_translation_using_cdac_model(input_sentence, source_language, target_language):
@@ -350,6 +415,14 @@ def get_batch_translations(
     if api_type == "indic-trans":
         # Get the translation using the Indictrans NMT API
         translations_output = get_batch_translations_using_indictrans_nmt_api(
+            sentence_list=sentences_to_translate,
+            source_language=source_lang,
+            target_language=target_lang,
+            checks_for_particular_languages=checks_for_particular_languages,
+        )
+
+    elif api_type == "indic-trans-v2":
+        translations_output = get_batch_translations_using_indictransv2_nmt_api(
             sentence_list=sentences_to_translate,
             source_language=source_lang,
             target_language=target_lang,
