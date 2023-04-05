@@ -195,7 +195,7 @@ def get_batch_translations_using_indictrans_nmt_api(
 
     except Exception as e:
         return str(e)
-    
+
 
 def get_batch_translations_using_indictransv2_nmt_api(
     sentence_list,
@@ -244,7 +244,7 @@ def get_batch_translations_using_indictransv2_nmt_api(
             },
         },
     }
- 
+
     try:
         response = requests.post(
             "https://api.dhruva.ai4bharat.org/services/inference/translation?serviceId=ai4bharat/indictrans-v2-all-gpu--t4",
