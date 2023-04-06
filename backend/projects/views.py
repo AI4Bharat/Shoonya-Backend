@@ -498,8 +498,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         try:
             # projects = self.queryset.filter(annotators=request.user)
-
-            if request.user.role == User.ORGANIZATION_OWNER:
+            if request.user.is_superuser:
+                projects = self.queryset
+            elif request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
                     organization_id=request.user.organization
                 )
@@ -616,8 +617,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         try:
             # projects = self.queryset.filter(annotators=request.user)
-
-            if request.user.role == User.ORGANIZATION_OWNER:
+            if request.user.is_superuser:
+                projects = self.queryset
+            elif request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
                     organization_id=request.user.organization
                 )
