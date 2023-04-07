@@ -11,7 +11,7 @@ from .serializers import OrganizationSerializer
 from .decorators import is_organization_owner, is_particular_organization_owner
 from users.serializers import UserFetchSerializer
 from users.models import User
-from projects.models import Project
+from projects.models import Project, ANNOTATION_STAGE, REVIEW_STAGE, SUPERCHECK_STAGE
 from django.db.models import Avg, Count, F, FloatField, Q, Value, Subquery
 from django.db.models.functions import Cast, Coalesce
 from regex import R
@@ -92,7 +92,7 @@ def get_counts(
     start_date,
     end_date,
     is_translation_project,
-    only_review_proj,
+    project_progress_stage,
     tgt_language=None,
 ):
     annotated_tasks = 0
@@ -102,7 +102,7 @@ def get_counts(
     accepted_wt_major_changes = 0
     labeled = 0
     if tgt_language == None:
-        if only_review_proj == None:
+        if project_progress_stage == None:
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
@@ -112,11 +112,11 @@ def get_counts(
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
-                enable_task_reviews=only_review_proj,
+                project_stage=project_progress_stage,
                 annotators=annotator,
             )
     else:
-        if only_review_proj == None:
+        if project_progress_stage == None:
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
@@ -127,7 +127,7 @@ def get_counts(
             projects_objs = Project.objects.filter(
                 organization_id_id=pk,
                 project_type=project_type,
-                enable_task_reviews=only_review_proj,
+                project_stage=project_progress_stage,
                 tgt_language=tgt_language,
                 annotators=annotator,
             )
@@ -142,7 +142,7 @@ def get_counts(
     )
     assigned_tasks = all_tasks_in_project.count()
 
-    if only_review_proj:
+    if project_progress_stage == REVIEW_STAGE:
         (
             accepted,
             to_be_revised,
@@ -265,14 +265,14 @@ def get_translation_quality_reports(
         projects_objs = Project.objects.filter(
             organization_id_id=pk,
             project_type=project_type,
-            enable_task_reviews=True,
+            project_stage=REVIEW_STAGE,
             annotators=annotator,
         )
     else:
         projects_objs = Project.objects.filter(
             organization_id_id=pk,
             project_type=project_type,
-            enable_task_reviews=True,
+            project_stage=REVIEW_STAGE,
             tgt_language=tgt_language,
             annotators=annotator,
         )
@@ -670,7 +670,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
         to_date = to_date + " 23:59"
-        only_review_proj = request.data.get("only_review_projects")
+        project_progress_stage = request.data.get("project_progress_stage")
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         reports_type = request.data.get("reports_type")
@@ -709,7 +709,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             proj_objs = Project.objects.filter(organization_id=pk)
             if project_type != None:
                 proj_objs = proj_objs.filter(project_type=project_type)
-            review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
+            review_projects = [
+                pro for pro in proj_objs if pro.project_stage == REVIEW_STAGE
+            ]
 
             org_reviewer_list = []
             for review_project in review_projects:
@@ -845,11 +847,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 start_date,
                 end_date,
                 is_translation_project,
-                only_review_proj,
+                project_progress_stage,
                 None if tgt_language == None else tgt_language,
             )
 
-            if only_review_proj:
+            if project_progress_stage == REVIEW_STAGE:
                 temp_result = {
                     "Annotator": name,
                     "Email": email,
@@ -1175,7 +1177,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         proj_objs = []
         if reviewer_reports == True:
             proj_objs = Project.objects.filter(
-                organization_id=pk, project_type=project_type, enable_task_reviews=True
+                organization_id=pk,
+                project_type=project_type,
+                project_stage=REVIEW_STAGE,
             )
         else:
             proj_objs = Project.objects.filter(
@@ -1343,7 +1347,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         proj_objs = []
         if reviewer_reports == True:
             proj_objs = Project.objects.filter(
-                organization_id=pk, project_type=project_type, enable_task_reviews=True
+                organization_id=pk,
+                project_type=project_type,
+                project_stage=REVIEW_STAGE,
             )
         else:
             proj_objs = Project.objects.filter(
@@ -1498,7 +1504,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 reviewer_task_count = 0
                 reviewer_tasks = Task.objects.filter(
                     project_id__in=proj_lang_filter,
-                    project_id__enable_task_reviews=True,
+                    project_id__project_stage=REVIEW_STAGE,
                     task_status__in=["reviewed", "exported"],
                 )
 

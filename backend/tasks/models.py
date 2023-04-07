@@ -51,7 +51,11 @@ UNREVIEWED = "unreviewed"
 EXPORTED = "exported"
 ACCEPTED_WITH_MINOR_CHANGES = "accepted_with_minor_changes"
 ACCEPTED_WITH_MAJOR_CHANGES = "accepted_with_major_changes"
-
+SUPER_CHECKED = "super_checked"
+UNVALIDATED = "unvalidated"
+VALIDATED = "validated"
+VALIDATED_WITH_CHANGES = "validated_with_changes"
+REJECTED = "rejected"
 
 TASK_STATUS = (
     (INCOMPLETE, "incomplete"),
@@ -59,6 +63,7 @@ TASK_STATUS = (
     (REVIEWED, "reviewed"),
     (EXPORTED, "exported"),
     (FREEZED, "freezed"),
+    (SUPER_CHECKED, "super_checked"),
 )
 
 
@@ -72,7 +77,26 @@ ANNOTATION_STATUS = (
     (TO_BE_REVISED, "to_be_revised"),
     (ACCEPTED_WITH_MINOR_CHANGES, "accepted_with_minor_changes"),
     (ACCEPTED_WITH_MAJOR_CHANGES, "accepted_with_major_changes"),
+    (UNVALIDATED, "unvalidated"),
+    (VALIDATED, "validated"),
+    (VALIDATED_WITH_CHANGES, "validated_with_changes"),
+    (REJECTED, "rejected"),
 )
+
+ANNOTATOR_ANNOTATION = 1
+REVIEWER_ANNOTATION = 2
+SUPER_CHECKER_ANNOTATION = 3
+
+ANNOTATION_TYPE = (
+    (ANNOTATOR_ANNOTATION, "Annotator's Annotation"),
+    (REVIEWER_ANNOTATION, "Reviewer's Annotation"),
+    (SUPER_CHECKER_ANNOTATION, "Super Checker's Annotation"),
+)
+
+
+def default_revision_loop_count_value():
+    dict = {"super_check_count": 0, "review_count": 0}
+    return dict
 
 
 class Task(models.Model):
@@ -128,6 +152,14 @@ class Task(models.Model):
         verbose_name="review_user",
         blank=True,
     )
+    super_check_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="super_check_tasks",
+        verbose_name="supercheck_user",
+        blank=True,
+    )
     task_status = models.CharField(
         choices=TASK_STATUS,
         max_length=100,
@@ -136,6 +168,11 @@ class Task(models.Model):
     )
     metadata_json = models.JSONField(
         verbose_name="metadata json", null=True, blank=True
+    )
+    revision_loop_count = models.JSONField(
+        verbose_name="revision_loop_count",
+        default=default_revision_loop_count_value,
+        help_text=("Has the revision_loop_count of both supercheck and review"),
     )
 
     def assign(self, annotators):
@@ -200,6 +237,9 @@ class Annotation(models.Model):
         blank=True, null=True, verbose_name="annotation_notes"
     )
     review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
+    annotation_type = models.PositiveSmallIntegerField(
+        choices=ANNOTATION_TYPE, blank=False, null=False, default=ANNOTATOR_ANNOTATION
+    )
 
     def __str__(self):
         return str(self.id)

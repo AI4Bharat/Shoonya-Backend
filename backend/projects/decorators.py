@@ -82,10 +82,10 @@ def is_project_annotator_or_reviewer(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
         if (
-            request.user.role == User.ANNOTATOR
-            and request.user.organization_id
-            == User.objects.get(pk=request.user.id).organization.id
-        ):
+            request.user.role == User.ANNOTATOR or request.user.role == User.REVIEWER
+        ) and request.user.organization_id == User.objects.get(
+            pk=request.user.id
+        ).organization.id:
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
 

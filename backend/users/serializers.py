@@ -18,6 +18,8 @@ class UserSignUpSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    organization = OrganizationSerializer()
+
     class Meta:
         model = User
         fields = [
@@ -30,6 +32,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "phone",
             "enable_mail",
             "participation_type",
+            "organization",
+            "role",
         ]
         read_only_fields = ["email"]
 
