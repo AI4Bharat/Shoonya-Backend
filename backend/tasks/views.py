@@ -20,7 +20,7 @@ from tasks.serializers import (
 )
 
 from users.models import User
-from projects.models import Project
+from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
 
 from utils.search import process_search_query
 
@@ -159,7 +159,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             view = "user_view"
             exist_req_user = 0
-            if user.role == 3 or user.role == 2:
+            if (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+            ):
                 if not ((user in proj_annotators) or (user in proj_reviewers)):
                     view = "managerial_view"
 
@@ -392,7 +395,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 tas_status = request.query_params["task_status"]
                 tas_status = ast.literal_eval(tas_status)
 
-            if user.role == 3 or user.role == 2:
+            if (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+            ):
                 if not ("req_user" in dict(request.query_params)):
                     tasks = Task.objects.filter(
                         project_id__exact=proj_id,
@@ -858,7 +864,7 @@ class AnnotationViewSet(
         if task.project_id.required_annotators_per_task == no_of_annotations:
             # if True:
             task.task_status = ANNOTATED
-            if not task.project_id.enable_task_reviews:
+            if not (task.project_id.project_stage == REVIEW_STAGE):
                 if no_of_annotations == 1:
                     task.correct_annotation = annotation
                 else:
@@ -982,11 +988,14 @@ class AnnotationViewSet(
             task = annotation.task
 
             if annotation_status == LABELED and is_to_be_revised_task:
-                review_annotation = Annotation.objects.get(
-                    task=task, parent_annotation__isnull=False
-                )
-                review_annotation.annotation_status = UNREVIEWED
-                review_annotation.save()
+                try:
+                    review_annotation = Annotation.objects.get(
+                        task=task, parent_annotation__isnull=False
+                    )
+                    review_annotation.annotation_status = UNREVIEWED
+                    review_annotation.save()
+                except:
+                    pass
 
             no_of_annotations = task.annotations.filter(
                 parent_annotation_id=None, annotation_status="labeled"
@@ -994,7 +1003,7 @@ class AnnotationViewSet(
             if task.project_id.required_annotators_per_task == no_of_annotations:
                 # if True:
                 task.task_status = ANNOTATED
-                if not task.project_id.enable_task_reviews:
+                if not (task.project_id.project_stage == REVIEW_STAGE):
                     if no_of_annotations == 1:
                         task.correct_annotation = annotation
 
@@ -1055,6 +1064,10 @@ class AnnotationViewSet(
                 else:
                     task.task_status = REVIEWED
                 parent.save(update_fields=["review_notes", "annotation_status"])
+                task.save()
+
+            if review_status in [UNREVIEWED, DRAFT, SKIPPED, TO_BE_REVISED]:
+                task.correct_annotation = None
                 task.save()
 
         return annotation_response

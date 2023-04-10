@@ -130,10 +130,10 @@ def create_tasks_from_dataitems(items, project):
                         "type": "textarea",
                     }
                 ]
-            prediction = Annotation_model(
-                result=item[prediction_field], task=task, completed_by=user_object
-            )
-            predictions.append(prediction)
+                prediction = Annotation_model(
+                    result=item[prediction_field], task=task, completed_by=user_object
+                )
+                predictions.append(prediction)
         #
         # Prediction.objects.bulk_create(predictions)
         Annotation_model.objects.bulk_create(predictions)
@@ -273,7 +273,7 @@ def export_project_in_place(
     project = Project.objects.get(pk=project_id)
 
     # Get all the accepted tasks for the project
-    if project.enable_task_reviews:
+    if project.project_stage == REVIEW_STAGE:
         tasks = Task.objects.filter(
             project_id__exact=project, task_status__in=[REVIEWED]
         ).exclude(correct_annotation__annotation_status="to_be_revised")
@@ -422,7 +422,7 @@ def export_project_new_record(
 
     # Get all the accepted tasks for the project
 
-    if project.enable_task_reviews:
+    if project.project_stage == REVIEW_STAGE:
         tasks = Task.objects.filter(
             project_id__exact=project, task_status__in=[REVIEWED]
         ).exclude(correct_annotation__annotation_status="to_be_revised")
