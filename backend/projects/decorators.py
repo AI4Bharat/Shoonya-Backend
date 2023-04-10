@@ -65,10 +65,18 @@ def project_is_published(f):
 # Check whether the user is allowed to edit the project (Checks the workspace of the manager and the organization of the organization owner)
 def is_project_editor(f):
     @wraps(f)
-    def wrapper(self, request, *args, **kwargs):
+    def wrapper(self, request, pk, *args, **kwargs):
+        project = Project.objects.get(pk=pk)
         if (
-            request.user.role == User.ORGANIZATION_OWNER
-            or request.user.role == User.WORKSPACE_MANAGER
+            (
+                request.user.role == User.ORGANIZATION_OWNER
+                and request.user.organization == project.organization_id
+            )
+            or (
+                request.user.role == User.WORKSPACE_MANAGER
+                and request.user.organization == project.organization_id
+                and (request.user in project.workspace_id.managers.all())
+            )
             or request.user.is_superuser
         ):
             return f(self, request, *args, **kwargs)
