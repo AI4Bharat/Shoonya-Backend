@@ -79,7 +79,7 @@ def is_project_editor(f):
             )
             or request.user.is_superuser
         ):
-            return f(self, request, *args, **kwargs)
+            return f(self, request, pk, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
 
     return wrapper
