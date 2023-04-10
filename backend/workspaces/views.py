@@ -353,6 +353,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
             )
 
+    @is_particular_workspace_manager
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 

@@ -103,8 +103,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project = Project.objects.get(id=task.project_id.id)
         annotator = request.user
         annotators_of_this_project = project.annotators.all()
-        if (annotator.role == 1) or (
-            (annotator.role == 2 or annotator.role == 3)
+        if (annotator.role == User.ANNOTATOR) or (
+            (
+                annotator.role == User.REVIEWER
+                or annotator.role == User.SUPER_CHECKER
+                or annotator.role == User.WORKSPACE_MANAGER
+                or annotator.role == User.ORGANIZATION_OWNER
+                or annotator.role == User.ADMIN
+            )
             and (annotator in annotators_of_this_project)
         ):
             if annotator != task.review_user:
