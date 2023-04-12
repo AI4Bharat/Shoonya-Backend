@@ -2259,26 +2259,34 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.project_stage = REVIEW_STAGE
                     project.save()
                     return Response(
-                        {"message": "Project moved to Review stage from Annotation stage"},
+                        {
+                            "message": "Project moved to Review stage from Annotation stage"
+                        },
                         status=status.HTTP_200_OK,
                     )
                 else:
                     # (REVIEWED,EXPORTED,SUPERCHECKED)
                     # (SUPERCHECKED->REVIEWED)
-                    tasks=Task.objects.filter(project_id=project.id)
-                    super_checked_tasks=tasks.filter(task_status__in=[SUPER_CHECKED])
-                    rev_exp_sup_tasks=tasks.filter(task_status__in=[REVIEWED,EXPORTED,SUPER_CHECKED])
+                    tasks = Task.objects.filter(project_id=project.id)
+                    super_checked_tasks = tasks.filter(task_status__in=[SUPER_CHECKED])
+                    rev_exp_sup_tasks = tasks.filter(
+                        task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED]
+                    )
                     super_checked_tasks.update(task_status=REVIEWED)
                     tasks.update(super_check_user=None)
                     for tas in rev_exp_sup_tasks:
-                        anns=Annotation_model.objects.filter(task_id=tas.id, annotation_type=REVIEWER_ANNOTATION)
-                        if len(anns)>0:
-                            tas.correct_annotation=anns[0]
+                        anns = Annotation_model.objects.filter(
+                            task_id=tas.id, annotation_type=REVIEWER_ANNOTATION
+                        )
+                        if len(anns) > 0:
+                            tas.correct_annotation = anns[0]
                         tas.save()
-                    project.project_stage=REVIEW_STAGE
+                    project.project_stage = REVIEW_STAGE
                     project.save()
                     return Response(
-                        {"message": "Project moved to Review stage from SuperCheck stage"},
+                        {
+                            "message": "Project moved to Review stage from SuperCheck stage"
+                        },
                         status=status.HTTP_200_OK,
                     )
             elif new_project_stage == SUPERCHECK_STAGE:
@@ -2330,14 +2338,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.project_stage = SUPERCHECK_STAGE
                     project.save()
                     return Response(
-                        {"message": "Project moved to SuperCheck stage from Review stage"},
+                        {
+                            "message": "Project moved to SuperCheck stage from Review stage"
+                        },
                         status=status.HTTP_200_OK,
                     )
             else:
                 return Response(
-                        {"message": "Not a Valid Project Stage!"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                    {"message": "Not a Valid Project Stage!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Project.DoesNotExist:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
