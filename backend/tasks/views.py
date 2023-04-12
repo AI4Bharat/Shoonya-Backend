@@ -168,6 +168,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             if (
                 user.role == User.ORGANIZATION_OWNER
                 or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
             ):
                 if not ((user in proj_annotators) or (user in proj_reviewers)):
                     view = "managerial_view"
@@ -404,6 +405,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             if (
                 user.role == User.ORGANIZATION_OWNER
                 or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
             ):
                 if not ("req_user" in dict(request.query_params)):
                     tasks = Task.objects.filter(
