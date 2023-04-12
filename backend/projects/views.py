@@ -2173,119 +2173,180 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @is_project_editor
     def change_project_stage(self, request, pk):
-        # try:
-        project = Project.objects.get(pk=pk)
-        new_project_stage = request.data.get("project_stage")
-        if new_project_stage == ANNOTATION_STAGE:
-            if project.required_annotators_per_task > 1:
-                return Response(
-                    {
-                        "message": "you can't move to annotation stage for this project because required_annotators_per_task in this project is more than 1 "
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            if project.project_stage == ANNOTATION_STAGE:
-                return Response(
-                    {"message": "Project is already in Annotation stage"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            elif project.project_stage == SUPERCHECK_STAGE:
-                return Response(
-                    {
-                        "message": "Project can't directly move from supercheker stage to annotation stage"
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            else:
-                tasks = Task.objects.filter(project_id=project.id)
-                # get all review tasks
-                reviewed_tasks = tasks.filter(task_status__in=[REVIEWED])
-                ann_rew_exp_tasks = tasks.filter(
-                    task_status__in=[REVIEWED, ANNOTATED, EXPORTED]
-                )
-                # change all reviewed task status from "reviewed" to "annotate"
-                reviewed_tasks.update(task_status=ANNOTATED)
-                tasks.update(review_user=None)
-                for tas in ann_rew_exp_tasks:
-                    anns = Annotation_model.objects.filter(
-                        task_id=tas.id, annotation_type=ANNOTATOR_ANNOTATION
+        try:
+            project = Project.objects.get(pk=pk)
+            new_project_stage = request.data.get("project_stage")
+            if new_project_stage == ANNOTATION_STAGE:
+                if project.required_annotators_per_task > 1:
+                    return Response(
+                        {
+                            "message": "you can't move to annotation stage for this project because required_annotators_per_task in this project is more than 1 "
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
                     )
-                    if len(anns) > 0:
-                        tas.correct_annotation = anns[0]
-                    tas.save()
-                project.project_stage = ANNOTATION_STAGE
-                project.save()
-                return Response(
-                    {"message": "Task moved to Annotation stage from Review stage"},
-                    status=status.HTTP_200_OK,
-                )
-        elif new_project_stage == REVIEW_STAGE:
-            if project.project_stage == REVIEW_STAGE:
-                return Response(
-                    {"message": "Project already in Review Stage"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            elif project.project_stage == ANNOTATION_STAGE:
-                tasks = Task.objects.filter(project_id=project.id).filter(
-                    task_status__in=[ANNOTATED, EXPORTED]
-                )
-
-                for tas in tasks:
-                    anns = Annotation_model.objects.filter(
-                        task_id=tas.id, annotation_type=REVIEWER_ANNOTATION
+                if project.project_stage == ANNOTATION_STAGE:
+                    return Response(
+                        {"message": "Project is already in Annotation stage"},
+                        status=status.HTTP_403_FORBIDDEN,
                     )
-                    if len(anns) > 0:
-                        rew_status = anns[0].annotation_status
-                        if rew_status in [
-                            ACCEPTED,
-                            ACCEPTED_WITH_MINOR_CHANGES,
-                            ACCEPTED_WITH_MAJOR_CHANGES,
-                            TO_BE_REVISED,
-                        ]:
+                elif project.project_stage == SUPERCHECK_STAGE:
+                    return Response(
+                        {
+                            "message": "Project can't directly move from supercheker stage to annotation stage"
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                else:
+                    tasks = Task.objects.filter(project_id=project.id)
+                    # get all review tasks
+                    reviewed_tasks = tasks.filter(task_status__in=[REVIEWED])
+                    ann_rew_exp_tasks = tasks.filter(
+                        task_status__in=[REVIEWED, ANNOTATED, EXPORTED]
+                    )
+                    # change all reviewed task status from "reviewed" to "annotate"
+                    reviewed_tasks.update(task_status=ANNOTATED)
+                    tasks.update(review_user=None)
+                    for tas in ann_rew_exp_tasks:
+                        anns = Annotation_model.objects.filter(
+                            task_id=tas.id, annotation_type=ANNOTATOR_ANNOTATION
+                        )
+                        if len(anns) > 0:
                             tas.correct_annotation = anns[0]
-                        tas.review_user = anns[0].completed_by
-                        if tas.task_status == ANNOTATED and rew_status in [
-                            ACCEPTED,
-                            ACCEPTED_WITH_MINOR_CHANGES,
-                            ACCEPTED_WITH_MAJOR_CHANGES,
-                            TO_BE_REVISED,
-                        ]:
-                            tas.task_status = REVIEWED
-                    else:
-                        if tas.task_status == EXPORTED:
-                            tas.task_status = ANNOTATED
-                        tas.correct_annotation = None
-                    tas.save()
+                        tas.save()
+                    project.project_stage = ANNOTATION_STAGE
+                    project.save()
+                    return Response(
+                        {"message": "Task moved to Annotation stage from Review stage"},
+                        status=status.HTTP_200_OK,
+                    )
+            elif new_project_stage == REVIEW_STAGE:
+                if project.project_stage == REVIEW_STAGE:
+                    return Response(
+                        {"message": "Project already in Review Stage"},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                elif project.project_stage == ANNOTATION_STAGE:
+                    tasks = Task.objects.filter(project_id=project.id).filter(
+                        task_status__in=[ANNOTATED, EXPORTED]
+                    )
 
-                # tasks.update(task_status=ANNOTATED)
-                project.project_stage = REVIEW_STAGE
-                project.save()
-                return Response(
-                    {"message": "Project moved to Review stage from Annotation stage"},
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                # (REVIEWED,EXPORTED,SUPERCHECKED)
-                # (SUPERCHECKED->REVIEWED)
+                    for tas in tasks:
+                        anns = Annotation_model.objects.filter(
+                            task_id=tas.id, annotation_type=REVIEWER_ANNOTATION
+                        )
+                        if len(anns) > 0:
+                            rew_status = anns[0].annotation_status
+                            if rew_status in [
+                                ACCEPTED,
+                                ACCEPTED_WITH_MINOR_CHANGES,
+                                ACCEPTED_WITH_MAJOR_CHANGES,
+                            ]:
+                                tas.correct_annotation = anns[0]
+                            tas.review_user = anns[0].completed_by
+                            if tas.task_status == ANNOTATED and rew_status in [
+                                ACCEPTED,
+                                ACCEPTED_WITH_MINOR_CHANGES,
+                                ACCEPTED_WITH_MAJOR_CHANGES,
+                            ]:
+                                tas.task_status = REVIEWED
+                        else:
+                            if tas.task_status == EXPORTED:
+                                tas.task_status = ANNOTATED
+                            tas.correct_annotation = None
+                        tas.save()
+
+                    # tasks.update(task_status=ANNOTATED)
+                    project.project_stage = REVIEW_STAGE
+                    project.save()
+                    return Response(
+                        {"message": "Project moved to Review stage from Annotation stage"},
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    # (REVIEWED,EXPORTED,SUPERCHECKED)
+                    # (SUPERCHECKED->REVIEWED)
+                    tasks=Task.objects.filter(project_id=project.id)
+                    super_checked_tasks=tasks.filter(task_status__in=[SUPER_CHECKED])
+                    rev_exp_sup_tasks=tasks.filter(task_status__in=[REVIEWED,EXPORTED,SUPER_CHECKED])
+                    super_checked_tasks.update(task_status=REVIEWED)
+                    tasks.update(super_check_user=None)
+                    for tas in rev_exp_sup_tasks:
+                        anns=Annotation_model.objects.filter(task_id=tas.id, annotation_type=REVIEWER_ANNOTATION)
+                        if len(anns)>0:
+                            tas.correct_annotation=anns[0]
+                        tas.save()
+                    project.project_stage=REVIEW_STAGE
+                    project.save()
+                    return Response(
+                        {"message": "Project moved to Review stage from SuperCheck stage"},
+                        status=status.HTTP_200_OK,
+                    )
+            elif new_project_stage == SUPERCHECK_STAGE:
+                # (REVIEWED,EXPORTED)
+                # (EXPORTED->REVIEWED)
+                # (REVIEWED->SUPERCHECKED)
                 # TO BE DONE
-                pass
-        elif new_project_stage == SUPERCHECK_STAGE:
-            # (REVIEWED,EXPORTED)
-            # (EXPORTED->REVIEWED)
-            # (REVIEWED->SUPERCHECKED)
-            # TO BE DONE
-            pass
-        else:
-            pass
-        # except Project.DoesNotExist:
-        #     return Response(
-        #         {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
-        #     )
-        # except:
-        #     return Response(
-        #         {"message": "Internal server error"},
-        #         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        #     )
+                if project.project_stage == SUPERCHECK_STAGE:
+                    return Response(
+                        {"message": "Project is already in SuperCheck stage"},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                elif project.project_stage == ANNOTATION_STAGE:
+                    return Response(
+                        {
+                            "message": "Project can't directly move from annotation stage to superchecker stage"
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                else:
+                    tasks = Task.objects.filter(project_id=project.id).filter(
+                        task_status__in=[REVIEWED, EXPORTED]
+                    )
+
+                    for tas in tasks:
+                        anns = Annotation_model.objects.filter(
+                            task_id=tas.id, annotation_type=SUPER_CHECKER_ANNOTATION
+                        )
+                        if len(anns) > 0:
+                            supercheck_status = anns[0].annotation_status
+                            if supercheck_status in [
+                                VALIDATED,
+                                VALIDATED_WITH_CHANGES,
+                            ]:
+                                tas.correct_annotation = anns[0]
+                            tas.super_check_user = anns[0].completed_by
+                            if tas.task_status == REVIEWED and supercheck_status in [
+                                VALIDATED,
+                                VALIDATED_WITH_CHANGES,
+                            ]:
+                                tas.task_status = SUPER_CHECKED
+                        else:
+                            if tas.task_status == EXPORTED:
+                                tas.task_status = REVIEWED
+                            tas.correct_annotation = None
+                        tas.save()
+
+                    # tasks.update(task_status=ANNOTATED)
+                    project.project_stage = SUPERCHECK_STAGE
+                    project.save()
+                    return Response(
+                        {"message": "Project moved to SuperCheck stage from Review stage"},
+                        status=status.HTTP_200_OK,
+                    )
+            else:
+                return Response(
+                        {"message": "Not a Valid Project Stage!"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+        except Project.DoesNotExist:
+            return Response(
+                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except:
+            return Response(
+                {"message": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @swagger_auto_schema(
         method="get",
