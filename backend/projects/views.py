@@ -5,6 +5,7 @@ from time import sleep
 import pandas as pd
 import ast
 import csv
+import math
 
 from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
@@ -1356,24 +1357,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 id__in=review_annotations_ids
             )
 
-            super_check_annotations_ids=[]
-            supercheck_pulled_tasks=[]
+            super_check_annotations_ids = []
+            supercheck_pulled_tasks = []
             for ann2 in review_annotations:
                 try:
-                    super_check_annotation_obj=Annotation_model.objects.get(
+                    super_check_annotation_obj = Annotation_model.objects.get(
                         parent_annotation=ann2
                     )
                     super_check_annotations_ids.append(super_check_annotation_obj.id)
                     supercheck_pulled_tasks.append(super_check_annotation_obj.task_id)
                 except:
                     pass
-            
-            super_check_annotations=Annotation_model.objects.filter(
+
+            super_check_annotations = Annotation_model.objects.filter(
                 id__in=super_check_annotations_ids
             )
             super_check_annotations.delete()
-            super_check_tasks=Task.objects.filter(id__in=supercheck_pulled_tasks)
-            if super_check_tasks.count()>0:
+            super_check_tasks = Task.objects.filter(id__in=supercheck_pulled_tasks)
+            if super_check_tasks.count() > 0:
                 super_check_tasks.update(super_check_user=None)
 
             review_annotations.delete()
@@ -1463,7 +1464,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "This project is not yet published"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if not (project.project_stage == REVIEW_STAGE or project.project_stage==SUPERCHECK_STAGE):
+        if not (
+            project.project_stage == REVIEW_STAGE
+            or project.project_stage == SUPERCHECK_STAGE
+        ):
             return Response(
                 {"message": "Task reviews are disabled for this project"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1509,7 +1513,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Sort by most recently updated annotation; temporary change
         task_ids = (
             Annotation_model.objects.filter(task__in=tasks)
-            .filter(parent_annotation__isnull=True)
+            .filter(annotation_type=ANNOTATOR_ANNOTATION)
             .order_by("-updated_at")
             .values_list("task", flat=True)
         )
@@ -1520,8 +1524,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
-            rec_ann = Annotation_model.objects.filter(task_id=task_id).order_by(
-                "-updated_at"
+            rec_ann = (
+                Annotation_model.objects.filter(task_id=task_id)
+                .filter(annotation_type=ANNOTATOR_ANNOTATION)
+                .order_by("-updated_at")
             )
             base_annotation_obj = Annotation_model(
                 result=[],
@@ -1580,10 +1586,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ann = Annotation_model.objects.filter(
                     task__project_id=project_id,
                     completed_by=user.id,
-                    parent_annotation__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     annotation_status__in=review_status,
                 )
                 tas_ids = [an.task_id for an in ann]
+
+                superchecker_annotation_ids = []
+                supercheck_pulled_tasks = []
+                for ann1 in ann:
+                    supercheck_annotation_obj = Annotation_model.objects.get(
+                        parent_annotation=ann1
+                    )
+                    superchecker_annotation_ids.append(supercheck_annotation_obj.id)
+                    supercheck_pulled_tasks.append(supercheck_annotation_obj.task_id)
+
+                supercheck_annotations = Annotation_model.objects.filter(
+                    id__in=superchecker_annotation_ids
+                )
+                supercheck_tasks = Task.objects.filter(id__in=supercheck_pulled_tasks)
+
+                supercheck_annotations.delete()
+                if len(supercheck_tasks) > 0:
+                    supercheck_tasks.update(super_check_user=None)
 
                 for an in ann:
                     an.parent_annotation = None
@@ -1606,6 +1630,123 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
         return Response(
             {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Assign new tasks for supercheck to user",
+        url_name="assign_supercheck_tasks",
+    )
+    def assign_new_supercheck_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of reviewed tasks and assign to the superchecker
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+        if not project.is_published:
+            return Response(
+                {"message": "This project is not yet published"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not (project.project_stage == SUPERCHECK_STAGE):
+            return Response(
+                {"message": "Task superchecks are disabled for this project"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = ProjectUsersSerializer(project, many=False)
+        review_supercheckers = serializer.data["review_supercheckers"]
+        superchecker_ids = set()
+        for review_superchecker in review_supercheckers:
+            superchecker_ids.add(review_superchecker["id"])
+        # verify if user belongs in annotation_reviewers for this project
+        if not cur_user.id in superchecker_ids:
+            return Response(
+                {"message": "You are not assigned to supercheck this project"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        lock_set = False
+        while lock_set == False:
+            if project.is_locked(SUPERCHECK_LOCK):
+                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
+                continue
+            else:
+                try:
+                    project.set_lock(cur_user, SUPERCHECK_LOCK)
+                    lock_set = True
+                except Exception as e:
+                    continue
+        # check if the project contains eligible tasks to pull
+        tasks = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status=REVIEWED)
+            .filter(super_check_user__isnull=True)
+            .exclude(annotation_users=cur_user.id)
+            .exclude(review_user=cur_user.id)
+        )
+        if not tasks:
+            project.release_lock(SUPERCHECK_LOCK)
+            return Response(
+                {"message": "No tasks available for supercheck in this project"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        task_pull_count = project.tasks_pull_count_per_batch
+        if "num_tasks" in dict(request.data):
+            task_pull_count = request.data["num_tasks"]
+
+        sup_exp_rev_tasks_count = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED])
+            .count()
+        )
+        sup_exp_tasks_count = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status__in=[SUPER_CHECKED, EXPORTED])
+            .count()
+        )
+
+        max_super_check_tasks_count = math.ceil(
+            (project.k_value) * sup_exp_rev_tasks_count / 100
+        )
+        if sup_exp_tasks_count >= max_super_check_tasks_count:
+            return Response(
+                {"message": "Maximum supercheck tasks limit reached!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        task_pull_count = min(
+            task_pull_count, max_super_check_tasks_count - sup_exp_tasks_count
+        )
+        # Sort by most recently updated annotation; temporary change
+        task_ids = (
+            Annotation_model.objects.filter(task__in=tasks)
+            .filter(annotation_type=REVIEWER_ANNOTATION)
+            .order_by("-updated_at")
+            .values_list("task", flat=True)
+        )
+        # tasks = tasks.order_by("id")
+        task_ids = list(set(task_ids))
+        task_ids = task_ids[:task_pull_count]
+        for task_id in task_ids:
+            task = Task.objects.get(pk=task_id)
+            task.super_check_user = cur_user
+            task.save()
+            rec_ann = (
+                Annotation_model.objects.filter(task_id=task_id)
+                .filter(annotation_type=REVIEWER_ANNOTATION)
+                .order_by("-updated_at")
+            )
+            base_annotation_obj = Annotation_model(
+                result=[],
+                task=task,
+                completed_by=cur_user,
+                annotation_status="unvalidated",
+                parent_annotation=rec_ann[0],
+                annotation_type=SUPER_CHECKER_ANNOTATION,
+            )
+            base_annotation_obj.save()
+        project.release_lock(SUPERCHECK_LOCK)
+        return Response(
+            {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
         )
 
     @swagger_auto_schema(
