@@ -731,19 +731,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                 tasks = Task.objects.filter(
                     Q(project_id=project.id) & Q(annotation_users__in=[user])
-                ).filter(Q(task_status="incomplete"))
-                Annotation_model.objects.filter(
-                    Q(completed_by=user)
-                    & Q(annotation_status="draft")
-                    & Q(parent_annotation_id__isnull=True)
-                ).delete()  # delete all draft annotations by the user
+                ).filter(
+                    Q(task_status="incomplete")
+                )  # fetching incomplete tasks of the annotator
                 for task in tasks:
+                    try:
+                        Annotation_model.objects.filter(
+                            Q(completed_by=user)
+                            & Q(parent_annotation_id__isnull=True)
+                            & Q(task=task)
+                        ).delete()  # deleting the annotation corresponding to the incomplete task
+                    except:
+                        pass
                     task.annotation_users.remove(user)
                     task.save()
                 tasks.update(task_status="incomplete")  # unassign user from tasks
                 # project.annotators.remove(user)
                 project.frozen_users.add(user)
                 project.save()
+
             return Response(
                 {"message": "User removed from project"},
                 status=status.HTTP_201_CREATED,
@@ -789,10 +795,43 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     Task.objects.filter(project_id=project.id)
                     .filter(review_user=user)
                     .exclude(task_status__in=[REVIEWED, EXPORTED])
-                )
+                )  # fetching incomplete review tasks
                 for task in tasks:
-                    task.review_user = None
-                    task.save()
+                    try:
+                        annotation = Annotation_model.objects.filter(
+                            Q(completed_by=user)
+                            & Q(task=task)
+                            & Q(parent_annotation_id__isnull=False)
+                            & Q(
+                                annotation_status__in=[
+                                    "draft",
+                                    "skipped",
+                                    "to_be_revised",
+                                    "unreviewed",
+                                ]
+                            )
+                        )  # fetching the incomplete review annotation corresponding to the incomplete tasks
+                        if len(annotation) == 0:
+                            continue
+                        task.correct_annotation_id = None
+                        task.save()
+                        Annotation_model.objects.filter(
+                            Q(completed_by=user)
+                            & Q(task=task)
+                            & Q(parent_annotation_id__isnull=False)
+                            & Q(
+                                annotation_status__in=[
+                                    "draft",
+                                    "skipped",
+                                    "to_be_revised",
+                                    "unreviewed",
+                                ]
+                            )
+                        ).delete()  # deleting the incomplete review annotation
+                        task.review_user = None
+                        task.save()
+                    except:
+                        pass
                 project.frozen_users.add(user)
                 project.save()
             return Response(
