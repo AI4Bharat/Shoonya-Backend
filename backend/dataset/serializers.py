@@ -32,6 +32,7 @@ class SentenceTextSerializer(serializers.ModelSerializer):
     """
 
     metadata_json = serializers.JSONField()
+
     class Meta:
         model = SentenceText
         fields = "__all__"
@@ -41,8 +42,9 @@ class TranslationPairSerializer(serializers.ModelSerializer):
     """
     Serializer for TranslationPair data
     """
-    
+
     metadata_json = serializers.JSONField()
+
     class Meta:
         model = TranslationPair
         fields = "__all__"
@@ -82,7 +84,9 @@ class ConversationSerializer(serializers.ModelSerializer):
     """
     Serializer for Conversation data
     """
+
     metadata_json = serializers.JSONField()
+
     class Meta:
         model = Conversation
         fields = "__all__"
@@ -94,6 +98,7 @@ class SpeechConversationSerializer(serializers.ModelSerializer):
     """
 
     metadata_json = serializers.JSONField()
+
     class Meta:
         model = SpeechConversation
         fields = "__all__"
