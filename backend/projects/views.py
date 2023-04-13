@@ -1337,14 +1337,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ann = Annotation_model.objects.filter(
                 task__project_id=project_id,
                 completed_by=user.id,
-                parent_annotation__isnull=True,
+                annotation_type=ANNOTATOR_ANNOTATION,
                 annotation_status__in=annotation_status,
             )
             review_annotations_ids = []
             reviewer_pulled_tasks = []
             for ann1 in ann:
                 try:
-                    review_annotation_obj = Annotation_model.object.get(
+                    review_annotation_obj = Annotation_model.objects.get(
                         parent_annotation=ann1
                     )
                     review_annotations_ids.append(review_annotation_obj.id)
@@ -1355,6 +1355,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
             review_annotations = Annotation_model.objects.filter(
                 id__in=review_annotations_ids
             )
+
+            super_check_annotations_ids=[]
+            supercheck_pulled_tasks=[]
+            for ann2 in review_annotations:
+                try:
+                    super_check_annotation_obj=Annotation_model.objects.get(
+                        parent_annotation=ann2
+                    )
+                    super_check_annotations_ids.append(super_check_annotation_obj.id)
+                    supercheck_pulled_tasks.append(super_check_annotation_obj.task_id)
+                except:
+                    pass
+            
+            super_check_annotations=Annotation_model.objects.filter(
+                id__in=super_check_annotations_ids
+            )
+            super_check_annotations.delete()
+            super_check_tasks=Task.objects.filter(id__in=supercheck_pulled_tasks)
+            if super_check_tasks.count()>0:
+                super_check_tasks.update(super_check_user=None)
+
             review_annotations.delete()
             reviewed_tasks = Task.objects.filter(id__in=reviewer_pulled_tasks)
             if reviewed_tasks.count() > 0:
@@ -1442,7 +1463,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "This project is not yet published"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if not (project.project_stage == REVIEW_STAGE):
+        if not (project.project_stage == REVIEW_STAGE or project.project_stage==SUPERCHECK_STAGE):
             return Response(
                 {"message": "Task reviews are disabled for this project"},
                 status=status.HTTP_403_FORBIDDEN,
