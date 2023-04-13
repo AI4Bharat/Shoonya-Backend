@@ -31,6 +31,7 @@ class SentenceTextSerializer(serializers.ModelSerializer):
     Serializer for SentenceText data
     """
 
+    metadata_json = serializers.JSONField()
     class Meta:
         model = SentenceText
         fields = "__all__"
@@ -44,7 +45,7 @@ class TranslationPairSerializer(serializers.ModelSerializer):
     metadata_json = serializers.JSONField()
     class Meta:
         model = TranslationPair
-        fields = ["metadata_json"]
+        fields = "__all__"
 
 
 class OCRDocumentSerializer(serializers.ModelSerializer):
@@ -81,7 +82,7 @@ class ConversationSerializer(serializers.ModelSerializer):
     """
     Serializer for Conversation data
     """
-
+    metadata_json = serializers.JSONField()
     class Meta:
         model = Conversation
         fields = "__all__"
@@ -95,7 +96,7 @@ class SpeechConversationSerializer(serializers.ModelSerializer):
     metadata_json = serializers.JSONField()
     class Meta:
         model = SpeechConversation
-        fields = ["metadata_json"]
+        fields = "__all__"
 
 
 # Define a mapping between dataset instance type and serializer
