@@ -65,13 +65,21 @@ def project_is_published(f):
 # Check whether the user is allowed to edit the project (Checks the workspace of the manager and the organization of the organization owner)
 def is_project_editor(f):
     @wraps(f)
-    def wrapper(self, request, *args, **kwargs):
+    def wrapper(self, request, pk, *args, **kwargs):
+        project = Project.objects.get(pk=pk)
         if (
-            request.user.role == User.ORGANIZATION_OWNER
-            or request.user.role == User.WORKSPACE_MANAGER
+            (
+                request.user.role == User.ORGANIZATION_OWNER
+                and request.user.organization == project.organization_id
+            )
+            or (
+                request.user.role == User.WORKSPACE_MANAGER
+                and request.user.organization == project.organization_id
+                and (request.user in project.workspace_id.managers.all())
+            )
             or request.user.is_superuser
         ):
-            return f(self, request, *args, **kwargs)
+            return f(self, request, pk, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
 
     return wrapper
@@ -82,10 +90,10 @@ def is_project_annotator_or_reviewer(f):
     @wraps(f)
     def wrapper(self, request, *args, **kwargs):
         if (
-            request.user.role == User.ANNOTATOR
-            and request.user.organization_id
-            == User.objects.get(pk=request.user.id).organization.id
-        ):
+            request.user.role == User.ANNOTATOR or request.user.role == User.REVIEWER
+        ) and request.user.organization_id == User.objects.get(
+            pk=request.user.id
+        ).organization.id:
             return f(self, request, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
 

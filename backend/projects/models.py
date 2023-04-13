@@ -35,12 +35,24 @@ Annotation = "Annotation"
 
 PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
 
+ANNOTATION_STAGE = 1
+REVIEW_STAGE = 2
+SUPERCHECK_STAGE = 3
+
+PROJECT_STAGE_CHOICES = (
+    (ANNOTATION_STAGE, "Annotation Only"),
+    (REVIEW_STAGE, "Review Enabled"),
+    (SUPERCHECK_STAGE, "Supercheck Enabled"),
+)
+
 ANNOTATION_LOCK = "annotation_task_pull_lock"
 REVIEW_LOCK = "review_task_pull_lock"
+SUPERCHECK_LOCK = "supercheck_task_pull_lock"
 
 LOCK_CONTEXT = (
     (ANNOTATION_LOCK, "annotation_lock"),
     (REVIEW_LOCK, "review_lock"),
+    (SUPERCHECK_LOCK, "supercheck_lock"),
 )
 
 # List of async functions pertaining to the dataset models
@@ -82,6 +94,12 @@ class Project(models.Model):
         related_name="review_projects",
         blank=True,
         help_text=("Project Annotation Reviewers"),
+    )
+    review_supercheckers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="supercheck_reviewed_projects",
+        blank=True,
+        help_text=("Project Review Super Checkers"),
     )
     frozen_users = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -231,10 +249,30 @@ class Project(models.Model):
         ),
     )
 
-    enable_task_reviews = models.BooleanField(
-        verbose_name="enable_task_reviews",
-        default=False,
-        help_text=("Indicates whether the annotations need to be reviewed"),
+    # enable_task_reviews = models.BooleanField(
+    #     verbose_name="enable_task_reviews",
+    #     default=False,
+    #     help_text=("Indicates whether the annotations need to be reviewed"),
+    # )
+
+    project_stage = models.PositiveSmallIntegerField(
+        choices=PROJECT_STAGE_CHOICES, blank=False, null=False, default=ANNOTATION_STAGE
+    )
+
+    k_value = models.IntegerField(
+        verbose_name="Superchecking K% Value",
+        default=100,
+        help_text=(
+            "This will be used to pull k percent of tasks in a project for super-check"
+        ),
+    )
+
+    revision_loop_count = models.IntegerField(
+        verbose_name="revision loop count",
+        default=3,
+        help_text=(
+            "This will be used to keep track of the rejected/ reviewed-back loop count in Super check."
+        ),
     )
 
     def clear_expired_lock(self):

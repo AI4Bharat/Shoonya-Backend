@@ -22,14 +22,19 @@ class DatasetInstancePermission(permissions.BasePermission):
 
         bool_check = request.user.is_authenticated and (
             request.user in obj.users.all()
-            or request.user.role == User.ORGANIZATION_OWNER
+            or (
+                request.user.role == User.ORGANIZATION_OWNER
+                and request.user.organization == obj.organisation_id
+            )
             or request.user.is_superuser
         )
 
         # Read-Only access is given to all datasets that are public to managers as well as prev condition
         if request.method in permissions.SAFE_METHODS:
             return bool_check or (
-                request.user.role == User.WORKSPACE_MANAGER and obj.public_to_managers
+                request.user.role == User.WORKSPACE_MANAGER
+                and obj.public_to_managers
+                and request.user.organization == obj.organisation_id
             )
         # Write access is given only for users satisfying bool_check
         return bool_check

@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from projects.serializers import ProjectSerializer
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from projects.models import Project
+from projects.models import Project, ANNOTATION_STAGE, REVIEW_STAGE, SUPERCHECK_STAGE
 from users.models import User
 from users.serializers import UserProfileSerializer
 from tasks.models import Task
@@ -342,7 +342,9 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             )
             serializer = WorkspaceSerializer(data, many=True)
             return Response(serializer.data)
-        elif int(request.user.role) == User.ORGANIZATION_OWNER:
+        elif (int(request.user.role) == User.ORGANIZATION_OWNER) or (
+            request.user.is_superuser
+        ):
             data = self.queryset.filter(organization=request.user.organization)
             serializer = WorkspaceSerializer(data, many=True)
             return Response(serializer.data)
@@ -351,6 +353,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
             )
 
+    @is_particular_workspace_manager
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
@@ -486,6 +489,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 return Response(
                     {"message": "User with such id does not exist!"},
                     status=status.HTTP_404_NOT_FOUND,
+                )
+            if user.role == User.ANNOTATOR or user.role == User.REVIEWER:
+                return Response(
+                    {"message": "One or more users do not have access to be manager"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
                 workspace = Workspace.objects.get(pk=pk)
@@ -856,7 +864,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         to_date = request.data.get("to_date")
         from_date = from_date + " 00:00"
         to_date = to_date + " 23:59"
-        only_review_proj = request.data.get("only_review_projects")
+        project_progress_stage = request.data.get("project_progress_stage")
         reports_type = request.data.get("reports_type")
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
@@ -885,7 +893,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         if reports_type == "review":
             proj_objs = Project.objects.filter(workspace_id=pk)
-            review_projects = [pro for pro in proj_objs if pro.enable_task_reviews]
+            review_projects = [
+                pro for pro in proj_objs if pro.project_stage == REVIEW_STAGE
+            ]
 
             workspace_reviewer_list = []
             for review_project in review_projects:
@@ -961,7 +971,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             if email == ws_owner or email == org_owner:
                 continue
             if tgt_language == None:
-                if only_review_proj == None:
+                if project_progress_stage == None:
                     projects_objs = Project.objects.filter(
                         workspace_id=pk,
                         annotators=each_annotation_user,
@@ -972,12 +982,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         workspace_id=pk,
                         annotators=each_annotation_user,
                         project_type=project_type,
-                        enable_task_reviews=only_review_proj,
+                        project_stage=project_progress_stage,
                     )
 
             else:
                 selected_language = tgt_language
-                if only_review_proj == None:
+                if project_progress_stage == None:
                     projects_objs = Project.objects.filter(
                         workspace_id=pk,
                         annotators=each_annotation_user,
@@ -990,7 +1000,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         annotators=each_annotation_user,
                         project_type=project_type,
                         tgt_language=tgt_language,
-                        enable_task_reviews=only_review_proj,
+                        project_stage=project_progress_stage,
                     )
 
             project_count = projects_objs.count()
@@ -1001,7 +1011,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
             assigned_tasks = all_tasks_in_project.count()
 
-            if only_review_proj:
+            if project_progress_stage == REVIEW_STAGE:
                 (
                     accepted,
                     to_be_revised,
@@ -1089,7 +1099,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 completed_by=each_annotation_user,
             ).count()
 
-            if only_review_proj:
+            if project_progress_stage == REVIEW_STAGE:
                 result = {
                     "Annotator": name,
                     "Email": email,
@@ -1188,6 +1198,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                     (request.user.role == User.WORKSPACE_MANAGER)
                     and (request.user in workspace.managers.all())
                 )
+                or (request.user.is_superuser)
             ) == False:
                 return Response(
                     {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
@@ -1276,6 +1287,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                     (request.user.role == User.WORKSPACE_MANAGER)
                     and (request.user in workspace.managers.all())
                 )
+                or (request.user.is_superuser)
             ) == False:
                 return Response(
                     {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN

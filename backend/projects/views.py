@@ -498,8 +498,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         try:
             # projects = self.queryset.filter(annotators=request.user)
-
-            if request.user.role == User.ORGANIZATION_OWNER:
+            if request.user.is_superuser:
+                projects = self.queryset
+            elif request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
                     organization_id=request.user.organization
                 )
@@ -513,11 +514,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     | self.queryset.filter(annotators=request.user)
                     | self.queryset.filter(annotation_reviewers=request.user)
                 )
-            else:
+            elif request.user.role == User.REVIEWER:
                 projects = self.queryset.filter(
                     annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
-                projects = projects.filter(is_published=True).filter(is_archived=False)
+            elif request.user.role == User.ANNOTATOR:
+                projects = self.queryset.filter(annotators=request.user)
+
+            projects = projects.filter(is_published=True).filter(is_archived=False)
+
             projects = projects.distinct()
 
             if (
@@ -612,8 +617,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         try:
             # projects = self.queryset.filter(annotators=request.user)
-
-            if request.user.role == User.ORGANIZATION_OWNER:
+            if request.user.is_superuser:
+                projects = self.queryset
+            elif request.user.role == User.ORGANIZATION_OWNER:
                 projects = self.queryset.filter(
                     organization_id=request.user.organization
                 )
@@ -753,6 +759,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+    @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove_reviewer")
     def remove_reviewer(self, request, pk=None):
         if "ids" in dict(request.data):
@@ -874,7 +881,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         #     and request.query_params["mode"] == "review"
         # )
         if is_review_mode:
-            if not project.enable_task_reviews:
+            if project.project_stage != REVIEW_STAGE:
                 resp_dict = {"message": "Task reviews are not enabled for this project"}
                 return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
@@ -977,7 +984,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         else:
             # Check if there are unattended tasks
-            if user_role == 1 and not request.user.is_superuser:
+            if (
+                request.user in project.annotation_reviewers.all()
+                or request.user in project.annotators.all()
+            ) and not request.user.is_superuser:
                 # Filter Tasks based on whether the request is in review mode or not
                 tasks = (
                     Task.objects.filter(
@@ -1044,7 +1054,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             proj = Project.objects.get(id=project_id)
             if proj.required_annotators_per_task > 1:
-                proj.enable_task_reviews = True
+                proj.project_stage = REVIEW_STAGE
                 proj.save()
 
         else:
@@ -1063,7 +1073,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             proj = Project.objects.get(id=project_id)
             if proj.required_annotators_per_task > 1:
-                proj.enable_task_reviews = True
+                proj.project_stage = REVIEW_STAGE
                 proj.save()
 
             # Function call to create the paramters for the sampling and filtering of sentences
@@ -1358,6 +1368,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.unassign(user_obj)
                     task.task_status = INCOMPLETE
                     task.save()
+
                 return Response(
                     {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
@@ -1431,7 +1442,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "This project is not yet published"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if not project.enable_task_reviews:
+        if not (project.project_stage == REVIEW_STAGE):
             return Response(
                 {"message": "Task reviews are disabled for this project"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1497,6 +1508,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 completed_by=cur_user,
                 annotation_status="unreviewed",
                 parent_annotation=rec_ann[0],
+                annotation_type=REVIEWER_ANNOTATION,
             )
             base_annotation_obj.save()
         project.release_lock(REVIEW_LOCK)
@@ -1667,7 +1679,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         reports_type = request.data.get("reports_type")
 
         if reports_type == "review_reports":
-            if proj_obj.enable_task_reviews:
+            if proj_obj.project_stage == REVIEW_STAGE:
                 reviewer_names_list = proj_obj.annotation_reviewers.all()
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 final_reports = []
@@ -1708,7 +1720,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotator.get_username() for annotator in proj_obj.annotators.all()
             ]
             user_names = [annotator.username for annotator in proj_obj.annotators.all()]
-        elif request.user.role == User.ANNOTATOR:
+        elif (
+            (request.user.role == User.ANNOTATOR)
+            or (request.user.role == User.REVIEWER)
+            or (request.user.role == User.SUPER_CHECKER)
+        ):
             users_ids = [request.user.id]
             user_names = [request.user.username]
             user_mails = [request.user.email]
@@ -1754,7 +1770,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             items.append(("Labeled", labeled_only_annotations))
 
             proj = Project.objects.get(id=pk)
-            if proj.enable_task_reviews:
+            if proj.project_stage == REVIEW_STAGE:
                 # get accepted tasks
                 annotations_of_reviewer_accepted = Annotation_model.objects.filter(
                     task__project_id=pk,
@@ -2126,6 +2142,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"message": "user does not exist"}, status=status.HTTP_404_NOT_FOUND
                 )
             for user in users:
+                if user.role == User.ANNOTATOR:
+                    return Response(
+                        {
+                            "message": "One or more users does not have permission to review annotations"
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
                 # check if user is already added to project
                 if user in project.annotation_reviewers.all():
                     return Response(
@@ -2145,116 +2168,124 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["POST"],
-        name="Enable Task Reviews",
-        url_name="allow_task_reviews",
+        name="change project stage",
+        url_name="change_project_stage",
     )
     @is_project_editor
-    def allow_task_reviews(self, request, pk):
-        try:
-            project = Project.objects.get(pk=pk)
-            if project.enable_task_reviews:
-                return Response(
-                    {"message": "Task reviews are already enabled"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            tasks = Task.objects.filter(project_id=project.id).filter(
-                task_status__in=[ANNOTATED, EXPORTED]
-            )
-
-            for tas in tasks:
-                anns = Annotation_model.objects.filter(
-                    task_id=tas.id, parent_annotation__isnull=False
-                )
-                if len(anns) > 0:
-                    rew_status = anns[0].annotation_status
-                    if rew_status in [
-                        ACCEPTED,
-                        ACCEPTED_WITH_MINOR_CHANGES,
-                        ACCEPTED_WITH_MAJOR_CHANGES,
-                        TO_BE_REVISED,
-                    ]:
-                        tas.correct_annotation = anns[0]
-                    tas.review_user = anns[0].completed_by
-                    if tas.task_status == ANNOTATED and rew_status in [
-                        ACCEPTED,
-                        ACCEPTED_WITH_MINOR_CHANGES,
-                        ACCEPTED_WITH_MAJOR_CHANGES,
-                        TO_BE_REVISED,
-                    ]:
-                        tas.task_status = REVIEWED
-                else:
-                    tas.correct_annotation = None
-                tas.save()
-
-            # tasks.update(task_status=ANNOTATED)
-            project.enable_task_reviews = True
-            project.save()
-            return Response(
-                {"message": "Task reviews enabled"}, status=status.HTTP_200_OK
-            )
-        except Project.DoesNotExist:
-            return Response(
-                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
-        except:
-            return Response(
-                {"message": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-    @action(
-        detail=True,
-        methods=["POST"],
-        name="Disable Task Reviews",
-        url_name="disable_task_reviews",
-    )
-    @is_project_editor
-    def disable_task_reviews(self, request, pk):
-        try:
-            project = Project.objects.get(pk=pk)
+    def change_project_stage(self, request, pk):
+        # try:
+        project = Project.objects.get(pk=pk)
+        new_project_stage = request.data.get("project_stage")
+        if new_project_stage == ANNOTATION_STAGE:
             if project.required_annotators_per_task > 1:
                 return Response(
                     {
-                        "message": "you can't disable task reviews for this project because required_annotators_per_task in this project is more than 1 "
+                        "message": "you can't move to annotation stage for this project because required_annotators_per_task in this project is more than 1 "
                     },
                     status=status.HTTP_403_FORBIDDEN,
                 )
-
-            if not project.enable_task_reviews:
+            if project.project_stage == ANNOTATION_STAGE:
                 return Response(
-                    {"message": "Task reviews are already disabled"},
+                    {"message": "Project is already in Annotation stage"},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-            tasks = Task.objects.filter(project_id=project.id)
-            # get all review tasks
-            reviewed_tasks = tasks.filter(task_status__in=[REVIEWED])
-            ann_rew_exp_tasks = tasks.filter(
-                task_status__in=[REVIEWED, ANNOTATED, EXPORTED]
-            )
-            # change all reviewed task status from "reviewed" to "annotate"
-            reviewed_tasks.update(task_status=ANNOTATED)
-            tasks.update(review_user=None)
-            for tas in ann_rew_exp_tasks:
-                anns = Annotation_model.objects.filter(
-                    task_id=tas.id, parent_annotation__isnull=True
+            elif project.project_stage == SUPERCHECK_STAGE:
+                return Response(
+                    {
+                        "message": "Project can't directly move from supercheker stage to annotation stage"
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
                 )
-                if len(anns) > 0:
-                    tas.correct_annotation = anns[0]
-                tas.save()
-            project.enable_task_reviews = False
-            project.save()
-            return Response(
-                {"message": "Task reviews disabled"}, status=status.HTTP_200_OK
-            )
-        except Project.DoesNotExist:
-            return Response(
-                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
-            )
-        except:
-            return Response(
-                {"message": "Internal server error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            else:
+                tasks = Task.objects.filter(project_id=project.id)
+                # get all review tasks
+                reviewed_tasks = tasks.filter(task_status__in=[REVIEWED])
+                ann_rew_exp_tasks = tasks.filter(
+                    task_status__in=[REVIEWED, ANNOTATED, EXPORTED]
+                )
+                # change all reviewed task status from "reviewed" to "annotate"
+                reviewed_tasks.update(task_status=ANNOTATED)
+                tasks.update(review_user=None)
+                for tas in ann_rew_exp_tasks:
+                    anns = Annotation_model.objects.filter(
+                        task_id=tas.id, annotation_type=ANNOTATOR_ANNOTATION
+                    )
+                    if len(anns) > 0:
+                        tas.correct_annotation = anns[0]
+                    tas.save()
+                project.project_stage = ANNOTATION_STAGE
+                project.save()
+                return Response(
+                    {"message": "Task moved to Annotation stage from Review stage"},
+                    status=status.HTTP_200_OK,
+                )
+        elif new_project_stage == REVIEW_STAGE:
+            if project.project_stage == REVIEW_STAGE:
+                return Response(
+                    {"message": "Project already in Review Stage"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            elif project.project_stage == ANNOTATION_STAGE:
+                tasks = Task.objects.filter(project_id=project.id).filter(
+                    task_status__in=[ANNOTATED, EXPORTED]
+                )
+
+                for tas in tasks:
+                    anns = Annotation_model.objects.filter(
+                        task_id=tas.id, annotation_type=REVIEWER_ANNOTATION
+                    )
+                    if len(anns) > 0:
+                        rew_status = anns[0].annotation_status
+                        if rew_status in [
+                            ACCEPTED,
+                            ACCEPTED_WITH_MINOR_CHANGES,
+                            ACCEPTED_WITH_MAJOR_CHANGES,
+                            TO_BE_REVISED,
+                        ]:
+                            tas.correct_annotation = anns[0]
+                        tas.review_user = anns[0].completed_by
+                        if tas.task_status == ANNOTATED and rew_status in [
+                            ACCEPTED,
+                            ACCEPTED_WITH_MINOR_CHANGES,
+                            ACCEPTED_WITH_MAJOR_CHANGES,
+                            TO_BE_REVISED,
+                        ]:
+                            tas.task_status = REVIEWED
+                    else:
+                        if tas.task_status == EXPORTED:
+                            tas.task_status = ANNOTATED
+                        tas.correct_annotation = None
+                    tas.save()
+
+                # tasks.update(task_status=ANNOTATED)
+                project.project_stage = REVIEW_STAGE
+                project.save()
+                return Response(
+                    {"message": "Project moved to Review stage from Annotation stage"},
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                # (REVIEWED,EXPORTED,SUPERCHECKED)
+                # (SUPERCHECKED->REVIEWED)
+                # TO BE DONE
+                pass
+        elif new_project_stage == SUPERCHECK_STAGE:
+            # (REVIEWED,EXPORTED)
+            # (EXPORTED->REVIEWED)
+            # (REVIEWED->SUPERCHECKED)
+            # TO BE DONE
+            pass
+        else:
+            pass
+        # except Project.DoesNotExist:
+        #     return Response(
+        #         {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
+        #     )
+        # except:
+        #     return Response(
+        #         {"message": "Internal server error"},
+        #         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        #     )
 
     @swagger_auto_schema(
         method="get",
@@ -2515,7 +2546,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
 
-                if project.enable_task_reviews:
+                if project.project_stage == REVIEW_STAGE:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[REVIEWED]
                     ).exclude(correct_annotation__annotation_status="to_be_revised")
