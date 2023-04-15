@@ -1749,6 +1749,77 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
         )
 
+    @action(
+        detail=True,
+        methods=["get"],
+        name="Unassign supercheck tasks",
+        url_name="unassign_supercheck_tasks",
+    )
+    def unassign_supercheck_tasks(self, request, pk, *args, **kwargs):
+        """
+        Unassigns all labeled tasks from a superchecker.
+        """
+        if "superchecker_id" in dict(request.query_params).keys():
+            superchecker_id = request.query_params["superchecker_id"]
+            superchecker = User.objects.get(pk=superchecker_id)
+            project = Project.objects.get(pk=pk)
+            workspace = project.workspace_id
+            if request.user in workspace.managers.all():
+                user = superchecker
+            else:
+                return Response(
+                    {
+                        "message": "Only workspace managers can unassign tasks from other supercheckers"
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            user = request.user
+        project_id = pk
+
+        if "supercheck_status" in dict(request.query_params).keys():
+            supercheck_status = request.query_params["supercheck_status"]
+            supercheck_status = ast.literal_eval(supercheck_status)
+        else:
+            return Response(
+                {"message": "please provide the supercheck_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if project_id:
+            project_obj = Project.objects.get(pk=project_id)
+            if project_obj and user in project_obj.review_supercheckers.all():
+                ann = Annotation_model.objects.filter(
+                    task__project_id=project_id,
+                    completed_by=user.id,
+                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                    annotation_status__in=supercheck_status,
+                )
+                tas_ids = [an.task_id for an in ann]
+
+                for an in ann:
+                    an.parent_annotation = None
+                    an.save()
+                    an.delete()
+
+                tasks = Task.objects.filter(id__in=tas_ids)
+                if tasks.count() > 0:
+                    tasks.update(super_check_user=None)
+                    return Response(
+                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
+                    )
+                return Response(
+                    {"message": "No tasks to unassign"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(
+                {"message": "Only supercheckers can unassign tasks"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(
+            {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
