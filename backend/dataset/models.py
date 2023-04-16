@@ -224,6 +224,13 @@ class TranslationPair(DatasetBase):
         blank=True,
         help_text=("Rating of the translation"),
     )
+    domain = models.CharField(
+        verbose_name="domain",
+        default="None",
+        max_length=1024,
+        choices=SENTENCE_TEXT_DOMAIN_CHOICES,
+        help_text=("Domain of the Sentence"),
+    )
 
     def __str__(self):
         return str(self.id)
