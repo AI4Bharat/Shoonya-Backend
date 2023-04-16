@@ -6,15 +6,20 @@ from tqdm import tqdm
 
 
 def populate_translation_pair_domain_field(apps, schema_editor):
+    tp_list = []
     for tp in TranslationPair.objects.all().iterator():
         tp1 = tp
         while not (tp1.parent_data == None):
             tp1 = tp1.parent_data
             st = SentenceText.objects.filter(id=tp1.id)
             if len(st) > 0:
-                tp.domain = st[0].domain
-                tp.save()
+                setattr(tp, "domain", st[0].domain)
+                tp_list.append(tp)
                 break
+        if len(tp_list) == 2048:
+            TranslationPair.objects.bulk_update(tp_list, ["domain"])
+            tp_list.clear()
+            print(tp.id)
 
 
 class Migration(migrations.Migration):
