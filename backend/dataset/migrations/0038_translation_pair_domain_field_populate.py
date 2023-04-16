@@ -2,12 +2,13 @@
 
 from django.db import migrations
 from dataset.models import TranslationPair, SentenceText
+from tqdm import tqdm
 
 
 def populate_translation_pair_domain_field(apps, schema_editor):
     translationPairs = TranslationPair.objects.all()
     translationPairs_list = []
-    for tp in translationPairs:
+    for tp in tqdm(translationPairs):
         tp1 = tp
         while not (tp1.parent_data == None):
             tp1 = tp1.parent_data
