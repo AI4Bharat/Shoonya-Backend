@@ -2909,10 +2909,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 correct_annotation = task.correct_annotation
                 if correct_annotation is None and task.task_status in [
                     ANNOTATED,
+                ]:
+                    correct_annotation = task.annotations.all().filter(
+                        annotation_type=ANNOTATOR_ANNOTATION
+                    )[0]
+                if correct_annotation is None and task.task_status in [
                     REVIEWED,
                 ]:
                     correct_annotation = task.annotations.all().filter(
-                        parent_annotation__isnull=True
+                        annotation_type=REVIEWER_ANNOTATION
                     )[0]
                 if correct_annotation is not None:
                     annotation_dict = model_to_dict(correct_annotation)
