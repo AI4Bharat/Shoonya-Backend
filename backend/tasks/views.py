@@ -1120,13 +1120,8 @@ class AnnotationViewSet(
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(final_result, status=ret_status)
 
-        if not annotation_obj.parent_annotation:
-            is_review = False
-        else:
-            is_review = True
-
         # Base annotation update
-        if not is_review:
+        if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
@@ -1159,7 +1154,7 @@ class AnnotationViewSet(
             if annotation_status == LABELED and is_to_be_revised_task:
                 try:
                     review_annotation = Annotation.objects.get(
-                        task=task, parent_annotation__isnull=False
+                        task=task, annotation_type=REVIEWER_ANNOTATION
                     )
                     review_annotation.annotation_status = UNREVIEWED
                     review_annotation.save()
@@ -1167,19 +1162,22 @@ class AnnotationViewSet(
                     pass
 
             no_of_annotations = task.annotations.filter(
-                parent_annotation_id=None, annotation_status="labeled"
+                annotation_type=ANNOTATOR_ANNOTATION, annotation_status="labeled"
             ).count()
             if task.project_id.required_annotators_per_task == no_of_annotations:
                 # if True:
                 task.task_status = ANNOTATED
-                if not (task.project_id.project_stage == REVIEW_STAGE):
+                if not (
+                    task.project_id.project_stage == REVIEW_STAGE
+                    or task.project_id.project_stage == SUPERCHECK_STAGE
+                ):
                     if no_of_annotations == 1:
                         task.correct_annotation = annotation
 
                 task.save()
 
         # Review annotation update
-        else:
+        elif annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             if request.user != task.review_user:
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
@@ -1213,6 +1211,18 @@ class AnnotationViewSet(
                     ret_status = status.HTTP_400_BAD_REQUEST
                     return Response(ret_dict, status=ret_status)
 
+                if review_status == TO_BE_REVISED:
+                    rev_loop_count = task.revision_loop_count
+                    if (
+                        rev_loop_count["review_count"]
+                        >= task.project_id.revision_loop_count
+                    ):
+                        ret_dict = {
+                            "message": "Maximum revision loop count for task reached!"
+                        }
+                        ret_status = status.HTTP_403_FORBIDDEN
+                        return Response(ret_dict, status=ret_status)
+
             annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1224,18 +1234,105 @@ class AnnotationViewSet(
                 or review_status == ACCEPTED_WITH_MAJOR_CHANGES
                 or review_status == TO_BE_REVISED
             ):
-                task.correct_annotation = annotation
+                if not (task.project_id.project_stage == SUPERCHECK_STAGE):
+                    task.correct_annotation = annotation
+                else:
+                    task.correct_annotation = None
                 parent = annotation.parent_annotation
                 parent.review_notes = annotation.review_notes
                 if review_status == TO_BE_REVISED:
                     parent.annotation_status = TO_BE_REVISED
                     task.task_status = INCOMPLETE
+                    rev_loop_count = task.revision_loop_count
+                    rev_loop_count["review_count"] = 1 + rev_loop_count["review_count"]
+                    task.revision_loop_count = rev_loop_count
                 else:
                     task.task_status = REVIEWED
+                    try:
+                        supercheck_annotation = Annotation.objects.get(
+                            task=task, annotation_type=SUPER_CHECKER_ANNOTATION
+                        )
+                        if supercheck_annotation.annotation_status == REJECTED:
+                            supercheck_annotation.annotation_status = UNVALIDATED
+                            supercheck_annotation.save()
+                    except:
+                        pass
                 parent.save(update_fields=["review_notes", "annotation_status"])
                 task.save()
 
             if review_status in [UNREVIEWED, DRAFT, SKIPPED, TO_BE_REVISED]:
+                task.correct_annotation = None
+                task.save()
+        # supercheck annotation update
+        else:
+            if request.user != task.super_check_user:
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+
+            if "annotation_status" in dict(request.data) and request.data[
+                "annotation_status"
+            ] in [
+                UNVALIDATED,
+                VALIDATED,
+                VALIDATED_WITH_CHANGES,
+                REJECTED,
+                DRAFT,
+                SKIPPED,
+            ]:
+                supercheck_status = request.data["annotation_status"]
+            else:
+                ret_dict = {"message": "Missing param : annotation_status!"}
+                ret_status = status.HTTP_400_BAD_REQUEST
+                return Response(ret_dict, status=ret_status)
+
+            if (
+                supercheck_status == VALIDATED
+                or supercheck_status == VALIDATED_WITH_CHANGES
+                or supercheck_status == REJECTED
+            ):
+                if not "parent_annotation" in dict(request.data):
+                    ret_dict = {"message": "Missing param : parent_annotation!"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
+                if supercheck_status == REJECTED:
+                    rev_loop_count = task.revision_loop_count
+                    if (
+                        rev_loop_count["super_check_count"]
+                        >= task.project_id.revision_loop_count
+                    ):
+                        ret_dict = {
+                            "message": "Maximum revision loop count for task reached!"
+                        }
+                        ret_status = status.HTTP_403_FORBIDDEN
+                        return Response(ret_dict, status=ret_status)
+
+            annotation_response = super().partial_update(request)
+            annotation_id = annotation_response.data["id"]
+            annotation = Annotation.objects.get(pk=annotation_id)
+            task = annotation.task
+
+            if (
+                supercheck_status == VALIDATED
+                or supercheck_status == VALIDATED_WITH_CHANGES
+                or supercheck_status == REJECTED
+            ):
+                task.correct_annotation = annotation
+                parent = annotation.parent_annotation
+                if supercheck_status == REJECTED:
+                    parent.annotation_status = REJECTED
+                    task.task_status = ANNOTATED
+                    rev_loop_count = task.revision_loop_count
+                    rev_loop_count["super_check_count"] = (
+                        1 + rev_loop_count["super_check_count"]
+                    )
+                    task.revision_loop_count = rev_loop_count
+                else:
+                    task.task_status = SUPER_CHECKED
+                parent.save(update_fields=["annotation_status"])
+                task.save()
+
+            if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
                 task.correct_annotation = None
                 task.save()
 
