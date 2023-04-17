@@ -491,6 +491,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=request.user.id)
             .count()
         )
+
+        # Add a field to specify the no. of reviewed tasks
+        project_response.data["reviewed_task_count"] = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status=REVIEWED)
+            .filter(super_check_user__isnull=True)
+            .exclude(annotation_users=request.user.id)
+            .exclude(review_user=request.user.id)
+            .count()
+        )
+
         return project_response
 
     def list(self, request, *args, **kwargs):
