@@ -733,13 +733,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(
                     Q(project_id=project.id) & Q(annotation_users__in=[user])
                 ).filter(Q(task_status="incomplete"))
-                Annotation_model.objects.filter(
+                annotator_annotation = Annotation_model.objects.filter(
                     Q(completed_by=user)
-                    & Q(annotation_status="draft")
-                    & Q(parent_annotation_id__isnull=True)
-                ).delete()  # delete all draft annotations by the user
+                    & Q(task__in=tasks)
+                    & Q(annotation_type=ANNOTATOR_ANNOTATION)
+                )
+                reviewer_annotation = Annotation_model.objects.filter(
+                    parent_annotation__in=annotator_annotation
+                )
+                superchecker_annotation = Annotation_model.objects.filter(
+                    parent_annotation__in=reviewer_annotation
+                )
+                superchecker_annotation.delete()
+                reviewer_annotation.delete()
+                annotator_annotation.delete()
                 for task in tasks:
+                    task.super_check_user = None
+                    task.review_user = None
                     task.annotation_users.remove(user)
+                    task.revision_loop_count = {
+                        "super_check_count": 0,
+                        "review_count": 0,
+                    }
                     task.save()
                 tasks.update(task_status="incomplete")  # unassign user from tasks
                 # project.annotators.remove(user)
@@ -789,10 +804,78 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = (
                     Task.objects.filter(project_id=project.id)
                     .filter(review_user=user)
-                    .exclude(task_status__in=[REVIEWED, EXPORTED])
+                    .filter(task_status__in=[ANNOTATED])
                 )
+                reviewer_annotation = Annotation_model.objects.filter(
+                    Q(completed_by=user)
+                    & Q(task__in=tasks)
+                    & Q(annotation_type=REVIEWER_ANNOTATION)
+                )
+                superchecker_annotation = Annotation_model.objects.filter(
+                    parent_annotation__in=reviewer_annotation
+                )
+                superchecker_annotation.delete()
+                reviewer_annotation.delete()
                 for task in tasks:
+                    task.super_check_user = None
                     task.review_user = None
+                    task.revision_loop_count = {
+                        "super_check_count": 0,
+                        "review_count": 0,
+                    }
+                    task.save()
+                project.frozen_users.add(user)
+                project.save()
+            return Response(
+                {"message": "User removed from the project"}, status=status.HTTP_200_OK
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    @is_project_editor
+    @action(detail=True, methods=["post"], url_name="remove_superchecker")
+    def remove_superchecker(self, request, pk=None):
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            if not project:
+                return Response(
+                    {"message": "Project does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            for user_id in ids:
+                user = User.objects.get(pk=user_id)
+                # check if the user is already frozen
+                if user in project.frozen_users.all():
+                    return Response(
+                        {"message": "User is already frozen"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                tasks = (
+                    Task.objects.filter(project_id=project.id)
+                    .filter(super_check_user=user)
+                    .filter(task_status__in=[REVIEWED])
+                )
+                superchecker_annotation = Annotation_model.objects.filter(
+                    Q(completed_by=user)
+                    & Q(task__in=tasks)
+                    & Q(annotation_type=SUPER_CHECKER_ANNOTATION)
+                )
+                superchecker_annotation.delete()
+                for task in tasks:
+                    task.super_check_user = None
+                    rev_loop_count = task.revision_loop_count
+                    rev_loop_count["super_check_count"] = 0
+                    task.revision_loop_count = rev_loop_count
                     task.save()
                 project.frozen_users.add(user)
                 project.save()
@@ -875,48 +958,66 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         # Check if the endpoint is being accessed in review mode
 
-        is_review_mode = True if mode == "review" else False
-
         # is_review_mode = (
         #     "mode" in dict(request.query_params)
         #     and request.query_params["mode"] == "review"
         # )
-        if is_review_mode:
-            if project.project_stage != REVIEW_STAGE:
+        if mode == "review":
+            if project.project_stage == ANNOTATION_STAGE:
                 resp_dict = {"message": "Task reviews are not enabled for this project"}
+                return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
+        if mode == "supercheck":
+            if project.project_stage != SUPERCHECK_STAGE:
+                resp_dict = {
+                    "message": "Task superchecks are not enabled for this project"
+                }
                 return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
         if annotation_status != None:
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
+                or request.user in project.review_supercheckers.all()
             ):
-                if is_review_mode:
+                if mode == "review":
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
-                        parent_annotation_id__isnull=False,
+                        annotation_type=REVIEWER_ANNOTATION,
+                        completed_by=request.user.id,
+                    )
+                elif mode == "annotation":
+                    annotations = Annotation_model.objects.filter(
+                        task__project_id=pk,
+                        annotation_status=annotation_status,
+                        annotation_type=ANNOTATOR_ANNOTATION,
                         completed_by=request.user.id,
                     )
                 else:
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
-                        parent_annotation_id__isnull=True,
+                        annotation_type=SUPER_CHECKER_ANNOTATION,
                         completed_by=request.user.id,
                     )
             else:
-                if is_review_mode:
+                if mode == "review":
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
-                        parent_annotation_id__isnull=False,
+                        annotation_type=REVIEWER_ANNOTATION,
+                    )
+                elif mode == "annotation":
+                    annotations = Annotation_model.objects.filter(
+                        task__project_id=pk,
+                        annotation_status=annotation_status,
+                        annotation_type=ANNOTATOR_ANNOTATION,
                     )
                 else:
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
-                        parent_annotation_id__isnull=True,
+                        annotation_type=SUPER_CHECKER_ANNOTATION,
                     )
 
             tasks = Task.objects.filter(annotations__in=annotations)
@@ -945,20 +1046,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
+                or request.user in project.review_supercheckers.all()
             ):
-                tasks = (
-                    Task.objects.filter(
+                if mode == "review":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
                         review_user=request.user.id,
                         task_status=task_status,
                     )
-                    if is_review_mode
-                    else Task.objects.filter(
+                elif mode == "annotation":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
                         annotation_users=request.user.id,
                         task_status=task_status,
                     )
-                )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project.id,
+                        super_check_user=request.user.id,
+                        task_status=task_status,
+                    )
             else:
                 tasks = Task.objects.filter(
                     project_id__exact=project.id,
@@ -988,35 +1095,45 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
+                or request.user in project.review_supercheckers.all()
             ) and not request.user.is_superuser:
                 # Filter Tasks based on whether the request is in review mode or not
-                tasks = (
-                    Task.objects.filter(
+                if mode == "review":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
                         review_user=request.user.id,
-                        task_status__exact=ANNOTATED,
+                        task_status=ANNOTATED,
                     )
-                    if is_review_mode
-                    else Task.objects.filter(
+                elif mode == "annotation":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
                         annotation_users=request.user.id,
-                        task_status__exact=INCOMPLETE,
+                        task_status=INCOMPLETE,
                     )
-                )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project.id,
+                        super_check_user=request.user.id,
+                        task_status=REVIEWED,
+                    )
             else:
                 # TODO : Refactor code to reduce DB calls
                 # Filter Tasks based on whether the request is in review mode or not
-                tasks = (
-                    Task.objects.filter(
+                if mode == "review":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
-                        task_status__exact=ANNOTATED,
+                        task_status=ANNOTATED,
                     )
-                    if is_review_mode
-                    else Task.objects.filter(
+                elif mode == "annotation":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
-                        task_status__exact=INCOMPLETE,
+                        task_status=INCOMPLETE,
                     )
-                )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project.id,
+                        task_status=REVIEWED,
+                    )
 
             if len(tasks):
                 tasks = tasks.filter(
@@ -1387,6 +1504,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             tasks = Task.objects.filter(id__in=tas_ids)
             if tasks.count() > 0:
                 for task in tasks:
+                    task.revision_loop_count = {
+                        "super_check_count": 0,
+                        "review_count": 0,
+                    }
                     task.unassign(user_obj)
                     task.task_status = INCOMPLETE
                     task.save()
@@ -1617,6 +1738,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(id__in=tas_ids)
                 if tasks.count() > 0:
                     tasks.update(review_user=None)
+                    tasks.update(
+                        revision_loop_count=default_revision_loop_count_value()
+                    )
                     return Response(
                         {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                     )
@@ -1805,6 +1929,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(id__in=tas_ids)
                 if tasks.count() > 0:
                     tasks.update(super_check_user=None)
+                    for task in tasks:
+                        rev_loop_count = task.revision_loop_count
+                        rev_loop_count["super_check_count"] = 0
+                        task.revision_loop_count = rev_loop_count
+                        task.save()
                     return Response(
                         {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                     )
@@ -2393,6 +2522,58 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.save()
 
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
+        except Project.DoesNotExist:
+            return Response(
+                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Add Project SuperCheckers",
+        url_name="add_project_supercheckers",
+    )
+    @project_is_archived
+    @is_project_editor
+    def add_project_supercheckers(self, request, pk, *args, **kwargs):
+        """
+        Adds annotation reviewers to the project
+        """
+        try:
+            project = Project.objects.get(pk=pk)
+            if "ids" in dict(request.data):
+                ids = request.data.get("ids", "")
+            else:
+                return Response(
+                    {"message": "key doesnot match"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            users = User.objects.filter(id__in=ids)
+            if not users:
+                return Response(
+                    {"message": "user does not exist"}, status=status.HTTP_404_NOT_FOUND
+                )
+            for user in users:
+                if user.role == User.ANNOTATOR or user.role == User.REVIEWER:
+                    return Response(
+                        {
+                            "message": "One or more users does not have permission to supercheck review annotations"
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                # check if user is already added to project
+                if user in project.review_supercheckers.all():
+                    return Response(
+                        {"message": "User already added to project"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                project.review_supercheckers.add(user)
+                project.save()
+
+            return Response(
+                {"message": "SuperCheckers added"}, status=status.HTTP_200_OK
+            )
         except Project.DoesNotExist:
             return Response(
                 {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
