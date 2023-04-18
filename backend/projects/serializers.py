@@ -7,7 +7,7 @@ from users.serializers import UserProfileSerializer
 class ProjectSerializer(serializers.ModelSerializer):
     annotators = UserProfileSerializer(read_only=True, many=True)
     annotation_reviewers = UserProfileSerializer(read_only=True, many=True)
-    review_supercheckers = UserProfileSerializer(required=True, many=True)
+    review_supercheckers = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
     frozen_users = UserProfileSerializer(read_only=True, many=True)
 
