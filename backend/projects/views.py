@@ -276,6 +276,93 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     return result
 
 
+def get_supercheck_reports(proj_id, userid, start_date, end_date):
+    user = User.objects.get(id=userid)
+    userName = user.username
+    email = user.email
+    project_obj = Project.objects.get(id=proj_id)
+    proj_type = project_obj.project_type
+    total_tasks = Task.objects.filter(project_id=proj_id, super_check_user=userid)
+
+    if user in project_obj.frozen_users.all():
+        userName = userName + "*"
+
+    total_task_count = total_tasks.count()
+
+    validated_objs = Annotation_model.objects.filter(
+        annotation_status="validated",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    validated_objs_count = validated_objs.count()
+
+    validated_with_changes_objs = Annotation_model.objects.filter(
+        annotation_status="validated_with_changes",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    validated_with_changes_objs_count = validated_with_changes_objs.count()
+
+    unvalidated_objs = Annotation_model.objects.filter(
+        annotation_status="unvalidated",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    unvalidated_objs_count = unvalidated_objs.count()
+
+    rejected_objs = Annotation_model.objects.filter(
+        annotation_status="rejected",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    rejected_objs_count = rejected_objs.count()
+
+    skipped_objs = Annotation_model.objects.filter(
+        annotation_status="skipped",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    skipped_objs_count = skipped_objs.count()
+
+    draft_objs = Annotation_model.objects.filter(
+        annotation_status="draft",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    draft_objs_count = draft_objs.count()
+
+    result = {
+        "SuperChecker Name": userName,
+        "Email": email,
+        "Assigned": total_task_count,
+        "Validated": validated_objs_count,
+        "Validated With Changes": validated_with_changes_objs_count,
+        "Un Validated": unvalidated_objs_count,
+        "Draft": draft_objs_count,
+        "Skipped": skipped_objs_count,
+        "Rejected": rejected_objs_count,
+    }
+    return result
+
+
 def extract_latest_status_date_time_from_taskresult_queryset(taskresult_queryset):
     """Function to extract the latest status and date time from the celery task results.
 
@@ -2156,7 +2243,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         reports_type = request.data.get("reports_type")
 
         if reports_type == "review_reports":
-            if proj_obj.project_stage == REVIEW_STAGE:
+            if proj_obj.project_stage > ANNOTATION_STAGE:
                 reviewer_names_list = proj_obj.annotation_reviewers.all()
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 final_reports = []
@@ -2179,6 +2266,31 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 result = {"message": "disabled task reviews for this project "}
                 return Response(result)
+        elif reports_type == "superchecker_reports":
+            if proj_obj.project_stage > REVIEW_STAGE:
+                superchecker_names_list = proj_obj.review_supercheckers.all()
+                superchecker_ids = [name.id for name in superchecker_names_list]
+                final_reports = []
+                if (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.role == User.WORKSPACE_MANAGER
+                    or request.user.is_superuser
+                ):
+                    for id in superchecker_ids:
+                        result = get_supercheck_reports(pk, id, start_date, end_date)
+                        final_reports.append(result)
+                elif users_id in superchecker_ids:
+                    result = get_supercheck_reports(pk, users_id, start_date, end_date)
+                    final_reports.append(result)
+                else:
+                    final_reports = {
+                        "message": "You do not have enough permissions to access this view!"
+                    }
+                return Response(final_reports)
+            else:
+                result = {"message": "disabled task supercheck for this project "}
+                return Response(result)
+
         managers = [
             user1.get_username() for user1 in proj_obj.workspace_id.managers.all()
         ]
