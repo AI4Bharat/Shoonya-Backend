@@ -198,6 +198,32 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         updated_at__range=[start_date, end_date],
     ).count()
 
+    total_rev_annos = Annotation_model.objects.filter(
+        task__project_id=proj_id,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    total_rev_sup_annos = Annotation_model.objects.filter(
+        parent_annotation__in=total_rev_annos
+    )
+
+    total_rejection_loop_value_list = [
+        anno.task.revision_loop_count["super_check_count"]
+        for anno in total_rev_sup_annos
+    ]
+    avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
+        total_rejection_loop_value_list
+    )
+    tasks_rejected_max_times = 0
+    for anno in total_rev_sup_annos:
+        if (
+            anno.task.revision_loop_count["super_check_count"]
+            >= project_obj.revision_loop_count
+        ):
+            tasks_rejected_max_times += 1
+
     if project_obj.project_stage > REVIEW_STAGE:
         annotations_of_superchecker_validated = Annotation_model.objects.filter(
             task__project_id=proj_id,
@@ -250,13 +276,15 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "Accepted": accepted_objs_only,
             "Accepted With Minor Changes": minor_changes_only,
             "Accepted With Major Changes": major_changes_only,
-            "Un Reviewed": unreviewed_count,
+            "UnReviewed": unreviewed_count,
             "Draft": draft_count,
             "Skipped": skipped_count,
             "To Be Revised": to_be_revised_tasks_count,
             "Validated": accepted_validated_tasks.count(),
             "Validated With Changes": accepted_validated_with_changes_tasks.count(),
             "Rejected": accepted_rejected_tasks.count(),
+            "Average Rejection Loop Value": avg_rejection_loop_value,
+            "Tasks Rejected Maximum Time": tasks_rejected_max_times,
         }
 
         return result
@@ -272,6 +300,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         "Draft": draft_count,
         "Skipped": skipped_count,
         "To Be Revised": to_be_revised_tasks_count,
+        "Average Rejection Loop Value": avg_rejection_loop_value,
+        "Tasks Rejected Maximum Time": tasks_rejected_max_times,
     }
     return result
 
@@ -349,16 +379,39 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
 
     draft_objs_count = draft_objs.count()
 
+    total_sup_annos = Annotation_model.objects.filter(
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    total_rejection_loop_value_list = [
+        anno.task.revision_loop_count["super_check_count"] for anno in total_sup_annos
+    ]
+    avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
+        total_rejection_loop_value_list
+    )
+    tasks_rejected_max_times = 0
+    for anno in total_sup_annos:
+        if (
+            anno.task.revision_loop_count["super_check_count"]
+            >= project_obj.revision_loop_count
+        ):
+            tasks_rejected_max_times += 1
+
     result = {
         "SuperChecker Name": userName,
         "Email": email,
         "Assigned": total_task_count,
         "Validated": validated_objs_count,
         "Validated With Changes": validated_with_changes_objs_count,
-        "Un Validated": unvalidated_objs_count,
+        "UnValidated": unvalidated_objs_count,
         "Draft": draft_objs_count,
         "Skipped": skipped_objs_count,
         "Rejected": rejected_objs_count,
+        "Average Rejection Loop Value": avg_rejection_loop_value,
+        "Tasks Rejected Maximum Time": tasks_rejected_max_times,
     }
     return result
 
