@@ -717,6 +717,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     | self.queryset.filter(annotators=request.user)
                     | self.queryset.filter(annotation_reviewers=request.user)
                 )
+            elif request.user.role == User.SUPER_CHECKER:
+                projects = (
+                    self.queryset.filter(annotators=request.user)
+                    | self.queryset.filter(annotation_reviewers=request.user)
+                    | self.queryset.filter(review_supercheckers=request.user)
+                )
             elif request.user.role == User.REVIEWER:
                 projects = self.queryset.filter(
                     annotators=request.user
@@ -836,10 +842,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     | self.queryset.filter(annotators=request.user)
                     | self.queryset.filter(annotation_reviewers=request.user)
                 )
-            else:
+            elif request.user.role == User.SUPER_CHECKER:
+                projects = (
+                    self.queryset.filter(annotators=request.user)
+                    | self.queryset.filter(annotation_reviewers=request.user)
+                    | self.queryset.filter(review_supercheckers=request.user)
+                )
+                projects = projects.filter(is_published=True).filter(is_archived=False)
+            elif request.user.role == User.REVIEWER:
                 projects = self.queryset.filter(
                     annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
+                projects = projects.filter(is_published=True).filter(is_archived=False)
+            elif request.user.role == User.ANNOTATOR:
+                projects = self.queryset.filter(annotators=request.user)
                 projects = projects.filter(is_published=True).filter(is_archived=False)
 
             if "project_user_type" in request.query_params:
