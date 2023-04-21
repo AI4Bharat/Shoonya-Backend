@@ -213,9 +213,12 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         anno.task.revision_loop_count["super_check_count"]
         for anno in total_rev_sup_annos
     ]
-    avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
-        total_rejection_loop_value_list
-    )
+    if len(total_rejection_loop_value_list) > 0:
+        avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
+            total_rejection_loop_value_list
+        )
+    else:
+        avg_rejection_loop_value = 0
     tasks_rejected_max_times = 0
     for anno in total_rev_sup_annos:
         if (
@@ -389,9 +392,12 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     total_rejection_loop_value_list = [
         anno.task.revision_loop_count["super_check_count"] for anno in total_sup_annos
     ]
-    avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
-        total_rejection_loop_value_list
-    )
+    if len(total_rejection_loop_value_list) > 0:
+        avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
+            total_rejection_loop_value_list
+        )
+    else:
+        avg_rejection_loop_value = 0
     tasks_rejected_max_times = 0
     for anno in total_sup_annos:
         if (
