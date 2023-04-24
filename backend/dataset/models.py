@@ -39,6 +39,8 @@ QUALITY_CHOICES = (
 
 SENTENCE_TEXT_DOMAIN_CHOICES = (
     ("None", "None"),
+    ("Business", "Business"),
+    ("Culture", "Culture"),
     ("General", "General"),
     ("News", "News"),
     ("Education", "Education"),
