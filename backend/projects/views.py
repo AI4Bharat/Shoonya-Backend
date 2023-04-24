@@ -1993,11 +1993,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 superchecker_annotation_ids = []
                 supercheck_pulled_tasks = []
                 for ann1 in ann:
-                    supercheck_annotation_obj = Annotation_model.objects.get(
-                        parent_annotation=ann1
-                    )
-                    superchecker_annotation_ids.append(supercheck_annotation_obj.id)
-                    supercheck_pulled_tasks.append(supercheck_annotation_obj.task_id)
+                    try:
+                        supercheck_annotation_obj = Annotation_model.objects.get(
+                            parent_annotation=ann1
+                        )
+                        superchecker_annotation_ids.append(supercheck_annotation_obj.id)
+                        supercheck_pulled_tasks.append(
+                            supercheck_annotation_obj.task_id
+                        )
+                    except:
+                        pass
 
                 supercheck_annotations = Annotation_model.objects.filter(
                     id__in=superchecker_annotation_ids
