@@ -63,6 +63,7 @@ from .utils import (
     convert_seconds_to_hours,
     get_audio_project_types,
     get_audio_transcription_duration,
+    get_audio_segments_count,
 )
 
 from workspaces.decorators import is_particular_workspace_manager
@@ -2559,17 +2560,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             elif project_type in get_audio_project_types():
                 total_duration_list = []
-
+                total_audio_segments_list = []
                 for each_task in labeled_annotations:
                     try:
                         total_duration_list.append(
                             get_audio_transcription_duration(each_task.result)
+                        )
+                        total_audio_segments_list.append(
+                            get_audio_segments_count(each_task.result)
                         )
                     except:
                         pass
                 total_duration = sum(total_duration_list)
                 total_time = convert_seconds_to_hours(total_duration)
                 items.append(("Total Audio Duration", total_time))
+                total_audio_segments = sum(total_audio_segments_list)
+                avg_segment_duration = total_duration / total_audio_segments
+                avg_segments_per_task = total_audio_segments / len(labeled_annotations)
+                items.append(("Avg Segment Duration", avg_segment_duration))
+                items.append(("Average Segments Per Task", avg_segments_per_task))
 
             lead_time_annotated_tasks = [
                 annot.lead_time for annot in labeled_annotations
