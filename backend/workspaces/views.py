@@ -12,7 +12,12 @@ from tasks.models import Task
 from organizations.models import Organization
 from django.db.models import Q
 from projects.utils import no_of_words
-from tasks.models import Annotation
+from tasks.models import (
+    Annotation,
+    ANNOTATOR_ANNOTATION,
+    REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
+)
 from projects.utils import is_valid_date
 from datetime import datetime
 from users.serializers import UserFetchSerializer
@@ -77,7 +82,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
-        parent_annotation_id=None,
+        annotation_type=ANNOTATOR_ANNOTATION,
         created_at__range=[start_date, end_date],
         completed_by=annotator,
     )
@@ -93,7 +98,7 @@ def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_
     labeled_tasks_ids = list(labeled_tasks.values_list("id", flat=True))
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=labeled_tasks_ids,
-        parent_annotation_id=None,
+        annotation_type=ANNOTATOR_ANNOTATION,
         created_at__range=[start_date, end_date],
     )
 

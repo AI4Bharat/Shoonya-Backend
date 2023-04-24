@@ -21,7 +21,12 @@ from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
 from users.models import LANG_CHOICES, User
 from rest_framework.decorators import action
-from tasks.models import Task
+from tasks.models import (
+    Task,
+    ANNOTATOR_ANNOTATION,
+    REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
+)
 from workspaces.models import Workspace
 from projects.models import Project
 from tasks.models import Annotation
@@ -519,7 +524,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 )
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
-                    parent_annotation_id__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
@@ -540,7 +545,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 )
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
-                    parent_annotation_id=None,
+                    annotation_type=ANNOTATOR_ANNOTATION,
                     updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )

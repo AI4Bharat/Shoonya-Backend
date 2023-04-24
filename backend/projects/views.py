@@ -297,10 +297,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         "Reviewer Name": userName,
         "Email": email,
         "Assigned": total_task_count,
-        "Accepted": accepted_objs_only,
-        "Accepted With Minor Changes": minor_changes_only,
-        "Accepted With Major Changes": major_changes_only,
-        "Un Reviewed": unreviewed_count,
+        "Accepted": accepted_objs_count,
+        "Accepted With Minor Changes": minor_changes_count,
+        "Accepted With Major Changes": major_changes_count,
+        "UnReviewed": unreviewed_count,
         "Draft": draft_count,
         "Skipped": skipped_count,
         "To Be Revised": to_be_revised_tasks_count,
@@ -2437,10 +2437,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             labeled_only_annotations = len(labeled_annotations) - reviewed_ann
 
-            items.append(("Labeled", labeled_only_annotations))
-
             proj = Project.objects.get(id=pk)
             if proj.project_stage > ANNOTATION_STAGE:
+                items.append(("Labeled", labeled_only_annotations))
                 # get accepted tasks
                 annotations_of_reviewer_accepted = Annotation_model.objects.filter(
                     task__project_id=pk,
@@ -2517,6 +2516,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     completed_by=each_annotator,
                 )
                 items.append(("To Be Revised", annotated_to_be_revised_tasks.count()))
+            else:
+                items.append(("Labeled", len(labeled_annotations)))
             # get unlabeled count
             total_unlabeled_tasks_count = Annotation_model.objects.filter(
                 task__project_id=pk,
