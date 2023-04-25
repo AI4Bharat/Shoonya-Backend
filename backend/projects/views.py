@@ -2014,6 +2014,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     supercheck_tasks.update(super_check_user=None)
 
                 for an in ann:
+                    if an.annotation_status == TO_BE_REVISED:
+                        parent = an.parent_annotation
+                        parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
                     an.parent_annotation = None
                     an.save()
                     an.delete()
@@ -2024,6 +2028,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     tasks.update(
                         revision_loop_count=default_revision_loop_count_value()
                     )
+                    tasks.update(task_status=ANNOTATED)
                     return Response(
                         {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                     )
@@ -2205,6 +2210,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tas_ids = [an.task_id for an in ann]
 
                 for an in ann:
+                    if an.annotation_status == REJECTED:
+                        parent = an.parent_annotation
+                        grand_parent = parent.parent_annotation
+                        parent.annotation_status = ACCEPTED
+                        grand_parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
+                        grand_parent.save(update_fields=["annotation_status"])
                     an.parent_annotation = None
                     an.save()
                     an.delete()
@@ -2216,6 +2228,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         rev_loop_count = task.revision_loop_count
                         rev_loop_count["super_check_count"] = 0
                         task.revision_loop_count = rev_loop_count
+                        task.task_status = REVIEWED
                         task.save()
                     return Response(
                         {"message": "Tasks unassigned"}, status=status.HTTP_200_OK

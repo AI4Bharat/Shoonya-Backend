@@ -899,7 +899,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         if reports_type == "review":
             proj_objs = Project.objects.filter(workspace_id=pk)
             review_projects = [
-                pro for pro in proj_objs if pro.project_stage == REVIEW_STAGE
+                pro for pro in proj_objs if pro.project_stage > ANNOTATION_STAGE
             ]
 
             workspace_reviewer_list = []
@@ -1016,7 +1016,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
             assigned_tasks = all_tasks_in_project.count()
 
-            if project_progress_stage == REVIEW_STAGE:
+            if (
+                project_progress_stage != None
+                and project_progress_stage > ANNOTATION_STAGE
+            ):
                 (
                     accepted,
                     to_be_revised,
