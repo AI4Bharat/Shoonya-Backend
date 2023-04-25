@@ -2615,8 +2615,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 total_time = convert_seconds_to_hours(total_duration)
                 items.append(("Total Audio Duration", total_time))
                 total_audio_segments = sum(total_audio_segments_list)
-                avg_segment_duration = total_duration / total_audio_segments
-                avg_segments_per_task = total_audio_segments / len(labeled_annotations)
+                try:
+                    avg_segment_duration = total_duration / total_audio_segments
+                    avg_segments_per_task = total_audio_segments / len(
+                        labeled_annotations
+                    )
+                except:
+                    avg_segment_duration = 0
+                    avg_segments_per_task = 0
                 items.append(("Avg Segment Duration", avg_segment_duration))
                 items.append(("Average Segments Per Task", avg_segments_per_task))
 
