@@ -9,11 +9,11 @@
     <View>
         <Header size="3" value="Rating"/>
         <Choices name="rating" toName="output_text" choice="single-radio" required="true" requiredMessage="Please select a rating for the translation">
-            <Choice alias="0" value="0, Two sentences are completely dissimilar." />
-            <Choice alias="1" value="1, Two sentences are not equivalent, and only minor details match, the majority part of the sentences does not match. At least sentences should be of related topics." />
-            <Choice alias="2" value="2, Two sentences are roughly equivalent, but some important information differs/is missing." />
+            <Choice alias="1" value="1, Two sentences are not equivalent, share very little details, and may be about different topics." />
+            <Choice alias="2" value="2, Two sentences share some details, but are not equivalent." />
             <Choice alias="3" value="3, Two sentences are mostly equivalent, but some unimportant details can differ." />
-            <Choice alias="4" value="4, Two sentences are completely equivalent, as they mean the same thing." />
+            <Choice alias="4" value="4, Two sentences are paraphrases of each other. Their meanings are near-equivalent, with no major differences or information missing." />
+            <Choice alias="5" value="5, Two sentences are exactly and completely equivalent in meaning and usage expression." />
         </Choices>
     </View>
 </View>
