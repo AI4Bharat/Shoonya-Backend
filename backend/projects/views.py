@@ -287,7 +287,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "Validated": accepted_validated_tasks.count(),
             "Validated With Changes": accepted_validated_with_changes_tasks.count(),
             "Rejected": accepted_rejected_tasks.count(),
-            "Average Rejection Loop Value": avg_rejection_loop_value,
+            "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
             "Tasks Rejected Maximum Time": tasks_rejected_max_times,
         }
 
@@ -304,7 +304,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         "Draft": draft_count,
         "Skipped": skipped_count,
         "To Be Revised": to_be_revised_tasks_count,
-        "Average Rejection Loop Value": avg_rejection_loop_value,
+        "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
     }
     return result
@@ -417,7 +417,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "Draft": draft_objs_count,
         "Skipped": skipped_objs_count,
         "Rejected": rejected_objs_count,
-        "Average Rejection Loop Value": avg_rejection_loop_value,
+        "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
     }
     return result
@@ -2623,8 +2623,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 except:
                     avg_segment_duration = 0
                     avg_segments_per_task = 0
-                items.append(("Avg Segment Duration", avg_segment_duration))
-                items.append(("Average Segments Per Task", avg_segments_per_task))
+                items.append(("Avg Segment Duration", round(avg_segment_duration, 2)))
+                items.append(
+                    ("Average Segments Per Task", round(avg_segments_per_task, 2))
+                )
 
             lead_time_annotated_tasks = [
                 annot.lead_time for annot in labeled_annotations
