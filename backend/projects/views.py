@@ -1093,7 +1093,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     parent_annotation__in=reviewer_annotation
                 )
                 superchecker_annotation.delete()
-                reviewer_annotation.delete()
+                for an in reviewer_annotation:
+                    if an.annotation_status == TO_BE_REVISED:
+                        parent = an.parent_annotation
+                        parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
+                    an.parent_annotation = None
+                    an.save()
+                    an.delete()
+
                 for task in tasks:
                     task.super_check_user = None
                     task.review_user = None
@@ -1101,6 +1109,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         "super_check_count": 0,
                         "review_count": 0,
                     }
+                    task.task_status = ANNOTATED
                     task.save()
                 project.frozen_users.add(user)
                 project.save()
@@ -1148,12 +1157,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     & Q(task__in=tasks)
                     & Q(annotation_type=SUPER_CHECKER_ANNOTATION)
                 )
-                superchecker_annotation.delete()
+                for an in superchecker_annotation:
+                    if an.annotation_status == REJECTED:
+                        parent = an.parent_annotation
+                        grand_parent = parent.parent_annotation
+                        parent.annotation_status = ACCEPTED
+                        grand_parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
+                        grand_parent.save(update_fields=["annotation_status"])
+                    an.parent_annotation = None
+                    an.save()
+                    an.delete()
+
                 for task in tasks:
                     task.super_check_user = None
                     rev_loop_count = task.revision_loop_count
                     rev_loop_count["super_check_count"] = 0
                     task.revision_loop_count = rev_loop_count
+                    task.task_status = REVIEWED
                     task.save()
                 project.frozen_users.add(user)
                 project.save()
