@@ -237,6 +237,9 @@ class Annotation(models.Model):
         blank=True, null=True, verbose_name="annotation_notes"
     )
     review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
+    supercheck_notes = models.TextField(
+        blank=True, null=True, verbose_name="supercheck_notes"
+    )
     annotation_type = models.PositiveSmallIntegerField(
         choices=ANNOTATION_TYPE, blank=False, null=False, default=ANNOTATOR_ANNOTATION
     )
