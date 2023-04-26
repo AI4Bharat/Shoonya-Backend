@@ -27,7 +27,7 @@ def sentence_text_translate_and_save_translation_pairs(
         output_dataset_instance_id (int): ID of the output dataset instance.
         batch_size (int): Number of sentences to be translated in a single batch.
         api_type (str): Type of API to be used for translation. (default: indic-trans)
-            Allowed - [indic-trans, google]
+            Allowed - [indic-trans, google, indic-trans-v2, azure, blank]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
     """
 
@@ -189,7 +189,7 @@ def conversation_data_machine_translation(
         output_dataset_instance_id (int): ID of the output dataset instance.
         batch_size (int): Number of sentences to be translated in a single batch.
         api_type (str): Type of API to be used for translation. (default: indic-trans)
-            Allowed - [indic-trans, google]
+            Allowed - [indic-trans, google, indic-trans-v2, azure, blank]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
     """
 
