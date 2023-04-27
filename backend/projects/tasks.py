@@ -360,7 +360,12 @@ def export_project_in_place(
                         del ta_labels[idx]["labels"]
                     setattr(data_item, field, ta_labels)
                 elif field == "conversation_json":
-                    conversation_json = data_item.machine_translated_conversation_json
+                    if project.project_type == "ConversationVerification":
+                        conversation_json = data_item.unverified_conversation_json
+                    else:
+                        conversation_json = (
+                            data_item.machine_translated_conversation_json
+                        )
                     for idx1 in range(len(conversation_json)):
                         for idx2 in range(len(conversation_json[idx1]["sentences"])):
                             conversation_json[idx1]["sentences"][idx2] = ""

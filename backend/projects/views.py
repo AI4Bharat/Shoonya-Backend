@@ -3295,12 +3295,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if (
                 project_type == "ConversationTranslation"
                 or project_type == "ConversationTranslationEditing"
+                or project_type == "ConversationVerification"
             ):
                 for task in tasks_list:
                     if project_type == "ConversationTranslation":
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
                         ).conversation_json
+                    elif project_type == "ConversationVerification":
+                        conversation_json = Conversation.objects.get(
+                            id__exact=task["input_data"]
+                        ).unverified_conversation_json
                     else:
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]

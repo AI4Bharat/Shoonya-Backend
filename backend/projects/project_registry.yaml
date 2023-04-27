@@ -232,8 +232,26 @@ Conversation:
             - language
           annotations:
             - conversation_json
-
-
+    ConversationVerification:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "conversation/conversation_verification.jsx"
+      input_dataset:
+        class: Conversation
+        fields:
+          - domain 
+          - topic 
+          - scenario 
+          - prompt 
+          - speaker_count 
+          - speakers_json 
+          - unverified_conversation_json 
+      output_dataset: 
+        class: Conversation 
+        save_type: in_place 
+        fields: 
+          annotations: 
+            - conversation_quality_status
+            - conversation_json 
 Audio: 
   description: "Projects related to audio-processing" 
   project_types: 
