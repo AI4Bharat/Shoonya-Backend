@@ -4,7 +4,6 @@ import uuid
 
 # Indic Trans API supported languages
 INDIC_TRANS_SUPPORTED_LANGUAGES = [
-    "Blank",
     "Assamese",
     "Bengali",
     "Gujarati",
