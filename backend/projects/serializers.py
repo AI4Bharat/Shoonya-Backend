@@ -44,6 +44,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             "tgt_language",
             "created_at",
             "project_stage",
+            "revision_loop_count",
+            "k_value",
         ]
 
 
