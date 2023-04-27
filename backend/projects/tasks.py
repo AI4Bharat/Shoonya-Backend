@@ -276,7 +276,11 @@ def export_project_in_place(
     if project.project_stage == REVIEW_STAGE:
         tasks = Task.objects.filter(
             project_id__exact=project, task_status__in=[REVIEWED]
-        ).exclude(correct_annotation__annotation_status="to_be_revised")
+        )
+    elif project.project_stage == SUPERCHECK_STAGE:
+        tasks = Task.objects.filter(
+            project_id__exact=project, task_status__in=[SUPER_CHECKED]
+        )
     else:
         tasks = Task.objects.filter(
             project_id__exact=project, task_status__in=[ANNOTATED]
@@ -425,7 +429,11 @@ def export_project_new_record(
     if project.project_stage == REVIEW_STAGE:
         tasks = Task.objects.filter(
             project_id__exact=project, task_status__in=[REVIEWED]
-        ).exclude(correct_annotation__annotation_status="to_be_revised")
+        )
+    elif project.project_stage == SUPERCHECK_STAGE:
+        tasks = Task.objects.filter(
+            project_id__exact=project, task_status__in=[SUPER_CHECKED]
+        )
     else:
         tasks = Task.objects.filter(
             project_id__exact=project, task_status__in=[ANNOTATED]

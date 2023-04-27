@@ -132,3 +132,12 @@ def get_audio_transcription_duration(annotation_result):
             audio_duration += end - start
 
     return audio_duration
+
+
+def get_audio_segments_count(annotation_result):
+    count = 0
+    for result in annotation_result:
+        if result["type"] == "labels":
+            count += 1
+
+    return count

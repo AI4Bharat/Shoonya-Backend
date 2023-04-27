@@ -113,7 +113,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
             and (annotator in annotators_of_this_project)
         ):
-            if annotator != task.review_user:
+            if annotator != task.review_user and annotator != task.super_check_user:
                 if annotator in annotators_of_this_project:
                     ann_annotations = annotations.filter(completed_by=annotator)
                     annotations1 = list(ann_annotations)
@@ -162,6 +162,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
             proj_annotators = proj_objs[0].annotators.all()
             proj_reviewers = proj_objs[0].annotation_reviewers.all()
+            proj_supercheckers = proj_objs[0].review_supercheckers.all()
 
             view = "user_view"
             exist_req_user = 0
@@ -170,7 +171,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 or user.role == User.WORKSPACE_MANAGER
                 or user.is_superuser
             ):
-                if not ((user in proj_annotators) or (user in proj_reviewers)):
+                if not (
+                    (user in proj_annotators)
+                    or (user in proj_reviewers)
+                    or (user in proj_supercheckers)
+                ):
                     view = "managerial_view"
 
                     if "req_user" in dict(request.query_params):
@@ -189,7 +194,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         ann = Annotation.objects.filter(
                             task__project_id_id=proj_id,
                             annotation_status__in=ann_status,
-                            parent_annotation_id__isnull=True,
+                            annotation_type=ANNOTATOR_ANNOTATION,
                         )
 
                         tasks = Task.objects.filter(annotations__in=ann)
@@ -234,7 +239,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ann = Annotation.objects.filter(
                     task__project_id_id=proj_id,
                     annotation_status__in=ann_status,
-                    parent_annotation_id__isnull=True,
+                    annotation_type=ANNOTATOR_ANNOTATION,
                     completed_by=user_id,
                 )
 
@@ -298,7 +303,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         ann = Annotation.objects.filter(
                             task__project_id_id=proj_id,
                             annotation_status__in=rew_status,
-                            parent_annotation_id__isnull=False,
+                            annotation_type=REVIEWER_ANNOTATION,
                         )
                         tasks = Task.objects.filter(annotations__in=ann)
                         tasks = tasks.distinct()
@@ -345,7 +350,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ann = Annotation.objects.filter(
                     task__project_id_id=proj_id,
                     annotation_status__in=rew_status,
-                    parent_annotation_id__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     completed_by=user_id,
                 )
                 tasks = Task.objects.filter(annotations__in=ann)
@@ -376,6 +381,121 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas = tas.values()[0]
                     tas["review_status"] = annotation_status[idx]
                     tas["user_mail"] = user_mail[idx]
+                    tas["annotator_mail"] = annotator_mail[idx]
+                    ordered_tasks.append(tas)
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, records)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
+
+            if "supercheck_status" in dict(request.query_params):
+                supercheck_status = request.query_params["supercheck_status"]
+                supercheck_status = ast.literal_eval(supercheck_status)
+
+                if view == "managerial_view":
+                    if not ("req_user" in dict(request.query_params)):
+                        ann = Annotation.objects.filter(
+                            task__project_id_id=proj_id,
+                            annotation_status__in=supercheck_status,
+                            annotation_type=SUPER_CHECKER_ANNOTATION,
+                        )
+                        tasks = Task.objects.filter(annotations__in=ann)
+                        tasks = tasks.distinct()
+                        # Handle search query (if any)
+                        if len(tasks):
+                            tasks = tasks.filter(
+                                **process_search_query(
+                                    request.GET, "data", list(tasks.first().data.keys())
+                                )
+                            )
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
+
+                        task_ids = [an.task_id for an in ann_filter1]
+                        annotation_status = [an.annotation_status for an in ann_filter1]
+                        user_mail = [an.completed_by.email for an in ann_filter1]
+                        ordered_tasks = []
+                        final_dict = {}
+                        for idx, ids in enumerate(task_ids):
+                            tas = Task.objects.filter(id=ids)
+                            tas = tas.values()[0]
+                            tas["supercheck_status"] = annotation_status[idx]
+                            tas["user_mail"] = user_mail[idx]
+                            ordered_tasks.append(tas)
+
+                        if page_number is not None:
+                            page_object = Paginator(ordered_tasks, records)
+
+                            try:
+                                final_dict["total_count"] = len(ordered_tasks)
+                                page_items = page_object.page(page_number)
+                                ordered_tasks = page_items.object_list
+                                final_dict["result"] = ordered_tasks
+                                return Response(final_dict)
+                            except:
+                                return Response(
+                                    {"message": "page not available"},
+                                    status=status.HTTP_400_BAD_REQUEST,
+                                )
+
+                        final_dict["total_count"] = len(ordered_tasks)
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+
+                ann = Annotation.objects.filter(
+                    task__project_id_id=proj_id,
+                    annotation_status__in=supercheck_status,
+                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                    completed_by=user_id,
+                )
+                tasks = Task.objects.filter(annotations__in=ann)
+                tasks = tasks.distinct()
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
+                    )
+                ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
+
+                task_ids = [an.task_id for an in ann_filter1]
+                annotation_status = [an.annotation_status for an in ann_filter1]
+                user_mail = [an.completed_by.email for an in ann_filter1]
+                reviewer_mail = [
+                    Annotation.objects.filter(id=an.parent_annotation_id)[
+                        0
+                    ].completed_by.email
+                    for an in ann_filter1
+                ]
+                annotator_mail = [
+                    Annotation.objects.filter(
+                        id=an.parent_annotation.parent_annotation_id
+                    )[0].completed_by.email
+                    for an in ann_filter1
+                ]
+
+                ordered_tasks = []
+                final_dict = {}
+                for idx, ids in enumerate(task_ids):
+                    tas = Task.objects.filter(id=ids)
+                    tas = tas.values()[0]
+                    tas["supercheck_status"] = annotation_status[idx]
+                    tas["user_mail"] = user_mail[idx]
+                    tas["reviewer_mail"] = reviewer_mail[idx]
                     tas["annotator_mail"] = annotator_mail[idx]
                     ordered_tasks.append(tas)
                 if page_number is not None:
@@ -443,6 +563,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     return Response(final_dict)
             proj_annotators_ids = [an.id for an in proj_annotators]
             proj_reviewers_ids = [an.id for an in proj_reviewers]
+            proj_superchecker_ids = [an.id for an in proj_supercheckers]
 
             if user_id in proj_annotators_ids:
                 tasks = Task.objects.filter(
@@ -485,6 +606,42 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     project_id__exact=proj_id,
                     task_status__in=tas_status,
                     review_user_id=user_id,
+                )
+
+                # Handle search query (if any)
+                if len(tasks):
+                    tasks = tasks.filter(
+                        **process_search_query(
+                            request.GET, "data", list(tasks.first().data.keys())
+                        )
+                    )
+
+                ordered_tasks = list(tasks.values())
+                final_dict = {}
+                if page_number is not None:
+                    page_object = Paginator(ordered_tasks, records)
+
+                    try:
+                        final_dict["total_count"] = len(ordered_tasks)
+                        page_items = page_object.page(page_number)
+                        ordered_tasks = page_items.object_list
+                        final_dict["result"] = ordered_tasks
+                        return Response(final_dict)
+                    except:
+                        return Response(
+                            {"message": "page not available"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                final_dict["total_count"] = len(ordered_tasks)
+                final_dict["result"] = ordered_tasks
+                return Response(final_dict)
+
+            if user_id in proj_superchecker_ids:
+                tasks = Task.objects.filter(
+                    project_id__exact=proj_id,
+                    task_status__in=tas_status,
+                    super_checker_user_id=user_id,
                 )
 
                 # Handle search query (if any)
@@ -703,9 +860,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             annotations = Annotation.objects.filter(completed_by=user)
             if task_type == "review":
-                annotations = annotations.filter(parent_annotation__isnull=False)
+                annotations = annotations.filter(annotation_type=REVIEWER_ANNOTATION)
+            elif task_type == "supercheck":
+                annotations = annotations.filter(
+                    annotation_type=SUPER_CHECKER_ANNOTATION
+                )
             else:
-                annotations = annotations.filter(parent_annotation__isnull=True)
+                annotations = annotations.filter(annotation_type=ANNOTATOR_ANNOTATION)
 
             annotations = annotations.order_by("-updated_at")
             annotations = self.paginate_queryset(annotations)
@@ -959,13 +1120,8 @@ class AnnotationViewSet(
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(final_result, status=ret_status)
 
-        if not annotation_obj.parent_annotation:
-            is_review = False
-        else:
-            is_review = True
-
         # Base annotation update
-        if not is_review:
+        if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
@@ -998,7 +1154,7 @@ class AnnotationViewSet(
             if annotation_status == LABELED and is_to_be_revised_task:
                 try:
                     review_annotation = Annotation.objects.get(
-                        task=task, parent_annotation__isnull=False
+                        task=task, annotation_type=REVIEWER_ANNOTATION
                     )
                     review_annotation.annotation_status = UNREVIEWED
                     review_annotation.save()
@@ -1006,19 +1162,22 @@ class AnnotationViewSet(
                     pass
 
             no_of_annotations = task.annotations.filter(
-                parent_annotation_id=None, annotation_status="labeled"
+                annotation_type=ANNOTATOR_ANNOTATION, annotation_status="labeled"
             ).count()
             if task.project_id.required_annotators_per_task == no_of_annotations:
                 # if True:
                 task.task_status = ANNOTATED
-                if not (task.project_id.project_stage == REVIEW_STAGE):
+                if not (
+                    task.project_id.project_stage == REVIEW_STAGE
+                    or task.project_id.project_stage == SUPERCHECK_STAGE
+                ):
                     if no_of_annotations == 1:
                         task.correct_annotation = annotation
 
                 task.save()
 
         # Review annotation update
-        else:
+        elif annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             if request.user != task.review_user:
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
@@ -1052,6 +1211,18 @@ class AnnotationViewSet(
                     ret_status = status.HTTP_400_BAD_REQUEST
                     return Response(ret_dict, status=ret_status)
 
+                if review_status == TO_BE_REVISED:
+                    rev_loop_count = task.revision_loop_count
+                    if (
+                        rev_loop_count["review_count"]
+                        >= task.project_id.revision_loop_count
+                    ):
+                        ret_dict = {
+                            "message": "Maximum revision loop count for task reached!"
+                        }
+                        ret_status = status.HTTP_403_FORBIDDEN
+                        return Response(ret_dict, status=ret_status)
+
             annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1063,18 +1234,105 @@ class AnnotationViewSet(
                 or review_status == ACCEPTED_WITH_MAJOR_CHANGES
                 or review_status == TO_BE_REVISED
             ):
-                task.correct_annotation = annotation
+                if not (task.project_id.project_stage == SUPERCHECK_STAGE):
+                    task.correct_annotation = annotation
+                else:
+                    task.correct_annotation = None
                 parent = annotation.parent_annotation
                 parent.review_notes = annotation.review_notes
                 if review_status == TO_BE_REVISED:
                     parent.annotation_status = TO_BE_REVISED
                     task.task_status = INCOMPLETE
+                    rev_loop_count = task.revision_loop_count
+                    rev_loop_count["review_count"] = 1 + rev_loop_count["review_count"]
+                    task.revision_loop_count = rev_loop_count
                 else:
                     task.task_status = REVIEWED
+                    try:
+                        supercheck_annotation = Annotation.objects.get(
+                            task=task, annotation_type=SUPER_CHECKER_ANNOTATION
+                        )
+                        if supercheck_annotation.annotation_status == REJECTED:
+                            supercheck_annotation.annotation_status = UNVALIDATED
+                            supercheck_annotation.save()
+                    except:
+                        pass
                 parent.save(update_fields=["review_notes", "annotation_status"])
                 task.save()
 
             if review_status in [UNREVIEWED, DRAFT, SKIPPED, TO_BE_REVISED]:
+                task.correct_annotation = None
+                task.save()
+        # supercheck annotation update
+        else:
+            if request.user != task.super_check_user:
+                ret_dict = {"message": "You are trying to impersonate another user :("}
+                ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+
+            if "annotation_status" in dict(request.data) and request.data[
+                "annotation_status"
+            ] in [
+                UNVALIDATED,
+                VALIDATED,
+                VALIDATED_WITH_CHANGES,
+                REJECTED,
+                DRAFT,
+                SKIPPED,
+            ]:
+                supercheck_status = request.data["annotation_status"]
+            else:
+                ret_dict = {"message": "Missing param : annotation_status!"}
+                ret_status = status.HTTP_400_BAD_REQUEST
+                return Response(ret_dict, status=ret_status)
+
+            if (
+                supercheck_status == VALIDATED
+                or supercheck_status == VALIDATED_WITH_CHANGES
+                or supercheck_status == REJECTED
+            ):
+                if not "parent_annotation" in dict(request.data):
+                    ret_dict = {"message": "Missing param : parent_annotation!"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
+                if supercheck_status == REJECTED:
+                    rev_loop_count = task.revision_loop_count
+                    if (
+                        rev_loop_count["super_check_count"]
+                        >= task.project_id.revision_loop_count
+                    ):
+                        ret_dict = {
+                            "message": "Maximum revision loop count for task reached!"
+                        }
+                        ret_status = status.HTTP_403_FORBIDDEN
+                        return Response(ret_dict, status=ret_status)
+
+            annotation_response = super().partial_update(request)
+            annotation_id = annotation_response.data["id"]
+            annotation = Annotation.objects.get(pk=annotation_id)
+            task = annotation.task
+
+            if (
+                supercheck_status == VALIDATED
+                or supercheck_status == VALIDATED_WITH_CHANGES
+                or supercheck_status == REJECTED
+            ):
+                task.correct_annotation = annotation
+                parent = annotation.parent_annotation
+                if supercheck_status == REJECTED:
+                    parent.annotation_status = REJECTED
+                    task.task_status = ANNOTATED
+                    rev_loop_count = task.revision_loop_count
+                    rev_loop_count["super_check_count"] = (
+                        1 + rev_loop_count["super_check_count"]
+                    )
+                    task.revision_loop_count = rev_loop_count
+                else:
+                    task.task_status = SUPER_CHECKED
+                parent.save(update_fields=["annotation_status"])
+                task.save()
+
+            if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
                 task.correct_annotation = None
                 task.save()
 
