@@ -3411,7 +3411,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if project.project_stage == REVIEW_STAGE:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[REVIEWED]
-                    ).exclude(correct_annotation__annotation_status="to_be_revised")
+                    )
+                elif project.project_stage == SUPERCHECK_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[SUPER_CHECKED]
+                    )
                 else:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[ANNOTATED]
@@ -3452,10 +3456,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         output_dataset_info["fields"]["copy_from_input"].values()
                     )
 
-                tasks = Task.objects.filter(
-                    project_id__exact=project,
-                    task_status__in=[REVIEWED],
-                ).exclude(correct_annotation__annotation_status="to_be_revised")
+                if project.project_stage == REVIEW_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[REVIEWED]
+                    )
+                elif project.project_stage == SUPERCHECK_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[SUPER_CHECKED]
+                    )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[ANNOTATED]
+                    )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
