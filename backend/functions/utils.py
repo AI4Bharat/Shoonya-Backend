@@ -407,12 +407,12 @@ def get_batch_translations(
         dict: Dictionary containing the translated sentences or error message.
     """
 
-    # Return a list of empty sentences if target language is None.
-    if target_lang == "Blank":
+    # Check the API type
+    if api_type == "blank":
+        # Return a list of empty sentences if api type is blank.
         return {"status": "success", "output": [""] * len(sentences_to_translate)}
 
-    # Check the API type
-    if api_type == "indic-trans":
+    elif api_type == "indic-trans":
         # Get the translation using the Indictrans NMT API
         translations_output = get_batch_translations_using_indictrans_nmt_api(
             sentence_list=sentences_to_translate,

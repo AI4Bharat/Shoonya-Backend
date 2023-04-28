@@ -1517,7 +1517,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @is_project_editor
     @project_is_archived
     def partial_update(self, request, pk=None, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
+        return super().partial_update(request, pk, *args, **kwargs)
 
     @is_project_editor
     @project_is_published
