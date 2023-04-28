@@ -3314,13 +3314,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         for idx2 in range(len(conversation_json[idx1]["sentences"])):
                             conversation_json[idx1]["sentences"][idx2] = ""
                     for result in task["annotations"][0]["result"]:
-                        to_name_list = result["to_name"].split("_")
-                        idx1 = int(to_name_list[1])
-                        idx2 = int(to_name_list[2])
-                        conversation_json[idx1]["sentences"][idx2] = ".".join(
-                            map(str, result["value"]["text"])
-                        )
-                    task["data"]["translated_conversation_json"] = conversation_json
+                        if result["to_name"] != "quality_status":
+                            to_name_list = result["to_name"].split("_")
+                            idx1 = int(to_name_list[1])
+                            idx2 = int(to_name_list[2])
+                            conversation_json[idx1]["sentences"][idx2] = ".".join(
+                                map(str, result["value"]["text"])
+                            )
+                        else:
+                            task["data"]["conversation_quality_status"] = result[
+                                "value"
+                            ]["choices"][0]
+                    if project_type == "ConversationVerification":
+                        task["data"]["verified_conversation_json"] = conversation_json
+                    else:
+                        task["data"]["translated_conversation_json"] = conversation_json
             elif dataset_type == "SpeechConversation":
                 for task in tasks_list:
                     annotation_result = task["annotations"][0]["result"]
