@@ -370,6 +370,19 @@ class Conversation(DatasetBase):
         null=True,
         blank=True,
     )
+    unverified_conversation_json = models.JSONField(
+        verbose_name="unverified_conversation_details",
+        help_text=("Details of the unverified conversation"),
+        null=True,
+        blank=True,
+    )
+    conversation_quality_status = models.CharField(
+        verbose_name="quality_status",
+        default="Unchecked",
+        max_length=32,
+        choices=QUALITY_CHOICES,
+        help_text=("Quality of the Sentence"),
+    )
 
     def __str__(self):
         return str(self.id)

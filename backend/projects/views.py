@@ -3295,12 +3295,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if (
                 project_type == "ConversationTranslation"
                 or project_type == "ConversationTranslationEditing"
+                or project_type == "ConversationVerification"
             ):
                 for task in tasks_list:
                     if project_type == "ConversationTranslation":
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
                         ).conversation_json
+                    elif project_type == "ConversationVerification":
+                        conversation_json = Conversation.objects.get(
+                            id__exact=task["input_data"]
+                        ).unverified_conversation_json
                     else:
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
@@ -3309,13 +3314,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         for idx2 in range(len(conversation_json[idx1]["sentences"])):
                             conversation_json[idx1]["sentences"][idx2] = ""
                     for result in task["annotations"][0]["result"]:
-                        to_name_list = result["to_name"].split("_")
-                        idx1 = int(to_name_list[1])
-                        idx2 = int(to_name_list[2])
-                        conversation_json[idx1]["sentences"][idx2] = ".".join(
-                            map(str, result["value"]["text"])
-                        )
-                    task["data"]["translated_conversation_json"] = conversation_json
+                        if result["to_name"] != "quality_status":
+                            to_name_list = result["to_name"].split("_")
+                            idx1 = int(to_name_list[1])
+                            idx2 = int(to_name_list[2])
+                            conversation_json[idx1]["sentences"][idx2] = ".".join(
+                                map(str, result["value"]["text"])
+                            )
+                        else:
+                            task["data"]["conversation_quality_status"] = result[
+                                "value"
+                            ]["choices"][0]
+                    if project_type == "ConversationVerification":
+                        task["data"]["verified_conversation_json"] = conversation_json
+                    else:
+                        task["data"]["translated_conversation_json"] = conversation_json
             elif dataset_type == "SpeechConversation":
                 for task in tasks_list:
                     annotation_result = task["annotations"][0]["result"]
@@ -3398,7 +3411,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if project.project_stage == REVIEW_STAGE:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[REVIEWED]
-                    ).exclude(correct_annotation__annotation_status="to_be_revised")
+                    )
+                elif project.project_stage == SUPERCHECK_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[SUPER_CHECKED]
+                    )
                 else:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[ANNOTATED]
@@ -3439,10 +3456,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         output_dataset_info["fields"]["copy_from_input"].values()
                     )
 
-                tasks = Task.objects.filter(
-                    project_id__exact=project,
-                    task_status__in=[REVIEWED],
-                ).exclude(correct_annotation__annotation_status="to_be_revised")
+                if project.project_stage == REVIEW_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[REVIEWED]
+                    )
+                elif project.project_stage == SUPERCHECK_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[SUPER_CHECKED]
+                    )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[ANNOTATED]
+                    )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK

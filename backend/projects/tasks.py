@@ -360,26 +360,39 @@ def export_project_in_place(
                         del ta_labels[idx]["labels"]
                     setattr(data_item, field, ta_labels)
                 elif field == "conversation_json":
-                    conversation_json = data_item.machine_translated_conversation_json
+                    if project.project_type == "ConversationVerification":
+                        conversation_json = data_item.unverified_conversation_json
+                    else:
+                        conversation_json = (
+                            data_item.machine_translated_conversation_json
+                        )
                     for idx1 in range(len(conversation_json)):
                         for idx2 in range(len(conversation_json[idx1]["sentences"])):
                             conversation_json[idx1]["sentences"][idx2] = ""
                     for result in tl["annotations"][0]["result"]:
-                        to_name_list = result["to_name"].split("_")
-                        idx1 = int(to_name_list[1])
-                        idx2 = int(to_name_list[2])
-                        conversation_json[idx1]["sentences"][idx2] = ".".join(
-                            map(str, result["value"]["text"])
-                        )
+                        if result["to_name"] != "quality_status":
+                            to_name_list = result["to_name"].split("_")
+                            idx1 = int(to_name_list[1])
+                            idx2 = int(to_name_list[2])
+                            conversation_json[idx1]["sentences"][idx2] = ".".join(
+                                map(str, result["value"]["text"])
+                            )
                     setattr(data_item, field, conversation_json)
                 elif field == "domain":
                     setattr(
                         data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0]
                     )
+                elif field == "conversation_quality_status":
+                    conversation_quality_status = ""
+                    for result in tl["annotations"][0]["result"]:
+                        if result["to_name"] == "quality_status":
+                            conversation_quality_status = result["value"]["choices"][0]
+                            break
+                    setattr(data_item, field, conversation_quality_status)
                 else:
                     setattr(data_item, field, ta[field])
             data_items.append(data_item)
-        except:
+        except Exception as e:
             export_excluded_task_ids.append(task.id)
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
