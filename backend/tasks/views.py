@@ -1319,6 +1319,7 @@ class AnnotationViewSet(
             ):
                 task.correct_annotation = annotation
                 parent = annotation.parent_annotation
+                parent.supercheck_notes = annotation.supercheck_notes
                 if supercheck_status == REJECTED:
                     parent.annotation_status = REJECTED
                     task.task_status = ANNOTATED
@@ -1329,7 +1330,7 @@ class AnnotationViewSet(
                     task.revision_loop_count = rev_loop_count
                 else:
                     task.task_status = SUPER_CHECKED
-                parent.save(update_fields=["annotation_status"])
+                parent.save(update_fields=["supercheck_notes", "annotation_status"])
                 task.save()
 
             if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
