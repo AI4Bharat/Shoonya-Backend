@@ -1137,6 +1137,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     del result["Annotated Tasks Word Count"]
                     del result["Reviewed Tasks Word Count"]
                     del result["Exported Tasks Word Count"]
+                    del result["SuperChecked Tasks Word Count"]
 
                 elif (
                     is_translation_project
@@ -1145,13 +1146,16 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     del result["Annotated Tasks Audio Duration"]
                     del result["Reviewed Tasks Audio Duration"]
                     del result["Exported Tasks Audio Duration"]
+                    del result["SuperChecked Tasks Audio Duration"]
                 else:
                     del result["Annotated Tasks Word Count"]
                     del result["Reviewed Tasks Word Count"]
                     del result["Exported Tasks Word Count"]
+                    del result["SuperChecked Tasks Word Count"]
                     del result["Annotated Tasks Audio Duration"]
                     del result["Reviewed Tasks Audio Duration"]
                     del result["Exported Tasks Audio Duration"]
+                    del result["SuperChecked Tasks Audio Duration"]
 
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
