@@ -222,26 +222,44 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         rejected_audio_duration_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             for anno in validated_objs:
-                validated_word_count_list.append(anno.task.data["word_count"])
+                try:
+                    validated_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
             for anno in validated_with_changes_objs:
-                validated_with_changes_word_count_list.append(
-                    anno.task.data["word_count"]
-                )
+                try:
+                    validated_with_changes_word_count_list.append(
+                        anno.task.data["word_count"]
+                    )
+                except:
+                    pass
             for anno in rejected_objs:
-                rejected_word_count_list.append(anno.task.data["word_count"])
+                try:
+                    rejected_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
         elif project_type in get_audio_project_types():
             for anno in validated_objs:
-                validated_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
+                try:
+                    validated_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
             for anno in validated_with_changes_objs:
-                validated_with_changes_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
+                try:
+                    validated_with_changes_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
             for anno in rejected_objs:
-                rejected_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
+                try:
+                    rejected_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
 
         validated_word_count = sum(validated_word_count_list)
         validated_with_changes_word_count = sum(validated_with_changes_word_count_list)
@@ -461,12 +479,18 @@ def get_review_reports(
         total_word_count_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             for anno in total_rev_annos_accepted:
-                total_word_count_list.append(anno.task.data["word_count"])
+                try:
+                    total_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
         elif project_type in get_audio_project_types():
             for anno in total_rev_annos_accepted:
-                total_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
+                try:
+                    total_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
 
         total_word_count = sum(total_word_count_list)
         total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
