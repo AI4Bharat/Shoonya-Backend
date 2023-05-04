@@ -40,6 +40,13 @@ class Workspace(models.Model, DummyModelMixin):
         null=True,
     )
 
+    frozen_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name="frozen_workspace_users",
+        blank=True,
+        help_text=("Frozen Workspace Users"),
+    )
+
     created_at = models.DateTimeField(verbose_name="created_at", auto_now_add=True)
 
     def __str__(self):

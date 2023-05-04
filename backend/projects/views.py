@@ -1099,7 +1099,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove")
     # TODO: Refactor code to handle better role access
-    def remove_annotator(self, request, pk=None):
+    def remove_annotator(self, request, pk=None, freeze_user=True):
         if "ids" in dict(request.data):
             ids = request.data.get("ids", "")
         else:
@@ -1149,7 +1149,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.save()
                 tasks.update(task_status="incomplete")  # unassign user from tasks
                 # project.annotators.remove(user)
-                project.frozen_users.add(user)
+                if freeze_user == True:
+                    project.frozen_users.add(user)
                 project.save()
             return Response(
                 {"message": "User removed from project"},
@@ -1168,7 +1169,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove_reviewer")
-    def remove_reviewer(self, request, pk=None):
+    def remove_reviewer(self, request, pk=None, freeze_user=True):
         if "ids" in dict(request.data):
             ids = request.data.get("ids", "")
         else:
@@ -1224,7 +1225,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     }
                     task.task_status = ANNOTATED
                     task.save()
-                project.frozen_users.add(user)
+                if freeze_user == True:
+                    project.frozen_users.add(user)
                 project.save()
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
@@ -1236,7 +1238,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove_superchecker")
-    def remove_superchecker(self, request, pk=None):
+    def remove_superchecker(self, request, pk=None, freeze_user=True):
         if "ids" in dict(request.data):
             ids = request.data.get("ids", "")
         else:
@@ -1289,7 +1291,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task.revision_loop_count = rev_loop_count
                     task.task_status = REVIEWED
                     task.save()
-                project.frozen_users.add(user)
+                if freeze_user == True:
+                    project.frozen_users.add(user)
                 project.save()
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK

@@ -10,6 +10,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
     managers = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
     users = UserProfileSerializer(read_only=True, many=True)
+    frozen_users = UserProfileSerializer(read_only=True, many=True)
 
     class Meta:
         model = Workspace
@@ -22,6 +23,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "created_by",
             "id",
             "created_at",
+            "frozen_users",
         ]
 
 
