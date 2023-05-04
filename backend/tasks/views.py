@@ -1151,6 +1151,10 @@ class AnnotationViewSet(
             annotation = Annotation.objects.get(pk=annotation_id)
             task = annotation.task
 
+            if annotation_status in [DRAFT, SKIPPED]:
+                task.task_status = INCOMPLETE
+                task.save()
+
             if annotation_status == LABELED and is_to_be_revised_task:
                 try:
                     review_annotation = Annotation.objects.get(
@@ -1227,6 +1231,10 @@ class AnnotationViewSet(
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
             task = annotation.task
+
+            if review_status in [DRAFT, SKIPPED]:
+                task.task_status = ANNOTATED
+                task.save()
 
             if (
                 review_status == ACCEPTED
@@ -1311,6 +1319,10 @@ class AnnotationViewSet(
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
             task = annotation.task
+
+            if supercheck_status in [DRAFT, SKIPPED]:
+                task.task_status = REVIEWED
+                task.save()
 
             if (
                 supercheck_status == VALIDATED
