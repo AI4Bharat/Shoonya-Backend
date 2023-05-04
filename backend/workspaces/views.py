@@ -28,7 +28,7 @@ from projects.utils import (
     get_audio_project_types,
     get_audio_transcription_duration,
 )
-
+from projects.views import ProjectViewSet
 
 from .serializers import (
     UnAssignManagerSerializer,
@@ -1302,8 +1302,54 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 )
             try:
                 user = User.objects.get(pk=user_id)
+                project_viewset = ProjectViewSet()
+
+                if user in workspace.frozen_users.all():
+                    return Response(
+                        {"message": "User is already frozen"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 if user in workspace.members.all():
-                    workspace.members.remove(user)
+                    request.data["ids"] = [
+                        user_id
+                    ]  # 'ids' key is used in remove_annotator and remove_reviewer functions
+
+                    annotation_projects = Project.objects.filter(
+                        annotators__in=[user_id]
+                    )
+                    for annotation_project in annotation_projects:
+                        pk = annotation_project.id
+                        response = project_viewset.remove_annotator(
+                            request, pk=pk, freeze_user=False
+                        )
+
+                    reviewer_projects = Project.objects.filter(
+                        annotation_reviewers__in=[user_id]
+                    )
+                    for reviewer_project in reviewer_projects:
+                        pk = reviewer_project.id
+                        response = project_viewset.remove_reviewer(
+                            request, pk=pk, freeze_user=False
+                        )
+
+                    superchecker_projects = Project.objects.filter(
+                        review_supercheckers__in=[user_id]
+                    )
+                    for superchecker_project in superchecker_projects:
+                        pk = superchecker_project.id
+                        response = project_viewset.remove_superchecker(
+                            request, pk=pk, freeze_user=False
+                        )
+
+                    for project in (
+                        annotation_projects | reviewer_projects | superchecker_projects
+                    ).distinct():
+                        project.frozen_users.add(user)
+                        project.save()
+
+                    workspace.frozen_users.add(user)
+                    # workspace.members.remove(user)
                     return Response(
                         {"message": "User removed successfully"},
                         status=status.HTTP_200_OK,
@@ -1320,6 +1366,73 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except ValueError:
+            return Response(
+                {"message": "Server Error occured"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_STRING, format="email")
+            },
+            required=["user_id"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Frozen User removed from the workspace",
+            400: "User not a frozen user of the workspace",
+            403: "Not authorized",
+            404: "Workspace not found",
+            500: "Server error",
+        },
+    )
+    @permission_classes((IsAuthenticated,))
+    @action(detail=True, methods=["post"], url_name="remove_frozen_user")
+    @is_particular_workspace_manager
+    def remove_frozen_user(self, request, pk=None):
+        if "user_id" in dict(request.data):
+            user_id = request.data.get("user_id", "")
+        else:
+            return Response(
+                {"message": "key does not match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            workspace = Workspace.objects.filter(pk=pk).first()
+            if not workspace:
+                return Response(
+                    {"message": "Workspace does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            user = User.objects.get(pk=user_id)
+            if user in workspace.frozen_users.all():
+                workspace.frozen_users.remove(user)
+                workspace.save()
+                return Response(
+                    {"message": "Frozen User removed from the workspace"},
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                return Response(
+                    {"message": "User is not frozen"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
             )
         except ValueError:
             return Response(
