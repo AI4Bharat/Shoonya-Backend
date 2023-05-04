@@ -93,6 +93,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     email = user.email
     project_obj = Project.objects.get(id=proj_id)
     proj_type = project_obj.project_type
+    proj_type_lower = proj_type.lower()
+    is_translation_project = True if "translation" in proj_type_lower else False
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
     if user in project_obj.frozen_users.all():
@@ -228,6 +230,27 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         ):
             tasks_rejected_max_times += 1
 
+    total_rev_annos_accepted = total_rev_annos.filter(
+        annotation_status__in=[
+            ACCEPTED,
+            ACCEPTED_WITH_MINOR_CHANGES,
+            ACCEPTED_WITH_MAJOR_CHANGES,
+        ]
+    )
+    total_audio_duration_list = []
+    total_word_count_list = []
+    if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+        for anno in total_rev_annos_accepted:
+            total_word_count_list.append(anno.task.data["word_count"])
+    elif proj_type in get_audio_project_types():
+        for anno in total_rev_annos_accepted:
+            total_audio_duration_list.append(
+                get_audio_transcription_duration(anno.result)
+            )
+
+    total_word_count = sum(total_word_count_list)
+    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+
     if project_obj.project_stage > REVIEW_STAGE:
         annotations_of_superchecker_validated = Annotation_model.objects.filter(
             task__project_id=proj_id,
@@ -291,6 +314,11 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "Tasks Rejected Maximum Time": tasks_rejected_max_times,
         }
 
+        if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+            result["Total Word Count"] = total_word_count
+        elif proj_type in get_audio_project_types():
+            result["Total Audio Duration"] = total_audio_duration
+
         return result
 
     result = {
@@ -307,6 +335,12 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
     }
+
+    if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+        result["Total Word Count"] = total_word_count
+    elif proj_type in get_audio_project_types():
+        result["Total Audio Duration"] = total_audio_duration
+
     return result
 
 
@@ -316,6 +350,8 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     email = user.email
     project_obj = Project.objects.get(id=proj_id)
     proj_type = project_obj.project_type
+    proj_type_lower = proj_type.lower()
+    is_translation_project = True if "translation" in proj_type_lower else False
     total_tasks = Task.objects.filter(project_id=proj_id, super_check_user=userid)
 
     if user in project_obj.frozen_users.all():
@@ -407,6 +443,46 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         ):
             tasks_rejected_max_times += 1
 
+    validated_word_count_list = []
+    validated_with_changes_word_count_list = []
+    rejected_word_count_list = []
+    validated_audio_duration_list = []
+    validated_with_changes_audio_duration_list = []
+    rejected_audio_duration_list = []
+    if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+        for anno in validated_objs:
+            validated_word_count_list.append(anno.task.data["word_count"])
+        for anno in validated_with_changes_objs:
+            validated_with_changes_word_count_list.append(anno.task.data["word_count"])
+        for anno in rejected_objs:
+            rejected_word_count_list.append(anno.task.data["word_count"])
+    elif proj_type in get_audio_project_types():
+        for anno in validated_objs:
+            validated_audio_duration_list.append(
+                get_audio_transcription_duration(anno.result)
+            )
+        for anno in validated_with_changes_objs:
+            validated_with_changes_audio_duration_list.append(
+                get_audio_transcription_duration(anno.result)
+            )
+        for anno in rejected_objs:
+            rejected_audio_duration_list.append(
+                get_audio_transcription_duration(anno.result)
+            )
+
+    validated_word_count = sum(validated_word_count_list)
+    validated_with_changes_word_count = sum(validated_with_changes_word_count_list)
+    rejected_word_count = sum(rejected_word_count_list)
+    validated_audio_duration = convert_seconds_to_hours(
+        sum(validated_audio_duration_list)
+    )
+    validated_with_changes_audio_duration = convert_seconds_to_hours(
+        sum(validated_with_changes_audio_duration_list)
+    )
+    rejected_audio_duration = convert_seconds_to_hours(
+        sum(rejected_audio_duration_list)
+    )
+
     result = {
         "SuperChecker Name": userName,
         "Email": email,
@@ -420,6 +496,17 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
     }
+    if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+        result["Validated Word Count"] = validated_word_count
+        result["Validated With Changes Word Count"] = validated_with_changes_word_count
+        result["Rejected Word Count"] = rejected_word_count
+    elif proj_type in get_audio_project_types():
+        result["Validated Audio Duration"] = validated_audio_duration
+        result[
+            "Validated With Changes Audio Duration"
+        ] = validated_with_changes_audio_duration
+        result["Rejected Audio Duration"] = rejected_audio_duration
+
     return result
 
 
