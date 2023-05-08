@@ -5,7 +5,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("projects", "0042_populate_project_stage_field"),
+        ("projects", "0041_auto_20230313_1307"),
     ]
 
     operations = [
