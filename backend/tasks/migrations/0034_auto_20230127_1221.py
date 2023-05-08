@@ -7,8 +7,6 @@ from tasks.models import Annotation, Task
 from tqdm import tqdm
 
 
-
-
 class Migration(migrations.Migration):
     dependencies = [
         ("tasks", "0033_delete_tasklock"),
@@ -35,5 +33,4 @@ class Migration(migrations.Migration):
                 verbose_name="annotation_status",
             ),
         ),
-        
     ]

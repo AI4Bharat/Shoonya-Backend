@@ -8,7 +8,6 @@ from tasks.views import SentenceOperationViewSet
 from tqdm import tqdm
 
 
-
 class Migration(migrations.Migration):
     dependencies = [
         ("tasks", "0034_auto_20230127_1221"),
