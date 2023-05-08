@@ -5,7 +5,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("users", "0024_roles_value_update"),
+        ("users", "0023_alter_user_role"),
     ]
 
     operations = [

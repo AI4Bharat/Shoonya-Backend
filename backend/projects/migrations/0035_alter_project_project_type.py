@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("projects", "0034_published_at_populate_migration"),
+        ("projects", "0033_project_published_at"),
     ]
 
     operations = [

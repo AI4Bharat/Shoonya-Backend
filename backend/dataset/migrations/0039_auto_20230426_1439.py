@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("dataset", "0038_translation_pair_domain_field_populate"),
+        ("dataset", "0037_translationpair_domain"),
     ]
 
     operations = [
