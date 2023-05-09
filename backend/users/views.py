@@ -80,7 +80,8 @@ class InviteViewSet(viewsets.ViewSet):
         Invite users to join your organization. This generates a new invite
         with an invite code or adds users to an existing one.
         """
-        emails = request.data.get("emails")
+        all_emails = request.data.get("emails")
+        distinct_emails = list(set(all_emails))
         organization_id = request.data.get("organization_id")
         users = []
         try:
@@ -89,17 +90,20 @@ class InviteViewSet(viewsets.ViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
+        already_existing_emails = []
         valid_user_emails = []
         invalid_emails = []
-        try:
-            org = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist:
-            return Response(
-                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        for email in emails:
+        invites = Invite.objects.all()
+        existing_emails = [invite.user.email for invite in invites]
+        existing_emails_set = set()
+        for existing_email in existing_emails:
+            existing_emails_set.add(existing_email)
+        for email in distinct_emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
+                if email in existing_emails_set:
+                    already_existing_emails.append(email)
+                    continue
                 try:
                     user = User(
                         username=generate_random_string(12),
@@ -114,23 +118,32 @@ class InviteViewSet(viewsets.ViewSet):
                     pass
             else:
                 invalid_emails.append(email)
-        if len(valid_user_emails) <= 0:
+        # setting error messages
+        additional_message_for_existing_emails, additional_message_for_invalid_emails = "", ""
+        additional_message_for_valid_emails = ""
+        if already_existing_emails:
+            additional_message_for_existing_emails += f", Invites already sent to: {','.join(already_existing_emails)}"
+        if invalid_emails:
+            additional_message_for_invalid_emails += f", Invalid emails: {','.join(invalid_emails)}"
+        if valid_user_emails:
+            additional_message_for_valid_emails += f", Invites sent to : {','.join(valid_user_emails)}"
+        if len(valid_user_emails) == 0:
             return Response(
-                {"message": "No valid emails found"}, status=status.HTTP_400_BAD_REQUEST
+                {"message": "No invites sent" + additional_message_for_invalid_emails +
+                            additional_message_for_existing_emails},
+                status=status.HTTP_400_BAD_REQUEST
             )
-        if len(invalid_emails) == 0:
-            ret_dict = {"message": "Invites sent"}
-            ret_status = status.HTTP_201_CREATED
+        elif len(invalid_emails) == 0:
+            ret_dict = {"message": "Invites sent" + additional_message_for_valid_emails +
+                                   additional_message_for_existing_emails}
         else:
             ret_dict = {
-                "message": f"Invites sent partially! Invalid emails: {','.join(invalid_emails)}"
+                "message": f"Invites sent partially!" + additional_message_for_valid_emails +
+                           additional_message_for_invalid_emails + additional_message_for_existing_emails
             }
-            ret_status = status.HTTP_201_CREATED
-
         users = User.objects.bulk_create(users)
-
         Invite.create_invite(organization=org, users=users)
-        return Response(ret_dict, status=status.HTTP_200_OK)
+        return Response(ret_dict, status=status.HTTP_201_CREATED)
 
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserSignUpSerializer)
