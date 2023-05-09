@@ -1261,7 +1261,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Reviewed Tasks Word Count": total_word_reviewed_count,
                     "Exported Tasks Word Count": total_word_exported_count,
                     "SuperChecked Tasks Word Count": total_word_superchecked_count,
-                    "Project Progress(Reviewed/Total)": round(project_progress, 3),
+                    "Project Progress": round(project_progress, 3),
                 }
 
                 if project_type in get_audio_project_types():
@@ -1372,10 +1372,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
 
             workspace_reviewer_list = []
+            review_projects_ids = []
             for review_project in review_projects:
                 reviewer_names_list = review_project.annotation_reviewers.all()
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 workspace_reviewer_list.extend(reviewer_ids)
+                review_projects_ids.append(review_project.id)
 
             workspace_reviewer_list = list(set(workspace_reviewer_list))
             final_reports = []
@@ -1387,7 +1389,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             ):
                 for id in workspace_reviewer_list:
                     reviewer_projs = Project.objects.filter(
-                        workspace_id=pk, annotation_reviewers=id
+                        workspace_id=pk,
+                        annotation_reviewers=id,
+                        id__in=review_projects_ids,
                     )
                     reviewer_projs_ids = [
                         review_proj.id for review_proj in reviewer_projs
@@ -1404,7 +1408,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     final_reports.append(result)
             elif user_id in workspace_reviewer_list:
                 reviewer_projs = Project.objects.filter(
-                    workspace_id=pk, annotation_reviewers=user_id
+                    workspace_id=pk,
+                    annotation_reviewers=user_id,
+                    id__in=review_projects_ids,
                 )
                 reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
 
@@ -1433,10 +1439,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             ]
 
             workspace_superchecker_list = []
+            supercheck_projects_ids = []
             for supercheck_project in supercheck_projects:
                 superchecker_names_list = supercheck_project.review_supercheckers.all()
                 superchecker_ids = [name.id for name in superchecker_names_list]
                 workspace_superchecker_list.extend(superchecker_ids)
+                supercheck_projects_ids.append(supercheck_project.id)
 
             workspace_superchecker_list = list(set(workspace_superchecker_list))
             final_reports = []
@@ -1448,7 +1456,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             ):
                 for id in workspace_superchecker_list:
                     superchecker_projs = Project.objects.filter(
-                        workspace_id=pk, review_supercheckers=id
+                        workspace_id=pk,
+                        review_supercheckers=id,
+                        id__in=supercheck_projects_ids,
                     )
                     superchecker_projs_ids = [
                         supercheck_proj.id for supercheck_proj in superchecker_projs
@@ -1460,7 +1470,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     final_reports.append(result)
             elif user_id in workspace_superchecker_list:
                 superchecker_projs = Project.objects.filter(
-                    workspace_id=pk, review_supercheckers=id
+                    workspace_id=pk,
+                    review_supercheckers=id,
+                    id__in=supercheck_projects_ids,
                 )
                 superchecker_projs_ids = [
                     supercheck_proj.id for supercheck_proj in superchecker_projs
@@ -1653,7 +1665,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 completed_by=each_annotation_user,
             ).count()
 
-            if project_progress_stage == REVIEW_STAGE:
+            if (
+                project_progress_stage != None
+                and project_progress_stage > ANNOTATION_STAGE
+            ):
                 result = {
                     "Annotator": name,
                     "Email": email,
@@ -1699,9 +1714,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
                 del result["Total Audio Duration"]
+                del result["Avg Segment Duration"]
+                del result["Average Segments Per Task"]
             else:
                 del result["Word Count"]
                 del result["Total Audio Duration"]
+                del result["Avg Segment Duration"]
+                del result["Average Segments Per Task"]
 
             final_result.append(result)
         return Response(final_result)
