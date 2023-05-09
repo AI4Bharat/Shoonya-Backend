@@ -4,7 +4,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework import status
-from tasks.models import Task
+from tasks.models import (
+    Task,
+    ANNOTATOR_ANNOTATION,
+    REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
+)
 from datetime import datetime
 from .models import Organization
 from .serializers import OrganizationSerializer
@@ -21,7 +26,11 @@ from datetime import datetime, timezone, timedelta
 import pandas as pd
 from dateutil import relativedelta
 import calendar
-from workspaces.views import get_review_reports, un_pack_annotation_tasks
+from workspaces.views import (
+    get_review_reports,
+    un_pack_annotation_tasks,
+    get_supercheck_reports,
+)
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 import csv
@@ -35,6 +44,7 @@ from projects.utils import (
     get_translation_dataset_project_types,
     convert_hours_to_seconds,
     get_audio_transcription_duration,
+    get_audio_segments_count,
 )
 
 
@@ -142,7 +152,7 @@ def get_counts(
     )
     assigned_tasks = all_tasks_in_project.count()
 
-    if project_progress_stage == REVIEW_STAGE:
+    if project_progress_stage != None and project_progress_stage > ANNOTATION_STAGE:
         (
             accepted,
             to_be_revised,
@@ -152,6 +162,8 @@ def get_counts(
             avg_lead_time,
             total_word_count,
             total_duration,
+            avg_segment_duration,
+            avg_segments_per_task,
         ) = un_pack_annotation_tasks(
             proj_ids,
             annotator,
@@ -165,7 +177,7 @@ def get_counts(
         labeled_annotations = Annotation.objects.filter(
             task__project_id__in=proj_ids,
             annotation_status="labeled",
-            parent_annotation_id__isnull=True,
+            annotation_type=ANNOTATOR_ANNOTATION,
             created_at__range=[start_date, end_date],
             completed_by=annotator,
         )
@@ -193,26 +205,37 @@ def get_counts(
         total_duration = "0:00:00"
         if project_type in get_audio_project_types():
             total_duration_list = []
+            total_audio_segments_list = []
             for each_task in labeled_annotations:
                 try:
                     total_duration_list.append(
                         get_audio_transcription_duration(each_task.result)
                     )
+                    total_audio_segments_list.append(
+                        get_audio_segments_count(each_task.result)
+                    )
                 except:
                     pass
             total_duration = convert_seconds_to_hours(sum(total_duration_list))
+            total_audio_segments = sum(total_audio_segments_list)
+            try:
+                avg_segment_duration = total_duration / total_audio_segments
+                avg_segments_per_task = total_audio_segments / len(labeled_annotations)
+            except:
+                avg_segment_duration = 0
+                avg_segments_per_task = 0
 
     total_skipped_tasks = Annotation.objects.filter(
         task__project_id__in=proj_ids,
         annotation_status="skipped",
-        parent_annotation_id__isnull=True,
+        annotation_type=ANNOTATOR_ANNOTATION,
         created_at__range=[start_date, end_date],
         completed_by=annotator,
     )
     all_pending_tasks_in_project = Annotation.objects.filter(
         task__project_id__in=proj_ids,
         annotation_status="unlabeled",
-        parent_annotation_id__isnull=True,
+        annotation_type=ANNOTATOR_ANNOTATION,
         created_at__range=[start_date, end_date],
         completed_by=annotator,
     )
@@ -220,7 +243,7 @@ def get_counts(
     all_draft_tasks_in_project = Annotation.objects.filter(
         task__project_id__in=proj_ids,
         annotation_status="draft",
-        parent_annotation_id__isnull=True,
+        annotation_type=ANNOTATOR_ANNOTATION,
         created_at__range=[start_date, end_date],
         completed_by=annotator,
     )
@@ -241,6 +264,8 @@ def get_counts(
         no_of_workspaces_objs,
         total_word_count,
         total_duration,
+        avg_segment_duration,
+        avg_segments_per_task,
     )
 
 
@@ -251,6 +276,7 @@ def get_translation_quality_reports(
     start_date,
     end_date,
     is_translation_project,
+    project_progress_stage=None,
     tgt_language=None,
 ):
     if not is_translation_project:
@@ -265,14 +291,14 @@ def get_translation_quality_reports(
         projects_objs = Project.objects.filter(
             organization_id_id=pk,
             project_type=project_type,
-            project_stage=REVIEW_STAGE,
+            project_stage=project_progress_stage,
             annotators=annotator,
         )
     else:
         projects_objs = Project.objects.filter(
             organization_id_id=pk,
             project_type=project_type,
-            project_stage=REVIEW_STAGE,
+            project_stage=project_progress_stage,
             tgt_language=tgt_language,
             annotators=annotator,
         )
@@ -287,7 +313,7 @@ def get_translation_quality_reports(
             "accepted_with_major_changes",
         ],
         task__project_id__in=proj_ids,
-        parent_annotation_id__isnull=False,
+        annotation_type=REVIEWER_ANNOTATION,
         created_at__range=[start_date, end_date],
     )
 
@@ -395,12 +421,12 @@ def get_translation_quality_reports(
         except:
             char_score_error_count += 1
 
-    if len(accepted_with_changes_tasks) > 0:
+    if len(accepted_with_changes_tasks) + accepted_count > 0:
         accepted_with_change_minus_bleu_score_error = (
-            len(accepted_with_changes_tasks) - bleu_score_error_count
+            len(accepted_with_changes_tasks) + accepted_count - bleu_score_error_count
         )
         accepted_with_change_minus_char_score_error = (
-            len(accepted_with_changes_tasks) - char_score_error_count
+            len(accepted_with_changes_tasks) + accepted_count - char_score_error_count
         )
 
         if accepted_with_change_minus_bleu_score_error == 0:
@@ -709,11 +735,24 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             proj_objs = Project.objects.filter(organization_id=pk)
             if project_type != None:
                 proj_objs = proj_objs.filter(project_type=project_type)
-            review_projects = [
-                pro for pro in proj_objs if pro.project_stage == REVIEW_STAGE
-            ]
+            if project_progress_stage == None:
+                review_projects = [
+                    pro for pro in proj_objs if pro.project_stage > ANNOTATION_STAGE
+                ]
+            elif project_progress_stage in [REVIEW_STAGE, SUPERCHECK_STAGE]:
+                review_projects = [
+                    pro
+                    for pro in proj_objs
+                    if pro.project_stage == project_progress_stage
+                ]
+            else:
+                final_response = {
+                    "message": "Annotation stage projects don't have review reports."
+                }
+                return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
 
             org_reviewer_list = []
+            review_projects_ids = []
             for review_project in review_projects:
                 reviewer_names_list = review_project.annotation_reviewers.all()
                 reviewer_ids = [
@@ -722,6 +761,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     if (name.participation_type == 1 or name.participation_type == 2)
                 ]
                 org_reviewer_list.extend(reviewer_ids)
+                review_projects_ids.append(review_project.id)
 
             org_reviewer_list = list(set(org_reviewer_list))
 
@@ -734,32 +774,99 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             ):
                 for id in org_reviewer_list:
                     reviewer_projs = Project.objects.filter(
-                        organization_id=pk, annotation_reviewers=id
+                        organization_id=pk,
+                        annotation_reviewers=id,
+                        id__in=review_projects_ids,
                     )
-                    if project_type != None:
-                        reviewer_projs = reviewer_projs.filter(
-                            project_type=project_type
-                        )
                     reviewer_projs_ids = [
                         review_proj.id for review_proj in reviewer_projs
                     ]
 
                     result = get_review_reports(
-                        reviewer_projs_ids, id, start_date, end_date
+                        reviewer_projs_ids,
+                        id,
+                        start_date,
+                        end_date,
+                        project_progress_stage,
+                        project_type,
                     )
                     final_reports.append(result)
             elif user_id in org_reviewer_list:
                 reviewer_projs = Project.objects.filter(
-                    organization_id=pk, annotation_reviewers=user_id
+                    organization_id=pk,
+                    annotation_reviewers=user_id,
+                    id__in=review_projects_ids,
                 )
-                if project_type != None:
-                    reviewer_projs = reviewer_projs.filter(project_type=project_type)
                 reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
 
                 result = get_review_reports(
-                    reviewer_projs_ids, user_id, start_date, end_date
+                    reviewer_projs_ids,
+                    user_id,
+                    start_date,
+                    end_date,
+                    project_progress_stage,
+                    project_type,
                 )
                 final_reports.append(result)
+            else:
+                final_reports = {
+                    "message": "You do not have enough permissions to access this view!"
+                }
+
+            return Response(final_reports)
+        elif reports_type == "supercheck":
+            proj_objs = Project.objects.filter(organization_id=pk)
+            if project_type != None:
+                proj_objs = proj_objs.filter(project_type=project_type)
+            supercheck_projects = [
+                pro for pro in proj_objs if pro.project_stage > REVIEW_STAGE
+            ]
+
+            workspace_superchecker_list = []
+            supercheck_projects_ids = []
+            for supercheck_project in supercheck_projects:
+                superchecker_names_list = supercheck_project.review_supercheckers.all()
+                superchecker_ids = [name.id for name in superchecker_names_list]
+                workspace_superchecker_list.extend(superchecker_ids)
+                supercheck_projects_ids.append(supercheck_project.id)
+
+            workspace_superchecker_list = list(set(workspace_superchecker_list))
+            final_reports = []
+
+            if (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.role == User.WORKSPACE_MANAGER
+                or request.user.is_superuser
+            ):
+                for id in workspace_superchecker_list:
+                    superchecker_projs = Project.objects.filter(
+                        organization_id=pk,
+                        review_supercheckers=id,
+                        id__in=supercheck_projects_ids,
+                    )
+                    superchecker_projs_ids = [
+                        supercheck_proj.id for supercheck_proj in superchecker_projs
+                    ]
+
+                    result = get_supercheck_reports(
+                        superchecker_projs_ids, id, start_date, end_date, project_type
+                    )
+                    final_reports.append(result)
+            elif user_id in workspace_superchecker_list:
+                superchecker_projs = Project.objects.filter(
+                    organization_id=pk,
+                    review_supercheckers=id,
+                    id__in=supercheck_projects_ids,
+                )
+                superchecker_projs_ids = [
+                    supercheck_proj.id for supercheck_proj in superchecker_projs
+                ]
+
+                result = get_supercheck_reports(
+                    superchecker_projs_ids, user_id, start_date, end_date, project_type
+                )
+                final_reports.append(result)
+
             else:
                 final_reports = {
                     "message": "You do not have enough permissions to access this view!"
@@ -840,6 +947,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 no_of_workspaces_objs,
                 total_word_count,
                 total_duration,
+                avg_segment_duration,
+                avg_segments_per_task,
             ) = get_counts(
                 pk,
                 annotator,
@@ -851,7 +960,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 None if tgt_language == None else tgt_language,
             )
 
-            if project_progress_stage == REVIEW_STAGE:
+            if (
+                project_progress_stage != None
+                and project_progress_stage > ANNOTATION_STAGE
+            ):
                 temp_result = {
                     "Annotator": name,
                     "Email": email,
@@ -872,7 +984,31 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
                     "User Role": role,
+                    "Avg Segment Duration": round(avg_segment_duration, 2),
+                    "Average Segments Per Task": round(avg_segments_per_task, 2),
                 }
+                if project_type != None and is_translation_project:
+                    (
+                        all_reviewd_tasks_count,
+                        accepted_count,
+                        reviewed_except_accepted,
+                        minor_changes_count,
+                        major_changes_count,
+                        avg_char_score,
+                        avg_bleu_score,
+                        avrg_lead_time,
+                    ) = get_translation_quality_reports(
+                        pk,
+                        annotator,
+                        project_type,
+                        start_date,
+                        end_date,
+                        is_translation_project,
+                        project_progress_stage,
+                        tgt_language,
+                    )
+                    temp_result["Average Bleu Score"] = avg_bleu_score
+                    temp_result["Avergae Char Score"] = avg_char_score
             else:
                 temp_result = {
                     "Annotator": name,
@@ -890,6 +1026,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
                     "User Role": role,
+                    "Avg Segment Duration": round(avg_segment_duration, 2),
+                    "Average Segments Per Task": round(avg_segments_per_task, 2),
                 }
 
             if project_type in get_audio_project_types():
@@ -899,9 +1037,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
                 del temp_result["Total Audio Duration"]
+                del result["Avg Segment Duration"]
+                del result["Average Segments Per Task"]
             else:
                 del temp_result["Word Count"]
                 del temp_result["Total Audio Duration"]
+                del result["Avg Segment Duration"]
+                del result["Average Segments Per Task"]
             result.append(temp_result)
         final_result = sorted(
             result, key=lambda x: x[sort_by_column_name], reverse=descending_order
@@ -1029,9 +1171,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 )
                 exported_count = exported_tasks.count()
 
+                superchecked_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="super_checked"
+                )
+                superchecked_count = superchecked_tasks.count()
+
                 total_word_annotated_count_list = []
                 total_word_reviewed_count_list = []
                 total_word_exported_count_list = []
+                total_word_superchecked_count_list = []
                 if (
                     is_translation_project
                     or project_type == "SemanticTextualSimilarity_Scale5"
@@ -1058,13 +1206,22 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             )
                         except:
                             pass
+                    for each_task in superchecked_tasks:
+                        try:
+                            total_word_superchecked_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
                 total_word_annotated_count = sum(total_word_annotated_count_list)
                 total_word_reviewed_count = sum(total_word_reviewed_count_list)
                 total_word_exported_count = sum(total_word_exported_count_list)
+                total_word_superchecked_count = sum(total_word_superchecked_count_list)
 
                 total_duration_annotated_count_list = []
                 total_duration_reviewed_count_list = []
                 total_duration_exported_count_list = []
+                total_duration_superchecked_count_list = []
                 if project_type in get_audio_project_types():
                     for each_task in labeled_tasks:
                         try:
@@ -1101,6 +1258,18 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             )
                         except:
                             pass
+                    for each_task in superchecked_tasks:
+                        try:
+                            supercheck_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                            )[0]
+                            total_duration_superchecked_count_list.append(
+                                get_audio_transcription_duration(
+                                    supercheck_annotation.result
+                                )
+                            )
+                        except:
+                            pass
 
                 total_duration_annotated_count = convert_seconds_to_hours(
                     sum(total_duration_annotated_count_list)
@@ -1111,11 +1280,25 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 total_duration_exported_count = convert_seconds_to_hours(
                     sum(total_duration_exported_count_list)
                 )
+                total_duration_superchecked_count = convert_seconds_to_hours(
+                    sum(total_duration_superchecked_count_list)
+                )
 
                 if total_tasks == 0:
                     project_progress = 0.0
                 else:
-                    project_progress = (reviewed_count / total_tasks) * 100
+                    if proj.project_stage == ANNOTATION_STAGE:
+                        project_progress = (
+                            (labeled_count + exported_count) / total_tasks
+                        ) * 100
+                    elif proj.project_stage == REVIEW_STAGE:
+                        project_progress = (
+                            (reviewed_count + exported_count) / total_tasks
+                        ) * 100
+                    else:
+                        project_progress = (
+                            (superchecked_count + exported_count) / total_tasks
+                        ) * 100
 
                 result = {
                     "Project Id": project_id,
@@ -1127,19 +1310,23 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Incomplete": incomplete_count,
                     "Reviewed": reviewed_count,
                     "Exported": exported_count,
+                    "SuperChecked": superchecked_count,
                     "Annotated Tasks Audio Duration": total_duration_annotated_count,
                     "Reviewed Tasks Audio Duration": total_duration_reviewed_count,
                     "Exported Tasks Audio Duration": total_duration_exported_count,
+                    "SuperChecked Tasks Audio Duration": total_duration_superchecked_count,
                     "Annotated Tasks Word Count": total_word_annotated_count,
                     "Reviewed Tasks Word Count": total_word_reviewed_count,
                     "Exported Tasks Word Count": total_word_exported_count,
-                    "Project Progress(Reviewed/Total)": round(project_progress, 3),
+                    "SuperChecked Tasks Word Count": total_word_superchecked_count,
+                    "Project Progress": round(project_progress, 3),
                 }
 
                 if project_type in get_audio_project_types():
                     del result["Annotated Tasks Word Count"]
                     del result["Reviewed Tasks Word Count"]
                     del result["Exported Tasks Word Count"]
+                    del result["SuperChecked Tasks Word Count"]
 
                 elif (
                     is_translation_project
@@ -1148,13 +1335,16 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     del result["Annotated Tasks Audio Duration"]
                     del result["Reviewed Tasks Audio Duration"]
                     del result["Exported Tasks Audio Duration"]
+                    del result["SuperChecked Tasks Audio Duration"]
                 else:
                     del result["Annotated Tasks Word Count"]
                     del result["Reviewed Tasks Word Count"]
                     del result["Exported Tasks Word Count"]
+                    del result["SuperChecked Tasks Word Count"]
                     del result["Annotated Tasks Audio Duration"]
                     del result["Reviewed Tasks Audio Duration"]
                     del result["Exported Tasks Audio Duration"]
+                    del result["SuperChecked Tasks Audio Duration"]
 
                 final_result.append(result)
         return Response(final_result)
