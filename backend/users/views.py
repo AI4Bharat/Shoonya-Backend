@@ -119,27 +119,44 @@ class InviteViewSet(viewsets.ViewSet):
             else:
                 invalid_emails.append(email)
         # setting error messages
-        additional_message_for_existing_emails, additional_message_for_invalid_emails = "", ""
+        (
+            additional_message_for_existing_emails,
+            additional_message_for_invalid_emails,
+        ) = ("", "")
         additional_message_for_valid_emails = ""
         if already_existing_emails:
-            additional_message_for_existing_emails += f", Invites already sent to: {','.join(already_existing_emails)}"
+            additional_message_for_existing_emails += (
+                f", Invites already sent to: {','.join(already_existing_emails)}"
+            )
         if invalid_emails:
-            additional_message_for_invalid_emails += f", Invalid emails: {','.join(invalid_emails)}"
+            additional_message_for_invalid_emails += (
+                f", Invalid emails: {','.join(invalid_emails)}"
+            )
         if valid_user_emails:
-            additional_message_for_valid_emails += f", Invites sent to : {','.join(valid_user_emails)}"
+            additional_message_for_valid_emails += (
+                f", Invites sent to : {','.join(valid_user_emails)}"
+            )
         if len(valid_user_emails) == 0:
             return Response(
-                {"message": "No invites sent" + additional_message_for_invalid_emails +
-                            additional_message_for_existing_emails},
-                status=status.HTTP_400_BAD_REQUEST
+                {
+                    "message": "No invites sent"
+                    + additional_message_for_invalid_emails
+                    + additional_message_for_existing_emails
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
         elif len(invalid_emails) == 0:
-            ret_dict = {"message": "Invites sent" + additional_message_for_valid_emails +
-                                   additional_message_for_existing_emails}
+            ret_dict = {
+                "message": "Invites sent"
+                + additional_message_for_valid_emails
+                + additional_message_for_existing_emails
+            }
         else:
             ret_dict = {
-                "message": f"Invites sent partially!" + additional_message_for_valid_emails +
-                           additional_message_for_invalid_emails + additional_message_for_existing_emails
+                "message": f"Invites sent partially!"
+                + additional_message_for_valid_emails
+                + additional_message_for_invalid_emails
+                + additional_message_for_existing_emails
             }
         users = User.objects.bulk_create(users)
         Invite.create_invite(organization=org, users=users)
