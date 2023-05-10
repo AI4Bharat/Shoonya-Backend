@@ -6,7 +6,7 @@ import tasks.models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("tasks", "0040_populate_annotation_type"),
+        ("tasks", "0039_annotation_annotation_type"),
     ]
 
     operations = [
