@@ -165,9 +165,7 @@ class InviteViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @permission_classes((IsAuthenticated,))
     @is_organization_owner
-    @action(
-        detail=False, methods=["post"], url_path="regenerate", url_name="re_invite"
-    )
+    @action(detail=False, methods=["post"], url_path="regenerate", url_name="re_invite")
     def re_invite(self, request):
         """
         The invited user are again invited if they have not accepted the
@@ -182,7 +180,12 @@ class InviteViewSet(viewsets.ViewSet):
             existing_emails_set.add(existing_email)
         # absent_users- for those who have never been invited
         # present_users- for those who have been invited earlier
-        absent_user_emails, present_users, present_user_emails, already_accepted_invite = [], [], [], []
+        (
+            absent_user_emails,
+            present_users,
+            present_user_emails,
+            already_accepted_invite,
+        ) = ([], [], [], [])
         for user_email in distinct_emails:
             if user_email in existing_emails_set:
                 user = User.objects.get(email=user_email)
@@ -196,26 +199,55 @@ class InviteViewSet(viewsets.ViewSet):
         if present_users:
             Invite.re_invite(users=present_users)
         # setting up error messages
-        message_for_already_invited, message_for_absent_users, message_for_present_users = "", "", ""
+        (
+            message_for_already_invited,
+            message_for_absent_users,
+            message_for_present_users,
+        ) = ("", "", "")
         if already_accepted_invite:
-            message_for_already_invited = f" {','.join(already_accepted_invite)} have already accepted invite"
+            message_for_already_invited = (
+                f" {','.join(already_accepted_invite)} have already accepted invite"
+            )
         if absent_user_emails:
-            message_for_absent_users = f"Kindly send a new invite to: {','.join(absent_user_emails)}"
+            message_for_absent_users = (
+                f"Kindly send a new invite to: {','.join(absent_user_emails)}"
+            )
         if present_user_emails:
             message_for_present_users = f"{','.join(present_user_emails)} re-invited"
 
         if absent_user_emails and present_user_emails:
-            return Response({"message": message_for_absent_users + ", " + message_for_present_users + "." +
-                             message_for_already_invited},
-                            status=status.HTTP_201_CREATED)
+            return Response(
+                {
+                    "message": message_for_absent_users
+                    + ", "
+                    + message_for_present_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_201_CREATED,
+            )
         elif absent_user_emails:
-            return Response({"message": message_for_absent_users + "." + message_for_already_invited},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "message": message_for_absent_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         elif present_user_emails:
-            return Response({"message": message_for_present_users + "." + message_for_already_invited},
-                            status=status.HTTP_201_CREATED)
+            return Response(
+                {
+                    "message": message_for_present_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_201_CREATED,
+            )
         else:
-            return Response({"message": message_for_already_invited}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"message": message_for_already_invited}, status=status.HTTP_201_CREATED
+            )
 
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserSignUpSerializer)
