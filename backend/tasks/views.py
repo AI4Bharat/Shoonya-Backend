@@ -1120,6 +1120,15 @@ class AnnotationViewSet(
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(final_result, status=ret_status)
 
+        if annotation_obj.annotation_type == REVIEWER_ANNOTATION:
+            is_revised = False
+            if annotation_obj.annotation_status == TO_BE_REVISED:
+                is_revised = True
+        elif annotation_obj.annotation_type == SUPER_CHECKER_ANNOTATION:
+            is_rejected = False
+            if annotation_obj.annotation_type == REJECTED:
+                is_rejected = True
+
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
@@ -1252,7 +1261,10 @@ class AnnotationViewSet(
                     parent.annotation_status = TO_BE_REVISED
                     task.task_status = INCOMPLETE
                     rev_loop_count = task.revision_loop_count
-                    rev_loop_count["review_count"] = 1 + rev_loop_count["review_count"]
+                    if not is_revised:
+                        rev_loop_count["review_count"] = (
+                            1 + rev_loop_count["review_count"]
+                        )
                     task.revision_loop_count = rev_loop_count
                 else:
                     task.task_status = REVIEWED
@@ -1267,6 +1279,18 @@ class AnnotationViewSet(
                         pass
                 parent.save(update_fields=["review_notes", "annotation_status"])
                 task.save()
+
+            if review_status in [
+                ACCEPTED,
+                ACCEPTED_WITH_MAJOR_CHANGES,
+                ACCEPTED_WITH_MINOR_CHANGES,
+                SKIPPED,
+                DRAFT,
+            ]:
+                parent = annotation.parent_annotation
+                if (parent.annotation_status) not in [LABELED]:
+                    parent.annotation_status = LABELED
+                    parent.save(update_fields=["annotation_status"])
 
             if review_status in [UNREVIEWED, DRAFT, SKIPPED, TO_BE_REVISED]:
                 task.correct_annotation = None
@@ -1336,14 +1360,29 @@ class AnnotationViewSet(
                     parent.annotation_status = REJECTED
                     task.task_status = ANNOTATED
                     rev_loop_count = task.revision_loop_count
-                    rev_loop_count["super_check_count"] = (
-                        1 + rev_loop_count["super_check_count"]
-                    )
+                    if not is_rejected:
+                        rev_loop_count["super_check_count"] = (
+                            1 + rev_loop_count["super_check_count"]
+                        )
                     task.revision_loop_count = rev_loop_count
                 else:
                     task.task_status = SUPER_CHECKED
                 parent.save(update_fields=["supercheck_notes", "annotation_status"])
                 task.save()
+
+            if supercheck_status in [VALIDATED, VALIDATED_WITH_CHANGES, SKIPPED, DRAFT]:
+                parent = annotation.parent_annotation
+                grand_parent = parent.parent_annotation
+                if (parent.annotation_status) not in [
+                    ACCEPTED,
+                    ACCEPTED_WITH_MAJOR_CHANGES,
+                    ACCEPTED_WITH_MINOR_CHANGES,
+                ]:
+                    parent.annotation_status = ACCEPTED
+                    parent.save(update_fields=["annotation_status"])
+                if (grand_parent.annotation_status) not in [LABELED]:
+                    grand_parent.annotation_status = LABELED
+                    grand_parent.save(update_fields=["annotation_status"])
 
             if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
                 task.correct_annotation = None
