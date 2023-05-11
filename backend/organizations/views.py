@@ -1039,13 +1039,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
                 del temp_result["Total Audio Duration"]
-                del result["Avg Segment Duration"]
-                del result["Average Segments Per Task"]
+                del temp_result["Avg Segment Duration"]
+                del temp_result["Average Segments Per Task"]
             else:
                 del temp_result["Word Count"]
                 del temp_result["Total Audio Duration"]
-                del result["Avg Segment Duration"]
-                del result["Average Segments Per Task"]
+                del temp_result["Avg Segment Duration"]
+                del temp_result["Average Segments Per Task"]
             result.append(temp_result)
         final_result = sorted(
             result, key=lambda x: x[sort_by_column_name], reverse=descending_order
