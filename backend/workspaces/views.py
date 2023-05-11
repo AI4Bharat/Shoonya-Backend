@@ -693,7 +693,6 @@ def un_pack_annotation_tasks(
     total_word_count = 0
     if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
         total_word_count_list = []
-        total_audio_segments_list = []
         for each_task in labeled_annotations:
             try:
                 total_word_count_list.append(each_task.task.data["word_count"])
@@ -706,6 +705,7 @@ def un_pack_annotation_tasks(
     avg_segments_per_task = 0
     if project_type in get_audio_project_types():
         total_duration_list = []
+        total_audio_segments_list = []
         for each_task in labeled_annotations:
             try:
                 total_duration_list.append(
