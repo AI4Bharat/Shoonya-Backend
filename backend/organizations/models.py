@@ -143,6 +143,18 @@ class Invite(models.Model):
     #     return False
 
     @classmethod
+    def re_invite(cls, users=None):
+        with transaction.atomic():
+            for user in users:
+                invite = Invite.objects.get(user=user)
+                send_mail(
+                    "Invitation to join Organization",
+                    f"Hello! You are invited to {invite.organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                )
+
+    @classmethod
     def generate_invite_code(cls):
         return "".join(
             secrets.choice(string.ascii_uppercase + string.digits) for i in range(10)
