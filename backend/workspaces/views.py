@@ -21,7 +21,7 @@ from tasks.models import (
 from projects.utils import is_valid_date
 from datetime import datetime
 from users.serializers import UserFetchSerializer
-from users.views import get_role_name
+from users.utils import get_role_name
 from projects.utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,

@@ -36,7 +36,7 @@ from drf_yasg.utils import swagger_auto_schema
 import csv
 from django.http import StreamingHttpResponse
 from tasks.views import SentenceOperationViewSet
-from users.views import get_role_name
+from users.utils import get_role_name
 from projects.utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,
