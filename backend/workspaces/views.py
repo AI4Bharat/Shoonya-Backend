@@ -1618,6 +1618,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                     total_word_count = sum(total_word_count_list)
                 total_duration = "0:00:00"
+                avg_segment_duration = 0
+                avg_segments_per_task = 0
                 if project_type in get_audio_project_types():
                     total_duration_list = []
                     total_audio_segments_list = []
