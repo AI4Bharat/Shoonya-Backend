@@ -505,7 +505,7 @@ class UserViewSet(viewsets.ViewSet):
             elif get_role_name(new_role) == "Admin":
                 user.is_superuser = True
                 user.save()
-            
+
             elif get_role_name(old_role) == "Admin":
                 user.is_superuser = False
                 user.save()
