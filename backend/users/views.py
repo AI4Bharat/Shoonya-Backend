@@ -464,9 +464,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
             project_type = request["project_type"]
 
         review_reports = False
-
+        supercheck_reports = False
         if reports_type == "review":
             review_reports = True
+        elif reports_type == "supercheck":
+            supercheck_reports = True
         start_date = start_date + " 00:00"
         end_date = end_date + " 23:59"
 
@@ -513,6 +515,16 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     annotation_reviewers=user_id,
                     project_type=project_type,
                 )
+        elif supercheck_reports:
+            if project_type == "all":
+                project_objs = Project.objects.filter(  # Not using the project_type filter if it is set to "all"
+                    review_supercheckers=user_id,
+                )
+            else:
+                project_objs = Project.objects.filter(
+                    review_supercheckers=user_id,
+                    project_type=project_type,
+                )
         else:
             if project_type == "all":
                 project_objs = Project.objects.filter(
@@ -545,6 +557,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                         task_status__in=[
                             "reviewed",
                             "exported",
+                            "super_checked",
                         ]
                     )
                 )
@@ -558,6 +571,27 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
+            elif supercheck_reports:
+                labeld_tasks_objs = Task.objects.filter(
+                    Q(project_id=proj.id)
+                    & Q(super_check_user=user_id)
+                    & Q(
+                        task_status__in=[
+                            "exported",
+                            "super_checked",
+                        ]
+                    )
+                )
+
+                annotated_task_ids = list(
+                    labeld_tasks_objs.values_list("id", flat=True)
+                )
+                annotated_labeled_tasks = Annotation.objects.filter(
+                    task_id__in=annotated_task_ids,
+                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                    updated_at__range=[start_date, end_date],
+                    completed_by=user_id,
+                )
             else:
                 labeld_tasks_objs = Task.objects.filter(
                     Q(project_id=proj.id)
@@ -567,6 +601,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                             "annotated",
                             "reviewed",
                             "exported",
+                            "super_checked",
                         ]
                     )
                 )
@@ -622,14 +657,24 @@ class AnalyticsViewSet(viewsets.ViewSet):
             result = {
                 "Project Name": project_name,
                 (
-                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    "Reviewed Tasks"
+                    if review_reports
+                    else (
+                        "SuperChecked Tasks"
+                        if supercheck_reports
+                        else "Annotated Tasks"
+                    )
                 ): annotated_tasks_count,
                 "Word Count": total_word_count,
                 "Total Audio Duration": total_duration,
                 (
                     "Avg Review Time (sec)"
                     if review_reports
-                    else "Avg Annotation Time (sec)"
+                    else (
+                        "Avg SuperCheck Time (sec)"
+                        if supercheck_reports
+                        else "Avg Annotation Time (sec)"
+                    )
                 ): avg_lead_time,
             }
 
@@ -641,13 +686,34 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 del result["Word Count"]
                 del result["Total Audio Duration"]
 
-            if result[("Reviewed Tasks" if review_reports else "Annotated Tasks")] > 0:
+            if (
+                result[
+                    (
+                        "Reviewed Tasks"
+                        if review_reports
+                        else (
+                            "SuperChecked Tasks"
+                            if supercheck_reports
+                            else "Annotated Tasks"
+                        )
+                    )
+                ]
+                > 0
+            ):
                 project_wise_summary.append(result)
 
         project_wise_summary = sorted(
             project_wise_summary,
             key=lambda x: x[
-                ("Reviewed Tasks" if review_reports else "Annotated Tasks")
+                (
+                    "Reviewed Tasks"
+                    if review_reports
+                    else (
+                        "SuperChecked Tasks"
+                        if supercheck_reports
+                        else "Annotated Tasks"
+                    )
+                )
             ],
             reverse=True,
         )
@@ -663,7 +729,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         total_result = {
             (
-                "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                "Reviewed Tasks"
+                if review_reports
+                else ("SuperChecked Tasks" if supercheck_reports else "Annotated Tasks")
             ): total_annotated_tasks_count,
             "Word Count": all_tasks_word_count,
             "Total Audio Duration": convert_seconds_to_hours(
@@ -672,7 +740,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
             (
                 "Avg Review Time (sec)"
                 if review_reports
-                else "Avg Annotation Time (sec)"
+                else (
+                    "Avg SuperCheck Time (sec)"
+                    if supercheck_reports
+                    else "Avg Annotation Time (sec)"
+                )
             ): round(all_annotated_lead_time_count, 2),
         }
         if project_type_lower != "all" and project_type in get_audio_project_types():
