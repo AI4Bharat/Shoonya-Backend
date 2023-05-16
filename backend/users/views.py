@@ -42,30 +42,11 @@ from projects.utils import (
 from datetime import datetime
 from django.conf import settings
 from django.core.mail import send_mail
+from workspaces.views import WorkspaceCustomViewSet
+from .utils import generate_random_string, get_role_name
 
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-
-
-def generate_random_string(length=12):
-    return "".join(
-        secrets.choice(string.ascii_uppercase + string.digits) for i in range(length)
-    )
-
-
-def get_role_name(num):
-    if num == 1:
-        return "Annotator"
-    elif num == 2:
-        return "Reviewer"
-    elif num == 3:
-        return "Workspace Manager"
-    elif num == 4:
-        return "Organization Owner"
-    elif num == 5:
-        return "Admin"
-    else:
-        return "Role Not Defined"
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -161,6 +142,93 @@ class InviteViewSet(viewsets.ViewSet):
         users = User.objects.bulk_create(users)
         Invite.create_invite(organization=org, users=users)
         return Response(ret_dict, status=status.HTTP_201_CREATED)
+
+    @swagger_auto_schema(request_body=InviteGenerationSerializer)
+    @permission_classes((IsAuthenticated,))
+    @is_organization_owner
+    @action(detail=False, methods=["post"], url_path="regenerate", url_name="re_invite")
+    def re_invite(self, request):
+        """
+        The invited user are again invited if they have not accepted the
+        invitation previously.
+        """
+        all_emails = request.data.get("emails")
+        distinct_emails = list(set(all_emails))
+        invites = Invite.objects.all()
+        existing_emails = [invite.user.email for invite in invites]
+        existing_emails_set = set()
+        for existing_email in existing_emails:
+            existing_emails_set.add(existing_email)
+        # absent_users- for those who have never been invited
+        # present_users- for those who have been invited earlier
+        (
+            absent_user_emails,
+            present_users,
+            present_user_emails,
+            already_accepted_invite,
+        ) = ([], [], [], [])
+        for user_email in distinct_emails:
+            if user_email in existing_emails_set:
+                user = User.objects.get(email=user_email)
+                if user.has_accepted_invite:
+                    already_accepted_invite.append(user_email)
+                    continue
+                present_users.append(user)
+                present_user_emails.append(user_email)
+            else:
+                absent_user_emails.append(user_email)
+        if present_users:
+            Invite.re_invite(users=present_users)
+        # setting up error messages
+        (
+            message_for_already_invited,
+            message_for_absent_users,
+            message_for_present_users,
+        ) = ("", "", "")
+        if already_accepted_invite:
+            message_for_already_invited = (
+                f" {','.join(already_accepted_invite)} have already accepted invite"
+            )
+        if absent_user_emails:
+            message_for_absent_users = (
+                f"Kindly send a new invite to: {','.join(absent_user_emails)}"
+            )
+        if present_user_emails:
+            message_for_present_users = f"{','.join(present_user_emails)} re-invited"
+
+        if absent_user_emails and present_user_emails:
+            return Response(
+                {
+                    "message": message_for_absent_users
+                    + ", "
+                    + message_for_present_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        elif absent_user_emails:
+            return Response(
+                {
+                    "message": message_for_absent_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        elif present_user_emails:
+            return Response(
+                {
+                    "message": message_for_present_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        else:
+            return Response(
+                {"message": message_for_already_invited}, status=status.HTTP_201_CREATED
+            )
 
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserSignUpSerializer)
@@ -415,11 +483,42 @@ class UserViewSet(viewsets.ViewSet):
             )
         user = User.objects.get(id=pk)
         serializer = UserUpdateSerializer(user, request.data, partial=True)
+
+        if request.data["role"] != user.role:
+            new_role = int(request.data["role"])
+            old_role = int(user.role)
+
+            if get_role_name(old_role) == "Workspace Manager" and get_role_name(
+                new_role
+            ) in ("Annotator", "Reviewer", "Super Checker"):
+                workspaces_viewset = WorkspaceCustomViewSet()
+                request.data["ids"] = [user.id]
+                workspaces = Workspace.objects.filter(managers__in=[user])
+                for workspace in workspaces:
+                    response = workspaces_viewset.unassign_manager(
+                        request=request, pk=workspace.id
+                    )
+                    if user not in workspace.members.all():
+                        workspace.members.add(user)
+                        workspace.save()
+
+            elif get_role_name(new_role) == "Admin":
+                user.is_superuser = True
+                user.save()
+
+            elif get_role_name(old_role) == "Admin":
+                user.is_superuser = False
+                user.save()
+
         if serializer.is_valid():
             serializer.save()
             return Response(
                 {"message": "User details edited"}, status=status.HTTP_200_OK
             )
+        return Response(
+            {"message": "Error in updating user details"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class AnalyticsViewSet(viewsets.ViewSet):

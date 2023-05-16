@@ -67,7 +67,7 @@ from .utils import (
 )
 
 from workspaces.decorators import is_particular_workspace_manager
-from users.views import generate_random_string
+from users.utils import generate_random_string
 
 # Create your views here.
 
