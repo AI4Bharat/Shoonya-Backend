@@ -42,30 +42,11 @@ from projects.utils import (
 from datetime import datetime
 from django.conf import settings
 from django.core.mail import send_mail
+from workspaces.views import WorkspaceCustomViewSet
+from .utils import generate_random_string, get_role_name
 
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-
-
-def generate_random_string(length=12):
-    return "".join(
-        secrets.choice(string.ascii_uppercase + string.digits) for i in range(length)
-    )
-
-
-def get_role_name(num):
-    if num == 1:
-        return "Annotator"
-    elif num == 2:
-        return "Reviewer"
-    elif num == 3:
-        return "Workspace Manager"
-    elif num == 4:
-        return "Organization Owner"
-    elif num == 5:
-        return "Admin"
-    else:
-        return "Role Not Defined"
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -502,11 +483,42 @@ class UserViewSet(viewsets.ViewSet):
             )
         user = User.objects.get(id=pk)
         serializer = UserUpdateSerializer(user, request.data, partial=True)
+
+        if request.data["role"] != user.role:
+            new_role = int(request.data["role"])
+            old_role = int(user.role)
+
+            if get_role_name(old_role) == "Workspace Manager" and get_role_name(
+                new_role
+            ) in ("Annotator", "Reviewer", "Super Checker"):
+                workspaces_viewset = WorkspaceCustomViewSet()
+                request.data["ids"] = [user.id]
+                workspaces = Workspace.objects.filter(managers__in=[user])
+                for workspace in workspaces:
+                    response = workspaces_viewset.unassign_manager(
+                        request=request, pk=workspace.id
+                    )
+                    if user not in workspace.members.all():
+                        workspace.members.add(user)
+                        workspace.save()
+
+            elif get_role_name(new_role) == "Admin":
+                user.is_superuser = True
+                user.save()
+
+            elif get_role_name(old_role) == "Admin":
+                user.is_superuser = False
+                user.save()
+
         if serializer.is_valid():
             serializer.save()
             return Response(
                 {"message": "User details edited"}, status=status.HTTP_200_OK
             )
+        return Response(
+            {"message": "Error in updating user details"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class AnalyticsViewSet(viewsets.ViewSet):
