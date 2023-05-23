@@ -11,10 +11,12 @@ from rest_framework.decorators import permission_classes
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .serializers import (
+    UserLoginSerializer,
     UserProfileSerializer,
     UserSignUpSerializer,
     UserUpdateSerializer,
     LanguageSerializer,
+    ChangePasswordSerializer,
 )
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
@@ -44,7 +46,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
-
+from rest_framework_simplejwt.tokens import RefreshToken
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
@@ -260,6 +262,55 @@ class InviteViewSet(viewsets.ViewSet):
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
+
+    @permission_classes([AllowAny])
+    @swagger_auto_schema(request_body=UserLoginSerializer)
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="login",
+        url_name="login",
+    )
+    def login(self, request, *args, **kwargs):
+        """
+        User login functionality
+        """
+
+        try:
+            email = request.data.get("email")
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found. Enter correct email id."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = UserLoginSerializer(user, request.data)
+        serializer.is_valid(raise_exception=True)
+
+        response = serializer.validate_login(serializer.validated_data)
+        if response != "Correct password":
+            return Response(
+                {"message": "Incorrect Password."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not user.is_active:
+            return Response(
+                {"message": "User is inactive."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        return Response(
+            {
+                "message": "Logged in successfully.",
+                "refresh": refresh_token,
+                "access": access_token,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserViewSet(viewsets.ViewSet):
@@ -518,6 +569,50 @@ class UserViewSet(viewsets.ViewSet):
         return Response(
             {"message": "Error in updating user details"},
             status=status.HTTP_403_FORBIDDEN,
+        )
+
+    @swagger_auto_schema(request_body=ChangePasswordSerializer)
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path="update_my_password",
+        url_name="update_my_password",
+    )
+    def update_password(self, request, pk=None, *args, **kwargs):
+        """
+        Update user password
+        """
+
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ChangePasswordSerializer(user, request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not serializer.match_old_password(user, request.data):
+            return Response(
+                {
+                    "message": "Your old password was entered incorrectly. Please enter it again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        validation_response = serializer.validation_checks(
+            user, request.data
+        )  # checks for min_length, whether password is similar to user details etc.
+        if validation_response != "Validation successful":
+            return Response(
+                {"message": validation_response},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = serializer.save(user, request.data)
+        return Response(
+            {"message": "User password changed."}, status=status.HTTP_200_OK
         )
 
 
