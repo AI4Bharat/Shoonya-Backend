@@ -1,5 +1,7 @@
 from projects.registry_helper import ProjectRegistry
 from dataset import models as dataset_models
+from users.utils import generate_random_string
+from dataset.models import SpeechConversation
 
 ANNOTATION_REGISTRY_DICT={
     "MonolingualTranslation":{
@@ -111,9 +113,82 @@ ANNOTATION_REGISTRY_DICT={
 
 }
 
+def convert_prediction_json_to_annotation_result(prediction_json,speakers_json,audio_duration):
+    """
+    Convert prediction_json and transcribed_json to annotation_result
+    """
 
+    result = []
+    if prediction_json == None:
+        return result
+
+    for idx, val in enumerate(prediction_json):
+        label_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "labels",
+            "original_length": audio_duration,
+        }
+        text_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "transcribed_json",
+            "original_length": audio_duration,
+        }
+        id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+        label_dict["id"] = id
+        text_dict["id"] = id
+        label_dict["type"] = "labels"
+        text_dict["type"] = "textarea"
+
+        value_labels = {
+            "start": val["start"],
+            "end": val["end"],
+            "labels": [
+                next(
+                    speaker
+                    for speaker in speakers_json
+                    if speaker["speaker_id"] == val["speaker_id"]
+                )["name"]
+            ],
+        }
+        value_text = {"start": val["start"], "end": val["end"], "text": [val["text"]]}
+
+        label_dict["value"] = value_labels
+        text_dict["value"] = value_text
+
+        result.append(label_dict)
+        result.append(text_dict)
+
+    return result
+
+
+def convert_conversation_json_to_annotation_result(conversation_json):
+    result=[]
+    for i in range(len(conversation_json)):
+        for j in range(len(conversation_json[i]["sentences"])):
+            text_dict={
+                
+            }
 
 def draft_data_json_to_annotation_result(draft_data_json,project_type,pk=None):
     registry_helper=ProjectRegistry.get_instance()
     input_dataset_info=registry_helper.get_input_dataset_and_fields(project_type)
     dataset_model=getattr(dataset_models,input_dataset_info["dataset_type"])
+    dataset_item=dataset_model.objects.get(pk=pk)
+
+    for field,value in draft_data_json:
+        if field=="output_text":
+            pass
+        elif field=="rating":
+            pass
+        elif field=="corrected_text":
+            pass
+        elif field=="quality_status" or field=="conversation_quality_status":
+            pass
+        elif field=="domain":
+            pass
+        elif field=="conversation_json":
+            pass
+        elif field=="transcribed_json" or field=="prediction_json":
+            pass
