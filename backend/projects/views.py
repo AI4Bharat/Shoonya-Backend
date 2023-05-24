@@ -3086,6 +3086,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_403_FORBIDDEN,
                     )
                 else:
+                    project.project_stage = ANNOTATION_STAGE
+                    project.save()
                     tasks = Task.objects.filter(project_id=project.id)
                     # get all review tasks
                     reviewed_tasks = tasks.filter(task_status__in=[REVIEWED])
@@ -3102,8 +3104,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         if len(anns) > 0:
                             tas.correct_annotation = anns[0]
                         tas.save()
-                    project.project_stage = ANNOTATION_STAGE
-                    project.save()
                     return Response(
                         {"message": "Task moved to Annotation stage from Review stage"},
                         status=status.HTTP_200_OK,
@@ -3154,6 +3154,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         status=status.HTTP_200_OK,
                     )
                 else:
+                    project.project_stage = REVIEW_STAGE
+                    project.save()
                     # (REVIEWED,EXPORTED,SUPERCHECKED)
                     # (SUPERCHECKED->REVIEWED)
                     tasks = Task.objects.filter(project_id=project.id)
@@ -3170,8 +3172,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         if len(anns) > 0:
                             tas.correct_annotation = anns[0]
                         tas.save()
-                    project.project_stage = REVIEW_STAGE
-                    project.save()
                     return Response(
                         {
                             "message": "Project moved to Review stage from SuperCheck stage"
