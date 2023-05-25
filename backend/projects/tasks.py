@@ -230,10 +230,12 @@ def create_parameters_for_task_creation(
         try:
             batch_number = sampling_parameters["batch_number"]
         except KeyError:
-            batch_number = 1
-        sampled_items = filtered_items[
-            batch_size * (batch_number - 1) : batch_size * (batch_number)
-        ]
+            batch_number = [1]
+        sampled_items = []
+        for batch_num in batch_number:
+            sampled_items += filtered_items[
+                batch_size * (batch_num - 1) : batch_size * batch_num
+            ]
     else:
         sampled_items = filtered_items
     # Load the project object using the project id
