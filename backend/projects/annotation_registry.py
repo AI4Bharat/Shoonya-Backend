@@ -167,28 +167,66 @@ def convert_conversation_json_to_annotation_result(conversation_json):
     result=[]
     for i in range(len(conversation_json)):
         for j in range(len(conversation_json[i]["sentences"])):
+            id=f"shoonya_{i}s{j}s{generate_random_string(15-len(str(i))-len(str(j)))}"
             text_dict={
-                
+                "id":id,
+                "type":"textarea",
+                "value":{
+                    "text":[
+                        conversation_json[i]["sentences"][j]
+                    ]
+                },
+                "origin":"manual",
+                "to_name":f"dialog_{i}_{j}",
+                "from_name":f"output_{i}_{j}"
             }
+            result.append(text_dict)
+    
+    return result
+
 
 def draft_data_json_to_annotation_result(draft_data_json,project_type,pk=None):
     registry_helper=ProjectRegistry.get_instance()
     input_dataset_info=registry_helper.get_input_dataset_and_fields(project_type)
     dataset_model=getattr(dataset_models,input_dataset_info["dataset_type"])
-    dataset_item=dataset_model.objects.get(pk=pk)
-
-    for field,value in draft_data_json:
-        if field=="output_text":
-            pass
-        elif field=="rating":
-            pass
-        elif field=="corrected_text":
-            pass
-        elif field=="quality_status" or field=="conversation_quality_status":
-            pass
-        elif field=="domain":
-            pass
-        elif field=="conversation_json":
-            pass
+    try:
+        dataset_item=dataset_model.objects.get(pk=pk)
+    except:
+        pass
+    result=[]
+    idx=0
+    for field,value in draft_data_json.items():
+        id = f"shoonya_{idx}g{generate_random_string(13-len(str(idx)))}"
+        field_dict={
+            "id":id,
+            "origin":"manual",
+            "type":ANNOTATION_REGISTRY_DICT[project_type][field]["type"],
+            "to_name":ANNOTATION_REGISTRY_DICT[project_type][field]["to_name"],
+            "from_name":ANNOTATION_REGISTRY_DICT[project_type][field]["from_name"]
+        }
+        field_type=ANNOTATION_REGISTRY_DICT[project_type][field]["type"]
+        ans=[]
+        if field=="conversation_json":
+            ans=convert_conversation_json_to_annotation_result(value)
         elif field=="transcribed_json" or field=="prediction_json":
-            pass
+            ans=convert_prediction_json_to_annotation_result(value,dataset_item.speakers_json,dataset_item.audio_duration)
+        else:
+            if field_type=="textarea":
+                field_dict["value"]={
+                    "text":[value]
+                }
+            elif field_type=="choices":
+                field_dict["value"]={
+                    "choices":[value]
+                }
+            elif field_type=="taxonomy":
+                field_dict["value"]={
+                    "taxonomy":[value.split(",")]
+                }
+            
+            ans.append(field_dict)
+        
+        result.extend(ans)
+        idx+=1
+
+    return result
