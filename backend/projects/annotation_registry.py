@@ -113,7 +113,7 @@ ANNOTATION_REGISTRY_DICT={
 
 }
 
-def convert_prediction_json_to_annotation_result(prediction_json,speakers_json,audio_duration):
+def convert_prediction_json_to_annotation_result(prediction_json,speakers_json,audio_duration,index):
     """
     Convert prediction_json and transcribed_json to annotation_result
     """
@@ -135,7 +135,7 @@ def convert_prediction_json_to_annotation_result(prediction_json,speakers_json,a
             "from_name": "transcribed_json",
             "original_length": audio_duration,
         }
-        id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+        id = f"shoonya_{index}s{idx}s{generate_random_string(13-len(str(idx)))}"
         label_dict["id"] = id
         text_dict["id"] = id
         label_dict["type"] = "labels"
@@ -163,11 +163,11 @@ def convert_prediction_json_to_annotation_result(prediction_json,speakers_json,a
     return result
 
 
-def convert_conversation_json_to_annotation_result(conversation_json):
+def convert_conversation_json_to_annotation_result(conversation_json,idx):
     result=[]
     for i in range(len(conversation_json)):
         for j in range(len(conversation_json[i]["sentences"])):
-            id=f"shoonya_{i}s{j}s{generate_random_string(15-len(str(i))-len(str(j)))}"
+            id=f"shoonya_{idx}s{i}s{j}s{generate_random_string(15-len(str(i))-len(str(j)))}"
             text_dict={
                 "id":id,
                 "type":"textarea",
@@ -207,9 +207,9 @@ def draft_data_json_to_annotation_result(draft_data_json,project_type,pk=None):
         field_type=ANNOTATION_REGISTRY_DICT[project_type][field]["type"]
         ans=[]
         if field=="conversation_json":
-            ans=convert_conversation_json_to_annotation_result(value)
+            ans=convert_conversation_json_to_annotation_result(value,idx)
         elif field=="transcribed_json" or field=="prediction_json":
-            ans=convert_prediction_json_to_annotation_result(value,dataset_item.speakers_json,dataset_item.audio_duration)
+            ans=convert_prediction_json_to_annotation_result(value,dataset_item.speakers_json,dataset_item.audio_duration,idx)
         else:
             if field_type=="textarea":
                 field_dict["value"]={
