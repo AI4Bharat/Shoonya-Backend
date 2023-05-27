@@ -1816,13 +1816,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
-            )
+            ).count()
             if annotator_anno_count < project.required_annotators_per_task:
                 cur_user_anno_count = Annotation_model.objects.filter(
                     task_id=task,
                     annotation_type=ANNOTATOR_ANNOTATION,
                     completed_by=cur_user,
-                )
+                ).count()
                 if cur_user_anno_count == 0:
                     base_annotation_obj = Annotation_model(
                         result=result,
@@ -2077,7 +2077,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
             reviewer_anno_count = Annotation_model.objects.filter(
                 task_id=task_id, annotation_type=REVIEWER_ANNOTATION
-            )
+            ).count()
             if reviewer_anno_count == 0:
                 base_annotation_obj = Annotation_model(
                     result=[],
@@ -2300,7 +2300,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
             superchecker_anno_count = Annotation_model.objects.filter(
                 task_id=task_id, annotation_type=SUPER_CHECKER_ANNOTATION
-            )
+            ).count()
             if superchecker_anno_count == 0:
                 base_annotation_obj = Annotation_model(
                     result=[],
