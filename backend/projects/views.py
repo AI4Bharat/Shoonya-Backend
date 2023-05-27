@@ -1830,6 +1830,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         completed_by=cur_user,
                     )
                     base_annotation_obj.save()
+            else:
+                cur_user_anno_count = Annotation_model.objects.filter(
+                    task_id=task,
+                    annotation_type=ANNOTATOR_ANNOTATION,
+                    completed_by=cur_user,
+                ).count()
+                if cur_user_anno_count == 0:
+                    task.annotation_users.remove(cur_user)
+                    task.save()
         project.release_lock(ANNOTATION_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -2075,6 +2084,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 .filter(annotation_type=ANNOTATOR_ANNOTATION)
                 .order_by("-updated_at")
             )
+            reviewer_anno = Annotation_model.objects.filter(
+                task_id=task_id, annotation_type=REVIEWER_ANNOTATION
+            )
             reviewer_anno_count = Annotation_model.objects.filter(
                 task_id=task_id, annotation_type=REVIEWER_ANNOTATION
             ).count()
@@ -2088,6 +2100,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     annotation_type=REVIEWER_ANNOTATION,
                 )
                 base_annotation_obj.save()
+            else:
+                task.review_user = reviewer_anno[0].completed_by
+                task.save()
         project.release_lock(REVIEW_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -2298,6 +2313,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 .filter(annotation_type=REVIEWER_ANNOTATION)
                 .order_by("-updated_at")
             )
+            superchecker_anno = Annotation_model.objects.filter(
+                task_id=task_id, annotation_type=SUPER_CHECKER_ANNOTATION
+            )
             superchecker_anno_count = Annotation_model.objects.filter(
                 task_id=task_id, annotation_type=SUPER_CHECKER_ANNOTATION
             ).count()
@@ -2311,6 +2329,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     annotation_type=SUPER_CHECKER_ANNOTATION,
                 )
                 base_annotation_obj.save()
+            else:
+                task.super_check_user = superchecker_anno[0].completed_by
+                task.save()
         project.release_lock(SUPERCHECK_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
