@@ -1578,6 +1578,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Read project details from api request
         project_type = request.data.get("project_type")
         project_mode = request.data.get("project_mode")
+        automatic_annotation_creation_mode = request.data.get(
+            "automatic_annotation_creation_mode"
+        )
 
         if project_mode == Collection:
             # Create project object
@@ -1618,6 +1621,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 sampling_parameters=sampling_parameters,
                 variable_parameters=variable_parameters,
                 project_id=project_id,
+                automatic_annotation_creation_mode=automatic_annotation_creation_mode,
             )
         # Return the project response
         return project_response
