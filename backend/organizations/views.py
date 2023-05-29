@@ -36,7 +36,7 @@ from drf_yasg.utils import swagger_auto_schema
 import csv
 from django.http import StreamingHttpResponse
 from tasks.views import SentenceOperationViewSet
-from users.views import get_role_name
+from users.utils import get_role_name
 from projects.utils import (
     minor_major_accepted_task,
     convert_seconds_to_hours,
@@ -203,6 +203,8 @@ def get_counts(
             total_word_count = sum(total_word_count_list)
 
         total_duration = "0:00:00"
+        avg_segment_duration = 0
+        avg_segments_per_task = 0
         if project_type in get_audio_project_types():
             total_duration_list = []
             total_audio_segments_list = []
@@ -1037,13 +1039,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
                 del temp_result["Total Audio Duration"]
-                del result["Avg Segment Duration"]
-                del result["Average Segments Per Task"]
+                del temp_result["Avg Segment Duration"]
+                del temp_result["Average Segments Per Task"]
             else:
                 del temp_result["Word Count"]
                 del temp_result["Total Audio Duration"]
-                del result["Avg Segment Duration"]
-                del result["Average Segments Per Task"]
+                del temp_result["Avg Segment Duration"]
+                del temp_result["Average Segments Per Task"]
             result.append(temp_result)
         final_result = sorted(
             result, key=lambda x: x[sort_by_column_name], reverse=descending_order
