@@ -192,33 +192,36 @@ def draft_data_json_to_annotation_result(draft_data_json, project_type, pk=None)
     result = []
     idx = 0
     for field, value in draft_data_json.items():
-        id = f"shoonya_{idx}g{generate_random_string(13-len(str(idx)))}"
-        field_dict = {
-            "id": id,
-            "origin": "manual",
-            "type": ANNOTATION_REGISTRY_DICT[project_type][field]["type"],
-            "to_name": ANNOTATION_REGISTRY_DICT[project_type][field]["to_name"],
-            "from_name": ANNOTATION_REGISTRY_DICT[project_type][field]["from_name"],
-        }
-        field_type = ANNOTATION_REGISTRY_DICT[project_type][field]["type"]
-        ans = []
-        if field == "conversation_json":
-            ans = convert_conversation_json_to_annotation_result(value, idx)
-        elif field == "transcribed_json" or field == "prediction_json":
-            ans = convert_prediction_json_to_annotation_result(
-                value, dataset_item.speakers_json, dataset_item.audio_duration, idx
-            )
-        else:
-            if field_type == "textarea":
-                field_dict["value"] = {"text": [value]}
-            elif field_type == "choices":
-                field_dict["value"] = {"choices": [value]}
-            elif field_type == "taxonomy":
-                field_dict["value"] = {"taxonomy": [value.split(",")]}
+        try:
+            id = f"shoonya_{idx}g{generate_random_string(13-len(str(idx)))}"
+            field_dict = {
+                "id": id,
+                "origin": "manual",
+                "type": ANNOTATION_REGISTRY_DICT[project_type][field]["type"],
+                "to_name": ANNOTATION_REGISTRY_DICT[project_type][field]["to_name"],
+                "from_name": ANNOTATION_REGISTRY_DICT[project_type][field]["from_name"],
+            }
+            field_type = ANNOTATION_REGISTRY_DICT[project_type][field]["type"]
+            ans = []
+            if field == "conversation_json":
+                ans = convert_conversation_json_to_annotation_result(value, idx)
+            elif field == "transcribed_json" or field == "prediction_json":
+                ans = convert_prediction_json_to_annotation_result(
+                    value, dataset_item.speakers_json, dataset_item.audio_duration, idx
+                )
+            else:
+                if field_type == "textarea":
+                    field_dict["value"] = {"text": [value]}
+                elif field_type == "choices":
+                    field_dict["value"] = {"choices": [value]}
+                elif field_type == "taxonomy":
+                    field_dict["value"] = {"taxonomy": [value.split(",")]}
 
-            ans.append(field_dict)
+                ans.append(field_dict)
 
-        result.extend(ans)
-        idx += 1
+            result.extend(ans)
+            idx += 1
+        except:
+            pass
 
     return result
