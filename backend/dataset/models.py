@@ -138,6 +138,14 @@ class DatasetBase(models.Model):
             "Metadata having details related to the annotation tasks or functions this data was involved in"
         ),
     )
+    draft_data_json = models.JSONField(
+        verbose_name="draft_data_json",
+        null=True,
+        blank=True,
+        help_text=(
+            "Json data having annotation field  information and data regarding externally annotated data"
+        ),
+    )
 
     # class Meta:
     #     """Django definition of abstract model"""
