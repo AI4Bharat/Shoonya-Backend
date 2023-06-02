@@ -392,16 +392,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         parent_annotator_annotation.append("-")
                         parent_annotator_mail.append("-")
 
-                # task_ids = [an.task_id for an in ann_filter1]
-                # annotation_status = [an.annotation_status for an in ann_filter1]
-                # user_mail = [an.completed_by.email for an in ann_filter1]
-                # annotator_mail = [
-                #     Annotation.objects.filter(id=an.parent_annotation_id)[
-                #         0
-                #     ].completed_by.email
-                #     for an in ann_filter1
-                # ]
-
                 ordered_tasks = []
                 final_dict = {}
                 for idx, ids in enumerate(task_ids):
@@ -555,21 +545,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         annotator_mail.append(annotator_object.completed_by.email)
                     else:
                         annotator_mail.append("-")
-                # task_ids = [an.task_id for an in ann_filter1]
-                # annotation_status = [an.annotation_status for an in ann_filter1]
-                # user_mail = [an.completed_by.email for an in ann_filter1]
-                # reviewer_mail = [
-                #     Annotation.objects.filter(id=an.parent_annotation_id)[
-                #         0
-                #     ].completed_by.email
-                #     for an in ann_filter1
-                # ]
-                # annotator_mail = [
-                #     Annotation.objects.filter(
-                #         id=an.parent_annotation.parent_annotation_id
-                #     )[0].completed_by.email
-                #     for an in ann_filter1
-                # ]
 
                 ordered_tasks = []
                 final_dict = {}
