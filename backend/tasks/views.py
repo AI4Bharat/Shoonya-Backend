@@ -371,8 +371,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     user_mail,
                     reviewer_annotation,
                     parent_annotator_annotation,
+                    first_annotator_annotation,
                     parent_annotator_mail,
-                ) = ([], [], [], [], [], [])
+                ) = ([], [], [], [], [], [], [])
                 for an in ann_filter1:
                     task_ids.append(an.task_id)
                     annotation_status.append(an.annotation_status)
@@ -380,18 +381,27 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     reviewer_annotation.append(an.result)
                     parent_annotator_object = Annotation.objects.filter(
                         id=an.parent_annotation_id
-                    )[0]
+                    )
+                    first_annotator_object = Annotation.objects.filter(
+                        task=an.task,
+                        annotation_type=ANNOTATOR_ANNOTATION,
+                    )
+                    if first_annotator_object:
+                        first_annotator_annotation.append(
+                            parent_annotator_object[0].result
+                        )
+                    else:
+                        first_annotator_annotation.append("-")
                     if parent_annotator_object:
                         parent_annotator_annotation.append(
-                            parent_annotator_object.result
+                            parent_annotator_object[0].result
                         )
                         parent_annotator_mail.append(
-                            parent_annotator_object.completed_by.email
+                            parent_annotator_object[0].completed_by.email
                         )
                     else:
                         parent_annotator_annotation.append("-")
                         parent_annotator_mail.append("-")
-
                 ordered_tasks = []
                 final_dict = {}
                 for idx, ids in enumerate(task_ids):
@@ -407,12 +417,28 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             "accepted_with_major_changes",
                             "accepted_with_minor_changes",
                         ]:
-                            if reviewer_annotation[idx] != "-":
+                            if reviewer_annotation[idx] is not None:
                                 tas["data"]["output_text"] = reviewer_annotation[idx][
                                     0
                                 ]["value"]["text"][0]
                             else:
                                 tas["data"]["output_text"] = "-"
+                        elif rew_status[0] in [
+                            "unreviewed",
+                            "skipped",
+                        ]:
+                            if parent_annotator_annotation[idx] != "-":
+                                tas["data"][
+                                    "output_text"
+                                ] = parent_annotator_annotation[idx][0]["value"][
+                                    "text"
+                                ][
+                                    0
+                                ]
+                            else:
+                                tas["data"]["output_text"] = first_annotator_annotation[
+                                    idx
+                                ][0]["value"]["text"][0]
                         else:
                             if parent_annotator_annotation[idx] != "-":
                                 tas["data"][
@@ -531,18 +557,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     superchecker_annotation.append(an.result)
                     reviewer_object = Annotation.objects.filter(
                         id=an.parent_annotation_id
-                    )[0]
+                    )
                     if reviewer_object:
-                        reviewer_mail.append(reviewer_object.completed_by.email)
-                        reviewer_annotation.append(reviewer_object.result)
+                        reviewer_mail.append(reviewer_object[0].completed_by.email)
+                        reviewer_annotation.append(reviewer_object[0].result)
                     else:
                         reviewer_mail.append("-")
                         reviewer_annotation.append("-")
                     annotator_object = Annotation.objects.filter(
                         id=an.parent_annotation.parent_annotation_id
-                    )[0]
+                    )
                     if annotator_object:
-                        annotator_mail.append(annotator_object.completed_by.email)
+                        annotator_mail.append(annotator_object[0].completed_by.email)
                     else:
                         annotator_mail.append("-")
 
@@ -562,7 +588,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             "validated",
                             "Validated_with_changes",
                         ]:
-                            if superchecker_annotation[idx] != "-":
+                            if superchecker_annotation[idx] is not None:
                                 tas["data"]["output_text"] = superchecker_annotation[
                                     idx
                                 ][0]["value"]["text"][0]
