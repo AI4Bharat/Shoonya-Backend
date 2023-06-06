@@ -17,6 +17,7 @@ from dataset.models import DatasetInstance
 from .models import *
 from .registry_helper import ProjectRegistry
 from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
+from .annotation_registry import *
 
 # Celery logger settings
 logger = get_task_logger(__name__)
@@ -28,6 +29,105 @@ def stringify_json(json):
     for key, value in json.items():
         string += f"{key}: {value}, "
     return string[0:-1]
+
+
+def create_automatic_annotations(tasks, automatic_annotation_creation_mode):
+    user = User.objects.get(id=1)
+    project = tasks[0].project_id
+    project.annotators.add(user)
+    project.annotation_reviewers.add(user)
+    project.review_supercheckers.add(user)
+    project.is_published = True
+    project.save()
+    project_annotation_fields_list = list(
+        ANNOTATION_REGISTRY_DICT[project.project_type].keys()
+    )
+    if automatic_annotation_creation_mode in ["annotation", "review", "supercheck"]:
+        for task in tasks:
+            if task.input_data.draft_data_json != None:
+                draft_data_json_fields_list = list(
+                    task.input_data.draft_data_json.keys()
+                )
+                if set(project_annotation_fields_list).issubset(
+                    set(draft_data_json_fields_list)
+                ):
+                    task.annotation_users.add(user)
+                    task.task_status = ANNOTATED
+                    task.save()
+                    base_annotation_obj = Annotation_model(
+                        result=draft_data_json_to_annotation_result(
+                            task.input_data.draft_data_json,
+                            task.project_id.project_type,
+                            task.input_data.id,
+                        ),
+                        task=task,
+                        completed_by=user,
+                        annotation_status=LABELED,
+                        annotation_type=ANNOTATOR_ANNOTATION,
+                        annotation_source=AUTOMATIC_ANNOTATION,
+                    )
+                    base_annotation_obj.save()
+                    if task.project_id.project_stage == ANNOTATION_STAGE:
+                        task.correct_annotation = base_annotation_obj
+                        task.save()
+
+    if automatic_annotation_creation_mode in ["review", "supercheck"]:
+        for task in tasks:
+            if task.input_data.draft_data_json != None:
+                draft_data_json_fields_list = list(
+                    task.input_data.draft_data_json.keys()
+                )
+                if set(project_annotation_fields_list).issubset(
+                    set(draft_data_json_fields_list)
+                ):
+                    task.review_user = user
+                    task.task_status = REVIEWED
+                    task.save()
+                    annotator_anno = Annotation_model.objects.filter(
+                        task=task, annotation_type=ANNOTATOR_ANNOTATION
+                    )
+                    base_annotation_obj = Annotation_model(
+                        result=annotator_anno.result,
+                        task=task,
+                        completed_by=user,
+                        annotation_status=ACCEPTED,
+                        parent_annotation=annotator_anno,
+                        annotation_type=REVIEWER_ANNOTATION,
+                        annotation_source=AUTOMATIC_ANNOTATION,
+                    )
+                    base_annotation_obj.save()
+                    if task.project_id.project_stage == REVIEW_STAGE:
+                        task.correct_annotation = base_annotation_obj
+                        task.save()
+
+    if automatic_annotation_creation_mode in ["supercheck"]:
+        for task in tasks:
+            if task.input_data.draft_data_json != None:
+                draft_data_json_fields_list = list(
+                    task.input_data.draft_data_json.keys()
+                )
+                if set(project_annotation_fields_list).issubset(
+                    set(draft_data_json_fields_list)
+                ):
+                    task.super_check_user = user
+                    task.task_status = SUPER_CHECKED
+                    task.save()
+                    reviewer_anno = Annotation_model.objects.filter(
+                        task=task, annotation_type=REVIEWER_ANNOTATION
+                    )
+                    base_annotation_obj = Annotation_model(
+                        result=reviewer_anno.result,
+                        task=task,
+                        completed_by=user,
+                        annotation_status=VALIDATED,
+                        parent_annotation=reviewer_anno,
+                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                        annotation_source=AUTOMATIC_ANNOTATION,
+                    )
+                    base_annotation_obj.save()
+                    if task.project_id.project_stage == SUPERCHECK_STAGE:
+                        task.correct_annotation = base_annotation_obj
+                        task.save()
 
 
 def create_tasks_from_dataitems(items, project):
@@ -199,6 +299,7 @@ def create_parameters_for_task_creation(
     sampling_parameters,
     variable_parameters,
     project_id,
+    automatic_annotation_creation_mode,
 ) -> None:
     """Function to create the paramters for the task creation process. The function is passed arguments from the frontend which decide how the sentences have to be filtered and sampled.
 
@@ -229,11 +330,15 @@ def create_parameters_for_task_creation(
         batch_size = sampling_parameters["batch_size"]
         try:
             batch_number = sampling_parameters["batch_number"]
+            if len(batch_number) == 0:
+                batch_number = [1]
         except KeyError:
-            batch_number = 1
-        sampled_items = filtered_items[
-            batch_size * (batch_number - 1) : batch_size * (batch_number)
-        ]
+            batch_number = [1]
+        sampled_items = []
+        for batch_num in batch_number:
+            sampled_items += filtered_items[
+                batch_size * (batch_num - 1) : batch_size * batch_num
+            ]
     else:
         sampled_items = filtered_items
     # Load the project object using the project id
@@ -247,7 +352,9 @@ def create_parameters_for_task_creation(
     project.save()
 
     # Create Tasks from Parameters
-    create_tasks_from_dataitems(sampled_items, project)
+    tasks = create_tasks_from_dataitems(sampled_items, project)
+    if automatic_annotation_creation_mode != None:
+        create_automatic_annotations(tasks, automatic_annotation_creation_mode)
 
 
 @shared_task
