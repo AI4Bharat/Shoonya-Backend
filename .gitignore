@@ -5,6 +5,9 @@ vhosts
 *.json
 *.csv
 
+#certbot
+certbot/certbot.sh
+
 # Python
 *.pyc
 *~
