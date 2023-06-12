@@ -447,7 +447,7 @@ def schedule_conversation_translation_job(request):
     return Response(ret_dict, status=ret_status)
 
 
-@api_view("POST")
+@api_view(["POST"])
 def schedule_draft_data_json_population(request):
     """
     Request Body{
