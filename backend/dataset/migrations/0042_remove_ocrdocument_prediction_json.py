@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('dataset', '0041_auto_20230613_0737'),
+        ("dataset", "0041_auto_20230613_0737"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='ocrdocument',
-            name='prediction_json',
+            model_name="ocrdocument",
+            name="prediction_json",
         ),
     ]
