@@ -19,8 +19,18 @@ DATASET_TYPE_CHOICES = [
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
 
-OCR_FILE_CHOICES = (("PDF", "pdf"), (("IMG", "image")))
-OCR_TYPE_CHOICES = (("ST", "SceneText"), ("DT", "DenseText"))
+OCR_FILE_CHOICES = (
+    ("PDF", "pdf"),
+    ("JPG", "JPG_image"),
+    ("JPEG", "JPEG_image"),
+    ("PNG", "PNG_image"),
+)
+OCR_TYPE_CHOICES = (
+    ("ST", "ScenicText"),
+    ("DT", "DenseText"),
+    ("PR", "Printed"),
+    ("HN", "Handwritten"),
+)
 OCR_DOMAIN_CHOICES = (
     ("BO", "Books"),
     ("FO", "Forms"),
@@ -252,7 +262,7 @@ class OCRDocument(DatasetBase):
     """
 
     file_type = models.CharField(
-        verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=3
+        verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=4
     )
     file_url = models.URLField(
         verbose_name="bucket_url_for_file", max_length=500, null=True, blank=True
@@ -284,8 +294,16 @@ class OCRDocument(DatasetBase):
         verbose_name="annotation_labels", null=True, blank=True
     )
 
-    prediction_json = models.JSONField(
-        verbose_name="prediction_json", null=True, blank=True
+    ocr_transcribed_json = models.JSONField(
+        verbose_name="ocr_transcribed_json", null=True, blank=True
+    )
+
+    ocr_prediction_json = models.JSONField(
+        verbose_name="ocr_prediction_json", null=True, blank=True
+    )
+
+    image_details_json = models.JSONField(
+        verbose_name="image_details_json", null=True, blank=True
     )
 
     def __str__(self):

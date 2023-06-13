@@ -83,7 +83,7 @@ Translation:
 OCR:
   description: "Performing OCR on images"
   project_types:
-    OCRAnnotation:
+    OCRTranscription:
       project_mode: "Annotation"
       label_studio_jsx_file: "ocr/ocr_annotation.jsx"
       input_dataset:
@@ -92,7 +92,7 @@ OCR:
           - image_url
         display_fields:
           - image_url
-        prediction: prediction_json
+        prediction: ocr_prediction_json
       output_dataset: 
         class: OCRDocument
         save_type: in_place
