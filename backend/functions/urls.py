@@ -18,6 +18,7 @@ urlpatterns = [
     path(
         "schedule_conversation_translation_job", schedule_conversation_translation_job
     ),
+    path("schedule_draft_data_json_population", schedule_draft_data_json_population),
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)
