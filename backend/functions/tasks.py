@@ -7,6 +7,9 @@ from .utils import (
     get_batch_translations,
 )
 
+from dataset.models import DatasetInstance
+from django.apps import apps
+
 
 ## CELERY SHARED TASKS
 @shared_task(bind=True)
@@ -339,3 +342,31 @@ def conversation_data_machine_translation(
         multi_inheritance_table_bulk_insert(all_translated_conversation_objects)
 
     return f"{len(all_translated_conversation_objects)} conversation dataitems created for each of languages: {str(languages)}"
+
+
+@shared_task(bind=True)
+def populate_draft_data_json(self, pk, fields_list):
+    try:
+        dataset_instance = DatasetInstance.objects.get(pk=pk)
+    except Exception as error:
+        return error
+    dataset_type = dataset_instance.dataset_type
+    dataset_model = apps.get_model("dataset", dataset_type)
+    dataset_items = dataset_model.objects.filter(instance_id=dataset_instance)
+    cnt = 0
+    for dataset_item in dataset_items:
+        new_draft_data_json = {}
+        for field in fields_list:
+            try:
+                new_draft_data_json[field] = getattr(dataset_item, field)
+                if new_draft_data_json[field] == None:
+                    del new_draft_data_json[field]
+            except:
+                pass
+
+        if new_draft_data_json != {}:
+            dataset_item.draft_data_json = new_draft_data_json
+            dataset_item.save()
+            cnt += 1
+
+    return f"successfully populated {cnt} dataset items with draft_data_json"

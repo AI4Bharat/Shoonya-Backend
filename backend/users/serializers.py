@@ -2,6 +2,18 @@ from rest_framework import serializers
 
 from organizations.serializers import OrganizationSerializer
 from .models import User
+from django.contrib.auth import authenticate, password_validation
+
+
+class UserLoginSerializer(serializers.Serializer):
+    email = serializers.CharField()
+    password = serializers.CharField()
+
+    def validate_login(self, data):
+        user = authenticate(username=data["email"], password=data["password"])
+        if not user:
+            return "Incorrect password."
+        return "Correct password"
 
 
 class UserSignUpSerializer(serializers.ModelSerializer):
@@ -87,6 +99,30 @@ class UserFetchSerializer(serializers.ModelSerializer):
             "role",
             "has_accepted_invite",
         ]
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(
+        max_length=128, write_only=True, required=True
+    )
+    new_password = serializers.CharField(max_length=128, write_only=True, required=True)
+
+    def match_old_password(self, instance, value):
+        if not instance.check_password(value["current_password"]):
+            return False
+        return True
+
+    def validation_checks(self, instance, data):
+        try:
+            password_validation.validate_password(data["new_password"], instance)
+        except password_validation.ValidationError as e:
+            return " ".join(e.messages)
+        return "Validation successful"
+
+    def save(self, instance, validated_data):
+        instance.set_password(validated_data.get("new_password"))
+        instance.save()
+        return instance
 
 
 class LanguageSerializer(serializers.Serializer):

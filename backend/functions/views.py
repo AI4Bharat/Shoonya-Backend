@@ -20,6 +20,7 @@ from tasks.models import *
 from .tasks import (
     conversation_data_machine_translation,
     sentence_text_translate_and_save_translation_pairs,
+    populate_draft_data_json,
 )
 from .utils import (
     check_conversation_translation_function_inputs,
@@ -442,5 +443,31 @@ def schedule_conversation_translation_job(request):
         checks_for_particular_languages=checks_for_particular_languages,
     )
     ret_dict = {"message": "Translating Conversation Dataitems"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
+
+
+@api_view(["POST"])
+def schedule_draft_data_json_population(request):
+    """
+    Request Body{
+        "dataset_instance_id":<int>,
+        "fields_list":<str>(fields separated by commas),
+        "organization_id": <int>,
+    }
+    """
+
+    # Check if the user is the organization owner
+    result = check_if_particular_organization_owner(request)
+    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
+        return Response({"error": result["error"]}, status=result["status"])
+
+    fields_list = request.data["fields_list"]
+    fields_list = fields_list.split(",")
+    pk = request.data["dataset_instance_id"]
+
+    populate_draft_data_json.delay(pk, fields_list)
+
+    ret_dict = {"message": "draft_data_json population started"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
