@@ -1801,7 +1801,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=cur_user.id)
             .annotate(annotator_count=Count("annotation_users"))
         )
-        tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
+        tasks = tasks.filter(
+            annotator_count__lt=project.required_annotators_per_task
+        ).distinct()
         if not tasks:
             project.release_lock(ANNOTATION_LOCK)
             return Response(
@@ -2059,6 +2061,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .filter(task_status=ANNOTATED)
             .filter(review_user__isnull=True)
             .exclude(annotation_users=cur_user.id)
+            .distinct()
         )
         if not tasks:
             project.release_lock(REVIEW_LOCK)
@@ -2073,6 +2076,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         task_ids = (
             Annotation_model.objects.filter(task__in=tasks)
             .filter(annotation_type=ANNOTATOR_ANNOTATION)
+            .distinct()
             .order_by("-updated_at")
             .values_list("task", flat=True)
         )
@@ -2265,6 +2269,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .filter(super_check_user__isnull=True)
             .exclude(annotation_users=cur_user.id)
             .exclude(review_user=cur_user.id)
+            .distinct()
         )
         if not tasks:
             project.release_lock(SUPERCHECK_LOCK)
@@ -2279,11 +2284,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         sup_exp_rev_tasks_count = (
             Task.objects.filter(project_id=pk)
             .filter(task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED])
+            .distinct()
             .count()
         )
         sup_exp_tasks_count = (
             Task.objects.filter(project_id=pk)
             .filter(task_status__in=[SUPER_CHECKED, EXPORTED])
+            .distinct()
             .count()
         )
 
@@ -2302,6 +2309,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         task_ids = (
             Annotation_model.objects.filter(task__in=tasks)
             .filter(annotation_type=REVIEWER_ANNOTATION)
+            .distinct()
             .order_by("-updated_at")
             .values_list("task", flat=True)
         )

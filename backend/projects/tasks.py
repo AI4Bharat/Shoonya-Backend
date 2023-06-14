@@ -85,7 +85,7 @@ def create_automatic_annotations(tasks, automatic_annotation_creation_mode):
                     task.save()
                     annotator_anno = Annotation_model.objects.filter(
                         task=task, annotation_type=ANNOTATOR_ANNOTATION
-                    )
+                    )[0]
                     base_annotation_obj = Annotation_model(
                         result=annotator_anno.result,
                         task=task,
@@ -114,7 +114,7 @@ def create_automatic_annotations(tasks, automatic_annotation_creation_mode):
                     task.save()
                     reviewer_anno = Annotation_model.objects.filter(
                         task=task, annotation_type=REVIEWER_ANNOTATION
-                    )
+                    )[0]
                     base_annotation_obj = Annotation_model(
                         result=reviewer_anno.result,
                         task=task,
@@ -487,7 +487,9 @@ def export_project_in_place(
                     setattr(data_item, field, conversation_json)
                 elif field == "domain":
                     setattr(
-                        data_item, field, json.loads(ta[field])[0]["taxonomy"][0][0]
+                        data_item,
+                        field,
+                        ",".join(json.loads(ta[field])[0]["taxonomy"][0]),
                     )
                 elif field == "conversation_quality_status":
                     conversation_quality_status = ""
