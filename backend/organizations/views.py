@@ -1692,7 +1692,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             proj_objs = Project.objects.filter(
                 organization_id=pk,
                 project_type=project_type,
-                project_stage=REVIEW_STAGE,
+                project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
             )
         else:
             proj_objs = Project.objects.filter(
@@ -1733,6 +1733,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         task_status__in=[
                             "reviewed",
                             "exported",
+                            "super_checked",
                         ],
                     )
                     labeled_count_tasks_ids = list(
@@ -1755,6 +1756,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "annotated",
                             "reviewed",
                             "exported",
+                            "super_checked",
                         ],
                     )
 
