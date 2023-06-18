@@ -1742,7 +1742,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     annotated_labeled_tasks_count = (
                         Annotation.objects.filter(
                             task_id__in=labeled_count_tasks_ids,
-                            parent_annotation_id__isnull=False,
+                            annotation_type=REVIEWER_ANNOTATION,
                             created_at__gte=periodical_list[period],
                             created_at__lt=periodical_list[period + 1],
                         )
@@ -1765,7 +1765,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     )
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
-                        parent_annotation_id__isnull=True,
+                        annotation_type=ANNOTATOR_ANNOTATION,
                         created_at__gte=periodical_list[period],
                         created_at__lt=periodical_list[period + 1],
                     ).count()
