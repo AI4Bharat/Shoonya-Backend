@@ -206,7 +206,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
 
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
@@ -252,7 +252,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
+                ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
 
                 task_ids = [an.task_id for an in ann_filter1]
                 annotation_status = [an.annotation_status for an in ann_filter1]
@@ -266,7 +266,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas = tas.values()[0]
                     tas["annotation_status"] = annotation_status[idx]
                     tas["user_mail"] = user_mail[idx]
-                    if (annotation_status[idx] in ["labeled", "draft"]) and (
+                    if (ann_status[0] in ["labeled", "draft", "to_be_revised"]) and (
                         proj_type == "ContextualTranslationEditing"
                     ):
                         tas["data"]["output_text"] = annotation_result_json[idx][0][
@@ -314,7 +314,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
 
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
@@ -362,18 +362,46 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
+                ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
+                proj_type = proj_objs[0].project_type
 
-                task_ids = [an.task_id for an in ann_filter1]
-                annotation_status = [an.annotation_status for an in ann_filter1]
-                user_mail = [an.completed_by.email for an in ann_filter1]
-                annotator_mail = [
-                    Annotation.objects.filter(id=an.parent_annotation_id)[
-                        0
-                    ].completed_by.email
-                    for an in ann_filter1
-                ]
-
+                (
+                    task_ids,
+                    annotation_status,
+                    user_mail,
+                    reviewer_annotation,
+                    parent_annotator_annotation,
+                    first_annotator_annotation,
+                    parent_annotator_mail,
+                ) = ([], [], [], [], [], [], [])
+                for an in ann_filter1:
+                    task_ids.append(an.task_id)
+                    annotation_status.append(an.annotation_status)
+                    user_mail.append(an.completed_by.email)
+                    reviewer_annotation.append(an.result)
+                    parent_annotator_object = Annotation.objects.filter(
+                        id=an.parent_annotation_id
+                    )
+                    first_annotator_object = Annotation.objects.filter(
+                        task=an.task,
+                        annotation_type=ANNOTATOR_ANNOTATION,
+                    )
+                    if first_annotator_object:
+                        first_annotator_annotation.append(
+                            parent_annotator_object[0].result
+                        )
+                    else:
+                        first_annotator_annotation.append("-")
+                    if parent_annotator_object:
+                        parent_annotator_annotation.append(
+                            parent_annotator_object[0].result
+                        )
+                        parent_annotator_mail.append(
+                            parent_annotator_object[0].completed_by.email
+                        )
+                    else:
+                        parent_annotator_annotation.append("-")
+                        parent_annotator_mail.append("-")
                 ordered_tasks = []
                 final_dict = {}
                 for idx, ids in enumerate(task_ids):
@@ -381,7 +409,48 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas = tas.values()[0]
                     tas["review_status"] = annotation_status[idx]
                     tas["user_mail"] = user_mail[idx]
-                    tas["annotator_mail"] = annotator_mail[idx]
+                    tas["annotator_mail"] = parent_annotator_mail[idx]
+                    if proj_type == "ContextualTranslationEditing":
+                        if rew_status[0] in [
+                            "draft",
+                            "accepted",
+                            "accepted_with_major_changes",
+                            "accepted_with_minor_changes",
+                        ]:
+                            if reviewer_annotation[idx] is not None:
+                                tas["data"]["output_text"] = reviewer_annotation[idx][
+                                    0
+                                ]["value"]["text"][0]
+                            else:
+                                tas["data"]["output_text"] = "-"
+                        elif rew_status[0] in [
+                            "unreviewed",
+                            "skipped",
+                        ]:
+                            if parent_annotator_annotation[idx] != "-":
+                                tas["data"][
+                                    "output_text"
+                                ] = parent_annotator_annotation[idx][0]["value"][
+                                    "text"
+                                ][
+                                    0
+                                ]
+                            else:
+                                tas["data"]["output_text"] = first_annotator_annotation[
+                                    idx
+                                ][0]["value"]["text"][0]
+                        else:
+                            if parent_annotator_annotation[idx] != "-":
+                                tas["data"][
+                                    "output_text"
+                                ] = parent_annotator_annotation[idx][0]["value"][
+                                    "text"
+                                ][
+                                    0
+                                ]
+                            else:
+                                tas["data"]["output_text"] = "-"
+                        del tas["data"]["machine_translation"]
                     ordered_tasks.append(tas)
                 if page_number is not None:
                     page_object = Paginator(ordered_tasks, records)
@@ -422,7 +491,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
 
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
@@ -470,26 +539,42 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks).order_by("updated_at")
+                ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
 
-                task_ids = [an.task_id for an in ann_filter1]
-                annotation_status = [an.annotation_status for an in ann_filter1]
-                user_mail = [an.completed_by.email for an in ann_filter1]
-                reviewer_mail = [
-                    Annotation.objects.filter(id=an.parent_annotation_id)[
-                        0
-                    ].completed_by.email
-                    for an in ann_filter1
-                ]
-                annotator_mail = [
-                    Annotation.objects.filter(
+                (
+                    task_ids,
+                    annotation_status,
+                    user_mail,
+                    reviewer_mail,
+                    reviewer_annotation,
+                    annotator_mail,
+                    superchecker_annotation,
+                ) = ([], [], [], [], [], [], [])
+                for an in ann_filter1:
+                    task_ids.append(an.task_id)
+                    annotation_status.append(an.annotation_status)
+                    user_mail.append(an.completed_by.email)
+                    superchecker_annotation.append(an.result)
+                    reviewer_object = Annotation.objects.filter(
+                        id=an.parent_annotation_id
+                    )
+                    if reviewer_object:
+                        reviewer_mail.append(reviewer_object[0].completed_by.email)
+                        reviewer_annotation.append(reviewer_object[0].result)
+                    else:
+                        reviewer_mail.append("-")
+                        reviewer_annotation.append("-")
+                    annotator_object = Annotation.objects.filter(
                         id=an.parent_annotation.parent_annotation_id
-                    )[0].completed_by.email
-                    for an in ann_filter1
-                ]
+                    )
+                    if annotator_object:
+                        annotator_mail.append(annotator_object[0].completed_by.email)
+                    else:
+                        annotator_mail.append("-")
 
                 ordered_tasks = []
                 final_dict = {}
+                proj_type = proj_objs[0].project_type
                 for idx, ids in enumerate(task_ids):
                     tas = Task.objects.filter(id=ids)
                     tas = tas.values()[0]
@@ -497,6 +582,26 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["user_mail"] = user_mail[idx]
                     tas["reviewer_mail"] = reviewer_mail[idx]
                     tas["annotator_mail"] = annotator_mail[idx]
+                    if proj_type == "ContextualTranslationEditing":
+                        if supercheck_status[0] in [
+                            "draft",
+                            "validated",
+                            "Validated_with_changes",
+                        ]:
+                            if superchecker_annotation[idx] is not None:
+                                tas["data"]["output_text"] = superchecker_annotation[
+                                    idx
+                                ][0]["value"]["text"][0]
+                            else:
+                                tas["data"]["output_text"] = "-"
+                        else:
+                            if reviewer_annotation[idx] != "-":
+                                tas["data"]["output_text"] = reviewer_annotation[idx][
+                                    0
+                                ]["value"]["text"][0]
+                            else:
+                                tas["data"]["output_text"] = "-"
+                        del tas["data"]["machine_translation"]
                     ordered_tasks.append(tas)
                 if page_number is not None:
                     page_object = Paginator(ordered_tasks, records)
