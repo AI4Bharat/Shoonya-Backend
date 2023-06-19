@@ -206,7 +206,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
@@ -252,7 +252,25 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
+                # editable filter
+                if "editable" in dict(request.query_params):
+                    editable = False
+                    if request.query_params["editable"] in ["true", "True"]:
+                        editable = True
+                    tasks_editable_filter_list = []
+                    for task in tasks:
+                        annos = Annotation.objects.filter(
+                            task=task,
+                            annotation_type=REVIEWER_ANNOTATION,
+                        )
+                        if len(annos) == 0:
+                            tasks_editable_filter_list.append(task.id)
+                    if editable:
+                        tasks = tasks.filter(id__in=tasks_editable_filter_list)
+                    else:
+                        tasks = tasks.exclude(id__in=tasks_editable_filter_list)
+
+                ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                 task_ids = [an.task_id for an in ann_filter1]
                 annotation_status = [an.annotation_status for an in ann_filter1]
@@ -314,7 +332,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
@@ -362,7 +380,26 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
+
+                # editable filter
+                if "editable" in dict(request.query_params):
+                    editable = False
+                    if request.query_params["editable"] in ["true", "True"]:
+                        editable = True
+                    tasks_editable_filter_list = []
+                    for task in tasks:
+                        annos = Annotation.objects.filter(
+                            task=task,
+                            annotation_type=SUPER_CHECKER_ANNOTATION,
+                        )
+                        if len(annos) == 0:
+                            tasks_editable_filter_list.append(task.id)
+                    if editable:
+                        tasks = tasks.filter(id__in=tasks_editable_filter_list)
+                    else:
+                        tasks = tasks.exclude(id__in=tasks_editable_filter_list)
+
+                ann_filter1 = ann.filter(task__in=tasks).order_by("id")
                 proj_type = proj_objs[0].project_type
 
                 (
@@ -491,7 +528,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
+                        ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                         task_ids = [an.task_id for an in ann_filter1]
                         annotation_status = [an.annotation_status for an in ann_filter1]
@@ -539,7 +576,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks).order_by("-updated_at")
+                ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                 (
                     task_ids,
