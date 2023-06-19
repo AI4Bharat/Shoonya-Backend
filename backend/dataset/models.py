@@ -282,18 +282,6 @@ class OCRDocument(DatasetBase):
     #     verbose_name="annotation_json", null=True, blank=True
     # )
 
-    annotation_bboxes = models.JSONField(
-        verbose_name="annotation_bboxes", null=True, blank=True
-    )
-
-    annotation_transcripts = models.JSONField(
-        verbose_name="annotation_transcripts", null=True, blank=True
-    )
-
-    annotation_labels = models.JSONField(
-        verbose_name="annotation_labels", null=True, blank=True
-    )
-
     ocr_transcribed_json = models.JSONField(
         verbose_name="ocr_transcribed_json", null=True, blank=True
     )

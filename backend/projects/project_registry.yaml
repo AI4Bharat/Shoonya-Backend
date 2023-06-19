@@ -98,9 +98,7 @@ OCR:
         save_type: in_place
         fields:
           annotations:
-            - annotation_bboxes
-            - annotation_transcripts
-            - annotation_labels
+            - ocr_transcribed_json
 Monolingual:
   description: "Monolingual Data Collection"
   project_types:

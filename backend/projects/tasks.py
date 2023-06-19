@@ -498,6 +498,24 @@ def export_project_in_place(
                             conversation_quality_status = result["value"]["choices"][0]
                             break
                     setattr(data_item, field, conversation_quality_status)
+                elif field == "ocr_transcribed_json":
+                    ta_ocr_transcribed_json = []
+                    for idx in range(len(json.loads(ta["annotation_bboxes"]))):
+                        ta_ocr_transcribed_json.append(
+                            json.loads(ta["annotation_labels"])[idx]
+                        )
+                        if (
+                            len(json.loads(ta["annotation_bboxes"])) > 1
+                            and type(json.loads(ta["annotation_transcripts"])) == list
+                        ):
+                            ta_ocr_transcribed_json[-1]["text"] = json.loads(
+                                ta["annotation_transcripts"]
+                            )[idx]
+                        else:
+                            ta_ocr_transcribed_json[-1]["text"] = ta[
+                                "annotation_transcripts"
+                            ]
+                    setattr(data_item, field, ta_ocr_transcribed_json)
                 else:
                     setattr(data_item, field, ta[field])
             data_items.append(data_item)
