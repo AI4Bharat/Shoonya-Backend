@@ -754,6 +754,8 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
     elif proj_type == "OCRTranscriptionEditing":
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = data_item.ocr_prediction_json
+        if ocr_prediction_json == None:
+            return result
         for idx, val in enumerate(ocr_prediction_json):
             image_rotation = (
                 ocr_prediction_json["image_rotation"]
