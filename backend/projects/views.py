@@ -3506,7 +3506,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     correct_annotation = task.annotations.all().filter(
                         annotation_type=REVIEWER_ANNOTATION
                     )[0]
+
+                annotator_email = ""
                 if correct_annotation is not None:
+                    try:
+                        annotator_email = correct_annotation.completed_by.email
+                    except:
+                        pass
                     annotation_dict = model_to_dict(correct_annotation)
                     # annotation_dict['result'] = annotation_dict['result_json']
 
@@ -3517,6 +3523,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
                     task_dict["annotations"] = [OrderedDict({"result": {}})]
+
+                task_dict["data"]["annotator_email"] = annotator_email
 
                 if include_input_data_metadata_json:
                     dataset_type = project.dataset_id.all()[0].dataset_type
