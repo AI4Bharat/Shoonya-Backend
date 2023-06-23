@@ -297,7 +297,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
-        dataset_resource = resources.RESOURCE_MAP[dataset_instance.dataset_type]
+        dataset_resource = getattr(
+            resources, dataset_instance.dataset_type + "Resource"
+        )
         exported_items = dataset_resource().export_as_generator(export_type, data_items)
         if export_type == "tsv":
             content_type = "text/tsv"
