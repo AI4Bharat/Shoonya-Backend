@@ -39,7 +39,12 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
 
-from dataset.models import DatasetInstance, Conversation, SpeechConversation
+from dataset.models import (
+    DatasetInstance,
+    Conversation,
+    SpeechConversation,
+    OCRDocument,
+)
 
 # Import celery tasks
 from .tasks import (
@@ -695,53 +700,117 @@ def get_task_count_unassigned(pk, user):
     return len(proj_tasks_unassigned)
 
 
-def convert_prediction_json_to_annotation_result(pk):
-    data_item = SpeechConversation.objects.get(pk=pk)
-    prediction_json = data_item.prediction_json
-    speakers_json = data_item.speakers_json
-    audio_duration = data_item.audio_duration
-
+def convert_prediction_json_to_annotation_result(pk, proj_type):
     result = []
-    if prediction_json == None:
-        return result
+    if proj_type == "AudioTranscriptionEditing":
+        data_item = SpeechConversation.objects.get(pk=pk)
+        prediction_json = data_item.prediction_json
+        speakers_json = data_item.speakers_json
+        audio_duration = data_item.audio_duration
+        # converting prediction_json to result (wherever it exists) for every task.
+        if prediction_json == None:
+            return result
+        for idx, val in enumerate(prediction_json):
+            label_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "labels",
+                "original_length": audio_duration,
+            }
+            text_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "transcribed_json",
+                "original_length": audio_duration,
+            }
+            id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+            label_dict["id"] = id
+            text_dict["id"] = id
+            label_dict["type"] = "labels"
+            text_dict["type"] = "textarea"
 
-    for idx, val in enumerate(prediction_json):
-        label_dict = {
-            "origin": "manual",
-            "to_name": "audio_url",
-            "from_name": "labels",
-            "original_length": audio_duration,
-        }
-        text_dict = {
-            "origin": "manual",
-            "to_name": "audio_url",
-            "from_name": "transcribed_json",
-            "original_length": audio_duration,
-        }
-        id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
-        label_dict["id"] = id
-        text_dict["id"] = id
-        label_dict["type"] = "labels"
-        text_dict["type"] = "textarea"
+            value_labels = {
+                "start": val["start"],
+                "end": val["end"],
+                "labels": [
+                    next(
+                        speaker
+                        for speaker in speakers_json
+                        if speaker["speaker_id"] == val["speaker_id"]
+                    )["name"]
+                ],
+            }
+            value_text = {
+                "start": val["start"],
+                "end": val["end"],
+                "text": [val["text"]],
+            }
 
-        value_labels = {
-            "start": val["start"],
-            "end": val["end"],
-            "labels": [
-                next(
-                    speaker
-                    for speaker in speakers_json
-                    if speaker["speaker_id"] == val["speaker_id"]
-                )["name"]
-            ],
-        }
-        value_text = {"start": val["start"], "end": val["end"], "text": [val["text"]]}
+            label_dict["value"] = value_labels
+            text_dict["value"] = value_text
+            # mainly label_dict and text_dict are sent as result
+            result.append(label_dict)
+            result.append(text_dict)
+    elif proj_type == "OCRTranscriptionEditing":
+        data_item = OCRDocument.objects.get(pk=pk)
+        ocr_prediction_json = data_item.ocr_prediction_json
+        for idx, val in enumerate(ocr_prediction_json):
+            image_rotation = (
+                ocr_prediction_json["image_rotation"]
+                if "image_rotation" in ocr_prediction_json
+                else 0
+            )
+            custom_id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+            # creating values
+            common_value = {
+                "x": val["x"],
+                "y": val["y"],
+                "width": val["width"],
+                "height": val["height"],
+                "rotation": val["rotation"],
+            }
+            # assigning common values to all
+            value_rectangle = value_labels = value_text = common_value
+            value_labels["labels"] = val["labels"]
+            value_text["text"] = [val["text"]]
 
-        label_dict["value"] = value_labels
-        text_dict["value"] = value_text
+            rectangle_dict = {
+                "id": custom_id,
+                "origin": "manual",
+                "to_name": "image_url",
+                "from_name": "annotation_bboxes",
+                "type": "rectangle",
+                "image_rotation": image_rotation,
+                "original_width": val["original_width"],
+                "original_height": val["original_height"],
+                "value": value_rectangle,
+            }
+            label_dict = {
+                "id": custom_id,
+                "origin": "manual",
+                "to_name": "image_url",
+                "from_name": "annotation_labels",
+                "type": "labels",
+                "image_rotation": image_rotation,
+                "original_width": val["original_width"],
+                "original_height": val["original_height"],
+                "value": value_labels,
+            }
+            text_dict = {
+                "id": custom_id,
+                "origin": "manual",
+                "to_name": "image_url",
+                "from_name": "annotation_transcripts",
+                "type": "textarea",
+                "image_rotation": image_rotation,
+                "original_width": val["original_width"],
+                "original_height": val["original_height"],
+                "value": value_text,
+            }
 
-        result.append(label_dict)
-        result.append(text_dict)
+            result.append(rectangle_dict)
+            result.append(label_dict)
+            result.append(text_dict)
 
     return result
 
@@ -1816,9 +1885,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task.annotation_users.add(cur_user)
             task.save()
             result = []
-            if project.project_type == "AudioTranscriptionEditing":
+            if project.project_type in [
+                "AudioTranscriptionEditing",
+                "OCRTranscriptionEditing",
+            ]:
                 result = convert_prediction_json_to_annotation_result(
-                    task.input_data.id
+                    task.input_data.id, project.project_type
                 )
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
