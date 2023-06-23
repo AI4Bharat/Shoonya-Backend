@@ -28,6 +28,7 @@ from projects.utils import (
     get_audio_project_types,
     get_audio_transcription_duration,
     get_audio_segments_count,
+    calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 from projects.views import ProjectViewSet
 
@@ -220,6 +221,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         validated_audio_duration_list = []
         validated_with_changes_audio_duration_list = []
         rejected_audio_duration_list = []
+        total_word_error_rate_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             for anno in validated_objs:
                 try:
@@ -260,6 +262,15 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                     )
                 except:
                     pass
+            for anno in total_sup_annos:
+                try:
+                    total_word_error_rate_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
+                    )
+                except:
+                    pass
 
         validated_word_count = sum(validated_word_count_list)
         validated_with_changes_word_count = sum(validated_with_changes_word_count_list)
@@ -273,6 +284,12 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         rejected_audio_duration = convert_seconds_to_hours(
             sum(rejected_audio_duration_list)
         )
+        if len(total_word_error_rate_list) > 0:
+            avg_word_error_rate = sum(total_word_error_rate_list) / len(
+                total_word_error_rate_list
+            )
+        else:
+            avg_word_error_rate = 0
 
     result = {
         "SuperChecker Name": userName,
@@ -304,6 +321,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                 "Validated With Changes Audio Duration"
             ] = validated_with_changes_audio_duration
             result["Rejected Audio Duration"] = rejected_audio_duration
+            result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
 
     return result
 
@@ -477,6 +495,7 @@ def get_review_reports(
         )
         total_audio_duration_list = []
         total_word_count_list = []
+        total_word_error_rate_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             for anno in total_rev_annos_accepted:
                 try:
@@ -491,9 +510,24 @@ def get_review_reports(
                     )
                 except:
                     pass
+            for anno in total_rev_sup_annos:
+                try:
+                    total_word_error_rate_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
+                    )
+                except:
+                    pass
 
         total_word_count = sum(total_word_count_list)
         total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+        if len(total_word_error_rate_list) > 0:
+            avg_word_error_rate = sum(total_word_error_rate_list) / len(
+                total_word_error_rate_list
+            )
+        else:
+            avg_word_error_rate = 0
 
     if project_progress_stage == SUPERCHECK_STAGE:
         annotations_of_superchecker_validated = Annotation.objects.filter(
@@ -567,6 +601,7 @@ def get_review_reports(
                 result["Total Word Count"] = total_word_count
             elif project_type in get_audio_project_types():
                 result["Total Audio Duration"] = total_audio_duration
+                result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
 
         return result
 
@@ -593,6 +628,7 @@ def get_review_reports(
             result["Total Word Count"] = total_word_count
         elif project_type in get_audio_project_types():
             result["Total Audio Duration"] = total_audio_duration
+            result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
 
     return result
 

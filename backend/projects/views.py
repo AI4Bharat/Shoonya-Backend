@@ -64,6 +64,7 @@ from .utils import (
     get_audio_project_types,
     get_audio_transcription_duration,
     get_audio_segments_count,
+    calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 
 from workspaces.decorators import is_particular_workspace_manager
@@ -239,6 +240,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     )
     total_audio_duration_list = []
     total_word_count_list = []
+    total_word_error_rate_list = []
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
         for anno in total_rev_annos_accepted:
             try:
@@ -253,9 +255,24 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 )
             except:
                 pass
+        for anno in total_rev_sup_annos:
+            try:
+                total_word_error_rate_list.append(
+                    calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        anno.result, anno.parent_annotation.result
+                    )
+                )
+            except:
+                pass
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+    if len(total_word_error_rate_list) > 0:
+        avg_word_error_rate = sum(total_word_error_rate_list) / len(
+            total_word_error_rate_list
+        )
+    else:
+        avg_word_error_rate = 0
 
     if project_obj.project_stage > REVIEW_STAGE:
         annotations_of_superchecker_validated = Annotation_model.objects.filter(
@@ -324,6 +341,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
             result["Total Audio Duration"] = total_audio_duration
+            result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
 
         return result
 
@@ -346,6 +364,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         result["Total Word Count"] = total_word_count
     elif proj_type in get_audio_project_types():
         result["Total Audio Duration"] = total_audio_duration
+        result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
 
     return result
 
@@ -455,6 +474,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     validated_audio_duration_list = []
     validated_with_changes_audio_duration_list = []
     rejected_audio_duration_list = []
+    total_word_error_rate_list = []
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
         for anno in validated_objs:
             try:
@@ -495,6 +515,15 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
                 )
             except:
                 pass
+        for anno in total_sup_annos:
+            try:
+                total_word_error_rate_list.append(
+                    calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        anno.result, anno.parent_annotation.result
+                    )
+                )
+            except:
+                pass
 
     validated_word_count = sum(validated_word_count_list)
     validated_with_changes_word_count = sum(validated_with_changes_word_count_list)
@@ -508,6 +537,12 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     rejected_audio_duration = convert_seconds_to_hours(
         sum(rejected_audio_duration_list)
     )
+    if len(total_word_error_rate_list) > 0:
+        avg_word_error_rate = sum(total_word_error_rate_list) / len(
+            total_word_error_rate_list
+        )
+    else:
+        avg_word_error_rate = 0
 
     result = {
         "SuperChecker Name": userName,
@@ -532,6 +567,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
             "Validated With Changes Audio Duration"
         ] = validated_with_changes_audio_duration
         result["Rejected Audio Duration"] = rejected_audio_duration
+        result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
 
     return result
 

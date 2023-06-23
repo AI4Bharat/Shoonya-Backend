@@ -7,6 +7,7 @@ from tasks.views import SentenceOperationViewSet
 import datetime
 import yaml
 from yaml.loader import SafeLoader
+from jiwer import wer
 
 
 nltk.download("punkt")
@@ -141,3 +142,29 @@ def get_audio_segments_count(annotation_result):
             count += 1
 
     return count
+
+
+def calculate_word_error_rate_between_two_audio_transcription_annotation(
+    annotation_result1, annotation_result2
+):
+    annotation_result1 = sorted(annotation_result1, key=lambda i: (i["value"]["end"]))
+    annotation_result2 = sorted(annotation_result2, key=lambda i: (i["value"]["end"]))
+
+    annotation_result1_text = ""
+    annotation_result2_text = ""
+
+    for result in annotation_result1:
+        try:
+            for s in result["value"]["text"]:
+                annotation_result1_text += s
+        except:
+            pass
+
+    for result in annotation_result2:
+        try:
+            for s in result["value"]["text"]:
+                annotation_result2_text += s
+        except:
+            pass
+
+    return wer(annotation_result1_text, annotation_result2_text)
