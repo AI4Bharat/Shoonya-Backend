@@ -108,6 +108,28 @@ ANNOTATION_REGISTRY_DICT = {
             "type": "labels",
         },
     },
+    "OCRTranscription": {
+        "ocr_transcribed_json": {
+            "to_name": "image_url",
+            "from_name": [
+                "annotation_bboxes",
+                "annotation_labels",
+                "annotation_transcripts",
+            ],
+            "type": ["textarea", "labels", "textarea"],
+        },
+    },
+    "OCRTranscriptionEditing": {
+        "ocr_transcribed_json": {
+            "to_name": "image_url",
+            "from_name": [
+                "annotation_bboxes",
+                "annotation_labels",
+                "annotation_transcripts",
+            ],
+            "type": ["textarea", "labels", "textarea"],
+        },
+    },
 }
 
 
