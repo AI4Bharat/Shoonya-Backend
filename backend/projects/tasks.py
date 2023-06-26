@@ -504,6 +504,9 @@ def export_project_in_place(
                         ta_ocr_transcribed_json.append(
                             json.loads(ta["annotation_labels"])[idx]
                         )
+			# QUICKFIX for adjusting tasks_annotations
+                        if project_type == "OCRTranscriptionEditing":
+                            ta["annotation_transcripts"] = ta["ocr_transcribed_json"]
                         if (
                             len(json.loads(ta["annotation_bboxes"])) > 1
                             and type(json.loads(ta["annotation_transcripts"])) == list
