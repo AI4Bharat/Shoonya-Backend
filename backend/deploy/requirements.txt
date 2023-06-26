@@ -29,3 +29,4 @@ levenshtein
 pretty-html-table
 sacrebleu
 tqdm
+jiwer
