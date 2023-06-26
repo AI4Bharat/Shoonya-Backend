@@ -1199,6 +1199,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 total_duration_reviewed_count_list = []
                 total_duration_exported_count_list = []
                 total_duration_superchecked_count_list = []
+                total_word_error_rate_list = []
                 if project_type in get_audio_project_types():
                     for each_task in labeled_tasks:
                         try:
@@ -1249,6 +1250,20 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         except:
                             pass
 
+                    for each_task in all_tasks:
+                        try:
+                            supercheck_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                            )[0]
+                            total_word_error_rate_list.append(
+                                calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                    supercheck_annotation.result,
+                                    supercheck_annotation.parent_annotation.result,
+                                )
+                            )
+                        except:
+                            pass
+
                 total_duration_annotated_count = convert_seconds_to_hours(
                     sum(total_duration_annotated_count_list)
                 )
@@ -1261,6 +1276,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 total_duration_superchecked_count = convert_seconds_to_hours(
                     sum(total_duration_superchecked_count_list)
                 )
+
+                if len(total_word_error_rate_list) > 0:
+                    avg_word_error_rate = sum(total_word_error_rate_list) / len(
+                        total_word_error_rate_list
+                    )
+                else:
+                    avg_word_error_rate = 0
 
                 if total_tasks == 0:
                     project_progress = 0.0
@@ -1297,6 +1319,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Reviewed Tasks Word Count": total_word_reviewed_count,
                     "Exported Tasks Word Count": total_word_exported_count,
                     "SuperChecked Tasks Word Count": total_word_superchecked_count,
+                    "Average Word Error Rate": round(avg_word_error_rate, 2),
                     "Project Progress": round(project_progress, 3),
                 }
 
@@ -1314,6 +1337,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     del result["Reviewed Tasks Audio Duration"]
                     del result["Exported Tasks Audio Duration"]
                     del result["SuperChecked Tasks Audio Duration"]
+                    del result["Average Word Error Rate"]
                 else:
                     del result["Annotated Tasks Word Count"]
                     del result["Reviewed Tasks Word Count"]
@@ -1323,6 +1347,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     del result["Reviewed Tasks Audio Duration"]
                     del result["Exported Tasks Audio Duration"]
                     del result["SuperChecked Tasks Audio Duration"]
+                    del result["Average Word Error Rate"]
 
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
