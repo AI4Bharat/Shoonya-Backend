@@ -24,8 +24,9 @@ SAMPLING_MODE_CHOICES = (
 # DEPRECIATED: Using numbers for project types
 # MonolingualTranslation = 1
 # TranslationEditing = 2
-# OCRAnnotation = 3
-# MonolingualCollection = 4
+# OCRTranscription = 3
+# OCRTranscriptionEditing = 4
+# MonolingualCollection = 5
 
 PROJECT_TYPE_LIST = list(ProjectRegistry.get_instance().project_types.keys())
 PROJECT_TYPE_CHOICES = tuple(zip(PROJECT_TYPE_LIST, PROJECT_TYPE_LIST))
