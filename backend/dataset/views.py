@@ -41,7 +41,7 @@ from tasks.models import (
     Annotation,
     ANNOTATOR_ANNOTATION,
     REVIEWER_ANNOTATION,
-    SUPER_CHECKER_ANNOTATION
+    SUPER_CHECKER_ANNOTATION,
 )
 
 
@@ -790,9 +790,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             DatasetInstance.objects.get(pk=pk)
         except DatasetInstance.DoesNotExist:
             return Response(
-                {"message": "Dataset Instance not found"}, status=status.HTTP_404_NOT_FOUND
+                {"message": "Dataset Instance not found"},
+                status=status.HTTP_404_NOT_FOUND,
             )
-        
+
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         selected_language = "-"
@@ -809,14 +810,14 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         final_result = []
         if projects_objs.count() != 0:
             for proj in projects_objs:
-                proj_manager = [	
-                    manager.get_username()	
-                    for manager in proj.workspace_id.managers.all()	
-                ]	
-                try:	
-                    org_owner = proj.organization_id.created_by.get_username()	
-                    proj_manager.append(org_owner)	
-                except:	
+                proj_manager = [
+                    manager.get_username()
+                    for manager in proj.workspace_id.managers.all()
+                ]
+                try:
+                    org_owner = proj.organization_id.created_by.get_username()
+                    proj_manager.append(org_owner)
+                except:
                     pass
                 project_id = proj.id
                 project_name = proj.title
