@@ -790,6 +790,8 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
     elif proj_type == "OCRTranscriptionEditing":
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = data_item.ocr_prediction_json
+        if ocr_prediction_json == None:
+            return result
         for idx, val in enumerate(ocr_prediction_json):
             image_rotation = (
                 ocr_prediction_json["image_rotation"]
@@ -851,49 +853,77 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
     return result
 
 
-def convert_annotation_result_to_formatted_json(annotation_result, speakers_json):
+def convert_annotation_result_to_formatted_json(
+    annotation_result, speakers_json, dataset_type
+):
     transcribed_json = []
-    ids_formatted = {}
-    for idx1 in range(len(annotation_result)):
-        formatted_result_dict = {}
-        labels_dict = {}
-        text_dict = {}
-        if annotation_result[idx1]["type"] == "labels":
-            labels_dict = annotation_result[idx1]
-        else:
-            text_dict = annotation_result[idx1]
-        for idx2 in range(idx1 + 1, len(annotation_result)):
-            if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
-                if annotation_result[idx2]["type"] == "labels":
+    if dataset_type == "SpeechConversation":
+        ids_formatted = {}
+        for idx1 in range(len(annotation_result)):
+            formatted_result_dict = {}
+            labels_dict = {}
+            text_dict = {}
+            if annotation_result[idx1]["type"] == "labels":
+                labels_dict = annotation_result[idx1]
+            else:
+                text_dict = annotation_result[idx1]
+            for idx2 in range(idx1 + 1, len(annotation_result)):
+                if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
+                    if annotation_result[idx2]["type"] == "labels":
+                        labels_dict = annotation_result[idx2]
+                    else:
+                        text_dict = annotation_result[idx2]
+                    break
+
+            if annotation_result[idx1]["id"] not in ids_formatted:
+                ids_formatted[annotation_result[idx1]["id"]] = "formatted"
+                if not labels_dict:
+                    formatted_result_dict["speaker_id"] = None
+                else:
+                    try:
+                        formatted_result_dict["speaker_id"] = next(
+                            speaker
+                            for speaker in speakers_json
+                            if speaker["name"] == labels_dict["value"]["labels"][0]
+                        )["speaker_id"]
+                    except KeyError:
+                        formatted_result_dict["speaker_id"] = None
+                    formatted_result_dict["start"] = labels_dict["value"]["start"]
+                    formatted_result_dict["end"] = labels_dict["value"]["end"]
+
+                if not text_dict:
+                    formatted_result_dict["text"] = ""
+                else:
+                    formatted_result_dict["text"] = text_dict["value"]["text"][0]
+                    formatted_result_dict["start"] = text_dict["value"]["start"]
+                    formatted_result_dict["end"] = text_dict["value"]["end"]
+                transcribed_json.append(formatted_result_dict)
+    else:
+        for idx1 in range(0, len(annotation_result), 3):
+            rectangle_dict = {}
+            labels_dict = {}
+            text_dict = {}
+            for idx2 in range(idx1, idx1 + 3):
+                formatted_result_dict = {}
+                if annotation_result[idx2]["type"] == "rectangle":
+                    rectangle_dict = annotation_result[idx1]
+                elif annotation_result[idx2]["type"] == "labels":
                     labels_dict = annotation_result[idx2]
                 else:
                     text_dict = annotation_result[idx2]
-                break
-
-        if annotation_result[idx1]["id"] not in ids_formatted:
-            print(annotation_result[idx1]["id"])
-            print(ids_formatted)
-            ids_formatted[annotation_result[idx1]["id"]] = "formatted"
-            if not labels_dict:
-                formatted_result_dict["speaker_id"] = None
-            else:
-                try:
-                    formatted_result_dict["speaker_id"] = next(
-                        speaker
-                        for speaker in speakers_json
-                        if speaker["name"] == labels_dict["value"]["labels"][0]
-                    )["speaker_id"]
-                except KeyError:
-                    formatted_result_dict["speaker_id"] = None
-                formatted_result_dict["start"] = labels_dict["value"]["start"]
-                formatted_result_dict["end"] = labels_dict["value"]["end"]
-
-            if not text_dict:
-                formatted_result_dict["text"] = ""
-            else:
-                formatted_result_dict["text"] = text_dict["value"]["text"][0]
-                formatted_result_dict["start"] = text_dict["value"]["start"]
-                formatted_result_dict["end"] = text_dict["value"]["end"]
+            formatted_result_dict = rectangle_dict["value"]
+            try:
+                formatted_result_dict["labels"] = labels_dict["value"]["labels"]
+                formatted_result_dict["text"] = (
+                    text_dict["value"]["text"][0]
+                    if type(text_dict["value"]["text"]) == list
+                    else text_dict["value"]["text"]
+                )
+            except Exception as e:
+                return Response(
+                    {"message": "Some data is missing in annotation result- " + f"{e}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             transcribed_json.append(formatted_result_dict)
 
     return transcribed_json
@@ -3612,24 +3642,43 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         task["data"]["verified_conversation_json"] = conversation_json
                     else:
                         task["data"]["translated_conversation_json"] = conversation_json
-            elif dataset_type == "SpeechConversation":
-                for task in tasks_list:
-                    annotation_result = task["annotations"][0]["result"]
-                    speakers_json = task["data"]["speakers_json"]
-                    task["annotations"][0]["result"] = []
-                    if project_type == "AudioSegmentation":
-                        task["data"][
-                            "prediction_json"
-                        ] = convert_annotation_result_to_formatted_json(
-                            annotation_result, speakers_json
-                        )
-                    else:
-                        task["data"][
-                            "transcribed_json"
-                        ] = convert_annotation_result_to_formatted_json(
-                            annotation_result, speakers_json
-                        )
-
+            elif dataset_type in ["SpeechConversation", "OCRDocument"]:
+                if dataset_type == "SpeechConversation":
+                    for task in tasks_list:
+                        annotation_result = task["annotations"][0]["result"]
+                        speakers_json = task["data"]["speakers_json"]
+                        task["annotations"][0]["result"] = []
+                        if project_type == "AudioSegmentation":
+                            task["data"][
+                                "prediction_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, speakers_json, dataset_type
+                            )
+                        else:
+                            task["data"][
+                                "transcribed_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, speakers_json, dataset_type
+                            )
+                else:
+                    for task in tasks_list:
+                        annotation_result = task["annotations"][0]["result"]
+                        task["annotations"][0]["result"] = []
+                        if project_type in [
+                            "OCRTranscriptionEditing",
+                            "OCRTranscription",
+                        ]:
+                            task["data"][
+                                "ocr_transcribed_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, None, dataset_type
+                            )
+                        else:
+                            task["data"][
+                                "ocr_prediction_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, None, dataset_type
+                            )
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
