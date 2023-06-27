@@ -808,7 +808,9 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 "rotation": val["rotation"],
             }
             # assigning common values to all
-            value_rectangle = value_labels = value_text = common_value
+            value_rectangle = common_value.copy()
+            value_labels = common_value.copy()
+            value_text = common_value.copy()
             value_labels["labels"] = val["labels"]
             value_text["text"] = [val["text"]]
 
