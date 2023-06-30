@@ -1792,7 +1792,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             final_result.append(result)
         return Response(final_result)
-    
+
     @action(
         detail=True,
         methods=["GET"],
@@ -2036,7 +2036,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             else:
                 final_result_for_all_types[project_type] = final_result
         return Response(final_result_for_all_types)
-    
+
     @action(
         detail=True,
         methods=["POST"],
@@ -2265,7 +2265,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         ):
             final_result = []
         return Response(final_result)
-    
+
     @action(
         detail=True,
         methods=["POST"],
