@@ -840,7 +840,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 "id": custom_id,
                 "origin": "manual",
                 "to_name": "image_url",
-                "from_name": "annotation_transcripts",
+                "from_name": "ocr_transcribed_json",
                 "type": "textarea",
                 "image_rotation": image_rotation,
                 "original_width": val["original_width"],
