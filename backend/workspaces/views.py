@@ -1826,7 +1826,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         for project_type in project_types:
             proj_objs = []
             proj_objs = Project.objects.filter(
-                organization_id=pk, project_type=project_type
+                workspace_id=pk, project_type=project_type
             )
 
             languages = list(set([proj.tgt_language for proj in proj_objs]))
