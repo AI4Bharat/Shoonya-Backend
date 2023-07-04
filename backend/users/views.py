@@ -47,11 +47,8 @@ from django.core.mail import send_mail
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
-import logging
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-
-logger = logging.getLogger(__name__)
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -305,12 +302,6 @@ class InviteViewSet(viewsets.ViewSet):
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
-
-        extra_data = {
-            "user_email": user.email,
-            "request_path": "/login",
-        }
-        logger.warning("User logged in successfully", extra=extra_data)
 
         return Response(
             {

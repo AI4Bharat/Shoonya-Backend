@@ -228,8 +228,7 @@ formatters = {
         "style": "{",
     },
     "file": {
-        "()": "shoonya_backend.logger.FileFormatter",
-        "format": "{levelname} ({asctime}) [{module}:{process}|{thread}] {message} [User: {user_email} | Path: {request_path}]",
+        "format": "{levelname} ({asctime}) [{module}:{process}|{thread}] {message}",
         "style": "{",
     },
     "csvfile": {
@@ -261,13 +260,6 @@ if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
         "class": "logging.FileHandler",
         "filename": os.path.join(BASE_DIR, "logs/logs.csv"),
         "formatter": "csvfile",
-    }
-
-    handlers["logstash"]: {
-        "level": "WARNING",
-        "class": "logstash_formatter.LogstashFormatterTCP",
-        "port": 9600,
-        "version": 1,
     }
 
 # Setup the Cloud Logging Client
