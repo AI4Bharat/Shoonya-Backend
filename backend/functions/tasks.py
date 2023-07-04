@@ -19,7 +19,7 @@ def sentence_text_translate_and_save_translation_pairs(
     input_dataset_instance_id,
     output_dataset_instance_id,
     batch_size,
-    api_type="indic-trans",
+    api_type="indic-trans-v2",
     checks_for_particular_languages=False,
     automate_missing_data_items=True,
 ):  # sourcery skip: raise-specific-error
@@ -30,10 +30,10 @@ def sentence_text_translate_and_save_translation_pairs(
         input_dataset_instance_id (int): ID of the input dataset instance.
         output_dataset_instance_id (int): ID of the output dataset instance.
         batch_size (int): Number of sentences to be translated in a single batch.
-        api_type (str): Type of API to be used for translation. (default: indic-trans)
+        api_type (str): Type of API to be used for translation. (default: indic-trans-v2)
             Allowed - [indic-trans, google, indic-trans-v2, azure, blank]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
-        automate_missing_data_items (bool): If True, consider only those data items that are missing in target dataset instance.
+        automate_missing_data_items (bool): If True, consider only those data items that are missing in the target dataset instance.
     """
 
     output_sentences = list(

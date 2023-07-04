@@ -85,30 +85,6 @@ services:
   #    - redis
   #    - web
 
-  elasticsearch:
-    container_name: elasticsearch
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.14.0
-    environment:
-      - "discovery.type=single-node"
-    ports:
-      - "9200:9200"
-
-  logstash:
-    container_name: logstash
-    image: docker.elastic.co/logstash/logstash:7.14.0
-    volumes:
-      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
-      - ./backend/:/usr/src/backend
-    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
-
-  kibana:
-    container_name: kibana
-    image: docker.elastic.co/kibana/kibana:7.14.0
-    ports:
-      - 5601:5601
-    depends_on:
-      - elasticsearch
-
 volumes:
   nginx_conf:
     external: true
