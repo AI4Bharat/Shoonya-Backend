@@ -266,7 +266,7 @@ def schedule_sentence_text_translate_job(request):
     checks_for_particular_languages = request.data.get(
         "checks_for_particular_languages", "false"
     )
-    api_type = request.data.get("api_type", "indic-trans-v2")
+    api_type = request.data.get("api_type", "indic-trans")
     automate_missing_data_items = request.data.get(
         "automate_missing_data_items", "true"
     )
