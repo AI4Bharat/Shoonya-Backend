@@ -20,6 +20,7 @@ from tasks.models import *
 from .tasks import (
     conversation_data_machine_translation,
     sentence_text_translate_and_save_translation_pairs,
+    populate_draft_data_json,
 )
 from .utils import (
     check_conversation_translation_function_inputs,
@@ -213,6 +214,13 @@ def copy_from_ocr_document_to_block_text(request):
             type=openapi.TYPE_STRING,
             required=False,
         ),
+        openapi.Parameter(
+            "automate_missing_data_items",
+            openapi.IN_QUERY,
+            description=("Boolean to translate only missing data items"),
+            type=openapi.TYPE_BOOLEAN,
+            required=False,
+        ),
     ],
     responses={200: "Starting the process of creating a machine translations."},
 )
@@ -229,6 +237,7 @@ def schedule_sentence_text_translate_job(request):
         "organization_id": <int>
         "checks_for_particular_languages" : <bool>
         "api_type": <str>
+        "automate_missing_data_items": <bool>
     }
 
     Response Body
@@ -257,10 +266,16 @@ def schedule_sentence_text_translate_job(request):
     checks_for_particular_languages = request.data.get(
         "checks_for_particular_languages", "false"
     )
-    api_type = request.data.get("api_type", "indic-trans")
+    api_type = request.data.get("api_type", "indic-trans-v2")
+    automate_missing_data_items = request.data.get(
+        "automate_missing_data_items", "true"
+    )
 
     # Convert checks for languages into boolean
     checks_for_particular_languages = checks_for_particular_languages.lower() == "true"
+
+    # Convert automate_missing_data_items into boolean
+    automate_missing_data_items = automate_missing_data_items.lower() == "true"
 
     # Convert string list to a list
     languages = ast.literal_eval(languages)
@@ -290,6 +305,7 @@ def schedule_sentence_text_translate_job(request):
         batch_size=batch_size,
         api_type=api_type,
         checks_for_particular_languages=checks_for_particular_languages,
+        automate_missing_data_items=automate_missing_data_items,
     )
 
     ret_dict = {"message": "Creating translation pairs from the input dataset."}
@@ -427,5 +443,31 @@ def schedule_conversation_translation_job(request):
         checks_for_particular_languages=checks_for_particular_languages,
     )
     ret_dict = {"message": "Translating Conversation Dataitems"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
+
+
+@api_view(["POST"])
+def schedule_draft_data_json_population(request):
+    """
+    Request Body{
+        "dataset_instance_id":<int>,
+        "fields_list":<str>(fields separated by commas),
+        "organization_id": <int>,
+    }
+    """
+
+    # Check if the user is the organization owner
+    result = check_if_particular_organization_owner(request)
+    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
+        return Response({"error": result["error"]}, status=result["status"])
+
+    fields_list = request.data["fields_list"]
+    fields_list = fields_list.split(",")
+    pk = request.data["dataset_instance_id"]
+
+    populate_draft_data_json.delay(pk, fields_list)
+
+    ret_dict = {"message": "draft_data_json population started"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)

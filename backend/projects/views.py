@@ -5,6 +5,7 @@ from time import sleep
 import pandas as pd
 import ast
 import csv
+import math
 
 from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
@@ -38,7 +39,12 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
 
-from dataset.models import DatasetInstance, Conversation, SpeechConversation
+from dataset.models import (
+    DatasetInstance,
+    Conversation,
+    SpeechConversation,
+    OCRDocument,
+)
 
 # Import celery tasks
 from .tasks import (
@@ -62,10 +68,12 @@ from .utils import (
     convert_seconds_to_hours,
     get_audio_project_types,
     get_audio_transcription_duration,
+    get_audio_segments_count,
+    calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 
 from workspaces.decorators import is_particular_workspace_manager
-from users.views import generate_random_string
+from users.utils import generate_random_string
 
 # Create your views here.
 
@@ -91,6 +99,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     email = user.email
     project_obj = Project.objects.get(id=proj_id)
     proj_type = project_obj.project_type
+    proj_type_lower = proj_type.lower()
+    is_translation_project = True if "translation" in proj_type_lower else False
     total_tasks = Task.objects.filter(project_id=proj_id, review_user=userid)
 
     if user in project_obj.frozen_users.all():
@@ -102,34 +112,74 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         annotation_status="accepted",
         task__project_id=proj_id,
         task__review_user=userid,
-        parent_annotation_id__isnull=False,
+        annotation_type=REVIEWER_ANNOTATION,
         updated_at__range=[start_date, end_date],
     )
 
     accepted_objs_count = accepted_objs.count()
 
+    superchecked_accepted_annos = Annotation_model.objects.filter(
+        parent_annotation_id__in=accepted_objs,
+        annotation_status__in=[
+            VALIDATED,
+            VALIDATED_WITH_CHANGES,
+        ],
+    )
+
+    superchecked_accepted_annos_count = superchecked_accepted_annos.count()
+
+    accepted_objs_only = accepted_objs_count - superchecked_accepted_annos_count
+
     minor_changes = Annotation_model.objects.filter(
         annotation_status="accepted_with_minor_changes",
         task__project_id=proj_id,
         task__review_user=userid,
-        parent_annotation_id__isnull=False,
+        annotation_type=REVIEWER_ANNOTATION,
         updated_at__range=[start_date, end_date],
-    ).count()
+    )
+
+    minor_changes_count = minor_changes.count()
+
+    superchecked_minor_annos = Annotation_model.objects.filter(
+        parent_annotation_id__in=minor_changes,
+        annotation_status__in=[
+            VALIDATED,
+            VALIDATED_WITH_CHANGES,
+        ],
+    )
+
+    superchecked_minor_annos_count = superchecked_minor_annos.count()
+
+    minor_changes_only = minor_changes_count - superchecked_minor_annos_count
 
     major_changes = Annotation_model.objects.filter(
         annotation_status="accepted_with_major_changes",
         task__project_id=proj_id,
         task__review_user=userid,
-        parent_annotation_id__isnull=False,
+        annotation_type=REVIEWER_ANNOTATION,
         updated_at__range=[start_date, end_date],
-    ).count()
+    )
+
+    major_changes_count = major_changes.count()
     # minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
+
+    superchecked_major_annos = Annotation_model.objects.filter(
+        parent_annotation_id__in=major_changes,
+        annotation_status__in=[
+            VALIDATED,
+            VALIDATED_WITH_CHANGES,
+        ],
+    )
+
+    superchecked_major_annos_count = superchecked_major_annos.count()
+
+    major_changes_only = major_changes_count - superchecked_major_annos_count
 
     unreviewed_count = Annotation_model.objects.filter(
         annotation_status="unreviewed",
         task__project_id=proj_id,
         task__review_user=userid,
-        parent_annotation_id__isnull=False,
+        annotation_type=REVIEWER_ANNOTATION,
         updated_at__range=[start_date, end_date],
     ).count()
 
@@ -137,7 +187,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         annotation_status="draft",
         task__project_id=proj_id,
         task__review_user=userid,
-        parent_annotation_id__isnull=False,
+        annotation_type=REVIEWER_ANNOTATION,
         updated_at__range=[start_date, end_date],
     ).count()
 
@@ -145,7 +195,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         annotation_status="skipped",
         task__project_id=proj_id,
         task__review_user=userid,
-        parent_annotation_id__isnull=False,
+        annotation_type=REVIEWER_ANNOTATION,
         updated_at__range=[start_date, end_date],
     ).count()
 
@@ -153,21 +203,377 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         annotation_status="to_be_revised",
         task__project_id=proj_id,
         task__review_user=userid,
-        parent_annotation_id__isnull=False,
+        annotation_type=REVIEWER_ANNOTATION,
         updated_at__range=[start_date, end_date],
     ).count()
+
+    total_rev_annos = Annotation_model.objects.filter(
+        task__project_id=proj_id,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    total_rev_sup_annos = Annotation_model.objects.filter(
+        parent_annotation__in=total_rev_annos
+    )
+
+    total_rejection_loop_value_list = [
+        anno.task.revision_loop_count["super_check_count"]
+        for anno in total_rev_sup_annos
+    ]
+    if len(total_rejection_loop_value_list) > 0:
+        avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
+            total_rejection_loop_value_list
+        )
+    else:
+        avg_rejection_loop_value = 0
+    tasks_rejected_max_times = 0
+    for anno in total_rev_sup_annos:
+        if (
+            anno.task.revision_loop_count["super_check_count"]
+            >= project_obj.revision_loop_count
+        ):
+            tasks_rejected_max_times += 1
+
+    total_rev_annos_accepted = total_rev_annos.filter(
+        annotation_status__in=[
+            ACCEPTED,
+            ACCEPTED_WITH_MINOR_CHANGES,
+            ACCEPTED_WITH_MAJOR_CHANGES,
+        ]
+    )
+    total_audio_duration_list = []
+    total_word_count_list = []
+    total_word_error_rate_list = []
+    if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+        for anno in total_rev_annos_accepted:
+            try:
+                total_word_count_list.append(anno.task.data["word_count"])
+            except:
+                pass
+    elif proj_type in get_audio_project_types():
+        for anno in total_rev_annos_accepted:
+            try:
+                total_audio_duration_list.append(
+                    get_audio_transcription_duration(anno.result)
+                )
+            except:
+                pass
+        for anno in total_rev_sup_annos:
+            try:
+                total_word_error_rate_list.append(
+                    calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        anno.result, anno.parent_annotation.result
+                    )
+                )
+            except:
+                pass
+
+    total_word_count = sum(total_word_count_list)
+    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+    if len(total_word_error_rate_list) > 0:
+        avg_word_error_rate = sum(total_word_error_rate_list) / len(
+            total_word_error_rate_list
+        )
+    else:
+        avg_word_error_rate = 0
+
+    if project_obj.project_stage > REVIEW_STAGE:
+        annotations_of_superchecker_validated = Annotation_model.objects.filter(
+            task__project_id=proj_id,
+            annotation_status="validated",
+            annotation_type=SUPER_CHECKER_ANNOTATION,
+            parent_annotation__updated_at__range=[start_date, end_date],
+        )
+        parent_anno_ids = [
+            ann.parent_annotation_id for ann in annotations_of_superchecker_validated
+        ]
+        accepted_validated_tasks = Annotation_model.objects.filter(
+            id__in=parent_anno_ids,
+            completed_by=userid,
+        )
+
+        annotations_of_superchecker_validated_with_changes = (
+            Annotation_model.objects.filter(
+                task__project_id=proj_id,
+                annotation_status="validated_with_changes",
+                annotation_type=SUPER_CHECKER_ANNOTATION,
+                parent_annotation__updated_at__range=[start_date, end_date],
+            )
+        )
+        parent_anno_ids = [
+            ann.parent_annotation_id
+            for ann in annotations_of_superchecker_validated_with_changes
+        ]
+        accepted_validated_with_changes_tasks = Annotation_model.objects.filter(
+            id__in=parent_anno_ids,
+            completed_by=userid,
+        )
+
+        annotations_of_superchecker_rejected = Annotation_model.objects.filter(
+            task__project_id=proj_id,
+            annotation_status="rejected",
+            annotation_type=SUPER_CHECKER_ANNOTATION,
+            parent_annotation__updated_at__range=[start_date, end_date],
+        )
+        parent_anno_ids = [
+            ann.parent_annotation_id for ann in annotations_of_superchecker_rejected
+        ]
+        accepted_rejected_tasks = Annotation_model.objects.filter(
+            id__in=parent_anno_ids, completed_by=userid, annotation_status="rejected"
+        )
+
+        result = {
+            "Reviewer Name": userName,
+            "Email": email,
+            "Assigned": total_task_count,
+            "Accepted": accepted_objs_only,
+            "Accepted With Minor Changes": minor_changes_only,
+            "Accepted With Major Changes": major_changes_only,
+            "UnReviewed": unreviewed_count,
+            "Draft": draft_count,
+            "Skipped": skipped_count,
+            "To Be Revised": to_be_revised_tasks_count,
+            "Validated": accepted_validated_tasks.count(),
+            "Validated With Changes": accepted_validated_with_changes_tasks.count(),
+            "Rejected": accepted_rejected_tasks.count(),
+            "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
+            "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+        }
+
+        if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+            result["Total Word Count"] = total_word_count
+        elif proj_type in get_audio_project_types():
+            result["Total Audio Duration"] = total_audio_duration
+            result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+
+        return result
+
     result = {
         "Reviewer Name": userName,
         "Email": email,
         "Assigned": total_task_count,
         "Accepted": accepted_objs_count,
-        "Accepted With Minor Changes": minor_changes,
-        "Accepted With Major Changes": major_changes,
-        "Un Reviewed": unreviewed_count,
+        "Accepted With Minor Changes": minor_changes_count,
+        "Accepted With Major Changes": major_changes_count,
+        "UnReviewed": unreviewed_count,
         "Draft": draft_count,
         "Skipped": skipped_count,
         "To Be Revised": to_be_revised_tasks_count,
+        "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
+        "Tasks Rejected Maximum Time": tasks_rejected_max_times,
     }
+
+    if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+        result["Total Word Count"] = total_word_count
+    elif proj_type in get_audio_project_types():
+        result["Total Audio Duration"] = total_audio_duration
+        result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+
+    return result
+
+
+def get_supercheck_reports(proj_id, userid, start_date, end_date):
+    user = User.objects.get(id=userid)
+    userName = user.username
+    email = user.email
+    project_obj = Project.objects.get(id=proj_id)
+    proj_type = project_obj.project_type
+    proj_type_lower = proj_type.lower()
+    is_translation_project = True if "translation" in proj_type_lower else False
+    total_tasks = Task.objects.filter(project_id=proj_id, super_check_user=userid)
+
+    if user in project_obj.frozen_users.all():
+        userName = userName + "*"
+
+    total_task_count = total_tasks.count()
+
+    validated_objs = Annotation_model.objects.filter(
+        annotation_status="validated",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    validated_objs_count = validated_objs.count()
+
+    validated_with_changes_objs = Annotation_model.objects.filter(
+        annotation_status="validated_with_changes",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    validated_with_changes_objs_count = validated_with_changes_objs.count()
+
+    unvalidated_objs = Annotation_model.objects.filter(
+        annotation_status="unvalidated",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    unvalidated_objs_count = unvalidated_objs.count()
+
+    rejected_objs = Annotation_model.objects.filter(
+        annotation_status="rejected",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    rejected_objs_count = rejected_objs.count()
+
+    skipped_objs = Annotation_model.objects.filter(
+        annotation_status="skipped",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    skipped_objs_count = skipped_objs.count()
+
+    draft_objs = Annotation_model.objects.filter(
+        annotation_status="draft",
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    draft_objs_count = draft_objs.count()
+
+    total_sup_annos = Annotation_model.objects.filter(
+        task__project_id=proj_id,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    total_rejection_loop_value_list = [
+        anno.task.revision_loop_count["super_check_count"] for anno in total_sup_annos
+    ]
+    if len(total_rejection_loop_value_list) > 0:
+        avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
+            total_rejection_loop_value_list
+        )
+    else:
+        avg_rejection_loop_value = 0
+    tasks_rejected_max_times = 0
+    for anno in total_sup_annos:
+        if (
+            anno.task.revision_loop_count["super_check_count"]
+            >= project_obj.revision_loop_count
+        ):
+            tasks_rejected_max_times += 1
+
+    validated_word_count_list = []
+    validated_with_changes_word_count_list = []
+    rejected_word_count_list = []
+    validated_audio_duration_list = []
+    validated_with_changes_audio_duration_list = []
+    rejected_audio_duration_list = []
+    total_word_error_rate_list = []
+    if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+        for anno in validated_objs:
+            try:
+                validated_word_count_list.append(anno.task.data["word_count"])
+            except:
+                pass
+        for anno in validated_with_changes_objs:
+            try:
+                validated_with_changes_word_count_list.append(
+                    anno.task.data["word_count"]
+                )
+            except:
+                pass
+        for anno in rejected_objs:
+            try:
+                rejected_word_count_list.append(anno.task.data["word_count"])
+            except:
+                pass
+    elif proj_type in get_audio_project_types():
+        for anno in validated_objs:
+            try:
+                validated_audio_duration_list.append(
+                    get_audio_transcription_duration(anno.result)
+                )
+            except:
+                pass
+        for anno in validated_with_changes_objs:
+            try:
+                validated_with_changes_audio_duration_list.append(
+                    get_audio_transcription_duration(anno.result)
+                )
+            except:
+                pass
+        for anno in rejected_objs:
+            try:
+                rejected_audio_duration_list.append(
+                    get_audio_transcription_duration(anno.result)
+                )
+            except:
+                pass
+        for anno in total_sup_annos:
+            try:
+                total_word_error_rate_list.append(
+                    calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        anno.result, anno.parent_annotation.result
+                    )
+                )
+            except:
+                pass
+
+    validated_word_count = sum(validated_word_count_list)
+    validated_with_changes_word_count = sum(validated_with_changes_word_count_list)
+    rejected_word_count = sum(rejected_word_count_list)
+    validated_audio_duration = convert_seconds_to_hours(
+        sum(validated_audio_duration_list)
+    )
+    validated_with_changes_audio_duration = convert_seconds_to_hours(
+        sum(validated_with_changes_audio_duration_list)
+    )
+    rejected_audio_duration = convert_seconds_to_hours(
+        sum(rejected_audio_duration_list)
+    )
+    if len(total_word_error_rate_list) > 0:
+        avg_word_error_rate = sum(total_word_error_rate_list) / len(
+            total_word_error_rate_list
+        )
+    else:
+        avg_word_error_rate = 0
+
+    result = {
+        "SuperChecker Name": userName,
+        "Email": email,
+        "Assigned": total_task_count,
+        "Validated": validated_objs_count,
+        "Validated With Changes": validated_with_changes_objs_count,
+        "UnValidated": unvalidated_objs_count,
+        "Draft": draft_objs_count,
+        "Skipped": skipped_objs_count,
+        "Rejected": rejected_objs_count,
+        "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
+        "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+    }
+    if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
+        result["Validated Word Count"] = validated_word_count
+        result["Validated With Changes Word Count"] = validated_with_changes_word_count
+        result["Rejected Word Count"] = rejected_word_count
+    elif proj_type in get_audio_project_types():
+        result["Validated Audio Duration"] = validated_audio_duration
+        result[
+            "Validated With Changes Audio Duration"
+        ] = validated_with_changes_audio_duration
+        result["Rejected Audio Duration"] = rejected_audio_duration
+        result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+
     return result
 
 
@@ -330,100 +736,196 @@ def get_task_count_unassigned(pk, user):
     return len(proj_tasks_unassigned)
 
 
-def convert_prediction_json_to_annotation_result(pk):
-    data_item = SpeechConversation.objects.get(pk=pk)
-    prediction_json = data_item.prediction_json
-    speakers_json = data_item.speakers_json
-    audio_duration = data_item.audio_duration
-
+def convert_prediction_json_to_annotation_result(pk, proj_type):
     result = []
-    if prediction_json == None:
-        return result
+    if proj_type == "AudioTranscriptionEditing":
+        data_item = SpeechConversation.objects.get(pk=pk)
+        prediction_json = data_item.prediction_json
+        speakers_json = data_item.speakers_json
+        audio_duration = data_item.audio_duration
+        # converting prediction_json to result (wherever it exists) for every task.
+        if prediction_json == None:
+            return result
+        for idx, val in enumerate(prediction_json):
+            label_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "labels",
+                "original_length": audio_duration,
+            }
+            text_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "transcribed_json",
+                "original_length": audio_duration,
+            }
+            id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+            label_dict["id"] = id
+            text_dict["id"] = id
+            label_dict["type"] = "labels"
+            text_dict["type"] = "textarea"
 
-    for idx, val in enumerate(prediction_json):
-        label_dict = {
-            "origin": "manual",
-            "to_name": "audio_url",
-            "from_name": "labels",
-            "original_length": audio_duration,
-        }
-        text_dict = {
-            "origin": "manual",
-            "to_name": "audio_url",
-            "from_name": "transcribed_json",
-            "original_length": audio_duration,
-        }
-        id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
-        label_dict["id"] = id
-        text_dict["id"] = id
-        label_dict["type"] = "labels"
-        text_dict["type"] = "textarea"
+            value_labels = {
+                "start": val["start"],
+                "end": val["end"],
+                "labels": [
+                    next(
+                        speaker
+                        for speaker in speakers_json
+                        if speaker["speaker_id"] == val["speaker_id"]
+                    )["name"]
+                ],
+            }
+            value_text = {
+                "start": val["start"],
+                "end": val["end"],
+                "text": [val["text"]],
+            }
 
-        value_labels = {
-            "start": val["start"],
-            "end": val["end"],
-            "labels": [
-                next(
-                    speaker
-                    for speaker in speakers_json
-                    if speaker["speaker_id"] == val["speaker_id"]
-                )["name"]
-            ],
-        }
-        value_text = {"start": val["start"], "end": val["end"], "text": [val["text"]]}
+            label_dict["value"] = value_labels
+            text_dict["value"] = value_text
+            # mainly label_dict and text_dict are sent as result
+            result.append(label_dict)
+            result.append(text_dict)
+    elif proj_type == "OCRTranscriptionEditing":
+        data_item = OCRDocument.objects.get(pk=pk)
+        ocr_prediction_json = data_item.ocr_prediction_json
+        if ocr_prediction_json == None:
+            return result
+        for idx, val in enumerate(ocr_prediction_json):
+            image_rotation = (
+                ocr_prediction_json["image_rotation"]
+                if "image_rotation" in ocr_prediction_json
+                else 0
+            )
+            custom_id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+            # creating values
+            common_value = {
+                "x": val["x"],
+                "y": val["y"],
+                "width": val["width"],
+                "height": val["height"],
+                "rotation": val["rotation"],
+            }
+            # assigning common values to all
+            value_rectangle = common_value.copy()
+            value_labels = common_value.copy()
+            value_text = common_value.copy()
+            value_labels["labels"] = val["labels"]
+            value_text["text"] = [val["text"]]
 
-        label_dict["value"] = value_labels
-        text_dict["value"] = value_text
+            rectangle_dict = {
+                "id": custom_id,
+                "origin": "manual",
+                "to_name": "image_url",
+                "from_name": "annotation_bboxes",
+                "type": "rectangle",
+                "image_rotation": image_rotation,
+                "original_width": val["original_width"],
+                "original_height": val["original_height"],
+                "value": value_rectangle,
+            }
+            label_dict = {
+                "id": custom_id,
+                "origin": "manual",
+                "to_name": "image_url",
+                "from_name": "annotation_labels",
+                "type": "labels",
+                "image_rotation": image_rotation,
+                "original_width": val["original_width"],
+                "original_height": val["original_height"],
+                "value": value_labels,
+            }
+            text_dict = {
+                "id": custom_id,
+                "origin": "manual",
+                "to_name": "image_url",
+                "from_name": "ocr_transcribed_json",
+                "type": "textarea",
+                "image_rotation": image_rotation,
+                "original_width": val["original_width"],
+                "original_height": val["original_height"],
+                "value": value_text,
+            }
 
-        result.append(label_dict)
-        result.append(text_dict)
+            result.append(rectangle_dict)
+            result.append(label_dict)
+            result.append(text_dict)
 
     return result
 
 
-def convert_annotation_result_to_formatted_json(annotation_result, speakers_json):
+def convert_annotation_result_to_formatted_json(
+    annotation_result, speakers_json, dataset_type
+):
     transcribed_json = []
-    ids_formatted = {}
-    for idx1 in range(len(annotation_result)):
-        formatted_result_dict = {}
-        labels_dict = {}
-        text_dict = {}
-        if annotation_result[idx1]["type"] == "labels":
-            labels_dict = annotation_result[idx1]
-        else:
-            text_dict = annotation_result[idx1]
-        for idx2 in range(idx1 + 1, len(annotation_result)):
-            if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
-                if annotation_result[idx2]["type"] == "labels":
+    if dataset_type == "SpeechConversation":
+        ids_formatted = {}
+        for idx1 in range(len(annotation_result)):
+            formatted_result_dict = {}
+            labels_dict = {}
+            text_dict = {}
+            if annotation_result[idx1]["type"] == "labels":
+                labels_dict = annotation_result[idx1]
+            else:
+                text_dict = annotation_result[idx1]
+            for idx2 in range(idx1 + 1, len(annotation_result)):
+                if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
+                    if annotation_result[idx2]["type"] == "labels":
+                        labels_dict = annotation_result[idx2]
+                    else:
+                        text_dict = annotation_result[idx2]
+                    break
+
+            if annotation_result[idx1]["id"] not in ids_formatted:
+                ids_formatted[annotation_result[idx1]["id"]] = "formatted"
+                if not labels_dict:
+                    formatted_result_dict["speaker_id"] = None
+                else:
+                    try:
+                        formatted_result_dict["speaker_id"] = next(
+                            speaker
+                            for speaker in speakers_json
+                            if speaker["name"] == labels_dict["value"]["labels"][0]
+                        )["speaker_id"]
+                    except KeyError:
+                        formatted_result_dict["speaker_id"] = None
+                    formatted_result_dict["start"] = labels_dict["value"]["start"]
+                    formatted_result_dict["end"] = labels_dict["value"]["end"]
+
+                if not text_dict:
+                    formatted_result_dict["text"] = ""
+                else:
+                    formatted_result_dict["text"] = text_dict["value"]["text"][0]
+                    formatted_result_dict["start"] = text_dict["value"]["start"]
+                    formatted_result_dict["end"] = text_dict["value"]["end"]
+                transcribed_json.append(formatted_result_dict)
+    else:
+        for idx1 in range(0, len(annotation_result), 3):
+            rectangle_dict = {}
+            labels_dict = {}
+            text_dict = {}
+            for idx2 in range(idx1, idx1 + 3):
+                formatted_result_dict = {}
+                if annotation_result[idx2]["type"] == "rectangle":
+                    rectangle_dict = annotation_result[idx1]
+                elif annotation_result[idx2]["type"] == "labels":
                     labels_dict = annotation_result[idx2]
                 else:
                     text_dict = annotation_result[idx2]
-                break
-
-        if annotation_result[idx1]["id"] not in ids_formatted:
-            print(annotation_result[idx1]["id"])
-            print(ids_formatted)
-            ids_formatted[annotation_result[idx1]["id"]] = "formatted"
-            if not labels_dict:
-                formatted_result_dict["speaker_id"] = None
-            else:
-                try:
-                    formatted_result_dict["speaker_id"] = next(
-                        speaker
-                        for speaker in speakers_json
-                        if speaker["name"] == labels_dict["value"]["labels"][0]
-                    )["speaker_id"]
-                except KeyError:
-                    formatted_result_dict["speaker_id"] = None
-                formatted_result_dict["start"] = labels_dict["value"]["start"]
-                formatted_result_dict["end"] = labels_dict["value"]["end"]
-
-            if not text_dict:
-                formatted_result_dict["text"] = ""
-            else:
-                formatted_result_dict["text"] = text_dict["value"]["text"][0]
-                formatted_result_dict["start"] = text_dict["value"]["start"]
-                formatted_result_dict["end"] = text_dict["value"]["end"]
+            formatted_result_dict = rectangle_dict["value"]
+            try:
+                formatted_result_dict["labels"] = labels_dict["value"]["labels"]
+                formatted_result_dict["text"] = (
+                    text_dict["value"]["text"][0]
+                    if type(text_dict["value"]["text"]) == list
+                    else text_dict["value"]["text"]
+                )
+            except Exception as e:
+                return Response(
+                    {"message": "Some data is missing in annotation result- " + f"{e}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             transcribed_json.append(formatted_result_dict)
 
     return transcribed_json
@@ -490,6 +992,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=request.user.id)
             .count()
         )
+
+        # Add a field to specify the no. of reviewed tasks
+        project_response.data["reviewed_task_count"] = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status=REVIEWED)
+            .filter(super_check_user__isnull=True)
+            .exclude(annotation_users=request.user.id)
+            .exclude(review_user=request.user.id)
+            .count()
+        )
+
         return project_response
 
     def list(self, request, *args, **kwargs):
@@ -513,6 +1026,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                     | self.queryset.filter(annotators=request.user)
                     | self.queryset.filter(annotation_reviewers=request.user)
+                )
+            elif request.user.role == User.SUPER_CHECKER:
+                projects = (
+                    self.queryset.filter(annotators=request.user)
+                    | self.queryset.filter(annotation_reviewers=request.user)
+                    | self.queryset.filter(review_supercheckers=request.user)
                 )
             elif request.user.role == User.REVIEWER:
                 projects = self.queryset.filter(
@@ -633,10 +1152,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     | self.queryset.filter(annotators=request.user)
                     | self.queryset.filter(annotation_reviewers=request.user)
                 )
-            else:
+            elif request.user.role == User.SUPER_CHECKER:
+                projects = (
+                    self.queryset.filter(annotators=request.user)
+                    | self.queryset.filter(annotation_reviewers=request.user)
+                    | self.queryset.filter(review_supercheckers=request.user)
+                )
+                projects = projects.filter(is_published=True).filter(is_archived=False)
+            elif request.user.role == User.REVIEWER:
                 projects = self.queryset.filter(
                     annotators=request.user
                 ) | self.queryset.filter(annotation_reviewers=request.user)
+                projects = projects.filter(is_published=True).filter(is_archived=False)
+            elif request.user.role == User.ANNOTATOR:
+                projects = self.queryset.filter(annotators=request.user)
                 projects = projects.filter(is_published=True).filter(is_archived=False)
 
             if "project_user_type" in request.query_params:
@@ -707,7 +1236,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove")
     # TODO: Refactor code to handle better role access
-    def remove_annotator(self, request, pk=None):
+    def remove_annotator(self, request, pk=None, freeze_user=True):
         if "ids" in dict(request.data):
             ids = request.data.get("ids", "")
         else:
@@ -732,17 +1261,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(
                     Q(project_id=project.id) & Q(annotation_users__in=[user])
                 ).filter(Q(task_status="incomplete"))
-                Annotation_model.objects.filter(
+                annotator_annotation = Annotation_model.objects.filter(
                     Q(completed_by=user)
-                    & Q(annotation_status="draft")
-                    & Q(parent_annotation_id__isnull=True)
-                ).delete()  # delete all draft annotations by the user
+                    & Q(task__in=tasks)
+                    & Q(annotation_type=ANNOTATOR_ANNOTATION)
+                )
+                reviewer_annotation = Annotation_model.objects.filter(
+                    parent_annotation__in=annotator_annotation
+                )
+                superchecker_annotation = Annotation_model.objects.filter(
+                    parent_annotation__in=reviewer_annotation
+                )
+                superchecker_annotation.delete()
+                reviewer_annotation.delete()
+                annotator_annotation.delete()
                 for task in tasks:
+                    task.super_check_user = None
+                    task.review_user = None
                     task.annotation_users.remove(user)
+                    task.revision_loop_count = {
+                        "super_check_count": 0,
+                        "review_count": 0,
+                    }
                     task.save()
                 tasks.update(task_status="incomplete")  # unassign user from tasks
                 # project.annotators.remove(user)
-                project.frozen_users.add(user)
+                if freeze_user == True:
+                    project.frozen_users.add(user)
                 project.save()
             return Response(
                 {"message": "User removed from project"},
@@ -761,7 +1306,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @is_project_editor
     @action(detail=True, methods=["post"], url_name="remove_reviewer")
-    def remove_reviewer(self, request, pk=None):
+    def remove_reviewer(self, request, pk=None, freeze_user=True):
         if "ids" in dict(request.data):
             ids = request.data.get("ids", "")
         else:
@@ -788,12 +1333,103 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = (
                     Task.objects.filter(project_id=project.id)
                     .filter(review_user=user)
-                    .exclude(task_status__in=[REVIEWED, EXPORTED])
+                    .filter(task_status__in=[ANNOTATED])
                 )
+                reviewer_annotation = Annotation_model.objects.filter(
+                    Q(completed_by=user)
+                    & Q(task__in=tasks)
+                    & Q(annotation_type=REVIEWER_ANNOTATION)
+                )
+                superchecker_annotation = Annotation_model.objects.filter(
+                    parent_annotation__in=reviewer_annotation
+                )
+                superchecker_annotation.delete()
+                for an in reviewer_annotation:
+                    if an.annotation_status == TO_BE_REVISED:
+                        parent = an.parent_annotation
+                        parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
+                    an.parent_annotation = None
+                    an.save()
+                    an.delete()
+
                 for task in tasks:
+                    task.super_check_user = None
                     task.review_user = None
+                    task.revision_loop_count = {
+                        "super_check_count": 0,
+                        "review_count": 0,
+                    }
+                    task.task_status = ANNOTATED
                     task.save()
-                project.frozen_users.add(user)
+                if freeze_user == True:
+                    project.frozen_users.add(user)
+                project.save()
+            return Response(
+                {"message": "User removed from the project"}, status=status.HTTP_200_OK
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    @is_project_editor
+    @action(detail=True, methods=["post"], url_name="remove_superchecker")
+    def remove_superchecker(self, request, pk=None, freeze_user=True):
+        if "ids" in dict(request.data):
+            ids = request.data.get("ids", "")
+        else:
+            return Response(
+                {"message": "key doesnot match"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            project = Project.objects.filter(pk=pk).first()
+            if not project:
+                return Response(
+                    {"message": "Project does not exist"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            for user_id in ids:
+                user = User.objects.get(pk=user_id)
+                # check if the user is already frozen
+                if user in project.frozen_users.all():
+                    return Response(
+                        {"message": "User is already frozen"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                tasks = (
+                    Task.objects.filter(project_id=project.id)
+                    .filter(super_check_user=user)
+                    .filter(task_status__in=[REVIEWED])
+                )
+                superchecker_annotation = Annotation_model.objects.filter(
+                    Q(completed_by=user)
+                    & Q(task__in=tasks)
+                    & Q(annotation_type=SUPER_CHECKER_ANNOTATION)
+                )
+                for an in superchecker_annotation:
+                    if an.annotation_status == REJECTED:
+                        parent = an.parent_annotation
+                        grand_parent = parent.parent_annotation
+                        parent.annotation_status = ACCEPTED
+                        grand_parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
+                        grand_parent.save(update_fields=["annotation_status"])
+                    an.parent_annotation = None
+                    an.save()
+                    an.delete()
+
+                for task in tasks:
+                    task.super_check_user = None
+                    rev_loop_count = task.revision_loop_count
+                    rev_loop_count["super_check_count"] = 0
+                    task.revision_loop_count = rev_loop_count
+                    task.task_status = REVIEWED
+                    task.save()
+                if freeze_user == True:
+                    project.frozen_users.add(user)
                 project.save()
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
@@ -874,48 +1510,66 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         # Check if the endpoint is being accessed in review mode
 
-        is_review_mode = True if mode == "review" else False
-
         # is_review_mode = (
         #     "mode" in dict(request.query_params)
         #     and request.query_params["mode"] == "review"
         # )
-        if is_review_mode:
-            if project.project_stage != REVIEW_STAGE:
+        if mode == "review":
+            if project.project_stage == ANNOTATION_STAGE:
                 resp_dict = {"message": "Task reviews are not enabled for this project"}
+                return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
+        if mode == "supercheck":
+            if project.project_stage != SUPERCHECK_STAGE:
+                resp_dict = {
+                    "message": "Task superchecks are not enabled for this project"
+                }
                 return Response(resp_dict, status=status.HTTP_403_FORBIDDEN)
 
         if annotation_status != None:
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
+                or request.user in project.review_supercheckers.all()
             ):
-                if is_review_mode:
+                if mode == "review":
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
-                        parent_annotation_id__isnull=False,
+                        annotation_type=REVIEWER_ANNOTATION,
+                        completed_by=request.user.id,
+                    )
+                elif mode == "annotation":
+                    annotations = Annotation_model.objects.filter(
+                        task__project_id=pk,
+                        annotation_status=annotation_status,
+                        annotation_type=ANNOTATOR_ANNOTATION,
                         completed_by=request.user.id,
                     )
                 else:
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
-                        parent_annotation_id__isnull=True,
+                        annotation_type=SUPER_CHECKER_ANNOTATION,
                         completed_by=request.user.id,
                     )
             else:
-                if is_review_mode:
+                if mode == "review":
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
-                        parent_annotation_id__isnull=False,
+                        annotation_type=REVIEWER_ANNOTATION,
+                    )
+                elif mode == "annotation":
+                    annotations = Annotation_model.objects.filter(
+                        task__project_id=pk,
+                        annotation_status=annotation_status,
+                        annotation_type=ANNOTATOR_ANNOTATION,
                     )
                 else:
                     annotations = Annotation_model.objects.filter(
                         task__project_id=pk,
                         annotation_status=annotation_status,
-                        parent_annotation_id__isnull=True,
+                        annotation_type=SUPER_CHECKER_ANNOTATION,
                     )
 
             tasks = Task.objects.filter(annotations__in=annotations)
@@ -944,20 +1598,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
+                or request.user in project.review_supercheckers.all()
             ):
-                tasks = (
-                    Task.objects.filter(
+                if mode == "review":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
                         review_user=request.user.id,
                         task_status=task_status,
                     )
-                    if is_review_mode
-                    else Task.objects.filter(
+                elif mode == "annotation":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
                         annotation_users=request.user.id,
                         task_status=task_status,
                     )
-                )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project.id,
+                        super_check_user=request.user.id,
+                        task_status=task_status,
+                    )
             else:
                 tasks = Task.objects.filter(
                     project_id__exact=project.id,
@@ -987,35 +1647,45 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if (
                 request.user in project.annotation_reviewers.all()
                 or request.user in project.annotators.all()
+                or request.user in project.review_supercheckers.all()
             ) and not request.user.is_superuser:
                 # Filter Tasks based on whether the request is in review mode or not
-                tasks = (
-                    Task.objects.filter(
+                if mode == "review":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
                         review_user=request.user.id,
-                        task_status__exact=ANNOTATED,
+                        task_status=ANNOTATED,
                     )
-                    if is_review_mode
-                    else Task.objects.filter(
+                elif mode == "annotation":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
                         annotation_users=request.user.id,
-                        task_status__exact=INCOMPLETE,
+                        task_status=INCOMPLETE,
                     )
-                )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project.id,
+                        super_check_user=request.user.id,
+                        task_status=REVIEWED,
+                    )
             else:
                 # TODO : Refactor code to reduce DB calls
                 # Filter Tasks based on whether the request is in review mode or not
-                tasks = (
-                    Task.objects.filter(
+                if mode == "review":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
-                        task_status__exact=ANNOTATED,
+                        task_status=ANNOTATED,
                     )
-                    if is_review_mode
-                    else Task.objects.filter(
+                elif mode == "annotation":
+                    tasks = Task.objects.filter(
                         project_id__exact=project.id,
-                        task_status__exact=INCOMPLETE,
+                        task_status=INCOMPLETE,
                     )
-                )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project.id,
+                        task_status=REVIEWED,
+                    )
 
             if len(tasks):
                 tasks = tasks.filter(
@@ -1045,6 +1715,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Read project details from api request
         project_type = request.data.get("project_type")
         project_mode = request.data.get("project_mode")
+        automatic_annotation_creation_mode = request.data.get(
+            "automatic_annotation_creation_mode"
+        )
 
         if project_mode == Collection:
             # Create project object
@@ -1085,6 +1758,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 sampling_parameters=sampling_parameters,
                 variable_parameters=variable_parameters,
                 project_id=project_id,
+                automatic_annotation_creation_mode=automatic_annotation_creation_mode,
             )
         # Return the project response
         return project_response
@@ -1100,7 +1774,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @is_project_editor
     @project_is_archived
     def partial_update(self, request, pk=None, *args, **kwargs):
-        return super().partial_update(request, *args, **kwargs)
+        return super().partial_update(request, pk, *args, **kwargs)
 
     @is_project_editor
     @project_is_published
@@ -1218,7 +1892,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # the below logic will work only for required_annotators_per_task=1
         # TO-DO Modify and use the commented logic to cover all cases
         proj_annotations = Annotation_model.objects.filter(task__project_id=pk).filter(
-            annotation_status__exact=UNLABELED
+            annotation_status__exact=UNLABELED, completed_by=cur_user
         )
         annotation_tasks = [anno.task.id for anno in proj_annotations]
         pending_tasks = (
@@ -1264,7 +1938,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=cur_user.id)
             .annotate(annotator_count=Count("annotation_users"))
         )
-        tasks = tasks.filter(annotator_count__lt=project.required_annotators_per_task)
+        tasks = tasks.filter(
+            annotator_count__lt=project.required_annotators_per_task
+        ).distinct()
         if not tasks:
             project.release_lock(ANNOTATION_LOCK)
             return Response(
@@ -1277,16 +1953,38 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task.annotation_users.add(cur_user)
             task.save()
             result = []
-            if project.project_type == "AudioTranscriptionEditing":
+            if project.project_type in [
+                "AudioTranscriptionEditing",
+                "OCRTranscriptionEditing",
+            ]:
                 result = convert_prediction_json_to_annotation_result(
-                    task.input_data.id
+                    task.input_data.id, project.project_type
                 )
-            base_annotation_obj = Annotation_model(
-                result=result,
-                task=task,
-                completed_by=cur_user,
-            )
-            base_annotation_obj.save()
+            annotator_anno_count = Annotation_model.objects.filter(
+                task_id=task, annotation_type=ANNOTATOR_ANNOTATION
+            ).count()
+            if annotator_anno_count < project.required_annotators_per_task:
+                cur_user_anno_count = Annotation_model.objects.filter(
+                    task_id=task,
+                    annotation_type=ANNOTATOR_ANNOTATION,
+                    completed_by=cur_user,
+                ).count()
+                if cur_user_anno_count == 0:
+                    base_annotation_obj = Annotation_model(
+                        result=result,
+                        task=task,
+                        completed_by=cur_user,
+                    )
+                    base_annotation_obj.save()
+            else:
+                cur_user_anno_count = Annotation_model.objects.filter(
+                    task_id=task,
+                    annotation_type=ANNOTATOR_ANNOTATION,
+                    completed_by=cur_user,
+                ).count()
+                if cur_user_anno_count == 0:
+                    task.annotation_users.remove(cur_user)
+                    task.save()
         project.release_lock(ANNOTATION_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -1337,14 +2035,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ann = Annotation_model.objects.filter(
                 task__project_id=project_id,
                 completed_by=user.id,
-                parent_annotation__isnull=True,
+                annotation_type=ANNOTATOR_ANNOTATION,
                 annotation_status__in=annotation_status,
             )
             review_annotations_ids = []
             reviewer_pulled_tasks = []
             for ann1 in ann:
                 try:
-                    review_annotation_obj = Annotation_model.object.get(
+                    review_annotation_obj = Annotation_model.objects.get(
                         parent_annotation=ann1
                     )
                     review_annotations_ids.append(review_annotation_obj.id)
@@ -1355,6 +2053,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
             review_annotations = Annotation_model.objects.filter(
                 id__in=review_annotations_ids
             )
+
+            super_check_annotations_ids = []
+            supercheck_pulled_tasks = []
+            for ann2 in review_annotations:
+                try:
+                    super_check_annotation_obj = Annotation_model.objects.get(
+                        parent_annotation=ann2
+                    )
+                    super_check_annotations_ids.append(super_check_annotation_obj.id)
+                    supercheck_pulled_tasks.append(super_check_annotation_obj.task_id)
+                except:
+                    pass
+
+            super_check_annotations = Annotation_model.objects.filter(
+                id__in=super_check_annotations_ids
+            )
+            super_check_annotations.delete()
+            super_check_tasks = Task.objects.filter(id__in=supercheck_pulled_tasks)
+            if super_check_tasks.count() > 0:
+                super_check_tasks.update(super_check_user=None)
+
             review_annotations.delete()
             reviewed_tasks = Task.objects.filter(id__in=reviewer_pulled_tasks)
             if reviewed_tasks.count() > 0:
@@ -1365,6 +2084,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             tasks = Task.objects.filter(id__in=tas_ids)
             if tasks.count() > 0:
                 for task in tasks:
+                    task.revision_loop_count = {
+                        "super_check_count": 0,
+                        "review_count": 0,
+                    }
                     task.unassign(user_obj)
                     task.task_status = INCOMPLETE
                     task.save()
@@ -1442,7 +2165,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "This project is not yet published"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        if not (project.project_stage == REVIEW_STAGE):
+        if not (
+            project.project_stage == REVIEW_STAGE
+            or project.project_stage == SUPERCHECK_STAGE
+        ):
             return Response(
                 {"message": "Task reviews are disabled for this project"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1475,6 +2201,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .filter(task_status=ANNOTATED)
             .filter(review_user__isnull=True)
             .exclude(annotation_users=cur_user.id)
+            .distinct()
         )
         if not tasks:
             project.release_lock(REVIEW_LOCK)
@@ -1488,7 +2215,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Sort by most recently updated annotation; temporary change
         task_ids = (
             Annotation_model.objects.filter(task__in=tasks)
-            .filter(parent_annotation__isnull=True)
+            .filter(annotation_type=ANNOTATOR_ANNOTATION)
+            .distinct()
             .order_by("-updated_at")
             .values_list("task", flat=True)
         )
@@ -1499,18 +2227,30 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
-            rec_ann = Annotation_model.objects.filter(task_id=task_id).order_by(
-                "-updated_at"
+            rec_ann = (
+                Annotation_model.objects.filter(task_id=task_id)
+                .filter(annotation_type=ANNOTATOR_ANNOTATION)
+                .order_by("-updated_at")
             )
-            base_annotation_obj = Annotation_model(
-                result=[],
-                task=task,
-                completed_by=cur_user,
-                annotation_status="unreviewed",
-                parent_annotation=rec_ann[0],
-                annotation_type=REVIEWER_ANNOTATION,
+            reviewer_anno = Annotation_model.objects.filter(
+                task_id=task_id, annotation_type=REVIEWER_ANNOTATION
             )
-            base_annotation_obj.save()
+            reviewer_anno_count = Annotation_model.objects.filter(
+                task_id=task_id, annotation_type=REVIEWER_ANNOTATION
+            ).count()
+            if reviewer_anno_count == 0:
+                base_annotation_obj = Annotation_model(
+                    result=[],
+                    task=task,
+                    completed_by=cur_user,
+                    annotation_status="unreviewed",
+                    parent_annotation=rec_ann[0],
+                    annotation_type=REVIEWER_ANNOTATION,
+                )
+                base_annotation_obj.save()
+            else:
+                task.review_user = reviewer_anno[0].completed_by
+                task.save()
         project.release_lock(REVIEW_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -1559,12 +2299,39 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ann = Annotation_model.objects.filter(
                     task__project_id=project_id,
                     completed_by=user.id,
-                    parent_annotation__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     annotation_status__in=review_status,
                 )
                 tas_ids = [an.task_id for an in ann]
 
+                superchecker_annotation_ids = []
+                supercheck_pulled_tasks = []
+                for ann1 in ann:
+                    try:
+                        supercheck_annotation_obj = Annotation_model.objects.get(
+                            parent_annotation=ann1
+                        )
+                        superchecker_annotation_ids.append(supercheck_annotation_obj.id)
+                        supercheck_pulled_tasks.append(
+                            supercheck_annotation_obj.task_id
+                        )
+                    except:
+                        pass
+
+                supercheck_annotations = Annotation_model.objects.filter(
+                    id__in=superchecker_annotation_ids
+                )
+                supercheck_tasks = Task.objects.filter(id__in=supercheck_pulled_tasks)
+
+                supercheck_annotations.delete()
+                if len(supercheck_tasks) > 0:
+                    supercheck_tasks.update(super_check_user=None)
+
                 for an in ann:
+                    if an.annotation_status == TO_BE_REVISED:
+                        parent = an.parent_annotation
+                        parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
                     an.parent_annotation = None
                     an.save()
                     an.delete()
@@ -1572,6 +2339,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks = Task.objects.filter(id__in=tas_ids)
                 if tasks.count() > 0:
                     tasks.update(review_user=None)
+                    tasks.update(
+                        revision_loop_count=default_revision_loop_count_value()
+                    )
+                    tasks.update(task_status=ANNOTATED)
                     return Response(
                         {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                     )
@@ -1581,6 +2352,221 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             return Response(
                 {"message": "Only reviewers can unassign tasks"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response(
+            {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Assign new tasks for supercheck to user",
+        url_name="assign_supercheck_tasks",
+    )
+    def assign_new_supercheck_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of reviewed tasks and assign to the superchecker
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+        if not project.is_published:
+            return Response(
+                {"message": "This project is not yet published"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not (project.project_stage == SUPERCHECK_STAGE):
+            return Response(
+                {"message": "Task superchecks are disabled for this project"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        serializer = ProjectUsersSerializer(project, many=False)
+        review_supercheckers = serializer.data["review_supercheckers"]
+        superchecker_ids = set()
+        for review_superchecker in review_supercheckers:
+            superchecker_ids.add(review_superchecker["id"])
+        # verify if user belongs in annotation_reviewers for this project
+        if not cur_user.id in superchecker_ids:
+            return Response(
+                {"message": "You are not assigned to supercheck this project"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        lock_set = False
+        while lock_set == False:
+            if project.is_locked(SUPERCHECK_LOCK):
+                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
+                continue
+            else:
+                try:
+                    project.set_lock(cur_user, SUPERCHECK_LOCK)
+                    lock_set = True
+                except Exception as e:
+                    continue
+        # check if the project contains eligible tasks to pull
+        tasks = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status=REVIEWED)
+            .filter(super_check_user__isnull=True)
+            .exclude(annotation_users=cur_user.id)
+            .exclude(review_user=cur_user.id)
+            .distinct()
+        )
+        if not tasks:
+            project.release_lock(SUPERCHECK_LOCK)
+            return Response(
+                {"message": "No tasks available for supercheck in this project"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        task_pull_count = project.tasks_pull_count_per_batch
+        if "num_tasks" in dict(request.data):
+            task_pull_count = request.data["num_tasks"]
+
+        sup_exp_rev_tasks_count = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED])
+            .distinct()
+            .count()
+        )
+        sup_exp_tasks_count = (
+            Task.objects.filter(project_id=pk)
+            .filter(task_status__in=[SUPER_CHECKED, EXPORTED])
+            .distinct()
+            .count()
+        )
+
+        max_super_check_tasks_count = math.ceil(
+            (project.k_value) * sup_exp_rev_tasks_count / 100
+        )
+        if sup_exp_tasks_count >= max_super_check_tasks_count:
+            return Response(
+                {"message": "Maximum supercheck tasks limit reached!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        task_pull_count = min(
+            task_pull_count, max_super_check_tasks_count - sup_exp_tasks_count
+        )
+        # Sort by most recently updated annotation; temporary change
+        task_ids = (
+            Annotation_model.objects.filter(task__in=tasks)
+            .filter(annotation_type=REVIEWER_ANNOTATION)
+            .distinct()
+            .order_by("-updated_at")
+            .values_list("task", flat=True)
+        )
+        # tasks = tasks.order_by("id")
+        task_ids = list(set(task_ids))
+        task_ids = task_ids[:task_pull_count]
+        for task_id in task_ids:
+            task = Task.objects.get(pk=task_id)
+            task.super_check_user = cur_user
+            task.save()
+            rec_ann = (
+                Annotation_model.objects.filter(task_id=task_id)
+                .filter(annotation_type=REVIEWER_ANNOTATION)
+                .order_by("-updated_at")
+            )
+            superchecker_anno = Annotation_model.objects.filter(
+                task_id=task_id, annotation_type=SUPER_CHECKER_ANNOTATION
+            )
+            superchecker_anno_count = Annotation_model.objects.filter(
+                task_id=task_id, annotation_type=SUPER_CHECKER_ANNOTATION
+            ).count()
+            if superchecker_anno_count == 0:
+                base_annotation_obj = Annotation_model(
+                    result=[],
+                    task=task,
+                    completed_by=cur_user,
+                    annotation_status="unvalidated",
+                    parent_annotation=rec_ann[0],
+                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                )
+                base_annotation_obj.save()
+            else:
+                task.super_check_user = superchecker_anno[0].completed_by
+                task.save()
+        project.release_lock(SUPERCHECK_LOCK)
+        return Response(
+            {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
+        )
+
+    @action(
+        detail=True,
+        methods=["get"],
+        name="Unassign supercheck tasks",
+        url_name="unassign_supercheck_tasks",
+    )
+    def unassign_supercheck_tasks(self, request, pk, *args, **kwargs):
+        """
+        Unassigns all labeled tasks from a superchecker.
+        """
+        if "superchecker_id" in dict(request.query_params).keys():
+            superchecker_id = request.query_params["superchecker_id"]
+            superchecker = User.objects.get(pk=superchecker_id)
+            project = Project.objects.get(pk=pk)
+            workspace = project.workspace_id
+            if request.user in workspace.managers.all():
+                user = superchecker
+            else:
+                return Response(
+                    {
+                        "message": "Only workspace managers can unassign tasks from other supercheckers"
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            user = request.user
+        project_id = pk
+
+        if "supercheck_status" in dict(request.query_params).keys():
+            supercheck_status = request.query_params["supercheck_status"]
+            supercheck_status = ast.literal_eval(supercheck_status)
+        else:
+            return Response(
+                {"message": "please provide the supercheck_status to unassign tasks"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if project_id:
+            project_obj = Project.objects.get(pk=project_id)
+            if project_obj and user in project_obj.review_supercheckers.all():
+                ann = Annotation_model.objects.filter(
+                    task__project_id=project_id,
+                    completed_by=user.id,
+                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                    annotation_status__in=supercheck_status,
+                )
+                tas_ids = [an.task_id for an in ann]
+
+                for an in ann:
+                    if an.annotation_status == REJECTED:
+                        parent = an.parent_annotation
+                        grand_parent = parent.parent_annotation
+                        parent.annotation_status = ACCEPTED
+                        grand_parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
+                        grand_parent.save(update_fields=["annotation_status"])
+                    an.parent_annotation = None
+                    an.save()
+                    an.delete()
+
+                tasks = Task.objects.filter(id__in=tas_ids)
+                if tasks.count() > 0:
+                    tasks.update(super_check_user=None)
+                    for task in tasks:
+                        rev_loop_count = task.revision_loop_count
+                        rev_loop_count["super_check_count"] = 0
+                        task.revision_loop_count = rev_loop_count
+                        task.task_status = REVIEWED
+                        task.save()
+                    return Response(
+                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
+                    )
+                return Response(
+                    {"message": "No tasks to unassign"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(
+                {"message": "Only supercheckers can unassign tasks"},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return Response(
@@ -1679,7 +2665,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         reports_type = request.data.get("reports_type")
 
         if reports_type == "review_reports":
-            if proj_obj.project_stage == REVIEW_STAGE:
+            if proj_obj.project_stage > ANNOTATION_STAGE:
                 reviewer_names_list = proj_obj.annotation_reviewers.all()
                 reviewer_ids = [name.id for name in reviewer_names_list]
                 final_reports = []
@@ -1702,6 +2688,31 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 result = {"message": "disabled task reviews for this project "}
                 return Response(result)
+        elif reports_type == "superchecker_reports":
+            if proj_obj.project_stage > REVIEW_STAGE:
+                superchecker_names_list = proj_obj.review_supercheckers.all()
+                superchecker_ids = [name.id for name in superchecker_names_list]
+                final_reports = []
+                if (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.role == User.WORKSPACE_MANAGER
+                    or request.user.is_superuser
+                ):
+                    for id in superchecker_ids:
+                        result = get_supercheck_reports(pk, id, start_date, end_date)
+                        final_reports.append(result)
+                elif users_id in superchecker_ids:
+                    result = get_supercheck_reports(pk, users_id, start_date, end_date)
+                    final_reports.append(result)
+                else:
+                    final_reports = {
+                        "message": "You do not have enough permissions to access this view!"
+                    }
+                return Response(final_reports)
+            else:
+                result = {"message": "disabled task supercheck for this project "}
+                return Response(result)
+
         managers = [
             user1.get_username() for user1 in proj_obj.workspace_id.managers.all()
         ]
@@ -1750,7 +2761,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             labeled_annotations = Annotation_model.objects.filter(
                 task__project_id=pk,
                 annotation_status="labeled",
-                parent_annotation_id__isnull=True,
+                annotation_type=ANNOTATOR_ANNOTATION,
                 updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             )
@@ -1767,15 +2778,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             labeled_only_annotations = len(labeled_annotations) - reviewed_ann
 
-            items.append(("Labeled", labeled_only_annotations))
-
             proj = Project.objects.get(id=pk)
-            if proj.project_stage == REVIEW_STAGE:
+            if proj.project_stage > ANNOTATION_STAGE:
+                items.append(("Labeled", labeled_only_annotations))
                 # get accepted tasks
                 annotations_of_reviewer_accepted = Annotation_model.objects.filter(
                     task__project_id=pk,
                     annotation_status="accepted",
-                    parent_annotation_id__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids = [
@@ -1792,7 +2802,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotations_of_reviewer_minor = Annotation_model.objects.filter(
                     task__project_id=pk,
                     annotation_status="accepted_with_minor_changes",
-                    parent_annotation_id__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_minor = [
@@ -1814,7 +2824,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotations_of_reviewer_major = Annotation_model.objects.filter(
                     task__project_id=pk,
                     annotation_status="accepted_with_major_changes",
-                    parent_annotation_id__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_major = [
@@ -1835,7 +2845,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotations_of_reviewer_to_be_revised = Annotation_model.objects.filter(
                     task__project_id=pk,
                     annotation_status="to_be_revised",
-                    parent_annotation_id__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     parent_annotation__updated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_to_be_revised = [
@@ -1847,11 +2857,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     completed_by=each_annotator,
                 )
                 items.append(("To Be Revised", annotated_to_be_revised_tasks.count()))
+            else:
+                items.append(("Labeled", len(labeled_annotations)))
             # get unlabeled count
             total_unlabeled_tasks_count = Annotation_model.objects.filter(
                 task__project_id=pk,
                 annotation_status="unlabeled",
-                parent_annotation_id__isnull=True,
+                annotation_type=ANNOTATOR_ANNOTATION,
                 updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
@@ -1861,7 +2873,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             total_skipped_tasks_count = Annotation_model.objects.filter(
                 task__project_id=pk,
                 annotation_status="skipped",
-                parent_annotation_id__isnull=True,
+                annotation_type=ANNOTATOR_ANNOTATION,
                 updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
@@ -1872,7 +2884,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             total_draft_tasks_count = Annotation_model.objects.filter(
                 task__project_id=pk,
                 annotation_status="draft",
-                parent_annotation_id__isnull=True,
+                annotation_type=ANNOTATOR_ANNOTATION,
                 updated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
@@ -1895,17 +2907,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             elif project_type in get_audio_project_types():
                 total_duration_list = []
-
+                total_audio_segments_list = []
                 for each_task in labeled_annotations:
                     try:
                         total_duration_list.append(
                             get_audio_transcription_duration(each_task.result)
+                        )
+                        total_audio_segments_list.append(
+                            get_audio_segments_count(each_task.result)
                         )
                     except:
                         pass
                 total_duration = sum(total_duration_list)
                 total_time = convert_seconds_to_hours(total_duration)
                 items.append(("Total Audio Duration", total_time))
+                total_audio_segments = sum(total_audio_segments_list)
+                try:
+                    avg_segment_duration = total_duration / total_audio_segments
+                    avg_segments_per_task = total_audio_segments / len(
+                        labeled_annotations
+                    )
+                except:
+                    avg_segment_duration = 0
+                    avg_segments_per_task = 0
+                items.append(("Avg Segment Duration", round(avg_segment_duration, 2)))
+                items.append(
+                    ("Average Segments Per Task", round(avg_segments_per_task, 2))
+                )
 
             lead_time_annotated_tasks = [
                 annot.lead_time for annot in labeled_annotations
@@ -2168,124 +3196,247 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["POST"],
+        name="Add Project SuperCheckers",
+        url_name="add_project_supercheckers",
+    )
+    @project_is_archived
+    @is_project_editor
+    def add_project_supercheckers(self, request, pk, *args, **kwargs):
+        """
+        Adds annotation reviewers to the project
+        """
+        try:
+            project = Project.objects.get(pk=pk)
+            if "ids" in dict(request.data):
+                ids = request.data.get("ids", "")
+            else:
+                return Response(
+                    {"message": "key doesnot match"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            users = User.objects.filter(id__in=ids)
+            if not users:
+                return Response(
+                    {"message": "user does not exist"}, status=status.HTTP_404_NOT_FOUND
+                )
+            for user in users:
+                if user.role == User.ANNOTATOR or user.role == User.REVIEWER:
+                    return Response(
+                        {
+                            "message": "One or more users does not have permission to supercheck review annotations"
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                # check if user is already added to project
+                if user in project.review_supercheckers.all():
+                    return Response(
+                        {"message": "User already added to project"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                project.review_supercheckers.add(user)
+                project.save()
+
+            return Response(
+                {"message": "SuperCheckers added"}, status=status.HTTP_200_OK
+            )
+        except Project.DoesNotExist:
+            return Response(
+                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(
+        detail=True,
+        methods=["POST"],
         name="change project stage",
         url_name="change_project_stage",
     )
     @is_project_editor
     def change_project_stage(self, request, pk):
-        # try:
-        project = Project.objects.get(pk=pk)
-        new_project_stage = request.data.get("project_stage")
-        if new_project_stage == ANNOTATION_STAGE:
-            if project.required_annotators_per_task > 1:
-                return Response(
-                    {
-                        "message": "you can't move to annotation stage for this project because required_annotators_per_task in this project is more than 1 "
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            if project.project_stage == ANNOTATION_STAGE:
-                return Response(
-                    {"message": "Project is already in Annotation stage"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            elif project.project_stage == SUPERCHECK_STAGE:
-                return Response(
-                    {
-                        "message": "Project can't directly move from supercheker stage to annotation stage"
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            else:
-                tasks = Task.objects.filter(project_id=project.id)
-                # get all review tasks
-                reviewed_tasks = tasks.filter(task_status__in=[REVIEWED])
-                ann_rew_exp_tasks = tasks.filter(
-                    task_status__in=[REVIEWED, ANNOTATED, EXPORTED]
-                )
-                # change all reviewed task status from "reviewed" to "annotate"
-                reviewed_tasks.update(task_status=ANNOTATED)
-                tasks.update(review_user=None)
-                for tas in ann_rew_exp_tasks:
-                    anns = Annotation_model.objects.filter(
-                        task_id=tas.id, annotation_type=ANNOTATOR_ANNOTATION
+        try:
+            project = Project.objects.get(pk=pk)
+            new_project_stage = request.data.get("project_stage")
+            if new_project_stage == ANNOTATION_STAGE:
+                if project.required_annotators_per_task > 1:
+                    return Response(
+                        {
+                            "message": "you can't move to annotation stage for this project because required_annotators_per_task in this project is more than 1 "
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
                     )
-                    if len(anns) > 0:
-                        tas.correct_annotation = anns[0]
-                    tas.save()
-                project.project_stage = ANNOTATION_STAGE
-                project.save()
-                return Response(
-                    {"message": "Task moved to Annotation stage from Review stage"},
-                    status=status.HTTP_200_OK,
-                )
-        elif new_project_stage == REVIEW_STAGE:
-            if project.project_stage == REVIEW_STAGE:
-                return Response(
-                    {"message": "Project already in Review Stage"},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            elif project.project_stage == ANNOTATION_STAGE:
-                tasks = Task.objects.filter(project_id=project.id).filter(
-                    task_status__in=[ANNOTATED, EXPORTED]
-                )
-
-                for tas in tasks:
-                    anns = Annotation_model.objects.filter(
-                        task_id=tas.id, annotation_type=REVIEWER_ANNOTATION
+                if project.project_stage == ANNOTATION_STAGE:
+                    return Response(
+                        {"message": "Project is already in Annotation stage"},
+                        status=status.HTTP_403_FORBIDDEN,
                     )
-                    if len(anns) > 0:
-                        rew_status = anns[0].annotation_status
-                        if rew_status in [
-                            ACCEPTED,
-                            ACCEPTED_WITH_MINOR_CHANGES,
-                            ACCEPTED_WITH_MAJOR_CHANGES,
-                            TO_BE_REVISED,
-                        ]:
+                elif project.project_stage == SUPERCHECK_STAGE:
+                    return Response(
+                        {
+                            "message": "Project can't directly move from supercheker stage to annotation stage"
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                else:
+                    project.project_stage = ANNOTATION_STAGE
+                    project.save()
+                    tasks = Task.objects.filter(project_id=project.id)
+                    # get all review tasks
+                    reviewed_tasks = tasks.filter(task_status__in=[REVIEWED])
+                    ann_rew_exp_tasks = tasks.filter(
+                        task_status__in=[REVIEWED, ANNOTATED, EXPORTED]
+                    )
+                    # change all reviewed task status from "reviewed" to "annotate"
+                    reviewed_tasks.update(task_status=ANNOTATED)
+                    tasks.update(review_user=None)
+                    for tas in ann_rew_exp_tasks:
+                        anns = Annotation_model.objects.filter(
+                            task_id=tas.id, annotation_type=ANNOTATOR_ANNOTATION
+                        )
+                        if len(anns) > 0:
                             tas.correct_annotation = anns[0]
-                        tas.review_user = anns[0].completed_by
-                        if tas.task_status == ANNOTATED and rew_status in [
-                            ACCEPTED,
-                            ACCEPTED_WITH_MINOR_CHANGES,
-                            ACCEPTED_WITH_MAJOR_CHANGES,
-                            TO_BE_REVISED,
-                        ]:
-                            tas.task_status = REVIEWED
-                    else:
-                        if tas.task_status == EXPORTED:
-                            tas.task_status = ANNOTATED
-                        tas.correct_annotation = None
-                    tas.save()
+                        tas.save()
+                    return Response(
+                        {"message": "Task moved to Annotation stage from Review stage"},
+                        status=status.HTTP_200_OK,
+                    )
+            elif new_project_stage == REVIEW_STAGE:
+                if project.project_stage == REVIEW_STAGE:
+                    return Response(
+                        {"message": "Project already in Review Stage"},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                elif project.project_stage == ANNOTATION_STAGE:
+                    tasks = Task.objects.filter(project_id=project.id).filter(
+                        task_status__in=[ANNOTATED, EXPORTED]
+                    )
 
-                # tasks.update(task_status=ANNOTATED)
-                project.project_stage = REVIEW_STAGE
-                project.save()
-                return Response(
-                    {"message": "Project moved to Review stage from Annotation stage"},
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                # (REVIEWED,EXPORTED,SUPERCHECKED)
-                # (SUPERCHECKED->REVIEWED)
+                    for tas in tasks:
+                        anns = Annotation_model.objects.filter(
+                            task_id=tas.id, annotation_type=REVIEWER_ANNOTATION
+                        )
+                        if len(anns) > 0:
+                            rew_status = anns[0].annotation_status
+                            if rew_status in [
+                                ACCEPTED,
+                                ACCEPTED_WITH_MINOR_CHANGES,
+                                ACCEPTED_WITH_MAJOR_CHANGES,
+                            ]:
+                                tas.correct_annotation = anns[0]
+                            tas.review_user = anns[0].completed_by
+                            if tas.task_status == ANNOTATED and rew_status in [
+                                ACCEPTED,
+                                ACCEPTED_WITH_MINOR_CHANGES,
+                                ACCEPTED_WITH_MAJOR_CHANGES,
+                            ]:
+                                tas.task_status = REVIEWED
+                        else:
+                            if tas.task_status == EXPORTED:
+                                tas.task_status = ANNOTATED
+                            tas.correct_annotation = None
+                        tas.save()
+
+                    # tasks.update(task_status=ANNOTATED)
+                    project.project_stage = REVIEW_STAGE
+                    project.save()
+                    return Response(
+                        {
+                            "message": "Project moved to Review stage from Annotation stage"
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+                else:
+                    project.project_stage = REVIEW_STAGE
+                    project.save()
+                    # (REVIEWED,EXPORTED,SUPERCHECKED)
+                    # (SUPERCHECKED->REVIEWED)
+                    tasks = Task.objects.filter(project_id=project.id)
+                    super_checked_tasks = tasks.filter(task_status__in=[SUPER_CHECKED])
+                    rev_exp_sup_tasks = tasks.filter(
+                        task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED]
+                    )
+                    super_checked_tasks.update(task_status=REVIEWED)
+                    tasks.update(super_check_user=None)
+                    for tas in rev_exp_sup_tasks:
+                        anns = Annotation_model.objects.filter(
+                            task_id=tas.id, annotation_type=REVIEWER_ANNOTATION
+                        )
+                        if len(anns) > 0:
+                            tas.correct_annotation = anns[0]
+                        tas.save()
+                    return Response(
+                        {
+                            "message": "Project moved to Review stage from SuperCheck stage"
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+            elif new_project_stage == SUPERCHECK_STAGE:
+                # (REVIEWED,EXPORTED)
+                # (EXPORTED->REVIEWED)
+                # (REVIEWED->SUPERCHECKED)
                 # TO BE DONE
-                pass
-        elif new_project_stage == SUPERCHECK_STAGE:
-            # (REVIEWED,EXPORTED)
-            # (EXPORTED->REVIEWED)
-            # (REVIEWED->SUPERCHECKED)
-            # TO BE DONE
-            pass
-        else:
-            pass
-        # except Project.DoesNotExist:
-        #     return Response(
-        #         {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
-        #     )
-        # except:
-        #     return Response(
-        #         {"message": "Internal server error"},
-        #         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        #     )
+                if project.project_stage == SUPERCHECK_STAGE:
+                    return Response(
+                        {"message": "Project is already in SuperCheck stage"},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                elif project.project_stage == ANNOTATION_STAGE:
+                    return Response(
+                        {
+                            "message": "Project can't directly move from annotation stage to superchecker stage"
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                else:
+                    tasks = Task.objects.filter(project_id=project.id).filter(
+                        task_status__in=[REVIEWED, EXPORTED]
+                    )
+
+                    for tas in tasks:
+                        anns = Annotation_model.objects.filter(
+                            task_id=tas.id, annotation_type=SUPER_CHECKER_ANNOTATION
+                        )
+                        if len(anns) > 0:
+                            supercheck_status = anns[0].annotation_status
+                            if supercheck_status in [
+                                VALIDATED,
+                                VALIDATED_WITH_CHANGES,
+                            ]:
+                                tas.correct_annotation = anns[0]
+                            tas.super_check_user = anns[0].completed_by
+                            if tas.task_status == REVIEWED and supercheck_status in [
+                                VALIDATED,
+                                VALIDATED_WITH_CHANGES,
+                            ]:
+                                tas.task_status = SUPER_CHECKED
+                        else:
+                            if tas.task_status == EXPORTED:
+                                tas.task_status = REVIEWED
+                            tas.correct_annotation = None
+                        tas.save()
+
+                    # tasks.update(task_status=ANNOTATED)
+                    project.project_stage = SUPERCHECK_STAGE
+                    project.save()
+                    return Response(
+                        {
+                            "message": "Project moved to SuperCheck stage from Review stage"
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+            else:
+                return Response(
+                    {"message": "Not a Valid Project Stage!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except Project.DoesNotExist:
+            return Response(
+                {"message": "Project does not exist"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except:
+            return Response(
+                {"message": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     @swagger_auto_schema(
         method="get",
@@ -2413,12 +3564,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 correct_annotation = task.correct_annotation
                 if correct_annotation is None and task.task_status in [
                     ANNOTATED,
+                ]:
+                    correct_annotation = task.annotations.all().filter(
+                        annotation_type=ANNOTATOR_ANNOTATION
+                    )[0]
+                if correct_annotation is None and task.task_status in [
                     REVIEWED,
                 ]:
                     correct_annotation = task.annotations.all().filter(
-                        parent_annotation__isnull=True
+                        annotation_type=REVIEWER_ANNOTATION
                     )[0]
+
+                annotator_email = ""
                 if correct_annotation is not None:
+                    try:
+                        annotator_email = correct_annotation.completed_by.email
+                    except:
+                        pass
                     annotation_dict = model_to_dict(correct_annotation)
                     # annotation_dict['result'] = annotation_dict['result_json']
 
@@ -2429,6 +3591,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
                     task_dict["annotations"] = [OrderedDict({"result": {}})]
+
+                task_dict["data"]["annotator_email"] = annotator_email
 
                 if include_input_data_metadata_json:
                     dataset_type = project.dataset_id.all()[0].dataset_type
@@ -2446,12 +3610,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if (
                 project_type == "ConversationTranslation"
                 or project_type == "ConversationTranslationEditing"
+                or project_type == "ConversationVerification"
             ):
                 for task in tasks_list:
                     if project_type == "ConversationTranslation":
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
                         ).conversation_json
+                    elif project_type == "ConversationVerification":
+                        conversation_json = Conversation.objects.get(
+                            id__exact=task["input_data"]
+                        ).unverified_conversation_json
                     else:
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
@@ -2460,31 +3629,58 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         for idx2 in range(len(conversation_json[idx1]["sentences"])):
                             conversation_json[idx1]["sentences"][idx2] = ""
                     for result in task["annotations"][0]["result"]:
-                        to_name_list = result["to_name"].split("_")
-                        idx1 = int(to_name_list[1])
-                        idx2 = int(to_name_list[2])
-                        conversation_json[idx1]["sentences"][idx2] = ".".join(
-                            map(str, result["value"]["text"])
-                        )
-                    task["data"]["translated_conversation_json"] = conversation_json
-            elif dataset_type == "SpeechConversation":
-                for task in tasks_list:
-                    annotation_result = task["annotations"][0]["result"]
-                    speakers_json = task["data"]["speakers_json"]
-                    task["annotations"][0]["result"] = []
-                    if project_type == "AudioSegmentation":
-                        task["data"][
-                            "prediction_json"
-                        ] = convert_annotation_result_to_formatted_json(
-                            annotation_result, speakers_json
-                        )
+                        if result["to_name"] != "quality_status":
+                            to_name_list = result["to_name"].split("_")
+                            idx1 = int(to_name_list[1])
+                            idx2 = int(to_name_list[2])
+                            conversation_json[idx1]["sentences"][idx2] = ".".join(
+                                map(str, result["value"]["text"])
+                            )
+                        else:
+                            task["data"]["conversation_quality_status"] = result[
+                                "value"
+                            ]["choices"][0]
+                    if project_type == "ConversationVerification":
+                        task["data"]["verified_conversation_json"] = conversation_json
                     else:
-                        task["data"][
-                            "transcribed_json"
-                        ] = convert_annotation_result_to_formatted_json(
-                            annotation_result, speakers_json
-                        )
-
+                        task["data"]["translated_conversation_json"] = conversation_json
+            elif dataset_type in ["SpeechConversation", "OCRDocument"]:
+                if dataset_type == "SpeechConversation":
+                    for task in tasks_list:
+                        annotation_result = task["annotations"][0]["result"]
+                        speakers_json = task["data"]["speakers_json"]
+                        task["annotations"][0]["result"] = []
+                        if project_type == "AudioSegmentation":
+                            task["data"][
+                                "prediction_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, speakers_json, dataset_type
+                            )
+                        else:
+                            task["data"][
+                                "transcribed_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, speakers_json, dataset_type
+                            )
+                else:
+                    for task in tasks_list:
+                        annotation_result = task["annotations"][0]["result"]
+                        task["annotations"][0]["result"] = []
+                        if project_type in [
+                            "OCRTranscriptionEditing",
+                            "OCRTranscription",
+                        ]:
+                            task["data"][
+                                "ocr_transcribed_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, None, dataset_type
+                            )
+                        else:
+                            task["data"][
+                                "ocr_prediction_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, None, dataset_type
+                            )
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
@@ -2549,7 +3745,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if project.project_stage == REVIEW_STAGE:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[REVIEWED]
-                    ).exclude(correct_annotation__annotation_status="to_be_revised")
+                    )
+                elif project.project_stage == SUPERCHECK_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[SUPER_CHECKED]
+                    )
                 else:
                     tasks = Task.objects.filter(
                         project_id__exact=project, task_status__in=[ANNOTATED]
@@ -2590,10 +3790,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         output_dataset_info["fields"]["copy_from_input"].values()
                     )
 
-                tasks = Task.objects.filter(
-                    project_id__exact=project,
-                    task_status__in=[REVIEWED],
-                ).exclude(correct_annotation__annotation_status="to_be_revised")
+                if project.project_stage == REVIEW_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[REVIEWED]
+                    )
+                elif project.project_stage == SUPERCHECK_STAGE:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[SUPER_CHECKED]
+                    )
+                else:
+                    tasks = Task.objects.filter(
+                        project_id__exact=project, task_status__in=[ANNOTATED]
+                    )
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK

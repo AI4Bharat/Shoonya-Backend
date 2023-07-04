@@ -93,7 +93,7 @@ To share the database with others, just share the postgres_data and the media fo
 Run the following commands:
 ```bash
 # Check if there are any pending migrations
-docker-compose exec web python manage.py makemigrations
+docker-compose exec web python manage.py makemigrations 
 
 # Run all pending migrations
 docker-compose exec web python manage.py migrate

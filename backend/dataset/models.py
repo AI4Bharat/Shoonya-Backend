@@ -19,8 +19,18 @@ DATASET_TYPE_CHOICES = [
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
 
-OCR_FILE_CHOICES = (("PDF", "pdf"), (("IMG", "image")))
-OCR_TYPE_CHOICES = (("ST", "SceneText"), ("DT", "DenseText"))
+OCR_FILE_CHOICES = (
+    ("PDF", "pdf"),
+    ("JPG", "JPG_image"),
+    ("JPEG", "JPEG_image"),
+    ("PNG", "PNG_image"),
+)
+OCR_TYPE_CHOICES = (
+    ("ST", "ScenicText"),
+    ("DT", "DenseText"),
+    ("PR", "Printed"),
+    ("HN", "Handwritten"),
+)
 OCR_DOMAIN_CHOICES = (
     ("BO", "Books"),
     ("FO", "Forms"),
@@ -39,6 +49,8 @@ QUALITY_CHOICES = (
 
 SENTENCE_TEXT_DOMAIN_CHOICES = (
     ("None", "None"),
+    ("Business", "Business"),
+    ("Culture", "Culture"),
     ("General", "General"),
     ("News", "News"),
     ("Education", "Education"),
@@ -136,6 +148,14 @@ class DatasetBase(models.Model):
             "Metadata having details related to the annotation tasks or functions this data was involved in"
         ),
     )
+    draft_data_json = models.JSONField(
+        verbose_name="draft_data_json",
+        null=True,
+        blank=True,
+        help_text=(
+            "Json data having annotation field  information and data regarding externally annotated data"
+        ),
+    )
 
     # class Meta:
     #     """Django definition of abstract model"""
@@ -224,6 +244,13 @@ class TranslationPair(DatasetBase):
         blank=True,
         help_text=("Rating of the translation"),
     )
+    domain = models.CharField(
+        verbose_name="domain",
+        default="None",
+        max_length=1024,
+        choices=SENTENCE_TEXT_DOMAIN_CHOICES,
+        help_text=("Domain of the Sentence"),
+    )
 
     def __str__(self):
         return str(self.id)
@@ -235,7 +262,7 @@ class OCRDocument(DatasetBase):
     """
 
     file_type = models.CharField(
-        verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=3
+        verbose_name="file_type", choices=OCR_FILE_CHOICES, max_length=4
     )
     file_url = models.URLField(
         verbose_name="bucket_url_for_file", max_length=500, null=True, blank=True
@@ -255,20 +282,16 @@ class OCRDocument(DatasetBase):
     #     verbose_name="annotation_json", null=True, blank=True
     # )
 
-    annotation_bboxes = models.JSONField(
-        verbose_name="annotation_bboxes", null=True, blank=True
+    ocr_transcribed_json = models.JSONField(
+        verbose_name="ocr_transcribed_json", null=True, blank=True
     )
 
-    annotation_transcripts = models.JSONField(
-        verbose_name="annotation_transcripts", null=True, blank=True
+    ocr_prediction_json = models.JSONField(
+        verbose_name="ocr_prediction_json", null=True, blank=True
     )
 
-    annotation_labels = models.JSONField(
-        verbose_name="annotation_labels", null=True, blank=True
-    )
-
-    prediction_json = models.JSONField(
-        verbose_name="prediction_json", null=True, blank=True
+    image_details_json = models.JSONField(
+        verbose_name="image_details_json", null=True, blank=True
     )
 
     def __str__(self):
@@ -360,6 +383,19 @@ class Conversation(DatasetBase):
         help_text=("Machine Translated Conversation"),
         null=True,
         blank=True,
+    )
+    unverified_conversation_json = models.JSONField(
+        verbose_name="unverified_conversation_details",
+        help_text=("Details of the unverified conversation"),
+        null=True,
+        blank=True,
+    )
+    conversation_quality_status = models.CharField(
+        verbose_name="quality_status",
+        default="Unchecked",
+        max_length=32,
+        choices=QUALITY_CHOICES,
+        help_text=("Quality of the Sentence"),
     )
 
     def __str__(self):

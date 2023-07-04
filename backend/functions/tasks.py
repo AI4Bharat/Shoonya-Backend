@@ -7,6 +7,9 @@ from .utils import (
     get_batch_translations,
 )
 
+from dataset.models import DatasetInstance
+from django.apps import apps
+
 
 ## CELERY SHARED TASKS
 @shared_task(bind=True)
@@ -16,8 +19,9 @@ def sentence_text_translate_and_save_translation_pairs(
     input_dataset_instance_id,
     output_dataset_instance_id,
     batch_size,
-    api_type="indic-trans",
+    api_type="indic-trans-v2",
     checks_for_particular_languages=False,
+    automate_missing_data_items=True,
 ):  # sourcery skip: raise-specific-error
     """Function to translate SentenceTexts and to save the TranslationPairs in the database.
 
@@ -26,10 +30,22 @@ def sentence_text_translate_and_save_translation_pairs(
         input_dataset_instance_id (int): ID of the input dataset instance.
         output_dataset_instance_id (int): ID of the output dataset instance.
         batch_size (int): Number of sentences to be translated in a single batch.
-        api_type (str): Type of API to be used for translation. (default: indic-trans)
-            Allowed - [indic-trans, google]
+        api_type (str): Type of API to be used for translation. (default: indic-trans-v2)
+            Allowed - [indic-trans, google, indic-trans-v2, azure, blank]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
+        automate_missing_data_items (bool): If True, consider only those data items that are missing in the target dataset instance.
     """
+
+    output_sentences = list(
+        dataset_models.TranslationPair.objects.filter(
+            instance_id=output_dataset_instance_id,
+            output_language__in=languages,
+        ).values_list(
+            "id",
+            "output_language",
+            "parent_data_id",
+        )
+    )
 
     # Collect the sentences from Sentence Text based on dataset id
     input_sentences = list(
@@ -46,7 +62,7 @@ def sentence_text_translate_and_save_translation_pairs(
     )
 
     # Convert the input_sentences list into a dataframe
-    input_sentences_df = pd.DataFrame(
+    input_sentences_complete_df = pd.DataFrame(
         input_sentences,
         columns=[
             "sentence_text_id",
@@ -59,12 +75,12 @@ def sentence_text_translate_and_save_translation_pairs(
     )
 
     # Keep only the clean sentences
-    input_sentences_df = input_sentences_df[
-        (input_sentences_df["quality_status"] == "Clean")
+    input_sentences_complete_df = input_sentences_complete_df[
+        (input_sentences_complete_df["quality_status"] == "Clean")
     ].reset_index(drop=True)
 
     # Check if the dataframe is empty
-    if input_sentences_df.shape[0] == 0:
+    if input_sentences_complete_df.shape[0] == 0:
         # Update the task status
         self.update_state(
             state="FAILURE",
@@ -74,9 +90,6 @@ def sentence_text_translate_and_save_translation_pairs(
         )
 
         raise Exception("No clean sentences found. Perform project export first.")
-
-    # Make a sentence list for valid sentences to be translated
-    all_sentences_to_be_translated = input_sentences_df["corrected_text"].tolist()
 
     # Get the output dataset instance
     output_dataset_instance = dataset_models.DatasetInstance.objects.get(
@@ -88,6 +101,25 @@ def sentence_text_translate_and_save_translation_pairs(
 
     # Iterate through the languages
     for output_language in languages:
+        if automate_missing_data_items == True:
+            # Fetch all parent ids of translation pairs present in the target dataset instance
+            output_sentences_parent_ids = [
+                t[2] for t in output_sentences if t[1] == output_language
+            ]
+
+            # Fetch samples from the input dataset instance which are not yet translated
+            input_sentences_df = input_sentences_complete_df[
+                ~input_sentences_complete_df["sentence_text_id"].isin(
+                    output_sentences_parent_ids
+                )
+            ].reset_index(drop=True)
+        else:
+            # Fetch all samples from the input dataset instance
+            input_sentences_df = input_sentences_complete_df
+
+        # Make a sentence list for valid sentences to be translated
+        all_sentences_to_be_translated = input_sentences_df["corrected_text"].tolist()
+
         # Loop through all the sentences to be translated in batch format
         for i in range(0, len(all_sentences_to_be_translated), batch_size):
             # Create a TranslationPair object list
@@ -189,7 +221,7 @@ def conversation_data_machine_translation(
         output_dataset_instance_id (int): ID of the output dataset instance.
         batch_size (int): Number of sentences to be translated in a single batch.
         api_type (str): Type of API to be used for translation. (default: indic-trans)
-            Allowed - [indic-trans, google]
+            Allowed - [indic-trans, google, indic-trans-v2, azure, blank]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
     """
 
@@ -310,3 +342,31 @@ def conversation_data_machine_translation(
         multi_inheritance_table_bulk_insert(all_translated_conversation_objects)
 
     return f"{len(all_translated_conversation_objects)} conversation dataitems created for each of languages: {str(languages)}"
+
+
+@shared_task(bind=True)
+def populate_draft_data_json(self, pk, fields_list):
+    try:
+        dataset_instance = DatasetInstance.objects.get(pk=pk)
+    except Exception as error:
+        return error
+    dataset_type = dataset_instance.dataset_type
+    dataset_model = apps.get_model("dataset", dataset_type)
+    dataset_items = dataset_model.objects.filter(instance_id=dataset_instance)
+    cnt = 0
+    for dataset_item in dataset_items:
+        new_draft_data_json = {}
+        for field in fields_list:
+            try:
+                new_draft_data_json[field] = getattr(dataset_item, field)
+                if new_draft_data_json[field] == None:
+                    del new_draft_data_json[field]
+            except:
+                pass
+
+        if new_draft_data_json != {}:
+            dataset_item.draft_data_json = new_draft_data_json
+            dataset_item.save()
+            cnt += 1
+
+    return f"successfully populated {cnt} dataset items with draft_data_json"

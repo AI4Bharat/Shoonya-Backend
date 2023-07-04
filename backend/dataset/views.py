@@ -8,7 +8,6 @@ from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
-from projects.models import Annotation
 from users.serializers import UserFetchSerializer
 from filters import filter
 from projects.serializers import ProjectSerializer
@@ -25,13 +24,25 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
 from users.models import User
+from projects.models import ANNOTATION_STAGE, REVIEW_STAGE
+from projects.utils import (
+    convert_seconds_to_hours,
+    get_audio_project_types,
+    get_audio_transcription_duration,
+)
 
 from . import resources
 from .models import *
 from .serializers import *
 from .tasks import upload_data_to_data_instance, deduplicate_dataset_instance_items
 import dataset
-from tasks.models import Task, Annotation
+from tasks.models import (
+    Task,
+    Annotation,
+    ANNOTATOR_ANNOTATION,
+    REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
+)
 
 
 ## Utility functions used inside the view functions
@@ -297,9 +308,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
-        dataset_resource = getattr(
-            resources, dataset_instance.dataset_type + "Resource"
-        )
+        dataset_resource = resources.RESOURCE_MAP[dataset_instance.dataset_type]
         exported_items = dataset_resource().export_as_generator(export_type, data_items)
         if export_type == "tsv":
             content_type = "text/tsv"
@@ -763,6 +772,273 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         ret_dict = {"message": "Duplicate removal started"}
         ret_status = status.HTTP_200_OK
         return Response(ret_dict, status=ret_status)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Dataset Instance Project Details",
+        url_path="project_analytics",
+        url_name="project_analytics",
+    )
+    def project_analytics(self, request, pk=None):
+        """
+        API for getting project_analytics of a dataset instance
+        """
+        try:
+            DatasetInstance.objects.get(pk=pk)
+        except DatasetInstance.DoesNotExist:
+            return Response(
+                {"message": "Dataset Instance not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        tgt_language = request.data.get("tgt_language")
+        project_type = request.data.get("project_type")
+        selected_language = "-"
+
+        if tgt_language == None:
+            projects_objs = apps.get_model("projects", "Project").objects.filter(
+                dataset_id=pk, project_type=project_type
+            )
+        else:
+            selected_language = tgt_language
+            projects_objs = apps.get_model("projects", "Project").objects.filter(
+                dataset_id=pk, project_type=project_type, tgt_language=tgt_language
+            )
+        final_result = []
+        if projects_objs.count() != 0:
+            for proj in projects_objs:
+                proj_manager = [
+                    manager.get_username()
+                    for manager in proj.workspace_id.managers.all()
+                ]
+                try:
+                    org_owner = proj.organization_id.created_by.get_username()
+                    proj_manager.append(org_owner)
+                except:
+                    pass
+                project_id = proj.id
+                project_name = proj.title
+                project_type = proj.project_type
+
+                project_type_lower = project_type.lower()
+                is_translation_project = (
+                    True if "translation" in project_type_lower else False
+                )
+
+                all_tasks = Task.objects.filter(project_id=proj.id)
+                total_tasks = all_tasks.count()
+                annotators_list = [
+                    annotator.get_username() for annotator in proj.annotators.all()
+                ]
+                no_of_annotators_assigned = len(
+                    [
+                        annotator
+                        for annotator in annotators_list
+                        if annotator not in proj_manager
+                    ]
+                )
+
+                incomplete_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="incomplete"
+                )
+                incomplete_count = incomplete_tasks.count()
+
+                labeled_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="annotated"
+                )
+                labeled_count = labeled_tasks.count()
+
+                reviewed_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="reviewed"
+                )
+
+                reviewed_count = reviewed_tasks.count()
+
+                exported_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="exported"
+                )
+                exported_count = exported_tasks.count()
+
+                superchecked_tasks = Task.objects.filter(
+                    project_id=proj.id, task_status="super_checked"
+                )
+                superchecked_count = superchecked_tasks.count()
+
+                total_word_annotated_count_list = []
+                total_word_reviewed_count_list = []
+                total_word_exported_count_list = []
+                total_word_superchecked_count_list = []
+                if (
+                    is_translation_project
+                    or project_type == "SemanticTextualSimilarity_Scale5"
+                ):
+                    for each_task in labeled_tasks:
+                        try:
+                            total_word_annotated_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+
+                    for each_task in reviewed_tasks:
+                        try:
+                            total_word_reviewed_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+                    for each_task in exported_tasks:
+                        try:
+                            total_word_exported_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+                    for each_task in superchecked_tasks:
+                        try:
+                            total_word_superchecked_count_list.append(
+                                each_task.data["word_count"]
+                            )
+                        except:
+                            pass
+                total_word_annotated_count = sum(total_word_annotated_count_list)
+                total_word_reviewed_count = sum(total_word_reviewed_count_list)
+                total_word_exported_count = sum(total_word_exported_count_list)
+                total_word_superchecked_count = sum(total_word_superchecked_count_list)
+
+                total_duration_annotated_count_list = []
+                total_duration_reviewed_count_list = []
+                total_duration_exported_count_list = []
+                total_duration_superchecked_count_list = []
+                if project_type in get_audio_project_types():
+                    for each_task in labeled_tasks:
+                        try:
+                            annotate_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=ANNOTATOR_ANNOTATION
+                            )[0]
+                            total_duration_annotated_count_list.append(
+                                get_audio_transcription_duration(
+                                    annotate_annotation.result
+                                )
+                            )
+                        except:
+                            pass
+
+                    for each_task in reviewed_tasks:
+                        try:
+                            review_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=REVIEWER_ANNOTATION
+                            )[0]
+                            total_duration_reviewed_count_list.append(
+                                get_audio_transcription_duration(
+                                    review_annotation.result
+                                )
+                            )
+                        except:
+                            pass
+
+                    for each_task in exported_tasks:
+                        try:
+                            total_duration_exported_count_list.append(
+                                get_audio_transcription_duration(
+                                    each_task.correct_annotation.result
+                                )
+                            )
+                        except:
+                            pass
+
+                    for each_task in superchecked_tasks:
+                        try:
+                            supercheck_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                            )[0]
+                            total_duration_superchecked_count_list.append(
+                                get_audio_transcription_duration(
+                                    supercheck_annotation.result
+                                )
+                            )
+                        except:
+                            pass
+
+                total_duration_annotated_count = convert_seconds_to_hours(
+                    sum(total_duration_annotated_count_list)
+                )
+                total_duration_reviewed_count = convert_seconds_to_hours(
+                    sum(total_duration_reviewed_count_list)
+                )
+                total_duration_exported_count = convert_seconds_to_hours(
+                    sum(total_duration_exported_count_list)
+                )
+                total_duration_superchecked_count = convert_seconds_to_hours(
+                    sum(total_duration_superchecked_count_list)
+                )
+
+                if total_tasks == 0:
+                    project_progress = 0.0
+                else:
+                    if proj.project_stage == ANNOTATION_STAGE:
+                        project_progress = (
+                            (labeled_count + exported_count) / total_tasks
+                        ) * 100
+                    elif proj.project_stage == REVIEW_STAGE:
+                        project_progress = (
+                            (reviewed_count + exported_count) / total_tasks
+                        ) * 100
+                    else:
+                        project_progress = (
+                            (superchecked_count + exported_count) / total_tasks
+                        ) * 100
+                result = {
+                    "Project Id": project_id,
+                    "Project Name": project_name,
+                    "Language": selected_language,
+                    "Project Type": project_type,
+                    "No .of Annotators Assigned": no_of_annotators_assigned,
+                    "Total": total_tasks,
+                    "Annotated": labeled_count,
+                    "Incomplete": incomplete_count,
+                    "Reviewed": reviewed_count,
+                    "Exported": exported_count,
+                    "SuperChecked": superchecked_count,
+                    "Annotated Tasks Audio Duration": total_duration_annotated_count,
+                    "Reviewed Tasks Audio Duration": total_duration_reviewed_count,
+                    "Exported Tasks Audio Duration": total_duration_exported_count,
+                    "SuperChecked Tasks Audio Duration": total_duration_superchecked_count,
+                    "Annotated Tasks Word Count": total_word_annotated_count,
+                    "Reviewed Tasks Word Count": total_word_reviewed_count,
+                    "Exported Tasks Word Count": total_word_exported_count,
+                    "SuperChecked Tasks Word Count": total_word_superchecked_count,
+                    "Project Progress": round(project_progress, 3),
+                }
+
+                if project_type in get_audio_project_types():
+                    del result["Annotated Tasks Word Count"]
+                    del result["Reviewed Tasks Word Count"]
+                    del result["Exported Tasks Word Count"]
+                    del result["SuperChecked Tasks Word Count"]
+
+                elif (
+                    is_translation_project
+                    or project_type == "SemanticTextualSimilarity_Scale5"
+                ):
+                    del result["Annotated Tasks Audio Duration"]
+                    del result["Reviewed Tasks Audio Duration"]
+                    del result["Exported Tasks Audio Duration"]
+                    del result["SuperChecked Tasks Audio Duration"]
+                else:
+                    del result["Annotated Tasks Word Count"]
+                    del result["Reviewed Tasks Word Count"]
+                    del result["Exported Tasks Word Count"]
+                    del result["SuperChecked Tasks Word Count"]
+                    del result["Annotated Tasks Audio Duration"]
+                    del result["Reviewed Tasks Audio Duration"]
+                    del result["Exported Tasks Audio Duration"]
+                    del result["SuperChecked Tasks Audio Duration"]
+
+                final_result.append(result)
+        ret_status = status.HTTP_200_OK
+        return Response(final_result, status=ret_status)
 
 
 class DatasetItemsViewSet(viewsets.ModelViewSet):

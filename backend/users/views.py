@@ -11,17 +11,24 @@ from rest_framework.decorators import permission_classes
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .serializers import (
+    UserLoginSerializer,
     UserProfileSerializer,
     UserSignUpSerializer,
     UserUpdateSerializer,
     LanguageSerializer,
+    ChangePasswordSerializer,
 )
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
 from users.models import LANG_CHOICES, User
 from rest_framework.decorators import action
-from tasks.models import Task
+from tasks.models import (
+    Task,
+    ANNOTATOR_ANNOTATION,
+    REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
+)
 from workspaces.models import Workspace
 from projects.models import Project
 from tasks.models import Annotation
@@ -37,30 +44,11 @@ from projects.utils import (
 from datetime import datetime
 from django.conf import settings
 from django.core.mail import send_mail
-
+from workspaces.views import WorkspaceCustomViewSet
+from .utils import generate_random_string, get_role_name
+from rest_framework_simplejwt.tokens import RefreshToken
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-
-
-def generate_random_string(length=12):
-    return "".join(
-        secrets.choice(string.ascii_uppercase + string.digits) for i in range(length)
-    )
-
-
-def get_role_name(num):
-    if num == 1:
-        return "Annotator"
-    elif num == 2:
-        return "Reviewer"
-    elif num == 3:
-        return "Workspace Manager"
-    elif num == 4:
-        return "Organization Owner"
-    elif num == 5:
-        return "Admin"
-    else:
-        return "Role Not Defined"
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -75,7 +63,8 @@ class InviteViewSet(viewsets.ViewSet):
         Invite users to join your organization. This generates a new invite
         with an invite code or adds users to an existing one.
         """
-        emails = request.data.get("emails")
+        all_emails = request.data.get("emails")
+        distinct_emails = list(set(all_emails))
         organization_id = request.data.get("organization_id")
         users = []
         try:
@@ -84,17 +73,20 @@ class InviteViewSet(viewsets.ViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
+        already_existing_emails = []
         valid_user_emails = []
         invalid_emails = []
-        try:
-            org = Organization.objects.get(id=organization_id)
-        except Organization.DoesNotExist:
-            return Response(
-                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        for email in emails:
+        invites = Invite.objects.all()
+        existing_emails = [invite.user.email for invite in invites]
+        existing_emails_set = set()
+        for existing_email in existing_emails:
+            existing_emails_set.add(existing_email)
+        for email in distinct_emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
+                if email in existing_emails_set:
+                    already_existing_emails.append(email)
+                    continue
                 try:
                     user = User(
                         username=generate_random_string(12),
@@ -109,23 +101,136 @@ class InviteViewSet(viewsets.ViewSet):
                     pass
             else:
                 invalid_emails.append(email)
-        if len(valid_user_emails) <= 0:
-            return Response(
-                {"message": "No valid emails found"}, status=status.HTTP_400_BAD_REQUEST
+        # setting error messages
+        (
+            additional_message_for_existing_emails,
+            additional_message_for_invalid_emails,
+        ) = ("", "")
+        additional_message_for_valid_emails = ""
+        if already_existing_emails:
+            additional_message_for_existing_emails += (
+                f", Invites already sent to: {','.join(already_existing_emails)}"
             )
-        if len(invalid_emails) == 0:
-            ret_dict = {"message": "Invites sent"}
-            ret_status = status.HTTP_201_CREATED
+        if invalid_emails:
+            additional_message_for_invalid_emails += (
+                f", Invalid emails: {','.join(invalid_emails)}"
+            )
+        if valid_user_emails:
+            additional_message_for_valid_emails += (
+                f", Invites sent to : {','.join(valid_user_emails)}"
+            )
+        if len(valid_user_emails) == 0:
+            return Response(
+                {
+                    "message": "No invites sent"
+                    + additional_message_for_invalid_emails
+                    + additional_message_for_existing_emails
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        elif len(invalid_emails) == 0:
+            ret_dict = {
+                "message": "Invites sent"
+                + additional_message_for_valid_emails
+                + additional_message_for_existing_emails
+            }
         else:
             ret_dict = {
-                "message": f"Invites sent partially! Invalid emails: {','.join(invalid_emails)}"
+                "message": f"Invites sent partially!"
+                + additional_message_for_valid_emails
+                + additional_message_for_invalid_emails
+                + additional_message_for_existing_emails
             }
-            ret_status = status.HTTP_201_CREATED
-
         users = User.objects.bulk_create(users)
-
         Invite.create_invite(organization=org, users=users)
-        return Response(ret_dict, status=status.HTTP_200_OK)
+        return Response(ret_dict, status=status.HTTP_201_CREATED)
+
+    @swagger_auto_schema(request_body=InviteGenerationSerializer)
+    @permission_classes((IsAuthenticated,))
+    @is_organization_owner
+    @action(detail=False, methods=["post"], url_path="regenerate", url_name="re_invite")
+    def re_invite(self, request):
+        """
+        The invited user are again invited if they have not accepted the
+        invitation previously.
+        """
+        all_emails = request.data.get("emails")
+        distinct_emails = list(set(all_emails))
+        invites = Invite.objects.all()
+        existing_emails = [invite.user.email for invite in invites]
+        existing_emails_set = set()
+        for existing_email in existing_emails:
+            existing_emails_set.add(existing_email)
+        # absent_users- for those who have never been invited
+        # present_users- for those who have been invited earlier
+        (
+            absent_user_emails,
+            present_users,
+            present_user_emails,
+            already_accepted_invite,
+        ) = ([], [], [], [])
+        for user_email in distinct_emails:
+            if user_email in existing_emails_set:
+                user = User.objects.get(email=user_email)
+                if user.has_accepted_invite:
+                    already_accepted_invite.append(user_email)
+                    continue
+                present_users.append(user)
+                present_user_emails.append(user_email)
+            else:
+                absent_user_emails.append(user_email)
+        if present_users:
+            Invite.re_invite(users=present_users)
+        # setting up error messages
+        (
+            message_for_already_invited,
+            message_for_absent_users,
+            message_for_present_users,
+        ) = ("", "", "")
+        if already_accepted_invite:
+            message_for_already_invited = (
+                f" {','.join(already_accepted_invite)} have already accepted invite"
+            )
+        if absent_user_emails:
+            message_for_absent_users = (
+                f"Kindly send a new invite to: {','.join(absent_user_emails)}"
+            )
+        if present_user_emails:
+            message_for_present_users = f"{','.join(present_user_emails)} re-invited"
+
+        if absent_user_emails and present_user_emails:
+            return Response(
+                {
+                    "message": message_for_absent_users
+                    + ", "
+                    + message_for_present_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        elif absent_user_emails:
+            return Response(
+                {
+                    "message": message_for_absent_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        elif present_user_emails:
+            return Response(
+                {
+                    "message": message_for_present_users
+                    + "."
+                    + message_for_already_invited
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        else:
+            return Response(
+                {"message": message_for_already_invited}, status=status.HTTP_201_CREATED
+            )
 
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserSignUpSerializer)
@@ -157,6 +262,55 @@ class InviteViewSet(viewsets.ViewSet):
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
+
+    @permission_classes([AllowAny])
+    @swagger_auto_schema(request_body=UserLoginSerializer)
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="login",
+        url_name="login",
+    )
+    def login(self, request, *args, **kwargs):
+        """
+        User login functionality
+        """
+
+        try:
+            email = request.data.get("email")
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found. Enter correct email id."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = UserLoginSerializer(user, request.data)
+        serializer.is_valid(raise_exception=True)
+
+        response = serializer.validate_login(serializer.validated_data)
+        if response != "Correct password":
+            return Response(
+                {"message": "Incorrect Password."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not user.is_active:
+            return Response(
+                {"message": "User is inactive."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+
+        return Response(
+            {
+                "message": "Logged in successfully.",
+                "refresh": refresh_token,
+                "access": access_token,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserViewSet(viewsets.ViewSet):
@@ -380,11 +534,86 @@ class UserViewSet(viewsets.ViewSet):
             )
         user = User.objects.get(id=pk)
         serializer = UserUpdateSerializer(user, request.data, partial=True)
+
+        if request.data["role"] != user.role:
+            new_role = int(request.data["role"])
+            old_role = int(user.role)
+
+            if get_role_name(old_role) == "Workspace Manager" and get_role_name(
+                new_role
+            ) in ("Annotator", "Reviewer", "Super Checker"):
+                workspaces_viewset = WorkspaceCustomViewSet()
+                request.data["ids"] = [user.id]
+                workspaces = Workspace.objects.filter(managers__in=[user])
+                for workspace in workspaces:
+                    response = workspaces_viewset.unassign_manager(
+                        request=request, pk=workspace.id
+                    )
+                    if user not in workspace.members.all():
+                        workspace.members.add(user)
+                        workspace.save()
+
+            elif get_role_name(new_role) == "Admin":
+                user.is_superuser = True
+                user.save()
+
+            elif get_role_name(old_role) == "Admin":
+                user.is_superuser = False
+                user.save()
+
         if serializer.is_valid():
             serializer.save()
             return Response(
                 {"message": "User details edited"}, status=status.HTTP_200_OK
             )
+        return Response(
+            {"message": "Error in updating user details"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    @swagger_auto_schema(request_body=ChangePasswordSerializer)
+    @action(
+        detail=True,
+        methods=["patch"],
+        url_path="update_my_password",
+        url_name="update_my_password",
+    )
+    def update_password(self, request, pk=None, *args, **kwargs):
+        """
+        Update user password
+        """
+
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = ChangePasswordSerializer(user, request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not serializer.match_old_password(user, request.data):
+            return Response(
+                {
+                    "message": "Your old password was entered incorrectly. Please enter it again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        validation_response = serializer.validation_checks(
+            user, request.data
+        )  # checks for min_length, whether password is similar to user details etc.
+        if validation_response != "Validation successful":
+            return Response(
+                {"message": validation_response},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = serializer.save(user, request.data)
+        return Response(
+            {"message": "User password changed."}, status=status.HTTP_200_OK
+        )
 
 
 class AnalyticsViewSet(viewsets.ViewSet):
@@ -429,9 +658,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
             project_type = request["project_type"]
 
         review_reports = False
-
+        supercheck_reports = False
         if reports_type == "review":
             review_reports = True
+        elif reports_type == "supercheck":
+            supercheck_reports = True
         start_date = start_date + " 00:00"
         end_date = end_date + " 23:59"
 
@@ -478,6 +709,16 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     annotation_reviewers=user_id,
                     project_type=project_type,
                 )
+        elif supercheck_reports:
+            if project_type == "all":
+                project_objs = Project.objects.filter(  # Not using the project_type filter if it is set to "all"
+                    review_supercheckers=user_id,
+                )
+            else:
+                project_objs = Project.objects.filter(
+                    review_supercheckers=user_id,
+                    project_type=project_type,
+                )
         else:
             if project_type == "all":
                 project_objs = Project.objects.filter(
@@ -510,6 +751,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                         task_status__in=[
                             "reviewed",
                             "exported",
+                            "super_checked",
                         ]
                     )
                 )
@@ -519,10 +761,31 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 )
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
-                    parent_annotation_id__isnull=False,
+                    annotation_type=REVIEWER_ANNOTATION,
                     updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
+            elif supercheck_reports:
+                labeld_tasks_objs = Task.objects.filter(
+                    Q(project_id=proj.id)
+                    & Q(super_check_user=user_id)
+                    & Q(
+                        task_status__in=[
+                            "exported",
+                            "super_checked",
+                        ]
+                    )
+                )
+
+                annotated_task_ids = list(
+                    labeld_tasks_objs.values_list("id", flat=True)
+                )
+                annotated_labeled_tasks = Annotation.objects.filter(
+                    task_id__in=annotated_task_ids,
+                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                    updated_at__range=[start_date, end_date],
+                    completed_by=user_id,
+                )
             else:
                 labeld_tasks_objs = Task.objects.filter(
                     Q(project_id=proj.id)
@@ -532,6 +795,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                             "annotated",
                             "reviewed",
                             "exported",
+                            "super_checked",
                         ]
                     )
                 )
@@ -540,7 +804,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 )
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
-                    parent_annotation_id=None,
+                    annotation_type=ANNOTATOR_ANNOTATION,
                     updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )
@@ -587,14 +851,24 @@ class AnalyticsViewSet(viewsets.ViewSet):
             result = {
                 "Project Name": project_name,
                 (
-                    "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                    "Reviewed Tasks"
+                    if review_reports
+                    else (
+                        "SuperChecked Tasks"
+                        if supercheck_reports
+                        else "Annotated Tasks"
+                    )
                 ): annotated_tasks_count,
                 "Word Count": total_word_count,
                 "Total Audio Duration": total_duration,
                 (
                     "Avg Review Time (sec)"
                     if review_reports
-                    else "Avg Annotation Time (sec)"
+                    else (
+                        "Avg SuperCheck Time (sec)"
+                        if supercheck_reports
+                        else "Avg Annotation Time (sec)"
+                    )
                 ): avg_lead_time,
             }
 
@@ -606,13 +880,34 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 del result["Word Count"]
                 del result["Total Audio Duration"]
 
-            if result[("Reviewed Tasks" if review_reports else "Annotated Tasks")] > 0:
+            if (
+                result[
+                    (
+                        "Reviewed Tasks"
+                        if review_reports
+                        else (
+                            "SuperChecked Tasks"
+                            if supercheck_reports
+                            else "Annotated Tasks"
+                        )
+                    )
+                ]
+                > 0
+            ):
                 project_wise_summary.append(result)
 
         project_wise_summary = sorted(
             project_wise_summary,
             key=lambda x: x[
-                ("Reviewed Tasks" if review_reports else "Annotated Tasks")
+                (
+                    "Reviewed Tasks"
+                    if review_reports
+                    else (
+                        "SuperChecked Tasks"
+                        if supercheck_reports
+                        else "Annotated Tasks"
+                    )
+                )
             ],
             reverse=True,
         )
@@ -628,7 +923,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         total_result = {
             (
-                "Reviewed Tasks" if review_reports else "Annotated Tasks"
+                "Reviewed Tasks"
+                if review_reports
+                else ("SuperChecked Tasks" if supercheck_reports else "Annotated Tasks")
             ): total_annotated_tasks_count,
             "Word Count": all_tasks_word_count,
             "Total Audio Duration": convert_seconds_to_hours(
@@ -637,7 +934,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
             (
                 "Avg Review Time (sec)"
                 if review_reports
-                else "Avg Annotation Time (sec)"
+                else (
+                    "Avg SuperCheck Time (sec)"
+                    if supercheck_reports
+                    else "Avg Annotation Time (sec)"
+                )
             ): round(all_annotated_lead_time_count, 2),
         }
         if project_type_lower != "all" and project_type in get_audio_project_types():

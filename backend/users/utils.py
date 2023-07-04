@@ -1,10 +1,11 @@
 import uuid
+import secrets
+import string
 
 ## Define constants
 
 # Indic Trans API supported languages
 INDIC_TRANS_SUPPORTED_LANGUAGES = [
-    "Blank",
     "Assamese",
     "Bengali",
     "Gujarati",
@@ -146,3 +147,26 @@ TRANSLATOR_BATCH_SIZES = {
 def hash_upload(instance, filename):
     filename = str(uuid.uuid4())[0:8] + "-" + filename
     return "profile_photos/" + filename
+
+
+def generate_random_string(length=12):
+    return "".join(
+        secrets.choice(string.ascii_uppercase + string.digits) for i in range(length)
+    )
+
+
+def get_role_name(num):
+    if num == 1:
+        return "Annotator"
+    elif num == 2:
+        return "Reviewer"
+    elif num == 3:
+        return "Super Checker"
+    elif num == 4:
+        return "Workspace Manager"
+    elif num == 5:
+        return "Organization Owner"
+    elif num == 6:
+        return "Admin"
+    else:
+        return "Role Not Defined"

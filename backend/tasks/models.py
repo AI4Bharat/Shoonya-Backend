@@ -93,6 +93,14 @@ ANNOTATION_TYPE = (
     (SUPER_CHECKER_ANNOTATION, "Super Checker's Annotation"),
 )
 
+MANUAL_ANNOTATION = 0
+AUTOMATIC_ANNOTATION = 1
+
+ANNOTATION_SOURCE = (
+    (MANUAL_ANNOTATION, "Manual Annotation"),
+    (AUTOMATIC_ANNOTATION, "Automatic Annotation"),
+)
+
 
 def default_revision_loop_count_value():
     dict = {"super_check_count": 0, "review_count": 0}
@@ -237,8 +245,14 @@ class Annotation(models.Model):
         blank=True, null=True, verbose_name="annotation_notes"
     )
     review_notes = models.TextField(blank=True, null=True, verbose_name="review_notes")
+    supercheck_notes = models.TextField(
+        blank=True, null=True, verbose_name="supercheck_notes"
+    )
     annotation_type = models.PositiveSmallIntegerField(
         choices=ANNOTATION_TYPE, blank=False, null=False, default=ANNOTATOR_ANNOTATION
+    )
+    annotation_source = models.PositiveSmallIntegerField(
+        choices=ANNOTATION_SOURCE, blank=False, null=False, default=MANUAL_ANNOTATION
     )
 
     def __str__(self):
