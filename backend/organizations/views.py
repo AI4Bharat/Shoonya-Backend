@@ -1371,19 +1371,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 metainfo = True
         project_type = request.data.get("project_type")
         reviewer_reports = request.data.get("reviewer_reports")
-        supercheck_reports = request.data.get("supercheck_reports")
         proj_objs = []
         if reviewer_reports == True:
             proj_objs = Project.objects.filter(
                 organization_id=pk,
                 project_type=project_type,
                 project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
-            )
-        elif supercheck_reports == True:
-            proj_objs = Project.objects.filter(
-                organization_id=pk,
-                project_type=project_type,
-                project_stage__in=[SUPERCHECK_STAGE],
             )
         else:
             proj_objs = Project.objects.filter(
@@ -1423,16 +1416,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 #     parent_annotation_id__isnull=False,
                 # ).count()
 
-            elif supercheck_reports == True:
-                tasks = Task.objects.filter(
-                    project_id__in=proj_lang_filter,
-                    project_id__tgt_language=lang,
-                    task_status__in=[
-                        "super_checked",
-                    ],
-                )
-                tasks_count = tasks.count()
-
             else:
                 tasks = Task.objects.filter(
                     project_id__in=proj_lang_filter,
@@ -1452,7 +1435,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if project_type in get_audio_project_types():
                     total_rev_duration_list = []
                     total_ann_duration_list = []
-                    total_sup_duration_list = []
 
                     for each_task in tasks:
                         if reviewer_reports == True:
@@ -1470,20 +1452,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                 else:
                                     anno = each_task.correct_annotation
                                 total_rev_duration_list.append(
-                                    get_audio_transcription_duration(anno.result)
-                                )
-                            except:
-                                pass
-                        elif supercheck_reports == True:
-                            try:
-                                if each_task.task_status == "super_checked":
-                                    anno = Annotation.objects.filter(
-                                        task=each_task,
-                                        annotation_type=SUPER_CHECKER_ANNOTATION,
-                                    )[0]
-                                else:
-                                    anno = each_task.correct_annotation
-                                total_sup_duration_list.append(
                                     get_audio_transcription_duration(anno.result)
                                 )
                             except:
@@ -1519,13 +1487,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "language": lang,
                             "cumulative_aud_duration": rev_total_time,
                         }
-                    elif supercheck_reports == True:
-                        sup_total_duration = sum(total_sup_duration_list)
-                        sup_total_time = convert_seconds_to_hours(sup_total_duration)
-                        result = {
-                            "language": lang,
-                            "cumulative_aud_duration": sup_total_time,
-                        }
                     else:
                         ann_total_duration = sum(total_ann_duration_list)
                         ann_total_time = convert_seconds_to_hours(ann_total_duration)
@@ -1539,19 +1500,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 ):
                     total_rev_word_count_list = []
                     total_ann_word_count_list = []
-                    total_sup_word_count_list = []
 
                     for each_task in tasks:
                         if reviewer_reports == True:
                             try:
                                 total_rev_word_count_list.append(
-                                    each_task.data["word_count"]
-                                )
-                            except:
-                                pass
-                        elif supercheck_reports == True:
-                            try:
-                                total_sup_word_count_list.append(
                                     each_task.data["word_count"]
                                 )
                             except:
@@ -1567,11 +1520,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         result = {
                             "language": lang,
                             "cumulative_word_count": sum(total_rev_word_count_list),
-                        }
-                    elif supercheck_reports == True:
-                        result = {
-                            "language": lang,
-                            "cumulative_word_count": sum(total_sup_word_count_list),
                         }
                     else:
                         result = {
@@ -1656,18 +1604,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        metainfo = False
-        if "metainfo" in dict(request.query_params):
-            metainfo = request.query_params["metainfo"]
-            if metainfo == "true" or metainfo == "True":
-                metainfo = True
         project_type = request.data.get("project_type")
         periodical_type = request.data.get("periodical_type")
 
         start_date = request.data.get("start_date")
         end_date = request.data.get("end_date")
         reviewer_reports = request.data.get("reviewer_reports")
-        supercheck_reports = request.data.get("supercheck_reports")
 
         org_created_date = organization.created_at
         present_date = datetime.now(timezone.utc)
@@ -1752,12 +1694,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 project_type=project_type,
                 project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
             )
-        elif supercheck_reports == True:
-            proj_objs = Project.objects.filter(
-                organization_id=pk,
-                project_type=project_type,
-                project_stage__in=[SUPERCHECK_STAGE],
-            )
         else:
             proj_objs = Project.objects.filter(
                 organization_id=pk, project_type=project_type
@@ -1792,7 +1728,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 proj_lang_filter = proj_objs.filter(tgt_language=lang)
                 annotated_labeled_tasks_count = 0
                 if reviewer_reports == True:
-                    tasks = Task.objects.filter(
+                    tasks_objs = Task.objects.filter(
                         project_id__in=proj_lang_filter,
                         task_status__in=[
                             "reviewed",
@@ -1800,7 +1736,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "super_checked",
                         ],
                     )
-                    labeled_count_tasks_ids = list(tasks.values_list("id", flat=True))
+                    labeled_count_tasks_ids = list(
+                        tasks_objs.values_list("id", flat=True)
+                    )
                     annotated_labeled_tasks_count = (
                         Annotation.objects.filter(
                             task_id__in=labeled_count_tasks_ids,
@@ -1811,22 +1749,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         .exclude(annotation_status="to_be_revised")
                         .count()
                     )
-                elif supercheck_reports == True:
-                    tasks = Task.objects.filter(
-                        project_id__in=proj_lang_filter,
-                        task_status__in=[
-                            "super_checked",
-                        ],
-                    )
-                    labeled_count_tasks_ids = list(tasks.values_list("id", flat=True))
-                    annotated_labeled_tasks_count = Annotation.objects.filter(
-                        task_id__in=labeled_count_tasks_ids,
-                        annotation_type=SUPER_CHECKER_ANNOTATION,
-                        created_at__gte=periodical_list[period],
-                        created_at__lt=periodical_list[period + 1],
-                    ).count()
                 else:
-                    tasks = Task.objects.filter(
+                    tasks_objs = Task.objects.filter(
                         project_id__in=proj_lang_filter,
                         task_status__in=[
                             "annotated",
@@ -1836,7 +1760,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         ],
                     )
 
-                    labeled_count_tasks_ids = list(tasks.values_list("id", flat=True))
+                    labeled_count_tasks_ids = list(
+                        tasks_objs.values_list("id", flat=True)
+                    )
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
                         annotation_type=ANNOTATOR_ANNOTATION,
@@ -1844,225 +1770,29 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         created_at__lt=periodical_list[period + 1],
                     ).count()
 
-                if metainfo == True:
-                    result = {}
-
-                    if project_type in get_audio_project_types():
-                        total_rev_duration_list = []
-                        total_ann_duration_list = []
-                        total_sup_duration_list = []
-
-                        for each_task in tasks:
-                            if reviewer_reports == True:
-                                try:
-                                    if each_task.task_status == "reviewed":
-                                        anno = Annotation.objects.filter(
-                                            task=each_task,
-                                            annotation_type=REVIEWER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
-                                        )[0]
-                                    elif each_task.task_status == "super_checked":
-                                        anno = Annotation.objects.filter(
-                                            task=each_task,
-                                            annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
-                                        )[0]
-                                    else:
-                                        anno = each_task.correct_annotation
-                                    total_rev_duration_list.append(
-                                        get_audio_transcription_duration(anno.result)
-                                    )
-                                except:
-                                    pass
-                            elif supercheck_reports == True:
-                                try:
-                                    if each_task.task_status == "super_checked":
-                                        anno = Annotation.objects.filter(
-                                            task=each_task,
-                                            annotation_type=SUPER_CHECKER_ANNOTATION,
-                                        )[0]
-                                    else:
-                                        anno = each_task.correct_annotation
-                                    total_sup_duration_list.append(
-                                        get_audio_transcription_duration(anno.result)
-                                    )
-                                except:
-                                    pass
-                            else:
-                                try:
-                                    if each_task.task_status == "reviewed":
-                                        anno = Annotation.objects.filter(
-                                            task=each_task,
-                                            annotation_type=REVIEWER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
-                                        )[0]
-                                    elif each_task.task_status == "exported":
-                                        anno = each_task.correct_annotation
-                                    elif each_task.task_status == "super_checked":
-                                        anno = Annotation.objects.filter(
-                                            task=each_task,
-                                            annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
-                                        )[0]
-                                    else:
-                                        anno = Annotation.objects.filter(
-                                            task=each_task,
-                                            annotation_type=ANNOTATOR_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
-                                        )[0]
-                                    total_ann_duration_list.append(
-                                        get_audio_transcription_duration(anno.result)
-                                    )
-                                except:
-                                    pass
-                        if reviewer_reports == True:
-                            rev_total_duration = sum(total_rev_duration_list)
-                            rev_total_time = convert_seconds_to_hours(
-                                rev_total_duration
-                            )
-                            result = {
-                                "language": lang,
-                                "cumulative_aud_duration": rev_total_time,
-                            }
-                        elif supercheck_reports == True:
-                            sup_total_duration = sum(total_sup_duration_list)
-                            sup_total_time = convert_seconds_to_hours(
-                                sup_total_duration
-                            )
-                            result = {
-                                "language": lang,
-                                "cumulative_aud_duration": sup_total_time,
-                            }
-                        else:
-                            ann_total_duration = sum(total_ann_duration_list)
-                            ann_total_time = convert_seconds_to_hours(
-                                ann_total_duration
-                            )
-                            result = {
-                                "language": lang,
-                                "cumulative_aud_duration": ann_total_time,
-                            }
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                        or project_type == "ConversationTranslationEditing"
-                    ):
-                        total_rev_word_count_list = []
-                        total_ann_word_count_list = []
-                        total_sup_word_count_list = []
-
-                        for each_task in tasks:
-                            if reviewer_reports == True:
-                                try:
-                                    total_rev_word_count_list.append(
-                                        each_task.data["word_count"]
-                                    )
-                                except:
-                                    pass
-                            elif supercheck_reports == True:
-                                try:
-                                    total_sup_word_count_list.append(
-                                        each_task.data["word_count"]
-                                    )
-                                except:
-                                    pass
-                            else:
-                                try:
-                                    total_ann_word_count_list.append(
-                                        each_task.data["word_count"]
-                                    )
-                                except:
-                                    pass
-                        if reviewer_reports == True:
-                            result = {
-                                "language": lang,
-                                "cumulative_word_count": sum(total_rev_word_count_list),
-                            }
-                        elif supercheck_reports == True:
-                            result = {
-                                "language": lang,
-                                "cumulative_word_count": sum(total_sup_word_count_list),
-                            }
-                        else:
-                            result = {
-                                "language": lang,
-                                "cumulative_word_count": sum(total_ann_word_count_list),
-                            }
-                else:
-                    result = {
-                        "language": lang,
-                        "cumulative_tasks_count": annotated_labeled_tasks_count,
-                    }
-
+                summary_lang = {
+                    "language": lang,
+                    "annotations_completed": annotated_labeled_tasks_count,
+                }
                 if lang == None or lang == "":
-                    other_lang.append(result)
+                    other_lang.append(summary_lang)
                 else:
-                    data.append(result)
+                    data.append(summary_lang)
 
             other_count = 0
-            other_word_count = 0
-            other_aud_dur = 0
             for dat in other_lang:
-                if metainfo != True:
-                    other_count += dat["cumulative_tasks_count"]
-                else:
-                    if project_type in get_audio_project_types():
-                        other_aud_dur += convert_hours_to_seconds(
-                            dat["cumulative_aud_duration"]
-                        )
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                        or project_type == "ConversationTranslationEditing"
-                    ):
-                        other_word_count += dat["cumulative_word_count"]
-
+                other_count += dat["annotations_completed"]
             if len(other_lang) > 0:
-                if metainfo != True:
-                    other_language = {
-                        "language": "Others",
-                        "cumulative_tasks_count": other_count,
-                    }
-                else:
-                    if project_type in get_audio_project_types():
-                        other_language = {
-                            "language": "Others",
-                            "cumulative_aud_duration": convert_seconds_to_hours(
-                                other_aud_dur
-                            ),
-                        }
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                        or project_type == "ConversationTranslationEditing"
-                    ):
-                        other_language = {
-                            "language": "Others",
-                            "cumulative_word_count": other_word_count,
-                        }
-
+                other_language = {
+                    "language": "Others",
+                    "annotations_completed": other_count,
+                }
                 data.append(other_language)
-
-            try:
-                period_result = sorted(data, key=lambda x: x["language"], reverse=False)
-            except:
-                period_result = []
-
-            if metainfo == True and not (
-                (project_type in get_audio_project_types())
-                or (
-                    project_type in get_translation_dataset_project_types()
-                    or project_type == "ConversationTranslationEditing"
-                )
-            ):
-                period_result = []
-
+            data1 = sorted(data, key=lambda x: x["language"], reverse=False)
             summary_period = {
                 period_name: period + 1,
                 "date_range": start_end_date,
-                "data": period_result,
+                "data": data1,
             }
 
             final_result.append(summary_period)
