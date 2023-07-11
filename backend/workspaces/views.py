@@ -1777,7 +1777,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             total_audio_segments_list.append(
                                 get_audio_segments_count(each_task.result)
                             )
-                            total_raw_duration_list.append(each_task.task.data["audio_duration"])
+                            total_raw_duration_list.append(
+                                each_task.task.data["audio_duration"]
+                            )
                         except:
                             pass
                     total_duration = convert_seconds_to_hours(sum(total_duration_list))
@@ -1786,7 +1788,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     )
                     total_audio_segments = sum(total_audio_segments_list)
                     try:
-                        avg_segment_duration = sum(total_duration_list) / total_audio_segments
+                        avg_segment_duration = (
+                            sum(total_duration_list) / total_audio_segments
+                        )
                         avg_segments_per_task = total_audio_segments / len(
                             labeled_annotations
                         )
