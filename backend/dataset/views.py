@@ -914,7 +914,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 total_duration_superchecked_count_list = []
                 total_word_error_rate_rs_list = []
                 total_word_error_rate_ar_list = []
-                total_raw_duration = 0.0
+                total_raw_duration_list = []
                 if project_type in get_audio_project_types():
                     for each_task in labeled_tasks:
                         try:
@@ -941,7 +941,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                             )
                             total_word_error_rate_ar_list.append(
                                 calculate_word_error_rate_between_two_audio_transcription_annotation(
-                                    review_annotation.result, review_annotation.parent_annotation.result
+                                    review_annotation.result,
+                                    review_annotation.parent_annotation.result,
                                 )
                             )
                         except:
@@ -969,15 +970,18 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                             )
                             total_word_error_rate_rs_list.append(
                                 calculate_word_error_rate_between_two_audio_transcription_annotation(
-                                    supercheck_annotation.result, supercheck_annotation.parent_annotation.result
+                                    supercheck_annotation.result,
+                                    supercheck_annotation.parent_annotation.result,
                                 )
                             )
                         except:
                             pass
-                    
+
                     for each_task in all_tasks:
                         try:
-                            total_raw_duration += each_task.data["audio_duration"]
+                            total_raw_duration_list.append(
+                                each_task.data["audio_duration"]
+                            )
                         except:
                             pass
 
@@ -993,7 +997,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 total_duration_superchecked_count = convert_seconds_to_hours(
                     sum(total_duration_superchecked_count_list)
                 )
-                total_raw_duration = convert_seconds_to_hours(total_raw_duration)
+                total_raw_duration = convert_seconds_to_hours(
+                    sum(total_raw_duration_list)
+                )
 
                 if len(total_word_error_rate_rs_list) > 0:
                     avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
