@@ -263,6 +263,8 @@ class InviteViewSet(viewsets.ViewSet):
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
 
+
+class AuthViewSet(viewsets.ViewSet):
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserLoginSerializer)
     @action(
