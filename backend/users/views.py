@@ -76,11 +76,7 @@ class InviteViewSet(viewsets.ViewSet):
         already_existing_emails = []
         valid_user_emails = []
         invalid_emails = []
-        invites = Invite.objects.all()
-        existing_emails = [invite.user.email for invite in invites]
-        existing_emails_set = set()
-        for existing_email in existing_emails:
-            existing_emails_set.add(existing_email)
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
         for email in distinct_emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
@@ -156,11 +152,7 @@ class InviteViewSet(viewsets.ViewSet):
         """
         all_emails = request.data.get("emails")
         distinct_emails = list(set(all_emails))
-        invites = Invite.objects.all()
-        existing_emails = [invite.user.email for invite in invites]
-        existing_emails_set = set()
-        for existing_email in existing_emails:
-            existing_emails_set.add(existing_email)
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
         # absent_users- for those who have never been invited
         # present_users- for those who have been invited earlier
         (
@@ -280,10 +272,27 @@ class AuthViewSet(viewsets.ViewSet):
 
         try:
             email = request.data.get("email")
-            user = User.objects.get(email=email)
+            password = request.data.get("password")
+            if email == "" and password == "":
+                return Response(
+                    {"message": "Please Enter an Email and a Password"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            elif email == "":
+                return Response(
+                    {"message": "Please Enter an Email"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            elif password == "":
+                return Response(
+                    {"message": "Please Enter a Password"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            else:
+                user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
-                {"message": "User not found. Enter correct email id."},
+                {"message": "Incorrect email, User not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
