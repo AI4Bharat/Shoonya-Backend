@@ -1262,6 +1262,10 @@ class AnnotationViewSet(
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(final_result, status=ret_status)
 
+        auto_save = False
+        if "auto_save" in request.data:
+            auto_save = True
+
         if annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             is_revised = False
             if annotation_obj.annotation_status == TO_BE_REVISED:
@@ -1297,7 +1301,18 @@ class AnnotationViewSet(
                 ret_status = status.HTTP_400_BAD_REQUEST
                 return Response(ret_dict, status=ret_status)
 
-            annotation_response = super().partial_update(request)
+            if auto_save:
+                annotation_obj.result = request.data["result"]
+                annotation_obj.annotation_notes = request.data["annotation_notes"]
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(
+                    update_fields=["result", "annotation_notes", "lead_time"]
+                )
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+            else:
+                annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
             task = annotation.task
@@ -1312,7 +1327,10 @@ class AnnotationViewSet(
                         task=task, annotation_type=REVIEWER_ANNOTATION
                     )
                     review_annotation.annotation_status = UNREVIEWED
-                    review_annotation.save()
+                    if auto_save:
+                        review_annotation.save(update_fields=["annotation_status"])
+                    else:
+                        review_annotation.save()
                 except:
                     pass
 
@@ -1378,7 +1396,18 @@ class AnnotationViewSet(
                         ret_status = status.HTTP_403_FORBIDDEN
                         return Response(ret_dict, status=ret_status)
 
-            annotation_response = super().partial_update(request)
+            if auto_save:
+                annotation_obj.result = request.data["result"]
+                annotation_obj.annotation_notes = request.data["annotation_notes"]
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(
+                    update_fields=["result", "annotation_notes", "lead_time"]
+                )
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+            else:
+                annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
             task = annotation.task
@@ -1416,7 +1445,12 @@ class AnnotationViewSet(
                         )
                         if supercheck_annotation.annotation_status == REJECTED:
                             supercheck_annotation.annotation_status = UNVALIDATED
-                            supercheck_annotation.save()
+                            if auto_save:
+                                supercheck_annotation.save(
+                                    update_fields=["annotation_status"]
+                                )
+                            else:
+                                supercheck_annotation.save()
                     except:
                         pass
                 parent.save(update_fields=["review_notes", "annotation_status"])
@@ -1484,6 +1518,18 @@ class AnnotationViewSet(
             annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
+            if auto_save:
+                annotation_obj.result = request.data["result"]
+                annotation_obj.annotation_notes = request.data["annotation_notes"]
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(
+                    update_fields=["result", "annotation_notes", "lead_time"]
+                )
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+            else:
+                annotation_response = super().partial_update(request)
             task = annotation.task
 
             if supercheck_status in [DRAFT, SKIPPED]:
