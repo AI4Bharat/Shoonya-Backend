@@ -162,6 +162,7 @@ def get_counts(
             avg_lead_time,
             total_word_count,
             total_duration,
+            total_raw_duration,
             avg_segment_duration,
             avg_segments_per_task,
         ) = un_pack_annotation_tasks(
@@ -266,6 +267,7 @@ def get_counts(
         no_of_workspaces_objs,
         total_word_count,
         total_duration,
+        total_raw_duration
         avg_segment_duration,
         avg_segments_per_task,
     )
@@ -949,6 +951,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 no_of_workspaces_objs,
                 total_word_count,
                 total_duration,
+                total_raw_duration,
                 avg_segment_duration,
                 avg_segments_per_task,
             ) = get_counts(
@@ -983,6 +986,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Draft": total_draft_tasks_count,
                     "Word Count": total_word_count,
                     "Total Audio Duration": total_duration,
+                    "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
                     "User Role": role,
