@@ -71,7 +71,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
         parent_annotation_id=None,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -89,7 +89,7 @@ def get_reviewd_tasks(
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
         parent_annotation_id__isnull=parent_annotation_bool,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     return annotated_labeled_tasks
@@ -178,7 +178,7 @@ def get_counts(
             task__project_id__in=proj_ids,
             annotation_status="labeled",
             annotation_type=ANNOTATOR_ANNOTATION,
-            created_at__range=[start_date, end_date],
+            updated_at__range=[start_date, end_date],
             completed_by=annotator,
         )
 
@@ -231,14 +231,14 @@ def get_counts(
         task__project_id__in=proj_ids,
         annotation_status="skipped",
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
     all_pending_tasks_in_project = Annotation.objects.filter(
         task__project_id__in=proj_ids,
         annotation_status="unlabeled",
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -246,7 +246,7 @@ def get_counts(
         task__project_id__in=proj_ids,
         annotation_status="draft",
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -316,7 +316,7 @@ def get_translation_quality_reports(
         ],
         task__project_id__in=proj_ids,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     parent_anno_ids_of_reviewed = [
@@ -1805,8 +1805,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         Annotation.objects.filter(
                             task_id__in=labeled_count_tasks_ids,
                             annotation_type=REVIEWER_ANNOTATION,
-                            created_at__gte=periodical_list[period],
-                            created_at__lt=periodical_list[period + 1],
+                            updated_at__gte=periodical_list[period],
+                            updated_at__lt=periodical_list[period + 1],
                         )
                         .exclude(annotation_status="to_be_revised")
                         .count()
@@ -1822,8 +1822,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
                         annotation_type=SUPER_CHECKER_ANNOTATION,
-                        created_at__gte=periodical_list[period],
-                        created_at__lt=periodical_list[period + 1],
+                        updated_at__gte=periodical_list[period],
+                        updated_at__lt=periodical_list[period + 1],
                     ).count()
                 else:
                     tasks = Task.objects.filter(
@@ -1840,8 +1840,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
                         annotation_type=ANNOTATOR_ANNOTATION,
-                        created_at__gte=periodical_list[period],
-                        created_at__lt=periodical_list[period + 1],
+                        updated_at__gte=periodical_list[period],
+                        updated_at__lt=periodical_list[period + 1],
                     ).count()
 
                 if metainfo == True:
@@ -1859,21 +1859,21 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=REVIEWER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "super_checked":
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_rev_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -1886,14 +1886,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_sup_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -1906,28 +1906,28 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=REVIEWER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "exported":
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "super_checked":
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=ANNOTATOR_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_ann_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -1973,8 +1973,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=REVIEWER_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
@@ -1991,8 +1991,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=SUPER_CHECKER_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
@@ -2009,8 +2009,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=ANNOTATOR_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
