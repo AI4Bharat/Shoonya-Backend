@@ -609,11 +609,11 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         result["Validated With Changes Word Count"] = validated_with_changes_word_count
         result["Rejected Word Count"] = rejected_word_count
     elif proj_type in get_audio_project_types():
-        result["Validated Audio Duration"] = validated_audio_duration
+        result["Validated Segments Duration"] = validated_audio_duration
         result[
-            "Validated With Changes Audio Duration"
+            "Validated With Changes Segments Duration"
         ] = validated_with_changes_audio_duration
-        result["Rejected Audio Duration"] = rejected_audio_duration
+        result["Rejected Segments Duration"] = rejected_audio_duration
         result["Total Raw Audio Duration"] = total_raw_audio_duration
         result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
 
