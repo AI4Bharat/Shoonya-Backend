@@ -372,7 +372,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
-            result["Total Audio Duration"] = total_audio_duration
+            result["Total Segments Duration"] = total_audio_duration
             result["Total Raw Audio Duration"] = total_raw_audio_duration
             result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
             result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
@@ -397,7 +397,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
         result["Total Word Count"] = total_word_count
     elif proj_type in get_audio_project_types():
-        result["Total Audio Duration"] = total_audio_duration
+        result["Total Segments Duration"] = total_audio_duration
         result["Total Raw Audio Duration"] = total_raw_audio_duration
         result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
         result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
@@ -2979,7 +2979,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     sum(total_raw_audio_duration_list)
                 )
                 total_time = convert_seconds_to_hours(total_duration)
-                items.append(("Total Audio Duration", total_time))
+                items.append(("Total Segments Duration", total_time))
                 items.append(("Total Raw Audio Duration", total_raw_audio_duration))
                 total_audio_segments = sum(total_audio_segments_list)
                 try:
