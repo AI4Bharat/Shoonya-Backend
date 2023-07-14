@@ -267,7 +267,7 @@ def get_counts(
         no_of_workspaces_objs,
         total_word_count,
         total_duration,
-        total_raw_duration
+        total_raw_duration,
         avg_segment_duration,
         avg_segments_per_task,
     )
