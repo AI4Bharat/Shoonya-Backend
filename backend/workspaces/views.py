@@ -647,7 +647,7 @@ def get_review_reports(
             ):
                 result["Total Word Count"] = total_word_count
             elif project_type in get_audio_project_types():
-                result["Total Audio Duration"] = total_audio_duration
+                result["Total Segments Duration"] = total_audio_duration
                 result["Total Raw Audio Duration"] = total_raw_audio_duration
                 result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
                 result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
@@ -676,7 +676,7 @@ def get_review_reports(
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             result["Total Word Count"] = total_word_count
         elif project_type in get_audio_project_types():
-            result["Total Audio Duration"] = total_audio_duration
+            result["Total Segments Duration"] = total_audio_duration
             result["Total Raw Audio Duration"] = total_raw_audio_duration
             result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
             result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
@@ -1840,7 +1840,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Skipped": total_skipped_tasks,
                     "Draft": all_draft_tasks_in_project,
                     "Word Count": total_word_count,
-                    "Total Audio Duration": total_duration,
+                    "Total Segments Duration": total_duration,
                     "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Avg Segment Duration": round(avg_segment_duration, 2),
@@ -1858,7 +1858,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Skipped": total_skipped_tasks,
                     "Draft": all_draft_tasks_in_project,
                     "Word Count": total_word_count,
-                    "Total Audio Duration": total_duration,
+                    "Total Segments Duration": total_duration,
                     "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Avg Segment Duration": round(avg_segment_duration, 2),
@@ -1871,13 +1871,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
                 del result["Total Raw Audio Duration"]
                 del result["Avg Segment Duration"]
                 del result["Average Segments Per Task"]
             else:
                 del result["Word Count"]
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
                 del result["Total Raw Audio Duration"]
                 del result["Avg Segment Duration"]
                 del result["Average Segments Per Task"]
