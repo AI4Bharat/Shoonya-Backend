@@ -871,7 +871,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     )
                 ): annotated_tasks_count,
                 "Word Count": total_word_count,
-                "Total Audio Duration": total_duration,
+                "Total Segments Duration": total_duration,
                 (
                     "Avg Review Time (sec)"
                     if review_reports
@@ -886,10 +886,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
             if project_type in get_audio_project_types():
                 del result["Word Count"]
             elif is_textual_project:
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
             else:
                 del result["Word Count"]
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
 
             if (
                 result[
@@ -939,7 +939,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 else ("SuperChecked Tasks" if supercheck_reports else "Annotated Tasks")
             ): total_annotated_tasks_count,
             "Word Count": all_tasks_word_count,
-            "Total Audio Duration": convert_seconds_to_hours(
+            "Total Segments Duration": convert_seconds_to_hours(
                 all_projects_total_duration
             ),
             (
@@ -955,10 +955,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
         if project_type_lower != "all" and project_type in get_audio_project_types():
             del total_result["Word Count"]
         elif project_type_lower != "all" and is_textual_project:
-            del total_result["Total Audio Duration"]
+            del total_result["Total Segments Duration"]
         elif project_type_lower != "all":
             del total_result["Word Count"]
-            del total_result["Total Audio Duration"]
+            del total_result["Total Segments Duration"]
 
         total_summary = [total_result]
 
