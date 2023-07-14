@@ -985,7 +985,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Skipped": total_skipped_tasks_count,
                     "Draft": total_draft_tasks_count,
                     "Word Count": total_word_count,
-                    "Total Audio Duration": total_duration,
+                    "Total Segments Duration": total_duration,
                     "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
@@ -1028,7 +1028,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Skipped": total_skipped_tasks_count,
                     "Draft": total_draft_tasks_count,
                     "Word Count": total_word_count,
-                    "Total Audio Duration": total_duration,
+                    "Total Segments Duration": total_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
                     "User Role": role,
@@ -1042,12 +1042,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-                del temp_result["Total Audio Duration"]
+                del temp_result["Total Segments Duration"]
                 del temp_result["Avg Segment Duration"]
                 del temp_result["Average Segments Per Task"]
             else:
                 del temp_result["Word Count"]
-                del temp_result["Total Audio Duration"]
+                del temp_result["Total Segments Duration"]
                 del temp_result["Avg Segment Duration"]
                 del temp_result["Average Segments Per Task"]
             result.append(temp_result)
