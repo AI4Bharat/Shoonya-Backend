@@ -1041,10 +1041,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     "Reviewed": reviewed_count,
                     "Exported": exported_count,
                     "SuperChecked": superchecked_count,
-                    "Annotated Tasks Audio Duration": total_duration_annotated_count,
-                    "Reviewed Tasks Audio Duration": total_duration_reviewed_count,
-                    "Exported Tasks Audio Duration": total_duration_exported_count,
-                    "SuperChecked Tasks Audio Duration": total_duration_superchecked_count,
+                    "Annotated Tasks Segments Duration": total_duration_annotated_count,
+                    "Reviewed Tasks Segments Duration": total_duration_reviewed_count,
+                    "Exported Tasks Segments Duration": total_duration_exported_count,
+                    "SuperChecked Tasks Segments Duration": total_duration_superchecked_count,
                     "Total Raw Audio Duration": total_raw_duration,
                     "Average Word Error Rate A/R": round(avg_word_error_rate_ar, 2),
                     "Average Word Error Rate R/S": round(avg_word_error_rate_rs, 2),
@@ -1065,10 +1065,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     is_translation_project
                     or project_type == "SemanticTextualSimilarity_Scale5"
                 ):
-                    del result["Annotated Tasks Audio Duration"]
-                    del result["Reviewed Tasks Audio Duration"]
-                    del result["Exported Tasks Audio Duration"]
-                    del result["SuperChecked Tasks Audio Duration"]
+                    del result["Annotated Tasks Segments Duration"]
+                    del result["Reviewed Tasks Segments Duration"]
+                    del result["Exported Tasks Segments Duration"]
+                    del result["SuperChecked Tasks Segments Duration"]
                     del result["Total Raw Audio Duration"]
                     del result["Average Word Error Rate A/R"]
                     del result["Average Word Error Rate R/S"]
@@ -1077,10 +1077,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     del result["Reviewed Tasks Word Count"]
                     del result["Exported Tasks Word Count"]
                     del result["SuperChecked Tasks Word Count"]
-                    del result["Annotated Tasks Audio Duration"]
-                    del result["Reviewed Tasks Audio Duration"]
-                    del result["Exported Tasks Audio Duration"]
-                    del result["SuperChecked Tasks Audio Duration"]
+                    del result["Annotated Tasks Segments Duration"]
+                    del result["Reviewed Tasks Segments Duration"]
+                    del result["Exported Tasks Segments Duration"]
+                    del result["SuperChecked Tasks Segments Duration"]
                     del result["Total Raw Audio Duration"]
                     del result["Average Word Error Rate A/R"]
                     del result["Average Word Error Rate R/S"]
