@@ -218,6 +218,12 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         parent_annotation__in=total_rev_annos
     )
 
+    total_reviewed_annos = total_rev_annos.filter(task__task_status="reviewed")
+
+    total_superchecked_annos = total_rev_sup_annos.filter(
+        task__task_status="super_checked"
+    )
+
     total_rejection_loop_value_list = [
         anno.task.revision_loop_count["super_check_count"]
         for anno in total_rev_sup_annos
@@ -244,8 +250,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         ]
     )
     total_audio_duration_list = []
+    total_raw_audio_duration_list = []
     total_word_count_list = []
-    total_word_error_rate_list = []
+    total_word_error_rate_rs_list = []
+    total_word_error_rate_ar_list = []
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
         for anno in total_rev_annos_accepted:
             try:
@@ -258,11 +266,21 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 total_audio_duration_list.append(
                     get_audio_transcription_duration(anno.result)
                 )
+                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
-        for anno in total_rev_sup_annos:
+        for anno in total_superchecked_annos:
             try:
-                total_word_error_rate_list.append(
+                total_word_error_rate_rs_list.append(
+                    calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        anno.result, anno.parent_annotation.result
+                    )
+                )
+            except:
+                pass
+        for anno in total_reviewed_annos:
+            try:
+                total_word_error_rate_ar_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
                         anno.result, anno.parent_annotation.result
                     )
@@ -272,12 +290,21 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-    if len(total_word_error_rate_list) > 0:
-        avg_word_error_rate = sum(total_word_error_rate_list) / len(
-            total_word_error_rate_list
+    total_raw_audio_duration = convert_seconds_to_hours(
+        sum(total_raw_audio_duration_list)
+    )
+    if len(total_word_error_rate_rs_list) > 0:
+        avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
+            total_word_error_rate_rs_list
         )
     else:
-        avg_word_error_rate = 0
+        avg_word_error_rate_rs = 0
+    if len(total_word_error_rate_ar_list) > 0:
+        avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+            total_word_error_rate_ar_list
+        )
+    else:
+        avg_word_error_rate_ar = 0
 
     if project_obj.project_stage > REVIEW_STAGE:
         annotations_of_superchecker_validated = Annotation_model.objects.filter(
@@ -346,7 +373,9 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
             result["Total Audio Duration"] = total_audio_duration
-            result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+            result["Total Raw Audio Duration"] = total_raw_audio_duration
+            result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
+            result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
 
         return result
 
@@ -369,7 +398,9 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         result["Total Word Count"] = total_word_count
     elif proj_type in get_audio_project_types():
         result["Total Audio Duration"] = total_audio_duration
-        result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+        result["Total Raw Audio Duration"] = total_raw_audio_duration
+        result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
+        result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
 
     return result
 
@@ -456,6 +487,8 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         updated_at__range=[start_date, end_date],
     )
 
+    total_superchecked_annos = total_sup_annos.filter(task__task_status="super_checked")
+
     total_rejection_loop_value_list = [
         anno.task.revision_loop_count["super_check_count"] for anno in total_sup_annos
     ]
@@ -480,6 +513,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     validated_with_changes_audio_duration_list = []
     rejected_audio_duration_list = []
     total_word_error_rate_list = []
+    total_raw_audio_duration_list = []
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
         for anno in validated_objs:
             try:
@@ -522,6 +556,11 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
                 pass
         for anno in total_sup_annos:
             try:
+                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
+            except:
+                pass
+        for anno in total_superchecked_annos:
+            try:
                 total_word_error_rate_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
                         anno.result, anno.parent_annotation.result
@@ -541,6 +580,9 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     )
     rejected_audio_duration = convert_seconds_to_hours(
         sum(rejected_audio_duration_list)
+    )
+    total_raw_audio_duration = convert_seconds_to_hours(
+        sum(total_raw_audio_duration_list)
     )
     if len(total_word_error_rate_list) > 0:
         avg_word_error_rate = sum(total_word_error_rate_list) / len(
@@ -572,7 +614,8 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
             "Validated With Changes Audio Duration"
         ] = validated_with_changes_audio_duration
         result["Rejected Audio Duration"] = rejected_audio_duration
-        result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+        result["Total Raw Audio Duration"] = total_raw_audio_duration
+        result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
 
     return result
 
@@ -2891,6 +2934,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             items.append(("Draft", total_draft_tasks_count))
 
+            total_reviewed_annos = Annotation_model.objects.filter(
+                task__project_id=pk,
+                task__task_status="reviewed",
+                annotation_type=REVIEWER_ANNOTATION,
+                updated_at__range=[start_date, end_date],
+                parent_annotation__in=labeled_annotation_ids,
+            )
+
             if (
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
@@ -2908,6 +2959,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             elif project_type in get_audio_project_types():
                 total_duration_list = []
                 total_audio_segments_list = []
+                total_word_error_rate_ar_list = []
+                total_raw_audio_duration_list = []
                 for each_task in labeled_annotations:
                     try:
                         total_duration_list.append(
@@ -2916,11 +2969,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         total_audio_segments_list.append(
                             get_audio_segments_count(each_task.result)
                         )
+                        total_raw_audio_duration_list.append(
+                            each_task.task.data["audio_duration"]
+                        )
                     except:
                         pass
                 total_duration = sum(total_duration_list)
+                total_raw_audio_duration = convert_seconds_to_hours(
+                    sum(total_raw_audio_duration_list)
+                )
                 total_time = convert_seconds_to_hours(total_duration)
                 items.append(("Total Audio Duration", total_time))
+                items.append(("Total Raw Audio Duration", total_raw_audio_duration))
                 total_audio_segments = sum(total_audio_segments_list)
                 try:
                     avg_segment_duration = total_duration / total_audio_segments
@@ -2933,6 +2993,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 items.append(("Avg Segment Duration", round(avg_segment_duration, 2)))
                 items.append(
                     ("Average Segments Per Task", round(avg_segments_per_task, 2))
+                )
+                for anno in total_reviewed_annos:
+                    try:
+                        total_word_error_rate_ar_list.append(
+                            calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                anno.result, anno.parent_annotation.result
+                            )
+                        )
+                    except:
+                        pass
+                if len(total_word_error_rate_ar_list) > 0:
+                    avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+                        total_word_error_rate_ar_list
+                    )
+                else:
+                    avg_word_error_rate_ar = 0
+                items.append(
+                    ("Average Word Error Rate A/R", round(avg_word_error_rate_ar, 2))
                 )
 
             lead_time_annotated_tasks = [
