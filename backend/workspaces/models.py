@@ -49,6 +49,14 @@ class Workspace(models.Model, DummyModelMixin):
 
     created_at = models.DateTimeField(verbose_name="created_at", auto_now_add=True)
 
+    public_analytics = models.BooleanField(
+        verbose_name="public_analytics",
+        default=True,
+        help_text=(
+            "States whether a workspace needs to be added for analytics or not."
+        ),
+    )
+
     def __str__(self):
         return str(self.workspace_name)
 
