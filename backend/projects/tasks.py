@@ -45,8 +45,7 @@ def create_automatic_annotations(tasks, automatic_annotation_creation_mode):
     if automatic_annotation_creation_mode in ["annotation", "review", "supercheck"]:
         for task in tasks:
             if task.input_data.draft_data_json != None:
-                draft_data_json_dict = json.loads(task.input_data.draft_data_json)
-                ann_type = draft_data_json_dict.get("annotation_type", 3)
+                ann_type = task.input_data.draft_data_json.get("annotation_type", 3)
                 if ann_type < 1:
                     break
                 draft_data_json_fields_list = list(
@@ -78,8 +77,7 @@ def create_automatic_annotations(tasks, automatic_annotation_creation_mode):
     if automatic_annotation_creation_mode in ["review", "supercheck"]:
         for task in tasks:
             if task.input_data.draft_data_json != None:
-                draft_data_json_dict = json.loads(task.input_data.draft_data_json)
-                ann_type = draft_data_json_dict.get("annotation_type", 3)
+                ann_type = task.input_data.draft_data_json.get("annotation_type", 3)
                 if ann_type < 2:
                     break
                 draft_data_json_fields_list = list(
@@ -111,8 +109,7 @@ def create_automatic_annotations(tasks, automatic_annotation_creation_mode):
     if automatic_annotation_creation_mode in ["supercheck"]:
         for task in tasks:
             if task.input_data.draft_data_json != None:
-                draft_data_json_dict = json.loads(task.input_data.draft_data_json)
-                ann_type = draft_data_json_dict.get("annotation_type", 3)
+                ann_type = task.input_data.draft_data_json.get("annotation_type", 3)
                 if ann_type < 3:
                     break
                 draft_data_json_fields_list = list(
