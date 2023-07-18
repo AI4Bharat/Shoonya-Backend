@@ -470,6 +470,211 @@ def get_translation_quality_reports(
         avg_lead_time,
     )
 
+def get_all_annotation_reports(
+    proj_ids,
+    userid,
+    project_type=None,
+):
+    user = User.objects.get(id=userid)
+    participation_type = user.participation_type
+    participation_type = (
+        "Full Time"
+        if participation_type == 1
+        else "Part Time"
+        if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 3
+        else "N/A"
+    )
+    role = get_role_name(user.role)
+    userName = user.username
+    email = user.email
+
+    submitted_tasks = Annotation.objects.filter(
+        annotation_status=["labeled"],
+        task__project_id__in=proj_ids,
+        annotation_type=ANNOTATOR_ANNOTATION,
+        completed_by=userid,
+    )
+
+    submitted_tasks_count = submitted_tasks.count()
+
+    project_type_lower = project_type.lower()
+    is_translation_project = True if "translation" in project_type_lower else False
+    total_audio_duration_list = []
+    total_word_count_list = []
+    if is_translation_project:
+        for anno in submitted_tasks:
+            try:
+                total_word_count_list.append(anno.task.data["word_count"])
+            except:
+                pass
+    elif project_type in get_audio_project_types():
+        for anno in submitted_tasks:
+            try:
+                total_audio_duration_list.append(
+                    get_audio_transcription_duration(anno.result)
+                )
+            except:
+                pass
+
+    total_word_count = sum(total_word_count_list)
+    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+
+    result = {
+        "Name": userName,
+        "Email": email,
+        "Participation Type": participation_type,
+        "Role": role,
+        "Type of Work": "Annotator",
+        "Total Segments Duration": total_audio_duration,
+        "Word Count": total_word_count,
+        "Submitted Tasks": submitted_tasks_count,
+    }
+
+    if project_type in get_audio_project_types():
+        del result["Word Count"]
+    else:
+        del result["Total Segments Duration"]
+
+    return result
+
+def get_all_review_reports(
+    proj_ids,
+    userid,
+    project_type=None,
+):
+    user = User.objects.get(id=userid)
+    participation_type = user.participation_type
+    participation_type = (
+        "Full Time"
+        if participation_type == 1
+        else "Part Time"
+        if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 3
+        else "N/A"
+    )
+    role = get_role_name(user.role)
+    userName = user.username
+    email = user.email
+
+    submitted_tasks = Annotation.objects.filter(
+        annotation_status__in=["accepted", "accepted_with_minor_changes", "accepted_with_major_changes"],
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+    )
+
+    submitted_tasks_count = submitted_tasks.count()
+
+    project_type_lower = project_type.lower()
+    is_translation_project = True if "translation" in project_type_lower else False
+    total_audio_duration_list = []
+    total_word_count_list = []
+    if is_translation_project:
+        for anno in submitted_tasks:
+            try:
+                total_word_count_list.append(anno.task.data["word_count"])
+            except:
+                pass
+    elif project_type in get_audio_project_types():
+        for anno in submitted_tasks:
+            try:
+                total_audio_duration_list.append(
+                    get_audio_transcription_duration(anno.result)
+                )
+            except:
+                pass
+
+    total_word_count = sum(total_word_count_list)
+    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+
+    result = {
+        "Name": userName,
+        "Email": email,
+        "Participation Type": participation_type,
+        "Role": role,
+        "Type of Work": "Review",
+        "Total Segments Duration": total_audio_duration,
+        "Word Count": total_word_count,
+        "Submitted Tasks": submitted_tasks_count,
+    }
+
+    if project_type in get_audio_project_types():
+        del result["Word Count"]
+    else:
+        del result["Total Segments Duration"]
+
+    return result
+
+def get_all_supercheck_reports(proj_ids, userid, project_type=None):
+    user = User.objects.get(id=userid)
+    participation_type = (
+        "Full Time"
+        if user.participation_type == 1
+        else "Part Time"
+        if user.participation_type == 2
+        else "Contract Basis"
+        if user.participation_type == 3
+        else "N/A"
+    )
+    role = get_role_name(user.role)
+    userName = user.username
+    email = user.email
+
+    submitted_tasks = Annotation.objects.filter(
+        annotation_status__in=["validated", "validated_with_changes"],
+        task__project_id__in=proj_ids,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+    )
+
+    submitted_tasks_count = submitted_tasks.count()
+
+    project_type_lower = project_type.lower()
+    is_translation_project = True if "translation" in project_type_lower else False
+
+    validated_word_count_list = []
+    validated_audio_duration_list = []
+    if is_translation_project:
+        for anno in submitted_tasks:
+            try:
+                validated_word_count_list.append(anno.task.data["word_count"])
+            except:
+                pass
+    elif project_type in get_audio_project_types():
+        for anno in submitted_tasks:
+            try:
+                validated_audio_duration_list.append(
+                    get_audio_transcription_duration(anno.result)
+                )
+            except:
+                pass
+
+    validated_word_count = sum(validated_word_count_list)
+    validated_audio_duration = convert_seconds_to_hours(
+        sum(validated_audio_duration_list)
+    )
+
+    result = {
+        "Name": userName,
+        "Email": email,
+        "Participation Type": participation_type,
+        "Role": role,
+        "Type of Work": "Supercheck",
+        "Total Segments Duration": validated_audio_duration,
+        "Word Count": validated_word_count,
+        "Submitted Tasks": submitted_tasks_count,
+    }
+
+    if project_type in get_audio_project_types():
+        del result["Word Count"]
+    else:
+        del result["Total Segments Duration"]
+        
+    return result
+
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     """
@@ -627,6 +832,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if participation_type == 1
                 else "Part Time"
                 if participation_type == 2
+                else "Contract Basis"
+                if participation_type == 3
                 else "N/A"
             )
             role = get_role_name(annotator.role)
@@ -921,6 +1128,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if participation_type == 1
                 else "Part Time"
                 if participation_type == 2
+                else "Contract Basis"
+                if participation_type == 3
                 else "N/A"
             )
             role = get_role_name(annotator.role)
@@ -2103,6 +2312,112 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
             final_result.append(summary_period)
         return Response(final_result)
+    
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get Organization level users analytics (e-mail)",
+        url_name="send_user_analytics",
+    )
+    def send_user_analytics(self, request, pk=None):
+        if not (
+            request.user.is_authenticated
+            and (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            organization = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        
+        user_id = request.user.id
+        participation_types = request.data.get("participation_types")
+        project_type = request.data.get("project_type")
+
+        proj_objs = Project.objects.filter(organization_id=pk, project_type=project_type)
+        
+        org_user_list = []
+        projects_ids = []
+        for project in proj_objs:
+            user_names_list = project.annotators.all()
+            user_ids = [
+                name.id
+                for name in user_names_list
+                if (name.participation_type in participation_types)
+            ]
+            org_user_list.extend(user_ids)
+            projects_ids.append(project.id)
+
+        org_user_list = list(set(org_user_list))
+
+        final_reports = []
+
+        for id in org_user_list:
+            user_projs = proj_objs.filter(
+                annotators=id,
+            )
+            user_projs_ids = [
+                user_proj.id for user_proj in user_projs
+            ]
+            annotate_result = get_all_annotation_reports(   
+                user_projs_ids,
+                id,
+                project_type,
+            )
+            final_reports.append(annotate_result)
+
+            review_result = get_all_review_reports(
+                user_projs_ids,
+                id,
+                project_type,
+            )
+            final_reports.append(review_result)
+            supercheck_result = get_all_supercheck_reports(
+                user_projs_ids,
+                id,
+                project_type,
+            )
+            final_reports.append(supercheck_result)
+        
+
+        download_csv = request.data.get("download_csv", False)
+
+        if True:
+
+            class Echo(object):
+                def write(self, value):
+                    return value
+
+            def iter_items(items, pseudo_buffer):
+                writer = csv.DictWriter(pseudo_buffer, fieldnames=list(items[0].keys()))
+                headers = {}
+                for key in list(items[0].keys()):
+                    headers[key] = key
+                yield writer.writerow(headers)
+                print(list(items[0].keys()))
+                for item in items:
+                    yield writer.writerow(item)
+
+            response = StreamingHttpResponse(
+                iter_items(final_reports, Echo()),
+                status=status.HTTP_200_OK,
+                content_type="text/csv",
+            )
+            response[
+                "Content-Disposition"
+            ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
+            return response
+
+        return Response(data=final_reports, status=status.HTTP_200_OK)
 
 
 class OrganizationPublicViewSet(viewsets.ModelViewSet):

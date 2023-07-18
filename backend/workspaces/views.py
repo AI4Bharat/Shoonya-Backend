@@ -120,6 +120,8 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         if participation_type == 1
         else "Part Time"
         if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 3
         else "N/A"
     )
     role = get_role_name(user.role)
@@ -365,6 +367,8 @@ def get_review_reports(
         if participation_type == 1
         else "Part Time"
         if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 3
         else "N/A"
     )
     role = get_role_name(user.role)
