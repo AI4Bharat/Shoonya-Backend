@@ -2389,9 +2389,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             final_reports.append(supercheck_result)
         
 
-        download_csv = request.data.get("download_csv", False)
+        final_reports = sorted(final_reports, key=lambda x: x["Name"], reverse=False)
+        return Response(data=final_reports, status=status.HTTP_200_OK)
+        """ download_csv = request.data.get("download_csv", False)
 
-        if True:
+        if False:
 
             class Echo(object):
                 def write(self, value):
@@ -2417,7 +2419,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
             return response
 
-        return Response(data=final_reports, status=status.HTTP_200_OK)
+        return Response(data=final_reports, status=status.HTTP_200_OK) """
 
 
 class OrganizationPublicViewSet(viewsets.ModelViewSet):
