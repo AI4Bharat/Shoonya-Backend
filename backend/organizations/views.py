@@ -46,6 +46,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
 )
+from .tasks import send_user_reports_mail
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -162,7 +163,6 @@ def get_counts(
             avg_lead_time,
             total_word_count,
             total_duration,
-            total_raw_duration,
             avg_segment_duration,
             avg_segments_per_task,
         ) = un_pack_annotation_tasks(
@@ -267,7 +267,6 @@ def get_counts(
         no_of_workspaces_objs,
         total_word_count,
         total_duration,
-        total_raw_duration,
         avg_segment_duration,
         avg_segments_per_task,
     )
@@ -470,6 +469,7 @@ def get_translation_quality_reports(
         avg_lead_time,
     )
 
+
 def get_all_annotation_reports(
     proj_ids,
     userid,
@@ -539,6 +539,7 @@ def get_all_annotation_reports(
 
     return result
 
+
 def get_all_review_reports(
     proj_ids,
     userid,
@@ -560,7 +561,11 @@ def get_all_review_reports(
     email = user.email
 
     submitted_tasks = Annotation.objects.filter(
-        annotation_status__in=["accepted", "accepted_with_minor_changes", "accepted_with_major_changes"],
+        annotation_status__in=[
+            "accepted",
+            "accepted_with_minor_changes",
+            "accepted_with_major_changes",
+        ],
         task__project_id__in=proj_ids,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
@@ -607,6 +612,7 @@ def get_all_review_reports(
         del result["Total Segments Duration"]
 
     return result
+
 
 def get_all_supercheck_reports(proj_ids, userid, project_type=None):
     user = User.objects.get(id=userid)
@@ -672,7 +678,7 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
-        
+
     return result
 
 
@@ -1160,7 +1166,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 no_of_workspaces_objs,
                 total_word_count,
                 total_duration,
-                total_raw_duration,
                 avg_segment_duration,
                 avg_segments_per_task,
             ) = get_counts(
@@ -2312,7 +2317,34 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
             final_result.append(summary_period)
         return Response(final_result)
-    
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "participation_types": openapi.Schema(type=openapi.TYPE_ARRAY),
+            },
+            required=["user_id", "project_type", "participation_types"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the Organization"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Email successfully scheduled",
+            400: "Invalid request body parameters.",
+            401: "Unauthorized access.",
+            404: "Organization/User not found.",
+        },
+    )
     @action(
         detail=True,
         methods=["POST"],
@@ -2330,96 +2362,42 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             final_response = {
                 "message": "You do not have enough permissions to access this view!"
             }
-            return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
         try:
             organization = Organization.objects.get(pk=pk)
         except Organization.DoesNotExist:
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        
-        user_id = request.user.id
+
+        user_id = request.data.get("user_id")
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
         participation_types = request.data.get("participation_types")
+        if not set(participation_types).issubset({1, 2, 3, 4}):
+            return Response(
+                {"message": "Invalid participation types"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         project_type = request.data.get("project_type")
 
-        proj_objs = Project.objects.filter(organization_id=pk, project_type=project_type)
-        
-        org_user_list = []
-        projects_ids = []
-        for project in proj_objs:
-            user_names_list = project.annotators.all()
-            user_ids = [
-                name.id
-                for name in user_names_list
-                if (name.participation_type in participation_types)
-            ]
-            org_user_list.extend(user_ids)
-            projects_ids.append(project.id)
+        send_user_reports_mail.delay(
+            organization.id,
+            user_id,
+            participation_types,
+            project_type,
+        )
 
-        org_user_list = list(set(org_user_list))
-
-        final_reports = []
-
-        for id in org_user_list:
-            user_projs = proj_objs.filter(
-                annotators=id,
-            )
-            user_projs_ids = [
-                user_proj.id for user_proj in user_projs
-            ]
-            annotate_result = get_all_annotation_reports(   
-                user_projs_ids,
-                id,
-                project_type,
-            )
-            final_reports.append(annotate_result)
-
-            review_result = get_all_review_reports(
-                user_projs_ids,
-                id,
-                project_type,
-            )
-            final_reports.append(review_result)
-            supercheck_result = get_all_supercheck_reports(
-                user_projs_ids,
-                id,
-                project_type,
-            )
-            final_reports.append(supercheck_result)
-        
-
-        final_reports = sorted(final_reports, key=lambda x: x["Name"], reverse=False)
-        return Response(data=final_reports, status=status.HTTP_200_OK)
-        """ download_csv = request.data.get("download_csv", False)
-
-        if False:
-
-            class Echo(object):
-                def write(self, value):
-                    return value
-
-            def iter_items(items, pseudo_buffer):
-                writer = csv.DictWriter(pseudo_buffer, fieldnames=list(items[0].keys()))
-                headers = {}
-                for key in list(items[0].keys()):
-                    headers[key] = key
-                yield writer.writerow(headers)
-                print(list(items[0].keys()))
-                for item in items:
-                    yield writer.writerow(item)
-
-            response = StreamingHttpResponse(
-                iter_items(final_reports, Echo()),
-                status=status.HTTP_200_OK,
-                content_type="text/csv",
-            )
-            response[
-                "Content-Disposition"
-            ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
-            return response
-
-        return Response(data=final_reports, status=status.HTTP_200_OK) """
+        return Response(
+            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+        )
 
 
 class OrganizationPublicViewSet(viewsets.ModelViewSet):
