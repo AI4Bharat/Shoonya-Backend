@@ -163,6 +163,7 @@ def get_counts(
             avg_lead_time,
             total_word_count,
             total_duration,
+            total_raw_duration,
             avg_segment_duration,
             avg_segments_per_task,
         ) = un_pack_annotation_tasks(
@@ -208,6 +209,7 @@ def get_counts(
         avg_segments_per_task = 0
         if project_type in get_audio_project_types():
             total_duration_list = []
+            total_raw_duration_list = []
             total_audio_segments_list = []
             for each_task in labeled_annotations:
                 try:
@@ -217,9 +219,13 @@ def get_counts(
                     total_audio_segments_list.append(
                         get_audio_segments_count(each_task.result)
                     )
+                    total_raw_duration_list.append(
+                        each_task.task.data["audio_duration"]
+                    )
                 except:
                     pass
             total_duration = convert_seconds_to_hours(sum(total_duration_list))
+            total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
             total_audio_segments = sum(total_audio_segments_list)
             try:
                 avg_segment_duration = total_duration / total_audio_segments
@@ -267,6 +273,7 @@ def get_counts(
         no_of_workspaces_objs,
         total_word_count,
         total_duration,
+        total_raw_duration,
         avg_segment_duration,
         avg_segments_per_task,
     )
@@ -468,218 +475,6 @@ def get_translation_quality_reports(
         avg_bleu_score,
         avg_lead_time,
     )
-
-
-def get_all_annotation_reports(
-    proj_ids,
-    userid,
-    project_type=None,
-):
-    user = User.objects.get(id=userid)
-    participation_type = user.participation_type
-    participation_type = (
-        "Full Time"
-        if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 3
-        else "N/A"
-    )
-    role = get_role_name(user.role)
-    userName = user.username
-    email = user.email
-
-    submitted_tasks = Annotation.objects.filter(
-        annotation_status=["labeled"],
-        task__project_id__in=proj_ids,
-        annotation_type=ANNOTATOR_ANNOTATION,
-        completed_by=userid,
-    )
-
-    submitted_tasks_count = submitted_tasks.count()
-
-    project_type_lower = project_type.lower()
-    is_translation_project = True if "translation" in project_type_lower else False
-    total_audio_duration_list = []
-    total_word_count_list = []
-    if is_translation_project:
-        for anno in submitted_tasks:
-            try:
-                total_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
-    elif project_type in get_audio_project_types():
-        for anno in submitted_tasks:
-            try:
-                total_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
-            except:
-                pass
-
-    total_word_count = sum(total_word_count_list)
-    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-
-    result = {
-        "Name": userName,
-        "Email": email,
-        "Participation Type": participation_type,
-        "Role": role,
-        "Type of Work": "Annotator",
-        "Total Segments Duration": total_audio_duration,
-        "Word Count": total_word_count,
-        "Submitted Tasks": submitted_tasks_count,
-    }
-
-    if project_type in get_audio_project_types():
-        del result["Word Count"]
-    else:
-        del result["Total Segments Duration"]
-
-    return result
-
-
-def get_all_review_reports(
-    proj_ids,
-    userid,
-    project_type=None,
-):
-    user = User.objects.get(id=userid)
-    participation_type = user.participation_type
-    participation_type = (
-        "Full Time"
-        if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 3
-        else "N/A"
-    )
-    role = get_role_name(user.role)
-    userName = user.username
-    email = user.email
-
-    submitted_tasks = Annotation.objects.filter(
-        annotation_status__in=[
-            "accepted",
-            "accepted_with_minor_changes",
-            "accepted_with_major_changes",
-        ],
-        task__project_id__in=proj_ids,
-        task__review_user=userid,
-        annotation_type=REVIEWER_ANNOTATION,
-    )
-
-    submitted_tasks_count = submitted_tasks.count()
-
-    project_type_lower = project_type.lower()
-    is_translation_project = True if "translation" in project_type_lower else False
-    total_audio_duration_list = []
-    total_word_count_list = []
-    if is_translation_project:
-        for anno in submitted_tasks:
-            try:
-                total_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
-    elif project_type in get_audio_project_types():
-        for anno in submitted_tasks:
-            try:
-                total_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
-            except:
-                pass
-
-    total_word_count = sum(total_word_count_list)
-    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-
-    result = {
-        "Name": userName,
-        "Email": email,
-        "Participation Type": participation_type,
-        "Role": role,
-        "Type of Work": "Review",
-        "Total Segments Duration": total_audio_duration,
-        "Word Count": total_word_count,
-        "Submitted Tasks": submitted_tasks_count,
-    }
-
-    if project_type in get_audio_project_types():
-        del result["Word Count"]
-    else:
-        del result["Total Segments Duration"]
-
-    return result
-
-
-def get_all_supercheck_reports(proj_ids, userid, project_type=None):
-    user = User.objects.get(id=userid)
-    participation_type = (
-        "Full Time"
-        if user.participation_type == 1
-        else "Part Time"
-        if user.participation_type == 2
-        else "Contract Basis"
-        if user.participation_type == 3
-        else "N/A"
-    )
-    role = get_role_name(user.role)
-    userName = user.username
-    email = user.email
-
-    submitted_tasks = Annotation.objects.filter(
-        annotation_status__in=["validated", "validated_with_changes"],
-        task__project_id__in=proj_ids,
-        task__super_check_user=userid,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
-    )
-
-    submitted_tasks_count = submitted_tasks.count()
-
-    project_type_lower = project_type.lower()
-    is_translation_project = True if "translation" in project_type_lower else False
-
-    validated_word_count_list = []
-    validated_audio_duration_list = []
-    if is_translation_project:
-        for anno in submitted_tasks:
-            try:
-                validated_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
-    elif project_type in get_audio_project_types():
-        for anno in submitted_tasks:
-            try:
-                validated_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
-            except:
-                pass
-
-    validated_word_count = sum(validated_word_count_list)
-    validated_audio_duration = convert_seconds_to_hours(
-        sum(validated_audio_duration_list)
-    )
-
-    result = {
-        "Name": userName,
-        "Email": email,
-        "Participation Type": participation_type,
-        "Role": role,
-        "Type of Work": "Supercheck",
-        "Total Segments Duration": validated_audio_duration,
-        "Word Count": validated_word_count,
-        "Submitted Tasks": submitted_tasks_count,
-    }
-
-    if project_type in get_audio_project_types():
-        del result["Word Count"]
-    else:
-        del result["Total Segments Duration"]
-
-    return result
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -1166,6 +961,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 no_of_workspaces_objs,
                 total_word_count,
                 total_duration,
+                total_raw_duration,
                 avg_segment_duration,
                 avg_segments_per_task,
             ) = get_counts(
