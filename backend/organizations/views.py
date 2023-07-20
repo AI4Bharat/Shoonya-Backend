@@ -2190,8 +2190,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         send_user_reports_mail.delay(
             organization.id,
             user_id,
-            participation_types,
             project_type,
+            participation_types,
         )
 
         return Response(
