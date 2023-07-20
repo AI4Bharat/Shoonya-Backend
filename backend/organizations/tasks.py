@@ -41,7 +41,7 @@ def get_all_annotation_reports(
     email = user.email
 
     submitted_tasks = Annotation.objects.filter(
-        annotation_status=["labeled"],
+        annotation_status="labeled",
         task__project_id__in=proj_ids,
         annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=userid,
@@ -274,7 +274,7 @@ def send_user_reports_mail(org_id, user_id, project_type, participation_types):
         ]
         org_anno_list.extend(anno_ids)
         org_reviewer_list.extend(reviewer_ids)
-        org_reviewer_list.extend(superchecker_ids)
+        org_superchecker_list.extend(superchecker_ids)
 
     org_anno_list = list(set(org_anno_list))
     org_reviewer_list = list(set(org_reviewer_list))
