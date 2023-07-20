@@ -1,6 +1,5 @@
 from celery import shared_task
 import pandas as pd
-from io import StringIO
 from django.conf import settings
 from django.core.mail import EmailMessage
 
@@ -34,7 +33,7 @@ def get_all_annotation_reports(
         else "Part Time"
         if participation_type == 2
         else "Contract Basis"
-        if participation_type == 3
+        if participation_type == 4
         else "N/A"
     )
     role = get_role_name(user.role)
@@ -104,7 +103,7 @@ def get_all_review_reports(
         else "Part Time"
         if participation_type == 2
         else "Contract Basis"
-        if participation_type == 3
+        if participation_type == 4
         else "N/A"
     )
     role = get_role_name(user.role)
@@ -174,7 +173,7 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
         else "Part Time"
         if user.participation_type == 2
         else "Contract Basis"
-        if user.participation_type == 3
+        if user.participation_type == 4
         else "N/A"
     )
     role = get_role_name(user.role)
@@ -325,10 +324,21 @@ def send_user_reports_mail(org_id, user_id, project_type, participation_types):
 
     df = pd.DataFrame.from_dict(final_reports)
 
-    content_stream = StringIO()
-    content = df.to_csv(content_stream, index=False)
+    content = df.to_csv(index=False)
     content_type = "text/csv"
     filename = f"{organization.title}_user_analytics.csv"
+
+    participation_types = [
+        "Full Time"
+        if participation_type == 1
+        else "Part Time"
+        if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 4
+        else "N/A"
+        for participation_type in participation_types
+    ]
+    participation_types_string = ", ".join(participation_types)
 
     message = (
         "Dear "
@@ -336,6 +346,10 @@ def send_user_reports_mail(org_id, user_id, project_type, participation_types):
         + ",\nYour user payment reports for "
         + f"{organization.title}"
         + " are ready.\n Thanks for contributing on Shoonya!"
+        + "\nProject Type: "
+        + f"{project_type}"
+        + "\nParticipation Types: "
+        + f"{participation_types_string}"
     )
 
     email = EmailMessage(
@@ -343,6 +357,6 @@ def send_user_reports_mail(org_id, user_id, project_type, participation_types):
         message,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content_stream.getvalue(), content_type)],
+        attachments=[(filename, content, content_type)],
     )
     email.send()

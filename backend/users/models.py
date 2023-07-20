@@ -152,14 +152,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     FULL_TIME = 1
     PART_TIME = 2
-    CONTRACT_BASIS = 3
-    NA = 4
+    NA = 3
+    CONTRACT_BASIS = 4
 
     PARTICIPATION_TYPE_CHOICES = (
         (FULL_TIME, "Full-Time"),
         (PART_TIME, "Part-Time"),
-        (CONTRACT_BASIS, "Contract Basis"),
         (NA, "N/A"),
+        (CONTRACT_BASIS, "Contract Basis"),
     )
 
     participation_type = models.PositiveSmallIntegerField(
