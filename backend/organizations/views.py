@@ -2325,7 +2325,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             properties={
                 "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
                 "project_type": openapi.Schema(type=openapi.TYPE_STRING),
-                "participation_types": openapi.Schema(type=openapi.TYPE_ARRAY),
+                "participation_types": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
             },
             required=["user_id", "project_type", "participation_types"],
         ),
