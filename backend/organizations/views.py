@@ -622,7 +622,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         annotators = [
             ann_user
             for ann_user in annotators
-            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+            if (ann_user.participation_type in [1, 2, 4])
         ]
 
         result = []
@@ -634,7 +634,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 else "Part Time"
                 if participation_type == 2
                 else "Contract Basis"
-                if participation_type == 3
+                if participation_type == 4
                 else "N/A"
             )
             role = get_role_name(annotator.role)
@@ -770,7 +770,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 reviewer_ids = [
                     name.id
                     for name in reviewer_names_list
-                    if (name.participation_type == 1 or name.participation_type == 2)
+                    if (name.participation_type in [1, 2, 4])
                 ]
                 org_reviewer_list.extend(reviewer_ids)
                 review_projects_ids.append(review_project.id)
@@ -918,7 +918,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         annotators = [
             ann_user
             for ann_user in annotators
-            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+            if (ann_user.participation_type in [1, 2, 4])
         ]
 
         result = []
@@ -930,7 +930,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 else "Part Time"
                 if participation_type == 2
                 else "Contract Basis"
-                if participation_type == 3
+                if participation_type == 4
                 else "N/A"
             )
             role = get_role_name(annotator.role)
