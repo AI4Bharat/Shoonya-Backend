@@ -46,6 +46,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
 )
+from .tasks import send_user_reports_mail
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -208,6 +209,7 @@ def get_counts(
         avg_segments_per_task = 0
         if project_type in get_audio_project_types():
             total_duration_list = []
+            total_raw_duration_list = []
             total_audio_segments_list = []
             for each_task in labeled_annotations:
                 try:
@@ -217,9 +219,13 @@ def get_counts(
                     total_audio_segments_list.append(
                         get_audio_segments_count(each_task.result)
                     )
+                    total_raw_duration_list.append(
+                        each_task.task.data["audio_duration"]
+                    )
                 except:
                     pass
             total_duration = convert_seconds_to_hours(sum(total_duration_list))
+            total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
             total_audio_segments = sum(total_audio_segments_list)
             try:
                 avg_segment_duration = total_duration / total_audio_segments
@@ -627,6 +633,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if participation_type == 1
                 else "Part Time"
                 if participation_type == 2
+                else "Contract Basis"
+                if participation_type == 3
                 else "N/A"
             )
             role = get_role_name(annotator.role)
@@ -921,6 +929,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if participation_type == 1
                 else "Part Time"
                 if participation_type == 2
+                else "Contract Basis"
+                if participation_type == 3
                 else "N/A"
             )
             role = get_role_name(annotator.role)
@@ -2103,6 +2113,90 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
             final_result.append(summary_period)
         return Response(final_result)
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "participation_types": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
+            },
+            required=["user_id", "project_type", "participation_types"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the Organization"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Email successfully scheduled",
+            400: "Invalid request body parameters.",
+            401: "Unauthorized access.",
+            404: "Organization/User not found.",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get Organization level users analytics (e-mail)",
+        url_name="send_user_analytics",
+    )
+    def send_user_analytics(self, request, pk=None):
+        if not (
+            request.user.is_authenticated
+            and (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            organization = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        user_id = request.data.get("user_id")
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        participation_types = request.data.get("participation_types")
+        if not set(participation_types).issubset({1, 2, 3, 4}):
+            return Response(
+                {"message": "Invalid participation types"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project_type = request.data.get("project_type")
+
+        send_user_reports_mail.delay(
+            organization.id,
+            user_id,
+            participation_types,
+            project_type,
+        )
+
+        return Response(
+            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+        )
 
 
 class OrganizationPublicViewSet(viewsets.ModelViewSet):
