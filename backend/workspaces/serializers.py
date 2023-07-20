@@ -24,6 +24,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "id",
             "created_at",
             "frozen_users",
+            "public_analytics",
         ]
 
 
