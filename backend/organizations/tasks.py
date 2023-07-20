@@ -1,5 +1,6 @@
 from celery import shared_task
 import pandas as pd
+from io import StringIO
 from django.conf import settings
 from django.core.mail import EmailMessage
 
@@ -324,23 +325,24 @@ def send_user_reports_mail(org_id, user_id, project_type, participation_types):
 
     df = pd.DataFrame.from_dict(final_reports)
 
-    content = df.to_csv(index=False)
+    content_stream = StringIO()
+    content = df.to_csv(content_stream, index=False)
     content_type = "text/csv"
     filename = f"{organization.title}_user_analytics.csv"
 
     message = (
         "Dear "
         + str(user.username)
-        + ",\n Your user payment reports for "
+        + ",\nYour user payment reports for "
         + f"{organization.title}"
         + " are ready.\n Thanks for contributing on Shoonya!"
     )
 
     email = EmailMessage(
-        f"{organization.title}" + "Payment Reports",
+        f"{organization.title}" + " Payment Reports",
         message,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content, content_type)],
+        attachments=[(filename, content_stream.getvalue(), content_type)],
     )
     email.send()
