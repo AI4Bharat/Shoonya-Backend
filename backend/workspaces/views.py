@@ -2870,7 +2870,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             final_result.append(summary_period)
         return Response(final_result)
-    
+
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
@@ -2937,7 +2937,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
 
         participation_types = request.data.get("participation_types")
-        if len(participation_types) == 0 or not set(participation_types).issubset({1, 2, 3, 4}):
+        if len(participation_types) == 0 or not set(participation_types).issubset(
+            {1, 2, 3, 4}
+        ):
             return Response(
                 {"message": "Invalid participation types"},
                 status=status.HTTP_400_BAD_REQUEST,

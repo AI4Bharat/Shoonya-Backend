@@ -246,9 +246,7 @@ def send_user_reports_mail(ws_id, user_id, project_type, participation_types):
 
     user = User.objects.get(id=user_id)
     workspace = Workspace.objects.get(pk=ws_id)
-    proj_objs = Project.objects.filter(
-       workspace_id=ws_id, project_type=project_type
-    )
+    proj_objs = Project.objects.filter(workspace_id=ws_id, project_type=project_type)
 
     ws_anno_list = []
     ws_reviewer_list = []
