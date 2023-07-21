@@ -235,7 +235,7 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
 
 @shared_task(name="send_user_reports_mail")
 def send_user_reports_mail(ws_id, user_id, project_type, participation_types):
-    """Function to generate CSV of organization user reports and send mail to the owner/admin
+    """Function to generate CSV of workspace user reports and send mail to the manager/owner/admin
 
     Args:
         ws_id (int): ID of the workspace
@@ -250,9 +250,9 @@ def send_user_reports_mail(ws_id, user_id, project_type, participation_types):
        workspace_id=ws_id, project_type=project_type
     )
 
-    org_anno_list = []
-    org_reviewer_list = []
-    org_superchecker_list = []
+    ws_anno_list = []
+    ws_reviewer_list = []
+    ws_superchecker_list = []
     for project in proj_objs:
         anno_list = project.annotators.all()
         reviewer_list = project.annotation_reviewers.all()
@@ -272,17 +272,17 @@ def send_user_reports_mail(ws_id, user_id, project_type, participation_types):
             for name in superchecker_list
             if (name.participation_type in participation_types)
         ]
-        org_anno_list.extend(anno_ids)
-        org_reviewer_list.extend(reviewer_ids)
-        org_superchecker_list.extend(superchecker_ids)
+        ws_anno_list.extend(anno_ids)
+        ws_reviewer_list.extend(reviewer_ids)
+        ws_superchecker_list.extend(superchecker_ids)
 
-    org_anno_list = list(set(org_anno_list))
-    org_reviewer_list = list(set(org_reviewer_list))
-    org_superchecker_list = list(set(org_superchecker_list))
+    ws_anno_list = list(set(ws_anno_list))
+    ws_reviewer_list = list(set(ws_reviewer_list))
+    ws_superchecker_list = list(set(ws_superchecker_list))
 
     final_reports = []
 
-    for id in org_anno_list:
+    for id in ws_anno_list:
         anno_projs = proj_objs.filter(annotators=id)
         user_projs_ids = [user_proj.id for user_proj in anno_projs]
         annotate_result = get_all_annotation_reports(
@@ -292,7 +292,7 @@ def send_user_reports_mail(ws_id, user_id, project_type, participation_types):
         )
         final_reports.append(annotate_result)
 
-    for id in org_reviewer_list:
+    for id in ws_reviewer_list:
         review_projs = proj_objs.filter(annotation_reviewers=id)
         user_projs_ids = [
             user_proj.id
@@ -306,7 +306,7 @@ def send_user_reports_mail(ws_id, user_id, project_type, participation_types):
         )
         final_reports.append(review_result)
 
-    for id in org_superchecker_list:
+    for id in ws_superchecker_list:
         supercheck_projs = proj_objs.filter(review_supercheckers=id)
         user_projs_ids = [
             user_proj.id

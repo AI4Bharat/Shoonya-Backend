@@ -2898,7 +2898,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             200: "Email successfully scheduled",
             400: "Invalid request body parameters.",
             401: "Unauthorized access.",
-            404: "Organization/User not found.",
+            404: "Workspace/User not found.",
         },
     )
     @action(
