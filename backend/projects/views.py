@@ -2264,7 +2264,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .values_list("task", flat=True)
         )
         # tasks = tasks.order_by("id")
-        task_ids = list(set(task_ids))
+        task_ids = list(task_ids)
         task_ids = task_ids[:task_pull_count]
         for task_id in task_ids:
             task = Task.objects.get(pk=task_id)
@@ -2497,7 +2497,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .values_list("task", flat=True)
         )
         # tasks = tasks.order_by("id")
-        task_ids = list(set(task_ids))
+        task_ids = list(task_ids)
         task_ids = task_ids[:task_pull_count]
         for task_id in task_ids:
             task = Task.objects.get(pk=task_id)

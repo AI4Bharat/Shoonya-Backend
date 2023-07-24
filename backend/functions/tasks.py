@@ -5,8 +5,9 @@ from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 
 from .utils import (
     get_batch_translations,
+    get_batch_ocr_predictions,
 )
-
+from django.db import transaction, DataError, IntegrityError
 from dataset.models import DatasetInstance
 from django.apps import apps
 
@@ -342,6 +343,91 @@ def conversation_data_machine_translation(
         multi_inheritance_table_bulk_insert(all_translated_conversation_objects)
 
     return f"{len(all_translated_conversation_objects)} conversation dataitems created for each of languages: {str(languages)}"
+
+
+@shared_task(bind=True)
+def generate_ocr_prediction_json(
+    self, dataset_instance_id, api_type, automate_missing_data_items
+):
+    """Function to generate OCR prediction data and to save to the same data item.
+    Args:
+        dataset_instance_id (int): ID of the dataset instance.
+        api_type (str): Type of API to be used for translation. (default: google)
+            Example - [indic-trans, google, indic-trans-v2, azure, blank]
+        automate_missing_data_items (bool): "Boolean to translate only missing data items"
+    """
+    # Fetching the data items for the given dataset instance.
+    success_count, total_count = 0, 0
+    try:
+        ocr_data_items = dataset_models.OCRDocument.objects.filter(
+            instance_id=dataset_instance_id
+        ).values_list("id", "image_url", "ocr_prediction_json")
+    except Exception as e:
+        ocr_data_items = []
+
+    # converting the dataset_instance to pandas dataframe.
+    ocr_data_items_df = pd.DataFrame(
+        ocr_data_items,
+        columns=["id", "image_url", "ocr_prediction_json"],
+    )
+
+    # Check if the dataframe is empty
+    if ocr_data_items_df.shape[0] == 0:
+        raise Exception("The OCR data is empty.")
+
+    required_columns = {"id", "image_url", "ocr_prediction_json"}
+    if not required_columns.issubset(ocr_data_items_df.columns):
+        missing_columns = required_columns - set(ocr_data_items_df.columns)
+        raise ValueError(
+            f"The following required columns are missing: {missing_columns}"
+        )
+
+    # Update the ocr_predictions field for each row in the DataFrame
+    for index, row in ocr_data_items_df.iterrows():
+        curr_id = row["id"]
+        if "image_url" not in row:
+            print(f"The OCR item with {curr_id} has missing image_url.")
+            continue
+        image_url = row["image_url"]
+
+        # Considering the case when we should generate predictions for data items
+        # which already have ocr_predictions or not.
+        if automate_missing_data_items and row["ocr_prediction_json"]:
+            continue
+        total_count += 1
+        ocr_predictions = get_batch_ocr_predictions(curr_id, image_url, api_type)
+        if ocr_predictions["status"] == "Success":
+            success_count += 1
+            ocr_predictions_json = ocr_predictions["output"]
+
+            # Updating the ocr_prediction_json column and saving in OCRDocument dataset with the new ocr predictions
+            try:
+                ocr_data_items_df.at[
+                    index, "ocr_prediction_json"
+                ] = ocr_predictions_json
+                ocr_document = dataset_models.OCRDocument(
+                    instance_id_id=dataset_instance_id,
+                    id=curr_id,
+                    image_url=image_url,
+                    ocr_prediction_json=ocr_predictions_json,
+                )
+                with transaction.atomic():
+                    ocr_document.save()
+            except IntegrityError as e:
+                # Handling unique constraint violations or other data integrity issues
+                print(f"Error while saving dataset id- {curr_id}, IntegrityError: {e}")
+            except DataError as e:
+                # Handling data-related issues like incorrect data types, etc.
+                print(f"Error while saving dataset id- {curr_id}, DataError: {e}")
+            except Exception as e:
+                # Handling other unexpected exceptions.
+                print(f"Error while saving dataset id- {curr_id}, Error message: {e}")
+
+        else:
+            print(
+                f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
+            )
+    return f"{success_count} out of {total_count} populated"
 
 
 @shared_task(bind=True)

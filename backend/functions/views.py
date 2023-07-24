@@ -21,6 +21,7 @@ from .tasks import (
     conversation_data_machine_translation,
     sentence_text_translate_and_save_translation_pairs,
     populate_draft_data_json,
+    generate_ocr_prediction_json,
 )
 from .utils import (
     check_conversation_translation_function_inputs,
@@ -443,6 +444,97 @@ def schedule_conversation_translation_job(request):
         checks_for_particular_languages=checks_for_particular_languages,
     )
     ret_dict = {"message": "Translating Conversation Dataitems"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
+
+
+@swagger_auto_schema(
+    method="post",
+    manual_parameters=[
+        openapi.Parameter(
+            "dataset_instance_id",
+            openapi.IN_QUERY,
+            description="Dataset Instance ID",
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "organization_id",
+            openapi.IN_QUERY,
+            description="Organization ID",
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "api_type",
+            openapi.IN_QUERY,
+            description="Type of API to use for translation",
+            type=openapi.TYPE_STRING,
+            required=False,
+        ),
+        openapi.Parameter(
+            "automate_missing_data_items",
+            openapi.IN_QUERY,
+            description="Boolean to translate only missing data items",
+            type=openapi.TYPE_BOOLEAN,
+            required=False,
+        ),
+    ],
+    responses={
+        200: "Starting the process of populating ocr_prediction_json for OCR dataset."
+    },
+)
+@api_view(["POST"])
+def schedule_ocr_prediction_json_population(request):
+    """
+    Schedules a OCR prediction population job for a given dataset instance and API type.
+
+    Request Body
+    {
+        "dataset_instance_id": <int>,
+        "organization_id": <int>,
+        "api_type": <str>,
+        "automate_missing_data_items": <bool>
+    }
+
+    Response Body
+    {
+        "message": <str>
+        "result": <str>
+        "status": DjangoStatusCode
+    }
+    """
+    # Check if the user is the organization owner
+    result = check_if_particular_organization_owner(request)
+    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
+        return Response({"error": result["error"]}, status=result["status"])
+
+    # Fetching request data
+    try:
+        dataset_instance_id = request.data["dataset_instance_id"]
+    except KeyError:
+        return Response(
+            {"error": "Please send a dataset_instance_id"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        api_type = request.data["api_type"]
+    except KeyError:
+        api_type = "google"
+    try:
+        automate_missing_data_items = request.data["automate_missing_data_items"]
+    except KeyError:
+        automate_missing_data_items = True
+
+    # Calling a function asynchronously to create ocr predictions.
+    generate_ocr_prediction_json.delay(
+        dataset_instance_id=dataset_instance_id,
+        api_type=api_type,
+        automate_missing_data_items=automate_missing_data_items,
+    )
+
+    # Returning response
+    ret_dict = {"message": "Generating OCR Predictions"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
 
