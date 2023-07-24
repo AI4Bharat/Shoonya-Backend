@@ -51,6 +51,7 @@ from .decorators import (
     is_organization_owner_or_workspace_manager,
     is_workspace_creator,
 )
+from .tasks import send_user_reports_mail
 
 
 # Create your views here.
@@ -2869,6 +2870,93 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             final_result.append(summary_period)
         return Response(final_result)
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "participation_types": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
+            },
+            required=["user_id", "project_type", "participation_types"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the Workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Email successfully scheduled",
+            400: "Invalid request body parameters.",
+            401: "Unauthorized access.",
+            404: "Workspace/User not found.",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get Workspace level users analytics (e-mail)",
+        url_name="send_user_analytics",
+    )
+    def send_user_analytics(self, request, pk=None):
+        if not (
+            request.user.is_authenticated
+            and (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.role == User.WORKSPACE_MANAGER
+                or request.user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response(
+                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        user_id = request.data.get("user_id")
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        participation_types = request.data.get("participation_types")
+        if len(participation_types) == 0 or not set(participation_types).issubset(
+            {1, 2, 3, 4}
+        ):
+            return Response(
+                {"message": "Invalid participation types"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project_type = request.data.get("project_type")
+
+        send_user_reports_mail.delay(
+            workspace.id,
+            user_id,
+            project_type,
+            participation_types,
+        )
+
+        return Response(
+            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+        )
 
 
 class WorkspaceusersViewSet(viewsets.ViewSet):
