@@ -1,7 +1,9 @@
+import json
 import os
 import requests
 from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
+from google.oauth2 import service_account
 from rest_framework import status
 from organizations.models import Organization
 from users.models import User
@@ -483,14 +485,13 @@ def get_batch_ocr_predictions(id, image_url, api_type):
 
 # get ocr predictions from Google API.
 def get_batch_ocr_predictions_using_google(id, image_url):
-    # Setting Google Cloud service account credentials
-    os.environ[
-        "GOOGLE_APPLICATION_CREDENTIALS"
-    ] = "./functions/shoonya-dev--ai4bharat-iitm-9137f8c6a770.json"
-
     # Creating a Google Cloud Vision client
     try:
-        client = vision.ImageAnnotatorClient()
+        credentials = json.loads(os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "{}"))
+        google_credentials = service_account.Credentials.from_service_account_info(
+            credentials
+        )
+        client = vision.ImageAnnotatorClient(credentials=google_credentials)
     except Exception as p:
         raise Exception("Cannot connect to google cloud vision.")
     response = requests.get(image_url)
