@@ -1,3 +1,4 @@
+from datetime import timezone
 from locale import normalize
 from urllib.parse import unquote
 import ast
@@ -1330,7 +1331,7 @@ class AnnotationViewSet(
                 )
             else:
                 if update_annotated_at:
-                    annotation_obj.annotated_at = datetime.now()
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
@@ -1455,7 +1456,7 @@ class AnnotationViewSet(
                 )
             else:
                 if update_annotated_at:
-                    annotation_obj.annotated_at = datetime.now()
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
@@ -1516,7 +1517,7 @@ class AnnotationViewSet(
                 parent = annotation.parent_annotation
                 if (parent.annotation_status) not in [LABELED]:
                     if parent.annotated_at is None:
-                        parent.annotated_at = datetime.now()
+                        parent.annotated_at = datetime.now(timezone.utc)
                         parent.save(update_fields=["annotated_at"])
                     parent.annotation_status = LABELED
                     parent.save(update_fields=["annotation_status"])
@@ -1606,7 +1607,7 @@ class AnnotationViewSet(
                 )
             else:
                 if update_annotated_at:
-                    annotation_obj.annotated_at = datetime.now()
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             task = annotation.task
@@ -1646,13 +1647,13 @@ class AnnotationViewSet(
                     ACCEPTED_WITH_MINOR_CHANGES,
                 ]:
                     if parent.annotated_at is None:
-                        parent.annotated_at = datetime.now()
+                        parent.annotated_at = datetime.now(timezone.utc)
                         parent.save(update_fields=["annotated_at"])
                     parent.annotation_status = ACCEPTED
                     parent.save(update_fields=["annotation_status"])
                 if (grand_parent.annotation_status) not in [LABELED]:
                     if grand_parent.annotated_at is None:
-                        grand_parent.annotated_at = datetime.now()
+                        grand_parent.annotated_at = datetime.now(timezone.utc)
                         grand_parent.save(update_fields=["annotated_at"])
                     grand_parent.annotation_status = LABELED
                     grand_parent.save(update_fields=["annotation_status"])
