@@ -254,6 +254,9 @@ class Annotation(models.Model):
     annotation_source = models.PositiveSmallIntegerField(
         choices=ANNOTATION_SOURCE, blank=False, null=False, default=MANUAL_ANNOTATION
     )
+    annotated_at = models.DateTimeField(
+        blank=True, null=True, verbose_name="annotation_annotated_at"
+    )
 
     def __str__(self):
         return str(self.id)
