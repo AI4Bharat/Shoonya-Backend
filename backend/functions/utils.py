@@ -1,7 +1,9 @@
+import json
 import os
 import requests
 from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
+from google.oauth2 import service_account
 from rest_framework import status
 from organizations.models import Organization
 from users.models import User
@@ -12,6 +14,7 @@ from users.utils import (
     LANG_TRANS_MODEL_CODES,
     LANG_NAME_TO_CODE_AZURE,
 )
+from google.cloud import vision
 
 try:
     from utils.azure_translate import translator_object
@@ -455,3 +458,102 @@ def get_batch_translations(
         return {"status": "failure", "output": f"API Error: {translations_output}"}
     else:
         return {"status": "success", "output": translations_output}
+
+
+def get_batch_ocr_predictions(id, image_url, api_type):
+    """Function to get the translation for the input sentences using various APIs.
+
+    Args:
+        id (int): id of the dataset instance
+        image_url (str): Image whose text is to be predicted.
+        api_type (str): Type of API to be used for translation.
+
+    Returns:
+        dict: Dictionary containing the translated sentences or error message.
+    """
+    # checking the API type
+    if api_type == "google":
+        ocr_predictions = get_batch_ocr_predictions_using_google(id, image_url)
+    else:
+        raise ValueError(f"{api_type} is an invalid API type")
+
+    if ocr_predictions != "":
+        return {"status": "Success", "output": ocr_predictions}
+    else:
+        return {"status": "Failure", "output": ocr_predictions}
+
+
+# get ocr predictions from Google API.
+def get_batch_ocr_predictions_using_google(id, image_url):
+    # Creating a Google Cloud Vision client
+    try:
+        credentials = json.loads(os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "{}"))
+        google_credentials = service_account.Credentials.from_service_account_info(
+            credentials
+        )
+        client = vision.ImageAnnotatorClient(credentials=google_credentials)
+    except Exception as p:
+        raise Exception("Cannot connect to google cloud vision.")
+    response = requests.get(image_url)
+    if response.status_code != 200:
+        print(
+            f"Failed to download image for data instance with id-{id}. Status code: {response.status_code}"
+        )
+        return ""
+    image = vision.Image(content=response.content)
+    response = client.document_text_detection(image=image)
+    ocr_predictions = []
+    for page in response.full_text_annotation.pages:
+        for block in page.blocks:
+            for paragraph in block.paragraphs:
+                paragraph_text = ""
+
+                for word in paragraph.words:
+                    word_text = "".join(symbol.text for symbol in word.symbols)
+                    paragraph_text += word_text + " "
+
+                paragraph_bounding_box = ocr_get_bounding_box(paragraph)
+                ocr_prediction = {
+                    "x": paragraph_bounding_box[0]["x"],
+                    "y": paragraph_bounding_box[0]["y"],
+                    "text": paragraph_text,
+                    "width": paragraph_bounding_box[2]["x"]
+                    - paragraph_bounding_box[0]["x"],
+                    "height": paragraph_bounding_box[2]["y"]
+                    - paragraph_bounding_box[0]["y"],
+                    "labels": ["Body"],
+                    "rotation": 0,
+                    "original_width": 1510,
+                    "original_height": 2373,
+                }
+
+                ocr_prediction = ocr_format_conversion(ocr_prediction)
+                ocr_predictions.append(ocr_prediction)
+
+    return ocr_predictions
+
+
+# Function to get the bounding box for a feature
+def ocr_get_bounding_box(feature):
+    bounds = []
+    for vertex in feature.bounding_box.vertices:
+        bounds.append({"x": vertex.x, "y": vertex.y})
+    return bounds
+
+
+# Normalising the values obtained
+def ocr_format_conversion(ocr_prediction):
+    original_width, original_height = abs(ocr_prediction["original_width"]), abs(
+        ocr_prediction["original_height"]
+    )
+    x = (abs(ocr_prediction["x"]) / original_width) * 100
+    y = (abs(ocr_prediction["y"]) / original_height) * 100
+    width = (abs(ocr_prediction["width"]) / original_width) * 100
+    height = (abs(ocr_prediction["height"]) / original_height) * 100
+    (
+        ocr_prediction["x"],
+        ocr_prediction["y"],
+        ocr_prediction["width"],
+        ocr_prediction["height"],
+    ) = (x, y, width, height)
+    return ocr_prediction
