@@ -1324,9 +1324,7 @@ class AnnotationViewSet(
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(
-                    update_fields=update_fields_list
-                )
+                annotation_obj.save(update_fields=update_fields_list)
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
@@ -1451,9 +1449,7 @@ class AnnotationViewSet(
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(
-                    update_fields=update_fields_list
-                )
+                annotation_obj.save(update_fields=update_fields_list)
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
@@ -1604,9 +1600,7 @@ class AnnotationViewSet(
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(
-                    update_fields=update_fields_list
-                )
+                annotation_obj.save(update_fields=update_fields_list)
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
