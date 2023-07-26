@@ -51,7 +51,7 @@ from .decorators import (
     is_organization_owner_or_workspace_manager,
     is_workspace_creator,
 )
-from .tasks import send_user_reports_mail
+from .tasks import send_user_reports_mail_ws
 
 
 # Create your views here.
@@ -2947,7 +2947,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         project_type = request.data.get("project_type")
 
-        send_user_reports_mail.delay(
+        send_user_reports_mail_ws.delay(
             workspace.id,
             user_id,
             project_type,
