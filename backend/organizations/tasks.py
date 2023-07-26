@@ -233,8 +233,8 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
     return result
 
 
-@shared_task(name="send_user_reports_mail")
-def send_user_reports_mail(org_id, user_id, project_type, participation_types):
+@shared_task()
+def send_user_reports_mail_org(org_id, user_id, project_type, participation_types):
     """Function to generate CSV of organization user reports and send mail to the owner/admin
 
     Args:
