@@ -39,6 +39,7 @@ def get_all_annotation_reports(
     role = get_role_name(user.role)
     userName = user.username
     email = user.email
+    user_lang = user.languages
 
     submitted_tasks = Annotation.objects.filter(
         annotation_status="labeled",
@@ -86,6 +87,7 @@ def get_all_annotation_reports(
         "Total Raw Audio Duration": total_raw_audio_duration,
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
+        "Language": user_lang,
     }
 
     if project_type in get_audio_project_types():
@@ -116,6 +118,7 @@ def get_all_review_reports(
     role = get_role_name(user.role)
     userName = user.username
     email = user.email
+    user_lang = user.languages
 
     submitted_tasks = Annotation.objects.filter(
         annotation_status__in=[
@@ -168,6 +171,7 @@ def get_all_review_reports(
         "Total Raw Audio Duration": total_raw_audio_duration,
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
+        "Language": user_lang,
     }
 
     if project_type in get_audio_project_types():
@@ -193,6 +197,7 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
     role = get_role_name(user.role)
     userName = user.username
     email = user.email
+    user_lang = user.languages
 
     submitted_tasks = Annotation.objects.filter(
         annotation_status__in=["validated", "validated_with_changes", "rejected"],
@@ -221,7 +226,9 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
                 validated_audio_duration_list.append(
                     get_audio_transcription_duration(anno.result)
                 )
-                validated_audio_duration_list.append(anno.task.data["audio_duration"])
+                validated_raw_audio_duration_list.append(
+                    anno.task.data["audio_duration"]
+                )
             except:
                 pass
 
@@ -243,6 +250,7 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
         "Total Raw Audio Duration": validated_raw_audio_duration,
         "Word Count": validated_word_count,
         "Submitted Tasks": submitted_tasks_count,
+        "Language": user_lang,
     }
 
     if project_type in get_audio_project_types():
