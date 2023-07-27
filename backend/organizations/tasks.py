@@ -61,7 +61,10 @@ def get_all_annotation_reports(
                 total_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
-    elif project_type in get_audio_project_types():
+    elif (
+        project_type in get_audio_project_types()
+        or project_type == "AudioTranscription + Editing"
+    ):
         for anno in submitted_tasks:
             try:
                 total_audio_duration_list.append(
@@ -90,7 +93,10 @@ def get_all_annotation_reports(
         "Language": user_lang,
     }
 
-    if project_type in get_audio_project_types():
+    if (
+        project_type in get_audio_project_types()
+        or project_type == "AudioTranscription + Editing"
+    ):
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -145,7 +151,10 @@ def get_all_review_reports(
                 total_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
-    elif project_type in get_audio_project_types():
+    elif (
+        project_type in get_audio_project_types()
+        or project_type == "AudioTranscription + Editing"
+    ):
         for anno in submitted_tasks:
             try:
                 total_audio_duration_list.append(
@@ -174,7 +183,10 @@ def get_all_review_reports(
         "Language": user_lang,
     }
 
-    if project_type in get_audio_project_types():
+    if (
+        project_type in get_audio_project_types()
+        or project_type == "AudioTranscription + Editing"
+    ):
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -220,7 +232,10 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
                 validated_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
-    elif project_type in get_audio_project_types():
+    elif (
+        project_type in get_audio_project_types()
+        or project_type == "AudioTranscription + Editing"
+    ):
         for anno in submitted_tasks:
             try:
                 validated_audio_duration_list.append(
@@ -253,7 +268,10 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
         "Language": user_lang,
     }
 
-    if project_type in get_audio_project_types():
+    if (
+        project_type in get_audio_project_types()
+        or project_type == "AudioTranscription + Editing"
+    ):
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -275,9 +293,15 @@ def send_user_reports_mail_org(org_id, user_id, project_type, participation_type
 
     user = User.objects.get(id=user_id)
     organization = Organization.objects.get(pk=org_id)
-    proj_objs = Project.objects.filter(
-        organization_id=org_id, project_type=project_type
-    )
+    if project_type == "AudioTranscription + Editing":
+        proj_objs = Project.objects.filter(
+            organization_id=org_id,
+            project_type__in=["AudioTranscription", "AudioTranscriptionEditing"],
+        )
+    else:
+        proj_objs = Project.objects.filter(
+            organization_id=org_id, project_type=project_type
+        )
 
     org_anno_list = []
     org_reviewer_list = []
