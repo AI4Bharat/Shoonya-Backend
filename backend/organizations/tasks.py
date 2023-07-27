@@ -52,6 +52,7 @@ def get_all_annotation_reports(
     project_type_lower = project_type.lower()
     is_translation_project = True if "translation" in project_type_lower else False
     total_audio_duration_list = []
+    total_raw_audio_duration_list = []
     total_word_count_list = []
     if is_translation_project:
         for anno in submitted_tasks:
@@ -65,11 +66,15 @@ def get_all_annotation_reports(
                 total_audio_duration_list.append(
                     get_audio_transcription_duration(anno.result)
                 )
+                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+    total_raw_audio_duration = convert_seconds_to_hours(
+        sum(total_raw_audio_duration_list)
+    )
 
     result = {
         "Name": userName,
@@ -78,6 +83,7 @@ def get_all_annotation_reports(
         "Role": role,
         "Type of Work": "Annotator",
         "Total Segments Duration": total_audio_duration,
+        "Total Raw Audio Duration": total_raw_audio_duration,
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
     }
@@ -86,6 +92,7 @@ def get_all_annotation_reports(
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
 
     return result
 
@@ -127,6 +134,7 @@ def get_all_review_reports(
     project_type_lower = project_type.lower()
     is_translation_project = True if "translation" in project_type_lower else False
     total_audio_duration_list = []
+    total_raw_audio_duration_list = []
     total_word_count_list = []
     if is_translation_project:
         for anno in submitted_tasks:
@@ -140,11 +148,15 @@ def get_all_review_reports(
                 total_audio_duration_list.append(
                     get_audio_transcription_duration(anno.result)
                 )
+                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+    total_raw_audio_duration = convert_seconds_to_hours(
+        sum(total_raw_audio_duration_list)
+    )
 
     result = {
         "Name": userName,
@@ -153,6 +165,7 @@ def get_all_review_reports(
         "Role": role,
         "Type of Work": "Review",
         "Total Segments Duration": total_audio_duration,
+        "Total Raw Audio Duration": total_raw_audio_duration,
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
     }
@@ -161,6 +174,7 @@ def get_all_review_reports(
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
 
     return result
 
@@ -194,6 +208,7 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
 
     validated_word_count_list = []
     validated_audio_duration_list = []
+    validated_raw_audio_duration_list = []
     if is_translation_project:
         for anno in submitted_tasks:
             try:
@@ -206,12 +221,16 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
                 validated_audio_duration_list.append(
                     get_audio_transcription_duration(anno.result)
                 )
+                validated_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
 
     validated_word_count = sum(validated_word_count_list)
     validated_audio_duration = convert_seconds_to_hours(
         sum(validated_audio_duration_list)
+    )
+    validated_raw_audio_duration = convert_seconds_to_hours(
+        sum(validated_raw_audio_duration_list)
     )
 
     result = {
@@ -221,6 +240,7 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
         "Role": role,
         "Type of Work": "Supercheck",
         "Total Segments Duration": validated_audio_duration,
+        "Total Raw Audio Duration": validated_raw_audio_duration,
         "Word Count": validated_word_count,
         "Submitted Tasks": submitted_tasks_count,
     }
@@ -229,12 +249,13 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
 
     return result
 
 
-@shared_task(name="send_user_reports_mail")
-def send_user_reports_mail(org_id, user_id, project_type, participation_types):
+@shared_task()
+def send_user_reports_mail_org(org_id, user_id, project_type, participation_types):
     """Function to generate CSV of organization user reports and send mail to the owner/admin
 
     Args:
