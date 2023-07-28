@@ -6,7 +6,7 @@ from django.core.paginator import Paginator
 
 def update_annotated_at(apps, schema_editor):
     Annotation = apps.get_model("tasks", "Annotation")
-    queryset = Annotation.objects.all()
+    queryset = Annotation.objects.all().order_by("id")
     paginator = Paginator(queryset, 10000)
 
     for page_number in paginator.page_range:
