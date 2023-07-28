@@ -1545,7 +1545,7 @@ class AnnotationViewSet(
                 supercheck_status = request.data["annotation_status"]
                 update_annotated_at = (
                     True
-                    if review_status
+                    if supercheck_status
                     in [
                         VALIDATED,
                         VALIDATED_WITH_CHANGES,
