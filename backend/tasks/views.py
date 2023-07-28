@@ -1446,9 +1446,9 @@ class AnnotationViewSet(
             if auto_save:
                 update_fields_list = ["result", "lead_time"]
                 annotation_obj.result = request.data["result"]
-                if "annotation_notes" in dict(request.data):
-                    annotation_obj.annotation_notes = request.data["annotation_notes"]
-                    update_fields_list.append("annotation_notes")
+                if "review_notes" in dict(request.data):
+                    annotation_obj.review_notes = request.data["review_notes"]
+                    update_fields_list.append("review_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
                 annotation_obj.save(update_fields=update_fields_list)
                 annotation_response = Response(
@@ -1597,9 +1597,9 @@ class AnnotationViewSet(
             if auto_save:
                 update_fields_list = ["result", "lead_time"]
                 annotation_obj.result = request.data["result"]
-                if "annotation_notes" in dict(request.data):
-                    annotation_obj.annotation_notes = request.data["annotation_notes"]
-                    update_fields_list.append("annotation_notes")
+                if "supercheck_notes" in dict(request.data):
+                    annotation_obj.supercheck_notes = request.data["supercheck_notes"]
+                    update_fields_list.append("supercheck_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
                 annotation_obj.save(update_fields=update_fields_list)
                 annotation_response = Response(
