@@ -1299,17 +1299,7 @@ class AnnotationViewSet(
                 update_annotated_at = (
                     True
                     if annotation_status == LABELED
-                    and (
-                        annotation_obj.annotation_status == UNLABELED
-                        or (
-                            (
-                                annotation_obj.annotation_status == DRAFT
-                                or annotation_obj.annotation_status == SKIPPED
-                            )
-                            and annotation_obj.task.revision_loop_count["review_count"]
-                            == 0
-                        )
-                    )
+                    and annotation_obj.annotated_at is None
                     else False
                 )
 
@@ -1397,21 +1387,7 @@ class AnnotationViewSet(
                         ACCEPTED_WITH_MINOR_CHANGES,
                         ACCEPTED_WITH_MAJOR_CHANGES,
                     ]
-                    and (
-                        annotation_obj.annotation_status == UNREVIEWED
-                        or (
-                            (
-                                annotation_obj.annotation_status == DRAFT
-                                or annotation_obj.annotation_status == SKIPPED
-                            )
-                            and annotation_obj.task.revision_loop_count["review_count"]
-                            == 0
-                            and annotation_obj.task.revision_loop_count[
-                                "super_check_count"
-                            ]
-                            == 0
-                        )
-                    )
+                    and annotation_obj.annotated_at is None
                     else False
                 )
 
@@ -1550,19 +1526,7 @@ class AnnotationViewSet(
                         VALIDATED,
                         VALIDATED_WITH_CHANGES,
                     ]
-                    and (
-                        annotation_obj.annotation_status == UNREVIEWED
-                        or (
-                            (
-                                annotation_obj.annotation_status == DRAFT
-                                or annotation_obj.annotation_status == SKIPPED
-                            )
-                            and annotation_obj.task.revision_loop_count[
-                                "super_check_count"
-                            ]
-                            == 0
-                        )
-                    )
+                    and annotation_obj.annotated_at is None
                     else False
                 )
             else:
