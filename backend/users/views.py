@@ -3,6 +3,8 @@ from http.client import responses
 import secrets
 import string
 from wsgiref.util import request_uri
+import jwt
+from jwt import DecodeError, InvalidSignatureError
 from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
@@ -17,6 +19,7 @@ from .serializers import (
     UserUpdateSerializer,
     LanguageSerializer,
     ChangePasswordSerializer,
+    ChangePasswordWithoutOldPassword,
 )
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
@@ -47,8 +50,10 @@ from django.core.mail import send_mail
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
+from dotenv import load_dotenv
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+load_dotenv()
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -322,6 +327,70 @@ class AuthViewSet(viewsets.ViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+    @permission_classes([AllowAny])
+    @swagger_auto_schema(request_body=ChangePasswordWithoutOldPassword)
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reset_password",
+        url_name="reset_password",
+    )
+    def reset_password(self, request, *args, **kwargs):
+        """
+        User change password functionality
+        """
+        if not request.data.get("new_password"):
+            try:
+                email = request.data.get("email")
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response(
+                    {"message": "Incorrect email, User not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            key = user.id
+            user.send_mail_to_change_password(email, key)
+            return Response(
+                {
+                    "message": "Please check your registered email and click on the link to reset your password.",
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            try:
+                received_token = request.data.get("token")
+                user_id = request.data.get("uid")
+                new_password = request.data.get("new_password")
+            except KeyError:
+                raise Exception("Insufficient details")
+            user = User.objects.get(id=user_id)
+            try:
+                secret_key = os.getenv("SECRET_KEY")
+                decodedToken = jwt.decode(received_token, secret_key, "HS256")
+            except InvalidSignatureError:
+                raise Exception(
+                    "The password reset link has expired. Please request a new link."
+                )
+            except DecodeError:
+                raise Exception(
+                    "Invalid token. Please make sure the token is correct and try again."
+                )
+
+            serializer = ChangePasswordWithoutOldPassword(user, request.data)
+            serializer.is_valid(raise_exception=True)
+
+            validation_response = serializer.validation_checks(
+                user, request.data
+            )  # checks for min_length, whether password is similar to user details etc.
+            if validation_response != "Validation successful":
+                return Response(
+                    {"message": validation_response},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user = serializer.save(user, request.data)
+            return Response({"message": "Password changed."}, status=status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ViewSet):

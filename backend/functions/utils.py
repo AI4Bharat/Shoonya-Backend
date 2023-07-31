@@ -1,5 +1,7 @@
 import json
 import os
+import re
+
 import requests
 from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
@@ -15,6 +17,7 @@ from users.utils import (
     LANG_NAME_TO_CODE_AZURE,
 )
 from google.cloud import vision
+from users.utils import LANG_NAME_TO_CODE_ULCA
 
 try:
     from utils.azure_translate import translator_object
@@ -461,7 +464,7 @@ def get_batch_translations(
 
 
 def get_batch_ocr_predictions(id, image_url, api_type):
-    """Function to get the translation for the input sentences using various APIs.
+    """Function to get the ocr predictions for the images using various APIs.
 
     Args:
         id (int): id of the dataset instance
@@ -469,7 +472,7 @@ def get_batch_ocr_predictions(id, image_url, api_type):
         api_type (str): Type of API to be used for translation.
 
     Returns:
-        dict: Dictionary containing the translated sentences or error message.
+        dict: Dictionary containing the predictions or error message.
     """
     # checking the API type
     if api_type == "google":
@@ -557,3 +560,131 @@ def ocr_format_conversion(ocr_prediction):
         ocr_prediction["height"],
     ) = (x, y, width, height)
     return ocr_prediction
+
+
+def get_batch_asr_predictions(id, audio_url, api_type, language):
+    """Function to get the predictions for the input voice notes using various APIs.
+
+    Args:
+        id (int): id of the dataset instance
+        audio_url (str): Image whose text is to be predicted.
+        api_type (str): Type of API to be used for translation.
+
+    Returns:
+        dict: Dictionary containing predictions or error message.
+    """
+    # checking the API type
+    if api_type == "dhruva_asr":
+        asr_predictions = get_batch_asr_predictions_using_dhruva_asr(
+            id, audio_url, language
+        )
+    else:
+        raise ValueError(f"{api_type} is an invalid API type")
+
+    if asr_predictions != "":
+        return {"status": "Success", "output": asr_predictions}
+    else:
+        return {"status": "Failure", "output": asr_predictions}
+
+
+def get_batch_asr_predictions_using_dhruva_asr(cur_id, audio_url, language):
+    url = os.getenv("ASR_DHRUVA_URL")
+    header = {"Authorization": os.getenv("ASR_DHRUVA_AUTHORIZATION")}
+    if language == "Hindi":
+        serviceId = "ai4bharat/conformer-hi-gpu--t4"
+        languageCode = LANG_NAME_TO_CODE_ULCA[language]
+    elif language == "English":
+        serviceId = "ai4bharat/whisper-medium-en--gpu--t4"
+        languageCode = LANG_NAME_TO_CODE_ULCA[language]
+    elif language in [
+        "Bengali",
+        "Gujarati",
+        "Marathi",
+        "Odia",
+        "Punjabi",
+        "Sanskrit",
+        "Urdu",
+    ]:
+        serviceId = "ai4bharat/conformer-multilingual-indo_aryan-gpu--t4"
+        languageCode = LANG_NAME_TO_CODE_ULCA[language]
+    elif language in ["Kannada", "Malayalam", "Tamil", "Telugu"]:
+        serviceId = "ai4bharat/conformer-multilingual-dravidian-gpu--t4"
+        languageCode = LANG_NAME_TO_CODE_ULCA[language]
+    else:
+        print(f"We don't support predictions for {language} language")
+        return ""
+    ds = {
+        "config": {
+            "serviceId": serviceId,
+            "language": {"sourceLanguage": languageCode},
+            "transcriptionFormat": {"value": "srt"},
+        },
+        "audio": [{"audioUri": f"{audio_url}"}],
+    }
+    try:
+        response = requests.post(url, headers=header, json=ds, timeout=180)
+        response_json = response.json()
+        input_string = response_json["output"][0]["source"]
+    except requests.exceptions.Timeout:
+        print(f"The request took too long and timed out for id- {cur_id}.")
+        return ""
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred for id- {cur_id}: {e}")
+        return ""
+    start_time, end_time, texts = asr_extract_start_end_times_and_texts(
+        "\n" + input_string
+    )
+    if (
+        len(start_time) != len(end_time)
+        or len(start_time) != len(texts)
+        or len(end_time) != len(texts)
+    ):
+        print(f"Improper predictions for asr data item, id - {cur_id}")
+        return ""
+    prediction_json = []
+    for i in range(len(start_time)):
+        prediction_json_for_each_entry = {
+            "speaker_id": 0,
+            "start": start_time[i],
+            "end": end_time[i],
+            "text": texts[i],
+        }
+        prediction_json.append(prediction_json_for_each_entry)
+    return prediction_json
+
+
+# extracting data from the results obtained
+def asr_extract_start_end_times_and_texts(input_str):
+    input_list = input_str.split("\n")
+    timestamps = []
+    texts = []
+    time_idx, text_idx = 2, 3
+    while text_idx < len(input_list):
+        timestamps.append(input_list[time_idx])
+        time_idx += 4
+        texts.append(input_list[text_idx])
+        text_idx += 4
+    start_time, end_time = asr_convert_start_end_times(timestamps)
+    return start_time, end_time, texts
+
+
+# converting starting and ending timings
+def asr_convert_start_end_times(timestamps):
+    formatted_start_times = []
+    formatted_end_times = []
+    for i in range(len(timestamps)):
+        short_str = (
+            re.split(r"[:,\s]", timestamps[i])[:4]
+            + re.split(r"[:,\s]", timestamps[i])[5:]
+        )
+        h1, m1, s1, ms1, h2, m2, s2, ms2 = short_str
+
+        # Calculate the start time in seconds with milliseconds
+        start_time_seconds = int(h1) * 3600 + int(m1) * 60 + int(s1) + int(ms1) / 1000.0
+
+        # Calculate the end time in seconds with milliseconds
+        end_time_seconds = int(h2) * 3600 + int(m2) * 60 + int(s2) + int(ms2) / 1000.0
+
+        formatted_start_times.append(f"{start_time_seconds:.3f}")
+        formatted_end_times.append(f"{end_time_seconds:.3f}")
+    return formatted_start_times, formatted_end_times
