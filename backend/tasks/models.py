@@ -254,6 +254,12 @@ class Annotation(models.Model):
     annotation_source = models.PositiveSmallIntegerField(
         choices=ANNOTATION_SOURCE, blank=False, null=False, default=MANUAL_ANNOTATION
     )
+    annotated_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="annotation_annotated_at",
+        help_text=("Time when the annotation was first labeled/accepted/validated"),
+    )
 
     def __str__(self):
         return str(self.id)

@@ -1,3 +1,4 @@
+from datetime import timezone
 from locale import normalize
 from urllib.parse import unquote
 import ast
@@ -1295,6 +1296,12 @@ class AnnotationViewSet(
                 is_to_be_revised_task = (
                     True if annotation_obj.annotation_status == TO_BE_REVISED else False
                 )
+                update_annotated_at = (
+                    True
+                    if annotation_status == LABELED
+                    and annotation_obj.annotated_at is None
+                    else False
+                )
 
             else:
                 ret_dict = {"message": "Missing param : annotation_status!"}
@@ -1302,16 +1309,20 @@ class AnnotationViewSet(
                 return Response(ret_dict, status=ret_status)
 
             if auto_save:
+                update_fields_list = ["result", "lead_time"]
                 annotation_obj.result = request.data["result"]
-                annotation_obj.annotation_notes = request.data["annotation_notes"]
+                if "annotation_notes" in dict(request.data):
+                    annotation_obj.annotation_notes = request.data["annotation_notes"]
+                    update_fields_list.append("annotation_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(
-                    update_fields=["result", "annotation_notes", "lead_time"]
-                )
+                annotation_obj.save(update_fields=update_fields_list)
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
             else:
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1368,6 +1379,18 @@ class AnnotationViewSet(
                 TO_BE_REVISED,
             ]:
                 review_status = request.data["annotation_status"]
+                update_annotated_at = (
+                    True
+                    if review_status
+                    in [
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                    ]
+                    and annotation_obj.annotated_at is None
+                    else False
+                )
+
             else:
                 ret_dict = {"message": "Missing param : annotation_status!"}
                 ret_status = status.HTTP_400_BAD_REQUEST
@@ -1397,16 +1420,20 @@ class AnnotationViewSet(
                         return Response(ret_dict, status=ret_status)
 
             if auto_save:
+                update_fields_list = ["result", "lead_time"]
                 annotation_obj.result = request.data["result"]
-                annotation_obj.annotation_notes = request.data["annotation_notes"]
+                if "review_notes" in dict(request.data):
+                    annotation_obj.review_notes = request.data["review_notes"]
+                    update_fields_list.append("review_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(
-                    update_fields=["result", "annotation_notes", "lead_time"]
-                )
+                annotation_obj.save(update_fields=update_fields_list)
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
             else:
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1465,6 +1492,9 @@ class AnnotationViewSet(
             ]:
                 parent = annotation.parent_annotation
                 if (parent.annotation_status) not in [LABELED]:
+                    if parent.annotated_at is None:
+                        parent.annotated_at = datetime.now(timezone.utc)
+                        parent.save(update_fields=["annotated_at"])
                     parent.annotation_status = LABELED
                     parent.save(update_fields=["annotation_status"])
 
@@ -1489,6 +1519,16 @@ class AnnotationViewSet(
                 SKIPPED,
             ]:
                 supercheck_status = request.data["annotation_status"]
+                update_annotated_at = (
+                    True
+                    if supercheck_status
+                    in [
+                        VALIDATED,
+                        VALIDATED_WITH_CHANGES,
+                    ]
+                    and annotation_obj.annotated_at is None
+                    else False
+                )
             else:
                 ret_dict = {"message": "Missing param : annotation_status!"}
                 ret_status = status.HTTP_400_BAD_REQUEST
@@ -1519,16 +1559,20 @@ class AnnotationViewSet(
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
             if auto_save:
+                update_fields_list = ["result", "lead_time"]
                 annotation_obj.result = request.data["result"]
-                annotation_obj.annotation_notes = request.data["annotation_notes"]
+                if "supercheck_notes" in dict(request.data):
+                    annotation_obj.supercheck_notes = request.data["supercheck_notes"]
+                    update_fields_list.append("supercheck_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(
-                    update_fields=["result", "annotation_notes", "lead_time"]
-                )
+                annotation_obj.save(update_fields=update_fields_list)
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
             else:
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             task = annotation.task
 
@@ -1566,9 +1610,15 @@ class AnnotationViewSet(
                     ACCEPTED_WITH_MAJOR_CHANGES,
                     ACCEPTED_WITH_MINOR_CHANGES,
                 ]:
+                    if parent.annotated_at is None:
+                        parent.annotated_at = datetime.now(timezone.utc)
+                        parent.save(update_fields=["annotated_at"])
                     parent.annotation_status = ACCEPTED
                     parent.save(update_fields=["annotation_status"])
                 if (grand_parent.annotation_status) not in [LABELED]:
+                    if grand_parent.annotated_at is None:
+                        grand_parent.annotated_at = datetime.now(timezone.utc)
+                        grand_parent.save(update_fields=["annotated_at"])
                     grand_parent.annotation_status = LABELED
                     grand_parent.save(update_fields=["annotation_status"])
 
