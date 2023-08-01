@@ -23,4 +23,9 @@ router.register(r"auth", AuthViewSet, basename="Authanalytics")
 urlpatterns = [
     path("", include(router.urls)),
     path("auth/jwt/create", AuthViewSet.as_view({"post": "login"}), name="login"),
+    path(
+        "auth/reset_password",
+        AuthViewSet.as_view({"post": "reset_password"}),
+        name="reset_password",
+    ),
 ]
