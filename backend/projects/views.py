@@ -3565,33 +3565,51 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         try:
             project = Project.objects.get(pk=pk)
-            if project.sampling_mode != FULL:
-                ret_dict = {"message": "Sampling Mode is not FULL!"}
+            if project.sampling_mode != BATCH and project.sampling_mode != FULL:
+                ret_dict = {"message": "Sampling Mode is neither FULL nor BATCH!"}
                 ret_status = status.HTTP_403_FORBIDDEN
+                return Response(ret_dict, status=ret_status)
+            # Get serializer with the project user data
+            try:
+                serializer = ProjectUsersSerializer(project, many=False)
+            except User.DoesNotExist:
+                ret_dict = {"message": "User does not exist!"}
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+            # Get project instance and check how many items to pull
+            project_type = project.project_type
+            ids_to_exclude = Task.objects.filter(project_id__exact=project)
+            items = filter_data_items(
+                project_type,
+                list(project.dataset_id.all()),
+                project.filter_string,
+                ids_to_exclude,
+            )
+            if not items:
+                ret_dict = {"message": "No items to pull into the dataset."}
+                ret_status = status.HTTP_404_NOT_FOUND
             else:
-                # Get serializer with the project user data
-                try:
-                    serializer = ProjectUsersSerializer(project, many=False)
-                except User.DoesNotExist:
-                    ret_dict = {"message": "User does not exist!"}
-                    ret_status = status.HTTP_404_NOT_FOUND
-                # Get project instance and check how many items to pull
-                project_type = project.project_type
-                ids_to_exclude = Task.objects.filter(project_id__exact=project)
-                items = filter_data_items(
-                    project_type,
-                    list(project.dataset_id.all()),
-                    project.filter_string,
-                    ids_to_exclude,
-                )
-                if items:
-                    # Pull new data items in to the project asynchronously
-                    add_new_data_items_into_project.delay(project_id=pk, items=items)
-                    ret_dict = {"message": "Adding new tasks to the project."}
-                    ret_status = status.HTTP_200_OK
+                if project.sampling_mode == BATCH:
+                    try:
+                        batch_size = project.sampling_parameters_json["batch_size"]
+                        batch_number = project.sampling_parameters_json["batch_number"]
+                    except Exception as e:
+                        raise Exception("Sampling parameters are not present")
+                    if not isinstance(batch_number, list):
+                        batch_number = [batch_number]
+                    sampled_items = []
+                    for batch_num in batch_number:
+                        sampled_items += items[
+                            batch_size * (batch_num - 1): batch_size * batch_num
+                        ]
                 else:
-                    ret_dict = {"message": "No items to pull into the dataset."}
-                    ret_status = status.HTTP_404_NOT_FOUND
+                    sampled_items = items
+                # Pull new data items in to the project asynchronously
+                add_new_data_items_into_project.delay(
+                    project_id=pk, items=sampled_items
+                )
+                ret_dict = {"message": "Adding new tasks to the project."}
+                ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
