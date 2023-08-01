@@ -456,9 +456,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             "accepted_with_minor_changes",
                         ]:
                             if reviewer_annotation[idx] is not None:
-                                tas["data"]["output_text"] = reviewer_annotation[idx][
-                                    0
-                                ]["value"]["text"][0]
+                                try:
+                                    tas["data"]["output_text"] = reviewer_annotation[
+                                        idx
+                                    ][0]["value"]["text"][0]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = "-"
                         elif rew_status[0] in [
@@ -466,26 +469,32 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             "skipped",
                         ]:
                             if parent_annotator_annotation[idx] != "-":
-                                tas["data"][
-                                    "output_text"
-                                ] = parent_annotator_annotation[idx][0]["value"][
-                                    "text"
-                                ][
-                                    0
-                                ]
+                                try:
+                                    tas["data"][
+                                        "output_text"
+                                    ] = parent_annotator_annotation[idx][0]["value"][
+                                        "text"
+                                    ][
+                                        0
+                                    ]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = first_annotator_annotation[
                                     idx
                                 ][0]["value"]["text"][0]
                         else:
                             if parent_annotator_annotation[idx] != "-":
-                                tas["data"][
-                                    "output_text"
-                                ] = parent_annotator_annotation[idx][0]["value"][
-                                    "text"
-                                ][
-                                    0
-                                ]
+                                try:
+                                    tas["data"][
+                                        "output_text"
+                                    ] = parent_annotator_annotation[idx][0]["value"][
+                                        "text"
+                                    ][
+                                        0
+                                    ]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
