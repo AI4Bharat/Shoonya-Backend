@@ -288,9 +288,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     if (ann_status[0] in ["labeled", "draft", "to_be_revised"]) and (
                         proj_type == "ContextualTranslationEditing"
                     ):
-                        tas["data"]["output_text"] = annotation_result_json[idx][0][
-                            "value"
-                        ]["text"][0]
+                        try:
+                            tas["data"]["output_text"] = annotation_result_json[idx][0][
+                                "value"
+                            ]["text"][0]
+                        except:
+                            tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
                     ordered_tasks.append(tas)
 
