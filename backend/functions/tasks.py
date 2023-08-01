@@ -6,6 +6,7 @@ from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 from .utils import (
     get_batch_translations,
     get_batch_ocr_predictions,
+    get_batch_asr_predictions,
 )
 from django.db import transaction, DataError, IntegrityError
 from dataset.models import DatasetInstance
@@ -361,21 +362,66 @@ def generate_ocr_prediction_json(
     try:
         ocr_data_items = dataset_models.OCRDocument.objects.filter(
             instance_id=dataset_instance_id
-        ).values_list("id", "image_url", "ocr_prediction_json")
+        ).values_list(
+            "id",
+            "metadata_json",
+            "draft_data_json",
+            "file_type",
+            "file_url",
+            "image_url",
+            "page_number",
+            "language",
+            "ocr_type",
+            "ocr_domain",
+            "ocr_transcribed_json",
+            "ocr_prediction_json",
+            "image_details_json",
+            "parent_data",
+        )
     except Exception as e:
         ocr_data_items = []
 
     # converting the dataset_instance to pandas dataframe.
     ocr_data_items_df = pd.DataFrame(
         ocr_data_items,
-        columns=["id", "image_url", "ocr_prediction_json"],
+        columns=[
+            "id",
+            "metadata_json",
+            "draft_data_json",
+            "file_type",
+            "file_url",
+            "image_url",
+            "page_number",
+            "language",
+            "ocr_type",
+            "ocr_domain",
+            "ocr_transcribed_json",
+            "ocr_prediction_json",
+            "image_details_json",
+            "parent_data",
+        ],
     )
 
     # Check if the dataframe is empty
     if ocr_data_items_df.shape[0] == 0:
         raise Exception("The OCR data is empty.")
 
-    required_columns = {"id", "image_url", "ocr_prediction_json"}
+    required_columns = {
+        "id",
+        "metadata_json",
+        "draft_data_json",
+        "file_type",
+        "file_url",
+        "image_url",
+        "page_number",
+        "language",
+        "ocr_type",
+        "ocr_domain",
+        "ocr_transcribed_json",
+        "ocr_prediction_json",
+        "image_details_json",
+        "parent_data",
+    }
     if not required_columns.issubset(ocr_data_items_df.columns):
         missing_columns = required_columns - set(ocr_data_items_df.columns)
         raise ValueError(
@@ -408,8 +454,19 @@ def generate_ocr_prediction_json(
                 ocr_document = dataset_models.OCRDocument(
                     instance_id_id=dataset_instance_id,
                     id=curr_id,
+                    metadata_json=row["metadata_json"],
+                    draft_data_json=row["draft_data_json"],
+                    file_type=row["file_type"],
+                    file_url=row["file_url"],
                     image_url=image_url,
+                    page_number=row["page_number"],
+                    language=row["language"],
+                    ocr_type=row["ocr_type"],
+                    ocr_domain=row["ocr_domain"],
+                    ocr_transcribed_json=row["ocr_transcribed_json"],
                     ocr_prediction_json=ocr_predictions_json,
+                    image_details_json=row["image_details_json"],
+                    parent_data=row["parent_data"],
                 )
                 with transaction.atomic():
                     ocr_document.save()
@@ -428,6 +485,152 @@ def generate_ocr_prediction_json(
                 f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
             )
     return f"{success_count} out of {total_count} populated"
+
+
+@shared_task(bind=True)
+def generate_asr_prediction_json(
+    self, dataset_instance_id, api_type, automate_missing_data_items
+):
+    """Function to generate ASR prediction data and to save to the same data item.
+    Args:
+        dataset_instance_id (int): ID of the dataset instance.
+        api_type (str): Type of API to be used for translation. (default: dhruva_asr)
+            Example - [dhruva_asr, indic-trans, google, indic-trans-v2, azure, blank]
+        automate_missing_data_items (bool): "Boolean to translate only missing data items"
+    """
+    # Fetching the data items for the given dataset instance.
+    success_count, total_count = 0, 0
+    try:
+        asr_data_items = dataset_models.SpeechConversation.objects.filter(
+            instance_id=dataset_instance_id
+        ).values_list(
+            "id",
+            "metadata_json",
+            "draft_data_json",
+            "domain",
+            "scenario",
+            "speaker_count",
+            "speakers_json",
+            "language",
+            "transcribed_json",
+            "machine_transcribed_json",
+            "audio_url",
+            "audio_duration",
+            "reference_raw_transcript",
+            "prediction_json",
+            "parent_data",
+        )
+    except Exception as e:
+        asr_data_items = []
+
+    # converting the dataset_instance to pandas dataframe.
+    asr_data_items_df = pd.DataFrame(
+        asr_data_items,
+        columns=[
+            "id",
+            "metadata_json",
+            "draft_data_json",
+            "domain",
+            "scenario",
+            "speaker_count",
+            "speakers_json",
+            "language",
+            "transcribed_json",
+            "machine_transcribed_json",
+            "audio_url",
+            "audio_duration",
+            "reference_raw_transcript",
+            "prediction_json",
+            "parent_data",
+        ],
+    )
+
+    # Check if the dataframe is empty
+    if asr_data_items_df.shape[0] == 0:
+        raise Exception("The ASR data is empty.")
+
+    required_columns = {
+        "id",
+        "metadata_json",
+        "draft_data_json",
+        "domain",
+        "scenario",
+        "speaker_count",
+        "speakers_json",
+        "language",
+        "transcribed_json",
+        "machine_transcribed_json",
+        "audio_url",
+        "audio_duration",
+        "reference_raw_transcript",
+        "prediction_json",
+        "parent_data",
+    }
+    if not required_columns.issubset(asr_data_items_df.columns):
+        missing_columns = required_columns - set(asr_data_items_df.columns)
+        raise ValueError(
+            f"The following required columns are missing: {missing_columns}"
+        )
+
+    # Update the asr_predictions field for each row in the DataFrame
+    for index, row in asr_data_items_df.iterrows():
+        curr_id = row["id"]
+        if "audio_url" not in row:
+            print(f"The ASR item with {curr_id} has missing audio_url.")
+            continue
+        audio_url = row["audio_url"]
+        language = row["language"]
+
+        # Considering the case when we should generate predictions for data items
+        # which already have asr_predictions or not.
+        if automate_missing_data_items and row["prediction_json"]:
+            continue
+        total_count += 1
+        asr_predictions = get_batch_asr_predictions(
+            curr_id, audio_url, api_type, language
+        )
+        if asr_predictions["status"] == "Success":
+            success_count += 1
+            prediction_json = asr_predictions["output"]
+
+            # Updating the asr_prediction_json column and saving in SpeechConversation dataset with the new asr predictions
+            try:
+                asr_data_items_df.at[index, "prediction_json"] = prediction_json
+                asr_document = dataset_models.SpeechConversation(
+                    instance_id_id=dataset_instance_id,
+                    id=curr_id,
+                    metadata_json=row["metadata_json"],
+                    draft_data_json=row["draft_data_json"],
+                    domain=row["domain"],
+                    scenario=row["scenario"],
+                    speaker_count=row["speaker_count"],
+                    speakers_json=row["speakers_json"],
+                    language=row["language"],
+                    transcribed_json=row["transcribed_json"],
+                    machine_transcribed_json=row["machine_transcribed_json"],
+                    audio_url=audio_url,
+                    audio_duration=row["audio_duration"],
+                    reference_raw_transcript=row["reference_raw_transcript"],
+                    prediction_json=prediction_json,
+                    parent_data=row["parent_data"],
+                )
+                with transaction.atomic():
+                    asr_document.save()
+            except IntegrityError as e:
+                # Handling unique constraint violations or other data integrity issues
+                print(f"Error while saving dataset id- {curr_id}, IntegrityError: {e}")
+            except DataError as e:
+                # Handling data-related issues like incorrect data types, etc.
+                print(f"Error while saving dataset id- {curr_id}, DataError: {e}")
+            except Exception as e:
+                # Handling other unexpected exceptions.
+                print(f"Error while saving dataset id- {curr_id}, Error message: {e}")
+
+        else:
+            print(
+                f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
+            )
+    print(f"{success_count} out of {total_count} populated")
 
 
 @shared_task(bind=True)

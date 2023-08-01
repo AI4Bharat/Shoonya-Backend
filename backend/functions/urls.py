@@ -23,6 +23,10 @@ urlpatterns = [
         "schedule_ocr_prediction_json_population",
         schedule_ocr_prediction_json_population,
     ),
+    path(
+        "schedule_asr_prediction_json_population",
+        schedule_asr_prediction_json_population,
+    ),
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)
