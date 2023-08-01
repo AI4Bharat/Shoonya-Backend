@@ -3600,7 +3600,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     sampled_items = []
                     for batch_num in batch_number:
                         sampled_items += items[
-                            batch_size * (batch_num - 1): batch_size * batch_num
+                            batch_size * (batch_num - 1) : batch_size * batch_num
                         ]
                 else:
                     sampled_items = items
