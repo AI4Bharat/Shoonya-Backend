@@ -113,7 +113,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     accepted_objs_count = accepted_objs.count()
@@ -135,7 +135,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     minor_changes_count = minor_changes.count()
@@ -157,7 +157,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     major_changes_count = major_changes.count()
@@ -180,7 +180,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     ).count()
 
     draft_count = Annotation_model.objects.filter(
@@ -188,7 +188,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     ).count()
 
     skipped_count = Annotation_model.objects.filter(
@@ -196,7 +196,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     ).count()
 
     to_be_revised_tasks_count = Annotation_model.objects.filter(
@@ -204,14 +204,14 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     ).count()
 
     total_rev_annos = Annotation_model.objects.filter(
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     total_rev_sup_annos = Annotation_model.objects.filter(
@@ -311,7 +311,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             task__project_id=proj_id,
             annotation_status="validated",
             annotation_type=SUPER_CHECKER_ANNOTATION,
-            parent_annotation__updated_at__range=[start_date, end_date],
+            parent_annotation__annotated_at__range=[start_date, end_date],
         )
         parent_anno_ids = [
             ann.parent_annotation_id for ann in annotations_of_superchecker_validated
@@ -326,7 +326,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 task__project_id=proj_id,
                 annotation_status="validated_with_changes",
                 annotation_type=SUPER_CHECKER_ANNOTATION,
-                parent_annotation__updated_at__range=[start_date, end_date],
+                parent_annotation__annotated_at__range=[start_date, end_date],
             )
         )
         parent_anno_ids = [
@@ -342,7 +342,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             task__project_id=proj_id,
             annotation_status="rejected",
             annotation_type=SUPER_CHECKER_ANNOTATION,
-            parent_annotation__updated_at__range=[start_date, end_date],
+            parent_annotation__annotated_at__range=[start_date, end_date],
         )
         parent_anno_ids = [
             ann.parent_annotation_id for ann in annotations_of_superchecker_rejected
@@ -425,7 +425,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     validated_objs_count = validated_objs.count()
@@ -435,7 +435,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     validated_with_changes_objs_count = validated_with_changes_objs.count()
@@ -445,7 +445,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     unvalidated_objs_count = unvalidated_objs.count()
@@ -455,7 +455,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     rejected_objs_count = rejected_objs.count()
@@ -465,7 +465,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     skipped_objs_count = skipped_objs.count()
@@ -475,7 +475,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     draft_objs_count = draft_objs.count()
@@ -484,7 +484,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         task__project_id=proj_id,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+        annotated_at__range=[start_date, end_date],
     )
 
     total_superchecked_annos = total_sup_annos.filter(task__task_status="super_checked")
@@ -2805,7 +2805,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="labeled",
                 annotation_type=ANNOTATOR_ANNOTATION,
-                updated_at__range=[start_date, end_date],
+                annotated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             )
             labeled_annotation_ids = [ann.id for ann in labeled_annotations]
@@ -2829,7 +2829,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted",
                     annotation_type=REVIEWER_ANNOTATION,
-                    parent_annotation__updated_at__range=[start_date, end_date],
+                    parent_annotation__annotated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_accepted
@@ -2846,7 +2846,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted_with_minor_changes",
                     annotation_type=REVIEWER_ANNOTATION,
-                    parent_annotation__updated_at__range=[start_date, end_date],
+                    parent_annotation__annotated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_minor = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_minor
@@ -2868,7 +2868,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="accepted_with_major_changes",
                     annotation_type=REVIEWER_ANNOTATION,
-                    parent_annotation__updated_at__range=[start_date, end_date],
+                    parent_annotation__annotated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_major = [
                     ann.parent_annotation_id for ann in annotations_of_reviewer_major
@@ -2889,7 +2889,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=pk,
                     annotation_status="to_be_revised",
                     annotation_type=REVIEWER_ANNOTATION,
-                    parent_annotation__updated_at__range=[start_date, end_date],
+                    parent_annotation__annotated_at__range=[start_date, end_date],
                 )
                 parent_anno_ids_of_to_be_revised = [
                     ann.parent_annotation_id
@@ -2907,7 +2907,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="unlabeled",
                 annotation_type=ANNOTATOR_ANNOTATION,
-                updated_at__range=[start_date, end_date],
+                annotated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
             items.append(("Unlabeled", total_unlabeled_tasks_count))
@@ -2917,7 +2917,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="skipped",
                 annotation_type=ANNOTATOR_ANNOTATION,
-                updated_at__range=[start_date, end_date],
+                annotated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
 
@@ -2928,7 +2928,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 annotation_status="draft",
                 annotation_type=ANNOTATOR_ANNOTATION,
-                updated_at__range=[start_date, end_date],
+                annotated_at__range=[start_date, end_date],
                 completed_by=each_annotator,
             ).count()
 
@@ -2938,7 +2938,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task__project_id=pk,
                 task__task_status="reviewed",
                 annotation_type=REVIEWER_ANNOTATION,
-                updated_at__range=[start_date, end_date],
+                annotated_at__range=[start_date, end_date],
                 parent_annotation__in=labeled_annotation_ids,
             )
 
@@ -3693,7 +3693,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     # del annotation_dict['result_json']
                     # print(annotation_dict)
                     annotation_dict["created_at"] = str(correct_annotation.created_at)
-                    annotation_dict["updated_at"] = str(correct_annotation.updated_at)
+                    annotation_dict["annotated_at"] = str(correct_annotation.annotated_at)
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
                     task_dict["annotations"] = [OrderedDict({"result": {}})]
