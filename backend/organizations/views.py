@@ -1874,20 +1874,26 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                             task=each_task,
                                             annotation_type=REVIEWER_ANNOTATION,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     elif each_task.task_status == "super_checked":
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     total_rev_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -1901,13 +1907,17 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     total_sup_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -1921,27 +1931,35 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                             task=each_task,
                                             annotation_type=REVIEWER_ANNOTATION,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     elif each_task.task_status == "exported":
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     elif each_task.task_status == "super_checked":
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=ANNOTATOR_ANNOTATION,
                                             annotated_at__gte=periodical_list[period],
-                                            annotated_at__lt=periodical_list[period + 1],
+                                            annotated_at__lt=periodical_list[
+                                                period + 1
+                                            ],
                                         )[0]
                                     total_ann_duration_list.append(
                                         get_audio_transcription_duration(anno.result)

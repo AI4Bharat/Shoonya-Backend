@@ -3693,7 +3693,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     # del annotation_dict['result_json']
                     # print(annotation_dict)
                     annotation_dict["created_at"] = str(correct_annotation.created_at)
-                    annotation_dict["annotated_at"] = str(correct_annotation.annotated_at)
+                    annotation_dict["annotated_at"] = str(
+                        correct_annotation.annotated_at
+                    )
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
                 else:
                     task_dict["annotations"] = [OrderedDict({"result": {}})]
