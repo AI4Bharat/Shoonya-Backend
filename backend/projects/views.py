@@ -1908,6 +1908,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Assign new tasks to user",
         url_name="assign_new_tasks",
     )
+    @project_is_archived
     def assign_new_tasks(self, request, pk, *args, **kwargs):
         """
         Pull a new batch of unassigned tasks for this project
@@ -2036,6 +2037,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True, methods=["get"], name="Unassign tasks", url_name="unassign_tasks"
     )
+    @project_is_archived
     def unassign_tasks(self, request, pk, *args, **kwargs):
         """
         Unassigns all unlabeled tasks from an annotator.
@@ -2197,6 +2199,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Assign new tasks for review to user",
         url_name="assign_new_review_tasks",
     )
+    @project_is_archived
     def assign_new_review_tasks(self, request, pk, *args, **kwargs):
         """
         Pull a new batch of labeled tasks and assign to the reviewer
@@ -2305,6 +2308,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Unassign review tasks",
         url_name="unassign_review_tasks",
     )
+    @project_is_archived
     def unassign_review_tasks(self, request, pk, *args, **kwargs):
         """
         Unassigns all labeled tasks from a reviewer.
@@ -2407,6 +2411,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Assign new tasks for supercheck to user",
         url_name="assign_supercheck_tasks",
     )
+    @project_is_archived
     def assign_new_supercheck_tasks(self, request, pk, *args, **kwargs):
         """
         Pull a new batch of reviewed tasks and assign to the superchecker
@@ -2538,6 +2543,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Unassign supercheck tasks",
         url_name="unassign_supercheck_tasks",
     )
+    @project_is_archived
     def unassign_supercheck_tasks(self, request, pk, *args, **kwargs):
         """
         Unassigns all labeled tasks from a superchecker.
@@ -3034,7 +3040,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["GET"],
-        name="Get Project tasks and annotationsand reviewers text",
+        name="Get Project tasks and annotations and reviewers text",
         url_name="export_project_tasks",
     )
     def export_project_tasks(self, request, pk=None):
@@ -3329,6 +3335,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="change project stage",
         url_name="change_project_stage",
     )
+    @project_is_archived
     @is_project_editor
     def change_project_stage(self, request, pk):
         try:
@@ -3626,7 +3633,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(ret_dict, status=ret_status)
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
-    @project_is_archived
     @is_project_editor
     def download(self, request, pk=None, *args, **kwargs):
         """
