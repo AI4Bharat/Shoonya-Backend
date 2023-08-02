@@ -802,7 +802,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 "from_name": "transcribed_json",
                 "original_length": audio_duration,
             }
-            id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+            id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
             label_dict["id"] = id
             text_dict["id"] = id
             label_dict["type"] = "labels"
@@ -3583,12 +3583,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type,
                 list(project.dataset_id.all()),
                 project.filter_string,
-                ids_to_exclude,
             )
-            if not items:
-                ret_dict = {"message": "No items to pull into the dataset."}
-                ret_status = status.HTTP_404_NOT_FOUND
-            else:
+            if items:
                 if project.sampling_mode == BATCH:
                     try:
                         batch_size = project.sampling_parameters_json["batch_size"]
@@ -3604,12 +3600,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         ]
                 else:
                     sampled_items = items
-                # Pull new data items in to the project asynchronously
-                add_new_data_items_into_project.delay(
-                    project_id=pk, items=sampled_items
+                ids_to_exclude_set = set(
+                    id["input_data"] for id in ids_to_exclude.values("input_data")
                 )
-                ret_dict = {"message": "Adding new tasks to the project."}
-                ret_status = status.HTTP_200_OK
+                filtered_items = [
+                    item
+                    for item in sampled_items
+                    if item["id"] not in ids_to_exclude_set
+                ]
+                if not filtered_items:
+                    ret_dict = {"message": "No items to pull into the dataset."}
+                    ret_status = status.HTTP_404_NOT_FOUND
+                    return Response(ret_dict, status=ret_status)
+            else:
+                ret_dict = {"message": "No items to pull into the dataset."}
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+                # Pull new data items in to the project asynchronously
+            add_new_data_items_into_project.delay(project_id=pk, items=filtered_items)
+            ret_dict = {"message": "Adding new tasks to the project."}
+            ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
