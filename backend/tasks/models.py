@@ -422,7 +422,12 @@ class DataExport(object):
     ):
         # prepare for saving
         now = datetime.now()
-        data = json.dumps(tasks, ensure_ascii=False)
+
+        def serialize_datetime(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+
+        data = json.dumps(tasks, default=serialize_datetime, ensure_ascii=False)
         md5 = hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
         name = (
             "project-"
@@ -465,7 +470,12 @@ class DataExport(object):
     def export_csv_file(project, tasks, download_resources, get_args):
         # prepare for saving
         now = datetime.now()
-        data = json.dumps(tasks, ensure_ascii=False)
+
+        def serialize_datetime(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+
+        data = json.dumps(tasks, default=serialize_datetime, ensure_ascii=False)
         md5 = hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
         name = (
             "project-"
