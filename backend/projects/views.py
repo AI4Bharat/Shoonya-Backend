@@ -1222,10 +1222,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type = request.query_params["project_type"]
                 projects = projects.filter(project_type=project_type)
 
-            if ("archived_projects" in request.query_params) and (
-                (request.user.role == User.ORGANIZATION_OWNER)
-                or (request.user.role == User.WORKSPACE_MANAGER)
-            ):
+            if "archived_projects" in request.query_params:
                 archived_projects = request.query_params["archived_projects"]
                 archived_projects = True if archived_projects == "true" else False
                 projects = projects.filter(is_archived=archived_projects)
