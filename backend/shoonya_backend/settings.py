@@ -218,7 +218,7 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400  # higher than the count of fields
 LOGLEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Make a new directory for logs
-Path(BASE_DIR / "logs").mkdir(exist_ok=True)
+Path("/logs/logs_web").mkdir(exist_ok=True)
 
 # Define the list of formatters
 formatters = {
@@ -251,14 +251,14 @@ if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
     handlers["file"] = {
         "level": "WARNING",
         "class": "logging.FileHandler",
-        "filename": os.path.join(BASE_DIR, "logs/default.log"),
+        "filename": "/logs/logs_web/default.log",
         "formatter": "file",
     }
 
     handlers["csvfile"] = {
         "level": "WARNING",
         "class": "logging.FileHandler",
-        "filename": os.path.join(BASE_DIR, "logs/logs.csv"),
+        "filename": "/logs/logs_web/logs.csv",
         "formatter": "csvfile",
     }
 
