@@ -842,7 +842,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     annotation_type=REVIEWER_ANNOTATION,
-                    updated_at__range=[start_date, end_date],
+                    annotated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
             elif supercheck_reports:
@@ -863,7 +863,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     annotation_type=SUPER_CHECKER_ANNOTATION,
-                    updated_at__range=[start_date, end_date],
+                    annotated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )
             else:
@@ -885,7 +885,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     annotation_type=ANNOTATOR_ANNOTATION,
-                    updated_at__range=[start_date, end_date],
+                    annotated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )
 
