@@ -46,6 +46,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
 )
+from .tasks import send_user_reports_mail_org
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -71,7 +72,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
         parent_annotation_id=None,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -89,7 +90,7 @@ def get_reviewd_tasks(
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
         parent_annotation_id__isnull=parent_annotation_bool,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     return annotated_labeled_tasks
@@ -162,6 +163,7 @@ def get_counts(
             avg_lead_time,
             total_word_count,
             total_duration,
+            total_raw_duration,
             avg_segment_duration,
             avg_segments_per_task,
         ) = un_pack_annotation_tasks(
@@ -178,7 +180,7 @@ def get_counts(
             task__project_id__in=proj_ids,
             annotation_status="labeled",
             annotation_type=ANNOTATOR_ANNOTATION,
-            created_at__range=[start_date, end_date],
+            updated_at__range=[start_date, end_date],
             completed_by=annotator,
         )
 
@@ -207,6 +209,7 @@ def get_counts(
         avg_segments_per_task = 0
         if project_type in get_audio_project_types():
             total_duration_list = []
+            total_raw_duration_list = []
             total_audio_segments_list = []
             for each_task in labeled_annotations:
                 try:
@@ -216,9 +219,13 @@ def get_counts(
                     total_audio_segments_list.append(
                         get_audio_segments_count(each_task.result)
                     )
+                    total_raw_duration_list.append(
+                        each_task.task.data["audio_duration"]
+                    )
                 except:
                     pass
             total_duration = convert_seconds_to_hours(sum(total_duration_list))
+            total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
             total_audio_segments = sum(total_audio_segments_list)
             try:
                 avg_segment_duration = total_duration / total_audio_segments
@@ -231,14 +238,14 @@ def get_counts(
         task__project_id__in=proj_ids,
         annotation_status="skipped",
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
     all_pending_tasks_in_project = Annotation.objects.filter(
         task__project_id__in=proj_ids,
         annotation_status="unlabeled",
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -246,7 +253,7 @@ def get_counts(
         task__project_id__in=proj_ids,
         annotation_status="draft",
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -266,6 +273,7 @@ def get_counts(
         no_of_workspaces_objs,
         total_word_count,
         total_duration,
+        total_raw_duration,
         avg_segment_duration,
         avg_segments_per_task,
     )
@@ -316,7 +324,7 @@ def get_translation_quality_reports(
         ],
         task__project_id__in=proj_ids,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     parent_anno_ids_of_reviewed = [
@@ -614,7 +622,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         annotators = [
             ann_user
             for ann_user in annotators
-            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+            if (ann_user.participation_type in [1, 2, 4])
         ]
 
         result = []
@@ -625,6 +633,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if participation_type == 1
                 else "Part Time"
                 if participation_type == 2
+                else "Contract Basis"
+                if participation_type == 4
                 else "N/A"
             )
             role = get_role_name(annotator.role)
@@ -760,7 +770,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 reviewer_ids = [
                     name.id
                     for name in reviewer_names_list
-                    if (name.participation_type == 1 or name.participation_type == 2)
+                    if (name.participation_type in [1, 2, 4])
                 ]
                 org_reviewer_list.extend(reviewer_ids)
                 review_projects_ids.append(review_project.id)
@@ -908,7 +918,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         annotators = [
             ann_user
             for ann_user in annotators
-            if (ann_user.participation_type == 1 or ann_user.participation_type == 2)
+            if (ann_user.participation_type in [1, 2, 4])
         ]
 
         result = []
@@ -919,6 +929,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 if participation_type == 1
                 else "Part Time"
                 if participation_type == 2
+                else "Contract Basis"
+                if participation_type == 4
                 else "N/A"
             )
             role = get_role_name(annotator.role)
@@ -949,6 +961,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 no_of_workspaces_objs,
                 total_word_count,
                 total_duration,
+                total_raw_duration,
                 avg_segment_duration,
                 avg_segments_per_task,
             ) = get_counts(
@@ -982,7 +995,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Skipped": total_skipped_tasks_count,
                     "Draft": total_draft_tasks_count,
                     "Word Count": total_word_count,
-                    "Total Audio Duration": total_duration,
+                    "Total Segments Duration": total_duration,
+                    "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
                     "User Role": role,
@@ -1024,7 +1038,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     "Skipped": total_skipped_tasks_count,
                     "Draft": total_draft_tasks_count,
                     "Word Count": total_word_count,
-                    "Total Audio Duration": total_duration,
+                    "Total Segments Duration": total_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
                     "User Role": role,
@@ -1038,12 +1052,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-                del temp_result["Total Audio Duration"]
+                del temp_result["Total Segments Duration"]
                 del temp_result["Avg Segment Duration"]
                 del temp_result["Average Segments Per Task"]
             else:
                 del temp_result["Word Count"]
-                del temp_result["Total Audio Duration"]
+                del temp_result["Total Segments Duration"]
                 del temp_result["Avg Segment Duration"]
                 del temp_result["Average Segments Per Task"]
             result.append(temp_result)
@@ -1805,8 +1819,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         Annotation.objects.filter(
                             task_id__in=labeled_count_tasks_ids,
                             annotation_type=REVIEWER_ANNOTATION,
-                            created_at__gte=periodical_list[period],
-                            created_at__lt=periodical_list[period + 1],
+                            updated_at__gte=periodical_list[period],
+                            updated_at__lt=periodical_list[period + 1],
                         )
                         .exclude(annotation_status="to_be_revised")
                         .count()
@@ -1822,8 +1836,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
                         annotation_type=SUPER_CHECKER_ANNOTATION,
-                        created_at__gte=periodical_list[period],
-                        created_at__lt=periodical_list[period + 1],
+                        updated_at__gte=periodical_list[period],
+                        updated_at__lt=periodical_list[period + 1],
                     ).count()
                 else:
                     tasks = Task.objects.filter(
@@ -1840,8 +1854,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
                         annotation_type=ANNOTATOR_ANNOTATION,
-                        created_at__gte=periodical_list[period],
-                        created_at__lt=periodical_list[period + 1],
+                        updated_at__gte=periodical_list[period],
+                        updated_at__lt=periodical_list[period + 1],
                     ).count()
 
                 if metainfo == True:
@@ -1859,21 +1873,21 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=REVIEWER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "super_checked":
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_rev_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -1886,14 +1900,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_sup_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -1906,28 +1920,28 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=REVIEWER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "exported":
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "super_checked":
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=ANNOTATOR_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_ann_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -1973,8 +1987,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=REVIEWER_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
@@ -1991,8 +2005,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=SUPER_CHECKER_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
@@ -2009,8 +2023,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=ANNOTATOR_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
@@ -2099,6 +2113,90 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
             final_result.append(summary_period)
         return Response(final_result)
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "participation_types": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
+            },
+            required=["user_id", "project_type", "participation_types"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the Organization"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Email successfully scheduled",
+            400: "Invalid request body parameters.",
+            401: "Unauthorized access.",
+            404: "Organization/User not found.",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get Organization level users analytics (e-mail)",
+        url_name="send_user_analytics",
+    )
+    def send_user_analytics(self, request, pk=None):
+        if not (
+            request.user.is_authenticated
+            and (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            organization = Organization.objects.get(pk=pk)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        user_id = request.data.get("user_id")
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        participation_types = request.data.get("participation_types")
+        if not set(participation_types).issubset({1, 2, 3, 4}):
+            return Response(
+                {"message": "Invalid participation types"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project_type = request.data.get("project_type")
+
+        send_user_reports_mail_org.delay(
+            organization.id,
+            user_id,
+            project_type,
+            participation_types,
+        )
+
+        return Response(
+            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+        )
 
 
 class OrganizationPublicViewSet(viewsets.ModelViewSet):

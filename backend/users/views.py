@@ -3,6 +3,8 @@ from http.client import responses
 import secrets
 import string
 from wsgiref.util import request_uri
+import jwt
+from jwt import DecodeError, InvalidSignatureError
 from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
@@ -17,6 +19,7 @@ from .serializers import (
     UserUpdateSerializer,
     LanguageSerializer,
     ChangePasswordSerializer,
+    ChangePasswordWithoutOldPassword,
 )
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
@@ -47,8 +50,10 @@ from django.core.mail import send_mail
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
+from dotenv import load_dotenv
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+load_dotenv()
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -76,11 +81,7 @@ class InviteViewSet(viewsets.ViewSet):
         already_existing_emails = []
         valid_user_emails = []
         invalid_emails = []
-        invites = Invite.objects.all()
-        existing_emails = [invite.user.email for invite in invites]
-        existing_emails_set = set()
-        for existing_email in existing_emails:
-            existing_emails_set.add(existing_email)
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
         for email in distinct_emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
@@ -156,11 +157,7 @@ class InviteViewSet(viewsets.ViewSet):
         """
         all_emails = request.data.get("emails")
         distinct_emails = list(set(all_emails))
-        invites = Invite.objects.all()
-        existing_emails = [invite.user.email for invite in invites]
-        existing_emails_set = set()
-        for existing_email in existing_emails:
-            existing_emails_set.add(existing_email)
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
         # absent_users- for those who have never been invited
         # present_users- for those who have been invited earlier
         (
@@ -263,6 +260,8 @@ class InviteViewSet(viewsets.ViewSet):
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
 
+
+class AuthViewSet(viewsets.ViewSet):
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserLoginSerializer)
     @action(
@@ -278,10 +277,27 @@ class InviteViewSet(viewsets.ViewSet):
 
         try:
             email = request.data.get("email")
-            user = User.objects.get(email=email)
+            password = request.data.get("password")
+            if email == "" and password == "":
+                return Response(
+                    {"message": "Please Enter an Email and a Password"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            elif email == "":
+                return Response(
+                    {"message": "Please Enter an Email"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            elif password == "":
+                return Response(
+                    {"message": "Please Enter a Password"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            else:
+                user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
-                {"message": "User not found. Enter correct email id."},
+                {"message": "Incorrect email, User not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -311,6 +327,70 @@ class InviteViewSet(viewsets.ViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+    @permission_classes([AllowAny])
+    @swagger_auto_schema(request_body=ChangePasswordWithoutOldPassword)
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reset_password",
+        url_name="reset_password",
+    )
+    def reset_password(self, request, *args, **kwargs):
+        """
+        User change password functionality
+        """
+        if not request.data.get("new_password"):
+            try:
+                email = request.data.get("email")
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response(
+                    {"message": "Incorrect email, User not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            key = user.id
+            user.send_mail_to_change_password(email, key)
+            return Response(
+                {
+                    "message": "Please check your registered email and click on the link to reset your password.",
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            try:
+                received_token = request.data.get("token")
+                user_id = request.data.get("uid")
+                new_password = request.data.get("new_password")
+            except KeyError:
+                raise Exception("Insufficient details")
+            user = User.objects.get(id=user_id)
+            try:
+                secret_key = os.getenv("SECRET_KEY")
+                decodedToken = jwt.decode(received_token, secret_key, "HS256")
+            except InvalidSignatureError:
+                raise Exception(
+                    "The password reset link has expired. Please request a new link."
+                )
+            except DecodeError:
+                raise Exception(
+                    "Invalid token. Please make sure the token is correct and try again."
+                )
+
+            serializer = ChangePasswordWithoutOldPassword(user, request.data)
+            serializer.is_valid(raise_exception=True)
+
+            validation_response = serializer.validation_checks(
+                user, request.data
+            )  # checks for min_length, whether password is similar to user details etc.
+            if validation_response != "Validation successful":
+                return Response(
+                    {"message": validation_response},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user = serializer.save(user, request.data)
+            return Response({"message": "Password changed."}, status=status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ViewSet):
@@ -860,7 +940,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     )
                 ): annotated_tasks_count,
                 "Word Count": total_word_count,
-                "Total Audio Duration": total_duration,
+                "Total Segments Duration": total_duration,
                 (
                     "Avg Review Time (sec)"
                     if review_reports
@@ -875,10 +955,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
             if project_type in get_audio_project_types():
                 del result["Word Count"]
             elif is_textual_project:
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
             else:
                 del result["Word Count"]
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
 
             if (
                 result[
@@ -928,7 +1008,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 else ("SuperChecked Tasks" if supercheck_reports else "Annotated Tasks")
             ): total_annotated_tasks_count,
             "Word Count": all_tasks_word_count,
-            "Total Audio Duration": convert_seconds_to_hours(
+            "Total Segments Duration": convert_seconds_to_hours(
                 all_projects_total_duration
             ),
             (
@@ -944,10 +1024,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
         if project_type_lower != "all" and project_type in get_audio_project_types():
             del total_result["Word Count"]
         elif project_type_lower != "all" and is_textual_project:
-            del total_result["Total Audio Duration"]
+            del total_result["Total Segments Duration"]
         elif project_type_lower != "all":
             del total_result["Word Count"]
-            del total_result["Total Audio Duration"]
+            del total_result["Total Segments Duration"]
 
         total_summary = [total_result]
 

@@ -22,6 +22,7 @@ celery
 django-celery-results
 google
 google-cloud-translate
+google-cloud-vision==3.1.4
 nltk
 schedule
 django-celery-beat

@@ -1,3 +1,4 @@
+from datetime import timezone
 from locale import normalize
 from urllib.parse import unquote
 import ast
@@ -287,9 +288,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     if (ann_status[0] in ["labeled", "draft", "to_be_revised"]) and (
                         proj_type == "ContextualTranslationEditing"
                     ):
-                        tas["data"]["output_text"] = annotation_result_json[idx][0][
-                            "value"
-                        ]["text"][0]
+                        try:
+                            tas["data"]["output_text"] = annotation_result_json[idx][0][
+                                "value"
+                            ]["text"][0]
+                        except:
+                            tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
                     ordered_tasks.append(tas)
 
@@ -455,9 +459,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             "accepted_with_minor_changes",
                         ]:
                             if reviewer_annotation[idx] is not None:
-                                tas["data"]["output_text"] = reviewer_annotation[idx][
-                                    0
-                                ]["value"]["text"][0]
+                                try:
+                                    tas["data"]["output_text"] = reviewer_annotation[
+                                        idx
+                                    ][0]["value"]["text"][0]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = "-"
                         elif rew_status[0] in [
@@ -465,26 +472,32 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             "skipped",
                         ]:
                             if parent_annotator_annotation[idx] != "-":
-                                tas["data"][
-                                    "output_text"
-                                ] = parent_annotator_annotation[idx][0]["value"][
-                                    "text"
-                                ][
-                                    0
-                                ]
+                                try:
+                                    tas["data"][
+                                        "output_text"
+                                    ] = parent_annotator_annotation[idx][0]["value"][
+                                        "text"
+                                    ][
+                                        0
+                                    ]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = first_annotator_annotation[
                                     idx
                                 ][0]["value"]["text"][0]
                         else:
                             if parent_annotator_annotation[idx] != "-":
-                                tas["data"][
-                                    "output_text"
-                                ] = parent_annotator_annotation[idx][0]["value"][
-                                    "text"
-                                ][
-                                    0
-                                ]
+                                try:
+                                    tas["data"][
+                                        "output_text"
+                                    ] = parent_annotator_annotation[idx][0]["value"][
+                                        "text"
+                                    ][
+                                        0
+                                    ]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
@@ -1262,6 +1275,10 @@ class AnnotationViewSet(
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(final_result, status=ret_status)
 
+        auto_save = False
+        if "auto_save" in request.data:
+            auto_save = True
+
         if annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             is_revised = False
             if annotation_obj.annotation_status == TO_BE_REVISED:
@@ -1291,13 +1308,34 @@ class AnnotationViewSet(
                 is_to_be_revised_task = (
                     True if annotation_obj.annotation_status == TO_BE_REVISED else False
                 )
+                update_annotated_at = (
+                    True
+                    if annotation_status == LABELED
+                    and annotation_obj.annotated_at is None
+                    else False
+                )
 
             else:
                 ret_dict = {"message": "Missing param : annotation_status!"}
                 ret_status = status.HTTP_400_BAD_REQUEST
                 return Response(ret_dict, status=ret_status)
 
-            annotation_response = super().partial_update(request)
+            if auto_save:
+                update_fields_list = ["result", "lead_time"]
+                annotation_obj.result = request.data["result"]
+                if "annotation_notes" in dict(request.data):
+                    annotation_obj.annotation_notes = request.data["annotation_notes"]
+                    update_fields_list.append("annotation_notes")
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(update_fields=update_fields_list)
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+            else:
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
+                annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
             task = annotation.task
@@ -1312,7 +1350,10 @@ class AnnotationViewSet(
                         task=task, annotation_type=REVIEWER_ANNOTATION
                     )
                     review_annotation.annotation_status = UNREVIEWED
-                    review_annotation.save()
+                    if auto_save:
+                        review_annotation.save(update_fields=["annotation_status"])
+                    else:
+                        review_annotation.save()
                 except:
                     pass
 
@@ -1350,6 +1391,18 @@ class AnnotationViewSet(
                 TO_BE_REVISED,
             ]:
                 review_status = request.data["annotation_status"]
+                update_annotated_at = (
+                    True
+                    if review_status
+                    in [
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                    ]
+                    and annotation_obj.annotated_at is None
+                    else False
+                )
+
             else:
                 ret_dict = {"message": "Missing param : annotation_status!"}
                 ret_status = status.HTTP_400_BAD_REQUEST
@@ -1378,7 +1431,22 @@ class AnnotationViewSet(
                         ret_status = status.HTTP_403_FORBIDDEN
                         return Response(ret_dict, status=ret_status)
 
-            annotation_response = super().partial_update(request)
+            if auto_save:
+                update_fields_list = ["result", "lead_time"]
+                annotation_obj.result = request.data["result"]
+                if "review_notes" in dict(request.data):
+                    annotation_obj.review_notes = request.data["review_notes"]
+                    update_fields_list.append("review_notes")
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(update_fields=update_fields_list)
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+            else:
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
+                annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
             task = annotation.task
@@ -1416,7 +1484,12 @@ class AnnotationViewSet(
                         )
                         if supercheck_annotation.annotation_status == REJECTED:
                             supercheck_annotation.annotation_status = UNVALIDATED
-                            supercheck_annotation.save()
+                            if auto_save:
+                                supercheck_annotation.save(
+                                    update_fields=["annotation_status"]
+                                )
+                            else:
+                                supercheck_annotation.save()
                     except:
                         pass
                 parent.save(update_fields=["review_notes", "annotation_status"])
@@ -1431,6 +1504,9 @@ class AnnotationViewSet(
             ]:
                 parent = annotation.parent_annotation
                 if (parent.annotation_status) not in [LABELED]:
+                    if parent.annotated_at is None:
+                        parent.annotated_at = datetime.now(timezone.utc)
+                        parent.save(update_fields=["annotated_at"])
                     parent.annotation_status = LABELED
                     parent.save(update_fields=["annotation_status"])
 
@@ -1455,6 +1531,16 @@ class AnnotationViewSet(
                 SKIPPED,
             ]:
                 supercheck_status = request.data["annotation_status"]
+                update_annotated_at = (
+                    True
+                    if supercheck_status
+                    in [
+                        VALIDATED,
+                        VALIDATED_WITH_CHANGES,
+                    ]
+                    and annotation_obj.annotated_at is None
+                    else False
+                )
             else:
                 ret_dict = {"message": "Missing param : annotation_status!"}
                 ret_status = status.HTTP_400_BAD_REQUEST
@@ -1484,6 +1570,22 @@ class AnnotationViewSet(
             annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
+            if auto_save:
+                update_fields_list = ["result", "lead_time"]
+                annotation_obj.result = request.data["result"]
+                if "supercheck_notes" in dict(request.data):
+                    annotation_obj.supercheck_notes = request.data["supercheck_notes"]
+                    update_fields_list.append("supercheck_notes")
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(update_fields=update_fields_list)
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+            else:
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
+                annotation_response = super().partial_update(request)
             task = annotation.task
 
             if supercheck_status in [DRAFT, SKIPPED]:
@@ -1520,9 +1622,15 @@ class AnnotationViewSet(
                     ACCEPTED_WITH_MAJOR_CHANGES,
                     ACCEPTED_WITH_MINOR_CHANGES,
                 ]:
+                    if parent.annotated_at is None:
+                        parent.annotated_at = datetime.now(timezone.utc)
+                        parent.save(update_fields=["annotated_at"])
                     parent.annotation_status = ACCEPTED
                     parent.save(update_fields=["annotation_status"])
                 if (grand_parent.annotation_status) not in [LABELED]:
+                    if grand_parent.annotated_at is None:
+                        grand_parent.annotated_at = datetime.now(timezone.utc)
+                        grand_parent.save(update_fields=["annotated_at"])
                     grand_parent.annotation_status = LABELED
                     grand_parent.save(update_fields=["annotation_status"])
 

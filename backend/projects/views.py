@@ -218,6 +218,12 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         parent_annotation__in=total_rev_annos
     )
 
+    total_reviewed_annos = total_rev_annos.filter(task__task_status="reviewed")
+
+    total_superchecked_annos = total_rev_sup_annos.filter(
+        task__task_status="super_checked"
+    )
+
     total_rejection_loop_value_list = [
         anno.task.revision_loop_count["super_check_count"]
         for anno in total_rev_sup_annos
@@ -244,8 +250,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         ]
     )
     total_audio_duration_list = []
+    total_raw_audio_duration_list = []
     total_word_count_list = []
-    total_word_error_rate_list = []
+    total_word_error_rate_rs_list = []
+    total_word_error_rate_ar_list = []
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
         for anno in total_rev_annos_accepted:
             try:
@@ -258,11 +266,21 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 total_audio_duration_list.append(
                     get_audio_transcription_duration(anno.result)
                 )
+                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
-        for anno in total_rev_sup_annos:
+        for anno in total_superchecked_annos:
             try:
-                total_word_error_rate_list.append(
+                total_word_error_rate_rs_list.append(
+                    calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        anno.result, anno.parent_annotation.result
+                    )
+                )
+            except:
+                pass
+        for anno in total_reviewed_annos:
+            try:
+                total_word_error_rate_ar_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
                         anno.result, anno.parent_annotation.result
                     )
@@ -272,12 +290,21 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-    if len(total_word_error_rate_list) > 0:
-        avg_word_error_rate = sum(total_word_error_rate_list) / len(
-            total_word_error_rate_list
+    total_raw_audio_duration = convert_seconds_to_hours(
+        sum(total_raw_audio_duration_list)
+    )
+    if len(total_word_error_rate_rs_list) > 0:
+        avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
+            total_word_error_rate_rs_list
         )
     else:
-        avg_word_error_rate = 0
+        avg_word_error_rate_rs = 0
+    if len(total_word_error_rate_ar_list) > 0:
+        avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+            total_word_error_rate_ar_list
+        )
+    else:
+        avg_word_error_rate_ar = 0
 
     if project_obj.project_stage > REVIEW_STAGE:
         annotations_of_superchecker_validated = Annotation_model.objects.filter(
@@ -345,8 +372,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
-            result["Total Audio Duration"] = total_audio_duration
-            result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+            result["Total Segments Duration"] = total_audio_duration
+            result["Total Raw Audio Duration"] = total_raw_audio_duration
+            result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
+            result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
 
         return result
 
@@ -368,8 +397,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
         result["Total Word Count"] = total_word_count
     elif proj_type in get_audio_project_types():
-        result["Total Audio Duration"] = total_audio_duration
-        result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+        result["Total Segments Duration"] = total_audio_duration
+        result["Total Raw Audio Duration"] = total_raw_audio_duration
+        result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
+        result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
 
     return result
 
@@ -456,6 +487,8 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         updated_at__range=[start_date, end_date],
     )
 
+    total_superchecked_annos = total_sup_annos.filter(task__task_status="super_checked")
+
     total_rejection_loop_value_list = [
         anno.task.revision_loop_count["super_check_count"] for anno in total_sup_annos
     ]
@@ -480,6 +513,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     validated_with_changes_audio_duration_list = []
     rejected_audio_duration_list = []
     total_word_error_rate_list = []
+    total_raw_audio_duration_list = []
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
         for anno in validated_objs:
             try:
@@ -522,6 +556,11 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
                 pass
         for anno in total_sup_annos:
             try:
+                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
+            except:
+                pass
+        for anno in total_superchecked_annos:
+            try:
                 total_word_error_rate_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
                         anno.result, anno.parent_annotation.result
@@ -541,6 +580,9 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     )
     rejected_audio_duration = convert_seconds_to_hours(
         sum(rejected_audio_duration_list)
+    )
+    total_raw_audio_duration = convert_seconds_to_hours(
+        sum(total_raw_audio_duration_list)
     )
     if len(total_word_error_rate_list) > 0:
         avg_word_error_rate = sum(total_word_error_rate_list) / len(
@@ -567,12 +609,13 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         result["Validated With Changes Word Count"] = validated_with_changes_word_count
         result["Rejected Word Count"] = rejected_word_count
     elif proj_type in get_audio_project_types():
-        result["Validated Audio Duration"] = validated_audio_duration
+        result["Validated Segments Duration"] = validated_audio_duration
         result[
-            "Validated With Changes Audio Duration"
+            "Validated With Changes Segments Duration"
         ] = validated_with_changes_audio_duration
-        result["Rejected Audio Duration"] = rejected_audio_duration
-        result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+        result["Rejected Segments Duration"] = rejected_audio_duration
+        result["Total Raw Audio Duration"] = total_raw_audio_duration
+        result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
 
     return result
 
@@ -759,7 +802,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 "from_name": "transcribed_json",
                 "original_length": audio_duration,
             }
-            id = f"shoonya_{idx}s{generate_random_string(13-len(str(idx)))}"
+            id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
             label_dict["id"] = id
             text_dict["id"] = id
             label_dict["type"] = "labels"
@@ -1179,10 +1222,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type = request.query_params["project_type"]
                 projects = projects.filter(project_type=project_type)
 
-            if ("archived_projects" in request.query_params) and (
-                (request.user.role == User.ORGANIZATION_OWNER)
-                or (request.user.role == User.WORKSPACE_MANAGER)
-            ):
+            if "archived_projects" in request.query_params:
                 archived_projects = request.query_params["archived_projects"]
                 archived_projects = True if archived_projects == "true" else False
                 projects = projects.filter(is_archived=archived_projects)
@@ -1865,6 +1905,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Assign new tasks to user",
         url_name="assign_new_tasks",
     )
+    @project_is_archived
     def assign_new_tasks(self, request, pk, *args, **kwargs):
         """
         Pull a new batch of unassigned tasks for this project
@@ -1993,6 +2034,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True, methods=["get"], name="Unassign tasks", url_name="unassign_tasks"
     )
+    @project_is_archived
     def unassign_tasks(self, request, pk, *args, **kwargs):
         """
         Unassigns all unlabeled tasks from an annotator.
@@ -2154,6 +2196,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Assign new tasks for review to user",
         url_name="assign_new_review_tasks",
     )
+    @project_is_archived
     def assign_new_review_tasks(self, request, pk, *args, **kwargs):
         """
         Pull a new batch of labeled tasks and assign to the reviewer
@@ -2221,7 +2264,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .values_list("task", flat=True)
         )
         # tasks = tasks.order_by("id")
-        task_ids = list(set(task_ids))
+        task_ids = list(task_ids)
         task_ids = task_ids[:task_pull_count]
         for task_id in task_ids:
             task = Task.objects.get(pk=task_id)
@@ -2262,6 +2305,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Unassign review tasks",
         url_name="unassign_review_tasks",
     )
+    @project_is_archived
     def unassign_review_tasks(self, request, pk, *args, **kwargs):
         """
         Unassigns all labeled tasks from a reviewer.
@@ -2364,6 +2408,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Assign new tasks for supercheck to user",
         url_name="assign_supercheck_tasks",
     )
+    @project_is_archived
     def assign_new_supercheck_tasks(self, request, pk, *args, **kwargs):
         """
         Pull a new batch of reviewed tasks and assign to the superchecker
@@ -2454,7 +2499,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .values_list("task", flat=True)
         )
         # tasks = tasks.order_by("id")
-        task_ids = list(set(task_ids))
+        task_ids = list(task_ids)
         task_ids = task_ids[:task_pull_count]
         for task_id in task_ids:
             task = Task.objects.get(pk=task_id)
@@ -2495,6 +2540,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="Unassign supercheck tasks",
         url_name="unassign_supercheck_tasks",
     )
+    @project_is_archived
     def unassign_supercheck_tasks(self, request, pk, *args, **kwargs):
         """
         Unassigns all labeled tasks from a superchecker.
@@ -2891,6 +2937,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             items.append(("Draft", total_draft_tasks_count))
 
+            total_reviewed_annos = Annotation_model.objects.filter(
+                task__project_id=pk,
+                task__task_status="reviewed",
+                annotation_type=REVIEWER_ANNOTATION,
+                updated_at__range=[start_date, end_date],
+                parent_annotation__in=labeled_annotation_ids,
+            )
+
             if (
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
@@ -2908,6 +2962,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             elif project_type in get_audio_project_types():
                 total_duration_list = []
                 total_audio_segments_list = []
+                total_word_error_rate_ar_list = []
+                total_raw_audio_duration_list = []
                 for each_task in labeled_annotations:
                     try:
                         total_duration_list.append(
@@ -2916,11 +2972,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         total_audio_segments_list.append(
                             get_audio_segments_count(each_task.result)
                         )
+                        total_raw_audio_duration_list.append(
+                            each_task.task.data["audio_duration"]
+                        )
                     except:
                         pass
                 total_duration = sum(total_duration_list)
+                total_raw_audio_duration = convert_seconds_to_hours(
+                    sum(total_raw_audio_duration_list)
+                )
                 total_time = convert_seconds_to_hours(total_duration)
-                items.append(("Total Audio Duration", total_time))
+                items.append(("Total Segments Duration", total_time))
+                items.append(("Total Raw Audio Duration", total_raw_audio_duration))
                 total_audio_segments = sum(total_audio_segments_list)
                 try:
                     avg_segment_duration = total_duration / total_audio_segments
@@ -2933,6 +2996,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 items.append(("Avg Segment Duration", round(avg_segment_duration, 2)))
                 items.append(
                     ("Average Segments Per Task", round(avg_segments_per_task, 2))
+                )
+                for anno in total_reviewed_annos:
+                    try:
+                        total_word_error_rate_ar_list.append(
+                            calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                anno.result, anno.parent_annotation.result
+                            )
+                        )
+                    except:
+                        pass
+                if len(total_word_error_rate_ar_list) > 0:
+                    avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+                        total_word_error_rate_ar_list
+                    )
+                else:
+                    avg_word_error_rate_ar = 0
+                items.append(
+                    ("Average Word Error Rate A/R", round(avg_word_error_rate_ar, 2))
                 )
 
             lead_time_annotated_tasks = [
@@ -2956,7 +3037,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["GET"],
-        name="Get Project tasks and annotationsand reviewers text",
+        name="Get Project tasks and annotations and reviewers text",
         url_name="export_project_tasks",
     )
     def export_project_tasks(self, request, pk=None):
@@ -3251,6 +3332,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         name="change project stage",
         url_name="change_project_stage",
     )
+    @project_is_archived
     @is_project_editor
     def change_project_stage(self, request, pk):
         try:
@@ -3487,40 +3569,67 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         try:
             project = Project.objects.get(pk=pk)
-            if project.sampling_mode != FULL:
-                ret_dict = {"message": "Sampling Mode is not FULL!"}
+            if project.sampling_mode != BATCH and project.sampling_mode != FULL:
+                ret_dict = {"message": "Sampling Mode is neither FULL nor BATCH!"}
                 ret_status = status.HTTP_403_FORBIDDEN
-            else:
-                # Get serializer with the project user data
-                try:
-                    serializer = ProjectUsersSerializer(project, many=False)
-                except User.DoesNotExist:
-                    ret_dict = {"message": "User does not exist!"}
-                    ret_status = status.HTTP_404_NOT_FOUND
-                # Get project instance and check how many items to pull
-                project_type = project.project_type
-                ids_to_exclude = Task.objects.filter(project_id__exact=project)
-                items = filter_data_items(
-                    project_type,
-                    list(project.dataset_id.all()),
-                    project.filter_string,
-                    ids_to_exclude,
-                )
-                if items:
-                    # Pull new data items in to the project asynchronously
-                    add_new_data_items_into_project.delay(project_id=pk, items=items)
-                    ret_dict = {"message": "Adding new tasks to the project."}
-                    ret_status = status.HTTP_200_OK
+                return Response(ret_dict, status=ret_status)
+            # Get serializer with the project user data
+            try:
+                serializer = ProjectUsersSerializer(project, many=False)
+            except User.DoesNotExist:
+                ret_dict = {"message": "User does not exist!"}
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+            # Get project instance and check how many items to pull
+            project_type = project.project_type
+            ids_to_exclude = Task.objects.filter(project_id__exact=project)
+            items = filter_data_items(
+                project_type,
+                list(project.dataset_id.all()),
+                project.filter_string,
+            )
+            if items:
+                if project.sampling_mode == BATCH:
+                    try:
+                        batch_size = project.sampling_parameters_json["batch_size"]
+                        batch_number = project.sampling_parameters_json["batch_number"]
+                    except Exception as e:
+                        raise Exception("Sampling parameters are not present")
+                    if not isinstance(batch_number, list):
+                        batch_number = [batch_number]
+                    sampled_items = []
+                    for batch_num in batch_number:
+                        sampled_items += items[
+                            batch_size * (batch_num - 1) : batch_size * batch_num
+                        ]
                 else:
+                    sampled_items = items
+                ids_to_exclude_set = set(
+                    id["input_data"] for id in ids_to_exclude.values("input_data")
+                )
+                filtered_items = [
+                    item
+                    for item in sampled_items
+                    if item["id"] not in ids_to_exclude_set
+                ]
+                if not filtered_items:
                     ret_dict = {"message": "No items to pull into the dataset."}
                     ret_status = status.HTTP_404_NOT_FOUND
+                    return Response(ret_dict, status=ret_status)
+            else:
+                ret_dict = {"message": "No items to pull into the dataset."}
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(ret_dict, status=ret_status)
+                # Pull new data items in to the project asynchronously
+            add_new_data_items_into_project.delay(project_id=pk, items=filtered_items)
+            ret_dict = {"message": "Adding new tasks to the project."}
+            ret_status = status.HTTP_200_OK
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
-    @project_is_archived
     @is_project_editor
     def download(self, request, pk=None, *args, **kwargs):
         """

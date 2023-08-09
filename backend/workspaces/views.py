@@ -51,6 +51,7 @@ from .decorators import (
     is_organization_owner_or_workspace_manager,
     is_workspace_creator,
 )
+from .tasks import send_user_reports_mail_ws
 
 
 # Create your views here.
@@ -90,7 +91,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
 
@@ -106,7 +107,7 @@ def get_annotated_tasks_project_analytics(proj_id, status_list, start_date, end_
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=labeled_tasks_ids,
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     return annotated_labeled_tasks
@@ -120,6 +121,8 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         if participation_type == 1
         else "Part Time"
         if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 4
         else "N/A"
     )
     role = get_role_name(user.role)
@@ -137,7 +140,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         task__project_id__in=proj_ids,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     validated_objs_count = validated_objs.count()
@@ -147,7 +150,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         task__project_id__in=proj_ids,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     validated_with_changes_objs_count = validated_with_changes_objs.count()
@@ -157,7 +160,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         task__project_id__in=proj_ids,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     unvalidated_objs_count = unvalidated_objs.count()
@@ -167,7 +170,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         task__project_id__in=proj_ids,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     rejected_objs_count = rejected_objs.count()
@@ -177,7 +180,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         task__project_id__in=proj_ids,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     skipped_objs_count = skipped_objs.count()
@@ -187,7 +190,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         task__project_id__in=proj_ids,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     draft_objs_count = draft_objs.count()
@@ -198,6 +201,8 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         annotation_type=SUPER_CHECKER_ANNOTATION,
         updated_at__range=[start_date, end_date],
     )
+
+    total_superchecked_annos = total_sup_annos.filter(task__task_status="super_checked")
 
     total_rejection_loop_value_list = [
         anno.task.revision_loop_count["super_check_count"] for anno in total_sup_annos
@@ -226,7 +231,8 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         validated_audio_duration_list = []
         validated_with_changes_audio_duration_list = []
         rejected_audio_duration_list = []
-        total_word_error_rate_list = []
+        total_raw_audio_duration_list = []
+        total_word_error_rate_rs_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             for anno in validated_objs:
                 try:
@@ -269,7 +275,19 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                     pass
             for anno in total_sup_annos:
                 try:
-                    total_word_error_rate_list.append(
+                    total_word_error_rate_rs_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
+                    )
+                    total_raw_audio_duration_list.append(
+                        anno.task.data["audio_duration"]
+                    )
+                except:
+                    pass
+            for anno in total_superchecked_annos:
+                try:
+                    total_word_error_rate_rs_list.append(
                         calculate_word_error_rate_between_two_audio_transcription_annotation(
                             anno.result, anno.parent_annotation.result
                         )
@@ -289,9 +307,12 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         rejected_audio_duration = convert_seconds_to_hours(
             sum(rejected_audio_duration_list)
         )
-        if len(total_word_error_rate_list) > 0:
-            avg_word_error_rate = sum(total_word_error_rate_list) / len(
-                total_word_error_rate_list
+        total_raw_audio_duration = convert_seconds_to_hours(
+            sum(total_raw_audio_duration_list)
+        )
+        if len(total_word_error_rate_rs_list) > 0:
+            avg_word_error_rate = sum(total_word_error_rate_rs_list) / len(
+                total_word_error_rate_rs_list
             )
         else:
             avg_word_error_rate = 0
@@ -326,7 +347,8 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                 "Validated With Changes Audio Duration"
             ] = validated_with_changes_audio_duration
             result["Rejected Audio Duration"] = rejected_audio_duration
-            result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+            result["Total Raw Audio Duration"] = total_raw_audio_duration
+            result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
 
     return result
 
@@ -346,6 +368,8 @@ def get_review_reports(
         if participation_type == 1
         else "Part Time"
         if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 4
         else "N/A"
     )
     role = get_role_name(user.role)
@@ -363,7 +387,7 @@ def get_review_reports(
         task__project_id__in=proj_ids,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     accepted_objs_count = accepted_tasks.count()
@@ -385,7 +409,7 @@ def get_review_reports(
         task__project_id__in=proj_ids,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     minor_changes = acceptedwt_minor_change_tasks.count()
@@ -407,7 +431,7 @@ def get_review_reports(
         task__project_id__in=proj_ids,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     major_changes = acceptedwt_major_change_tasks.count()
@@ -434,7 +458,7 @@ def get_review_reports(
         task__project_id__in=proj_ids,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     to_be_revised_tasks_count = to_be_revised_tasks.count()
@@ -444,7 +468,7 @@ def get_review_reports(
         task__project_id__in=proj_ids,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     skipped_tasks_count = skipped_tasks.count()
@@ -454,7 +478,7 @@ def get_review_reports(
         task__project_id__in=proj_ids,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     draft_tasks_count = draft_tasks.count()
@@ -463,11 +487,15 @@ def get_review_reports(
         task__project_id__in=proj_ids,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
     )
 
     total_rev_sup_annos = Annotation.objects.filter(
         parent_annotation__in=total_rev_annos
+    )
+
+    total_superchecked_annos = total_rev_sup_annos.filter(
+        task__task_status="super_checked"
     )
 
     total_rejection_loop_value_list = [
@@ -499,12 +527,19 @@ def get_review_reports(
             ]
         )
         total_audio_duration_list = []
+        total_raw_audio_duration_list = []
         total_word_count_list = []
-        total_word_error_rate_list = []
+        total_word_error_rate_ar_list = []
+        total_word_error_rate_rs_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             for anno in total_rev_annos_accepted:
                 try:
                     total_word_count_list.append(anno.task.data["word_count"])
+                    total_word_error_rate_ar_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
+                    )
                 except:
                     pass
         elif project_type in get_audio_project_types():
@@ -513,11 +548,14 @@ def get_review_reports(
                     total_audio_duration_list.append(
                         get_audio_transcription_duration(anno.result)
                     )
+                    total_raw_audio_duration_list.append(
+                        anno.task.data["audio_duration"]
+                    )
                 except:
                     pass
-            for anno in total_rev_sup_annos:
+            for anno in total_superchecked_annos:
                 try:
-                    total_word_error_rate_list.append(
+                    total_word_error_rate_rs_list.append(
                         calculate_word_error_rate_between_two_audio_transcription_annotation(
                             anno.result, anno.parent_annotation.result
                         )
@@ -527,19 +565,28 @@ def get_review_reports(
 
         total_word_count = sum(total_word_count_list)
         total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-        if len(total_word_error_rate_list) > 0:
-            avg_word_error_rate = sum(total_word_error_rate_list) / len(
-                total_word_error_rate_list
+        total_raw_audio_duration = convert_seconds_to_hours(
+            sum(total_raw_audio_duration_list)
+        )
+        if len(total_word_error_rate_ar_list) > 0:
+            avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+                total_word_error_rate_ar_list
             )
         else:
-            avg_word_error_rate = 0
+            avg_word_error_rate_ar = 0
+        if len(total_word_error_rate_rs_list) > 0:
+            avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
+                total_word_error_rate_rs_list
+            )
+        else:
+            avg_word_error_rate_rs = 0
 
     if project_progress_stage == SUPERCHECK_STAGE:
         annotations_of_superchecker_validated = Annotation.objects.filter(
             task__project_id__in=proj_ids,
             annotation_status="validated",
             annotation_type=SUPER_CHECKER_ANNOTATION,
-            parent_annotation__created_at__range=[start_date, end_date],
+            parent_annotation__updated_at__range=[start_date, end_date],
         )
         parent_anno_ids = [
             ann.parent_annotation_id for ann in annotations_of_superchecker_validated
@@ -553,7 +600,7 @@ def get_review_reports(
             task__project_id__in=proj_ids,
             annotation_status="validated_with_changes",
             annotation_type=SUPER_CHECKER_ANNOTATION,
-            parent_annotation__created_at__range=[start_date, end_date],
+            parent_annotation__updated_at__range=[start_date, end_date],
         )
         parent_anno_ids = [
             ann.parent_annotation_id
@@ -568,7 +615,7 @@ def get_review_reports(
             task__project_id__in=proj_ids,
             annotation_status="rejected",
             annotation_type=SUPER_CHECKER_ANNOTATION,
-            parent_annotation__created_at__range=[start_date, end_date],
+            parent_annotation__updated_at__range=[start_date, end_date],
         )
         parent_anno_ids = [
             ann.parent_annotation_id for ann in annotations_of_superchecker_rejected
@@ -605,8 +652,10 @@ def get_review_reports(
             ):
                 result["Total Word Count"] = total_word_count
             elif project_type in get_audio_project_types():
-                result["Total Audio Duration"] = total_audio_duration
-                result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+                result["Total Segments Duration"] = total_audio_duration
+                result["Total Raw Audio Duration"] = total_raw_audio_duration
+                result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
+                result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
 
         return result
 
@@ -632,8 +681,10 @@ def get_review_reports(
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             result["Total Word Count"] = total_word_count
         elif project_type in get_audio_project_types():
-            result["Total Audio Duration"] = total_audio_duration
-            result["Average Word Error Rate"] = round(avg_word_error_rate, 2)
+            result["Total Segments Duration"] = total_audio_duration
+            result["Total Raw Audio Duration"] = total_raw_audio_duration
+            result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
+            result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
 
     return result
 
@@ -650,7 +701,7 @@ def un_pack_annotation_tasks(
         task__project_id__in=proj_ids,
         annotation_status="accepted",
         annotation_type=REVIEWER_ANNOTATION,
-        parent_annotation__created_at__range=[start_date, end_date],
+        parent_annotation__updated_at__range=[start_date, end_date],
     )
     parent_anno_ids = [
         ann.parent_annotation_id for ann in annotations_of_reviewer_accepted
@@ -664,7 +715,7 @@ def un_pack_annotation_tasks(
         task__project_id__in=proj_ids,
         annotation_status="to_be_revised",
         annotation_type=REVIEWER_ANNOTATION,
-        parent_annotation__created_at__range=[start_date, end_date],
+        parent_annotation__updated_at__range=[start_date, end_date],
     )
     parent_anno_ids_of_to_be_revised = [
         ann.parent_annotation_id for ann in annotations_of_reviewer_to_be_revised
@@ -680,7 +731,7 @@ def un_pack_annotation_tasks(
         task__project_id__in=proj_ids,
         annotation_status="accepted_with_minor_changes",
         annotation_type=REVIEWER_ANNOTATION,
-        parent_annotation__created_at__range=[start_date, end_date],
+        parent_annotation__updated_at__range=[start_date, end_date],
     )
 
     parent_anno_ids_of_minor = [
@@ -697,7 +748,7 @@ def un_pack_annotation_tasks(
         task__project_id__in=proj_ids,
         annotation_status="accepted_with_major_changes",
         annotation_type=REVIEWER_ANNOTATION,
-        parent_annotation__created_at__range=[start_date, end_date],
+        parent_annotation__updated_at__range=[start_date, end_date],
     )
 
     parent_anno_ids_of_major = [
@@ -714,7 +765,7 @@ def un_pack_annotation_tasks(
         task__project_id__in=proj_ids,
         annotation_status="labeled",
         annotation_type=ANNOTATOR_ANNOTATION,
-        created_at__range=[start_date, end_date],
+        updated_at__range=[start_date, end_date],
         completed_by=each_annotation_user,
     )
     labeled_annotation_ids = [ann.id for ann in labeled_annotations]
@@ -742,26 +793,32 @@ def un_pack_annotation_tasks(
 
         total_word_count = sum(total_word_count_list)
     total_duration = "0:00:00"
+    total_raw_duration = 0.0
     avg_segment_duration = 0
     avg_segments_per_task = 0
     if project_type in get_audio_project_types():
         total_duration_list = []
+        total_raw_duration_list = []
         total_audio_segments_list = []
         for each_task in labeled_annotations:
             try:
                 total_duration_list.append(
                     get_audio_transcription_duration(each_task.result)
                 )
+                total_raw_duration_list.append(each_task.task.data["audio_duration"])
                 total_audio_segments_list.append(
                     get_audio_segments_count(each_task.result)
                 )
             except:
                 pass
         total_duration = convert_seconds_to_hours(sum(total_duration_list))
+        total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
         total_audio_segments = sum(total_audio_segments_list)
         try:
-            avg_segment_duration = total_duration / total_audio_segments
-            avg_segments_per_task = total_audio_segments / len(labeled_annotations)
+            avg_segment_duration = sum(total_duration_list) / total_audio_segments
+            avg_segments_per_task = total_audio_segments / len(
+                total_audio_segments_list
+            )
         except:
             avg_segment_duration = 0
             avg_segments_per_task = 0
@@ -775,6 +832,7 @@ def un_pack_annotation_tasks(
         avg_lead_time,
         total_word_count,
         total_duration,
+        total_raw_duration,
         avg_segment_duration,
         avg_segments_per_task,
     )
@@ -1204,7 +1262,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 total_duration_reviewed_count_list = []
                 total_duration_exported_count_list = []
                 total_duration_superchecked_count_list = []
-                total_word_error_rate_list = []
+                total_word_error_rate_rs_list = []
+                total_word_error_rate_ar_list = []
+                total_raw_duration_list = []
                 if project_type in get_audio_project_types():
                     for each_task in labeled_tasks:
                         try:
@@ -1227,6 +1287,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             total_duration_reviewed_count_list.append(
                                 get_audio_transcription_duration(
                                     review_annotation.result
+                                )
+                            )
+                            total_word_error_rate_ar_list.append(
+                                calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                    review_annotation.result,
+                                    review_annotation.parent_annotation.result,
                                 )
                             )
                         except:
@@ -1252,19 +1318,19 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     supercheck_annotation.result
                                 )
                             )
+                            total_word_error_rate_rs_list.append(
+                                calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                    supercheck_annotation.result,
+                                    supercheck_annotation.parent_annotation.result,
+                                )
+                            )
                         except:
                             pass
 
                     for each_task in all_tasks:
                         try:
-                            supercheck_annotation = Annotation.objects.filter(
-                                task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
-                            )[0]
-                            total_word_error_rate_list.append(
-                                calculate_word_error_rate_between_two_audio_transcription_annotation(
-                                    supercheck_annotation.result,
-                                    supercheck_annotation.parent_annotation.result,
-                                )
+                            total_raw_duration_list.append(
+                                each_task.data["audio_duration"]
                             )
                         except:
                             pass
@@ -1282,12 +1348,22 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     sum(total_duration_superchecked_count_list)
                 )
 
-                if len(total_word_error_rate_list) > 0:
-                    avg_word_error_rate = sum(total_word_error_rate_list) / len(
-                        total_word_error_rate_list
+                total_raw_duration = convert_seconds_to_hours(
+                    sum(total_raw_duration_list)
+                )
+
+                if len(total_word_error_rate_rs_list) > 0:
+                    avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
+                        total_word_error_rate_rs_list
                     )
                 else:
-                    avg_word_error_rate = 0
+                    avg_word_error_rate_rs = 0
+                if len(total_word_error_rate_ar_list) > 0:
+                    avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+                        total_word_error_rate_ar_list
+                    )
+                else:
+                    avg_word_error_rate_ar = 0
 
                 if total_tasks == 0:
                     project_progress = 0.0
@@ -1320,11 +1396,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Reviewed Tasks Audio Duration": total_duration_reviewed_count,
                     "Exported Tasks Audio Duration": total_duration_exported_count,
                     "SuperChecked Tasks Audio Duration": total_duration_superchecked_count,
+                    "Total Raw Audio Duration": total_raw_duration,
                     "Annotated Tasks Word Count": total_word_annotated_count,
                     "Reviewed Tasks Word Count": total_word_reviewed_count,
                     "Exported Tasks Word Count": total_word_exported_count,
                     "SuperChecked Tasks Word Count": total_word_superchecked_count,
-                    "Average Word Error Rate": round(avg_word_error_rate, 2),
+                    "Average Word Error Rate A/R": round(avg_word_error_rate_ar, 2),
+                    "Average Word Error Rate R/S": round(avg_word_error_rate_rs, 2),
                     "Project Progress": round(project_progress, 3),
                 }
 
@@ -1342,7 +1420,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     del result["Reviewed Tasks Audio Duration"]
                     del result["Exported Tasks Audio Duration"]
                     del result["SuperChecked Tasks Audio Duration"]
-                    del result["Average Word Error Rate"]
+                    del result["Total Raw Audio Duration"]
+                    del result["Average Word Error Rate A/R"]
+                    del result["Average Word Error Rate R/S"]
                 else:
                     del result["Annotated Tasks Word Count"]
                     del result["Reviewed Tasks Word Count"]
@@ -1352,7 +1432,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     del result["Reviewed Tasks Audio Duration"]
                     del result["Exported Tasks Audio Duration"]
                     del result["SuperChecked Tasks Audio Duration"]
-                    del result["Average Word Error Rate"]
+                    del result["Total Raw Audio Duration"]
+                    del result["Average Word Error Rate A/R"]
+                    del result["Average Word Error Rate R/S"]
 
                 final_result.append(result)
         ret_status = status.HTTP_200_OK
@@ -1639,6 +1721,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     avg_lead_time,
                     total_word_count,
                     total_duration,
+                    total_raw_duration,
                     avg_segment_duration,
                     avg_segments_per_task,
                 ) = un_pack_annotation_tasks(
@@ -1655,7 +1738,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     task__project_id__in=proj_ids,
                     annotation_status="labeled",
                     annotation_type=ANNOTATOR_ANNOTATION,
-                    created_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=each_annotation_user,
                 )
 
@@ -1684,10 +1767,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                     total_word_count = sum(total_word_count_list)
                 total_duration = "0:00:00"
+                total_raw_duration = "0:00:00"
                 avg_segment_duration = 0
                 avg_segments_per_task = 0
                 if project_type in get_audio_project_types():
                     total_duration_list = []
+                    total_raw_duration_list = []
                     total_audio_segments_list = []
                     for each_task in labeled_annotations:
                         try:
@@ -1697,12 +1782,20 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             total_audio_segments_list.append(
                                 get_audio_segments_count(each_task.result)
                             )
+                            total_raw_duration_list.append(
+                                each_task.task.data["audio_duration"]
+                            )
                         except:
                             pass
                     total_duration = convert_seconds_to_hours(sum(total_duration_list))
+                    total_raw_duration = convert_seconds_to_hours(
+                        sum(total_raw_duration_list)
+                    )
                     total_audio_segments = sum(total_audio_segments_list)
                     try:
-                        avg_segment_duration = total_duration / total_audio_segments
+                        avg_segment_duration = (
+                            sum(total_duration_list) / total_audio_segments
+                        )
                         avg_segments_per_task = total_audio_segments / len(
                             labeled_annotations
                         )
@@ -1714,14 +1807,14 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 task__project_id__in=proj_ids,
                 annotation_status="skipped",
                 annotation_type=ANNOTATOR_ANNOTATION,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
             ).count()
             all_pending_tasks_in_project = Annotation.objects.filter(
                 task__project_id__in=proj_ids,
                 annotation_status="unlabeled",
                 annotation_type=ANNOTATOR_ANNOTATION,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
             ).count()
 
@@ -1729,7 +1822,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 task__project_id__in=proj_ids,
                 annotation_status="draft",
                 annotation_type=ANNOTATOR_ANNOTATION,
-                created_at__range=[start_date, end_date],
+                updated_at__range=[start_date, end_date],
                 completed_by=each_annotation_user,
             ).count()
 
@@ -1752,7 +1845,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Skipped": total_skipped_tasks,
                     "Draft": all_draft_tasks_in_project,
                     "Word Count": total_word_count,
-                    "Total Audio Duration": total_duration,
+                    "Total Segments Duration": total_duration,
+                    "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Avg Segment Duration": round(avg_segment_duration, 2),
                     "Average Segments Per Task": round(avg_segments_per_task, 2),
@@ -1769,7 +1863,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     "Skipped": total_skipped_tasks,
                     "Draft": all_draft_tasks_in_project,
                     "Word Count": total_word_count,
-                    "Total Audio Duration": total_duration,
+                    "Total Segments Duration": total_duration,
+                    "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Avg Segment Duration": round(avg_segment_duration, 2),
                     "Average Segments Per Task": round(avg_segments_per_task, 2),
@@ -1781,12 +1876,14 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 is_translation_project
                 or project_type == "SemanticTextualSimilarity_Scale5"
             ):
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
+                del result["Total Raw Audio Duration"]
                 del result["Avg Segment Duration"]
                 del result["Average Segments Per Task"]
             else:
                 del result["Word Count"]
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
+                del result["Total Raw Audio Duration"]
                 del result["Avg Segment Duration"]
                 del result["Average Segments Per Task"]
 
@@ -2480,8 +2577,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         Annotation.objects.filter(
                             task_id__in=labeled_count_tasks_ids,
                             annotation_type=REVIEWER_ANNOTATION,
-                            created_at__gte=periodical_list[period],
-                            created_at__lt=periodical_list[period + 1],
+                            updated_at__gte=periodical_list[period],
+                            updated_at__lt=periodical_list[period + 1],
                         )
                         .exclude(annotation_status="to_be_revised")
                         .count()
@@ -2497,8 +2594,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
                         annotation_type=SUPER_CHECKER_ANNOTATION,
-                        created_at__gte=periodical_list[period],
-                        created_at__lt=periodical_list[period + 1],
+                        updated_at__gte=periodical_list[period],
+                        updated_at__lt=periodical_list[period + 1],
                     ).count()
                 else:
                     tasks = Task.objects.filter(
@@ -2515,8 +2612,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     annotated_labeled_tasks_count = Annotation.objects.filter(
                         task_id__in=labeled_count_tasks_ids,
                         annotation_type=ANNOTATOR_ANNOTATION,
-                        created_at__gte=periodical_list[period],
-                        created_at__lt=periodical_list[period + 1],
+                        updated_at__gte=periodical_list[period],
+                        updated_at__lt=periodical_list[period + 1],
                     ).count()
 
                 if metainfo == True:
@@ -2534,21 +2631,21 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=REVIEWER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "super_checked":
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_rev_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -2561,14 +2658,14 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_sup_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -2581,28 +2678,28 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=REVIEWER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "exported":
                                         anno = Annotation.objects.filter(
                                             id=each_task.correct_annotation.id,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     elif each_task.task_status == "super_checked":
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     else:
                                         anno = Annotation.objects.filter(
                                             task=each_task,
                                             annotation_type=ANNOTATOR_ANNOTATION,
-                                            created_at__gte=periodical_list[period],
-                                            created_at__lt=periodical_list[period + 1],
+                                            updated_at__gte=periodical_list[period],
+                                            updated_at__lt=periodical_list[period + 1],
                                         )[0]
                                     total_ann_duration_list.append(
                                         get_audio_transcription_duration(anno.result)
@@ -2648,8 +2745,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=REVIEWER_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
@@ -2666,8 +2763,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=SUPER_CHECKER_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
@@ -2684,8 +2781,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             annotated_labeled_tasks = Annotation.objects.filter(
                                 task_id__in=labeled_count_tasks_ids,
                                 annotation_type=ANNOTATOR_ANNOTATION,
-                                created_at__gte=periodical_list[period],
-                                created_at__lt=periodical_list[period + 1],
+                                updated_at__gte=periodical_list[period],
+                                updated_at__lt=periodical_list[period + 1],
                             )
                             for each_task in annotated_labeled_tasks:
                                 try:
@@ -2773,6 +2870,93 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             final_result.append(summary_period)
         return Response(final_result)
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_type": openapi.Schema(type=openapi.TYPE_STRING),
+                "participation_types": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
+            },
+            required=["user_id", "project_type", "participation_types"],
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the Workspace"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "Email successfully scheduled",
+            400: "Invalid request body parameters.",
+            401: "Unauthorized access.",
+            404: "Workspace/User not found.",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Get Workspace level users analytics (e-mail)",
+        url_name="send_user_analytics",
+    )
+    def send_user_analytics(self, request, pk=None):
+        if not (
+            request.user.is_authenticated
+            and (
+                request.user.role == User.ORGANIZATION_OWNER
+                or request.user.role == User.WORKSPACE_MANAGER
+                or request.user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response(
+                {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        user_id = request.data.get("user_id")
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        participation_types = request.data.get("participation_types")
+        if len(participation_types) == 0 or not set(participation_types).issubset(
+            {1, 2, 3, 4}
+        ):
+            return Response(
+                {"message": "Invalid participation types"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project_type = request.data.get("project_type")
+
+        send_user_reports_mail_ws.delay(
+            workspace.id,
+            user_id,
+            project_type,
+            participation_types,
+        )
+
+        return Response(
+            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+        )
 
 
 class WorkspaceusersViewSet(viewsets.ViewSet):
