@@ -22,6 +22,10 @@ from tasks.serializers import (
 
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
+from users.utils import generate_random_string
+from utils.convert_result_to_chitralekha_format import (
+    convert_result_to_chitralekha_format,
+)
 
 from utils.search import process_search_query
 
@@ -130,6 +134,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         {"message": "You are not a part of this project"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+        # modifications for integrations of chitralekha UI
+        if "enable_chitralekha_UI" in dict(request.query_params):
+            for ann in annotations:
+                modified_result = convert_result_to_chitralekha_format(ann.result)
+                ann.result = modified_result
+
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
@@ -1322,7 +1333,12 @@ class AnnotationViewSet(
 
             if auto_save:
                 update_fields_list = ["result", "lead_time"]
-                annotation_obj.result = request.data["result"]
+                if "cl_format" in request.data:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"], annotation_obj.task
+                    )
+                else:
+                    annotation_obj.result = request.data["result"]
                 if "annotation_notes" in dict(request.data):
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
@@ -1334,7 +1350,13 @@ class AnnotationViewSet(
             else:
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
-                    annotation_obj.save(update_fields=["annotated_at"])
+                    if "cl_format" in request.query_params:
+                        annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                            request.data["result"], annotation_obj.task
+                        )
+                        annotation_obj.save(update_fields=["annotated_at", "result"])
+                    else:
+                        annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1433,7 +1455,12 @@ class AnnotationViewSet(
 
             if auto_save:
                 update_fields_list = ["result", "lead_time"]
-                annotation_obj.result = request.data["result"]
+                if "cl_format" in request.query_params:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"], annotation_obj.task
+                    )
+                else:
+                    annotation_obj.result = request.data["result"]
                 if "review_notes" in dict(request.data):
                     annotation_obj.review_notes = request.data["review_notes"]
                     update_fields_list.append("review_notes")
@@ -1445,7 +1472,13 @@ class AnnotationViewSet(
             else:
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
-                    annotation_obj.save(update_fields=["annotated_at"])
+                    if "cl_format" in request.query_params:
+                        annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                            request.data["result"], annotation_obj.task
+                        )
+                        annotation_obj.save(update_fields=["annotated_at", "result"])
+                    else:
+                        annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1572,7 +1605,12 @@ class AnnotationViewSet(
             annotation = Annotation.objects.get(pk=annotation_id)
             if auto_save:
                 update_fields_list = ["result", "lead_time"]
-                annotation_obj.result = request.data["result"]
+                if "cl_format" in request.query_params:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"], annotation_obj.task
+                    )
+                else:
+                    annotation_obj.result = request.data["result"]
                 if "supercheck_notes" in dict(request.data):
                     annotation_obj.supercheck_notes = request.data["supercheck_notes"]
                     update_fields_list.append("supercheck_notes")
@@ -1584,7 +1622,13 @@ class AnnotationViewSet(
             else:
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
-                    annotation_obj.save(update_fields=["annotated_at"])
+                    if "cl_format" in request.query_params:
+                        annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                            request.data["result"], annotation_obj.task
+                        )
+                        annotation_obj.save(update_fields=["annotated_at", "result"])
+                    else:
+                        annotation_obj.save(update_fields=["annotated_at"])
                 annotation_response = super().partial_update(request)
             task = annotation.task
 
@@ -1670,6 +1714,54 @@ class AnnotationViewSet(
 
     #     task.save()
     #     return annotation_response
+
+    # convert chitralekha_format to LSF
+    def convert_chitralekha_format_to_LSF(self, result, task):
+        modified_result = []
+        audio_duration = task.data["audio_duration"]
+        if result == None or len(result) == 0:
+            return modified_result
+        for idx, val in enumerate(result):
+            label_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "labels",
+                "original_length": audio_duration,
+            }
+            text_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "transcribed_json",
+                "original_length": audio_duration,
+            }
+            id = f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}"
+            label_dict["id"] = id
+            text_dict["id"] = id
+            label_dict["type"] = "labels"
+            text_dict["type"] = "textarea"
+
+            value_labels = {
+                "start": self.convert_formatted_time_to_fractional(val["start_time"]),
+                "end": self.convert_formatted_time_to_fractional(val["end_time"]),
+                "labels": [val["speaker_id"]],
+            }
+            value_text = {
+                "start": self.convert_formatted_time_to_fractional(val["start_time"]),
+                "end": self.convert_formatted_time_to_fractional(val["end_time"]),
+                "text": [val["text"]],
+            }
+
+            label_dict["value"] = value_labels
+            text_dict["value"] = value_text
+            modified_result.append(label_dict)
+            modified_result.append(text_dict)
+
+        return modified_result
+
+    def convert_formatted_time_to_fractional(self, formatted_time):
+        hours, minutes, seconds = map(float, formatted_time.split(":"))
+        total_minutes = hours * 60 + minutes + seconds / 60
+        return total_minutes
 
 
 class PredictionViewSet(
