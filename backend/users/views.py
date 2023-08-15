@@ -47,6 +47,7 @@ from projects.utils import (
     get_audio_transcription_duration,
 )
 from datetime import datetime
+import calendar
 from django.conf import settings
 from django.core.mail import send_mail
 from workspaces.views import WorkspaceCustomViewSet
@@ -1109,6 +1110,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         project_type = request.data.get("project_type")
         schedule = request.data.get("schedule")
+        schedule_day = request.data.get("schedule_day")
 
         if schedule == "Daily":
             try:
@@ -1132,7 +1134,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 crontab_schedule = CrontabSchedule.objects.get(
                     minute="0",
                     hour="6",
-                    day_of_week="2",
+                    day_of_week=schedule_day,
                     day_of_month="*",
                     month_of_year="*",
                 )
@@ -1140,7 +1142,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 crontab_schedule = CrontabSchedule.objects.create(
                     minute="0",
                     hour="6",
-                    day_of_week="2",
+                    day_of_week=schedule_day,
                     day_of_month="*",
                     month_of_year="*",
                 )
@@ -1150,7 +1152,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     minute="0",
                     hour="6",
                     day_of_week="*",
-                    day_of_month="1",
+                    day_of_month=schedule_day,
                     month_of_year="*",
                 )
             except CrontabSchedule.DoesNotExist:
@@ -1158,7 +1160,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     minute="0",
                     hour="6",
                     day_of_week="*",
-                    day_of_month="1",
+                    day_of_month=schedule_day,
                     month_of_year="*",
                 )
         else:
@@ -1338,26 +1340,35 @@ class AnalyticsViewSet(viewsets.ViewSet):
         )
         result = []
         for task in user_periodic_tasks:
+            report_level = "Organization" if task.report_level == 1 else "Workspace"
+            organization = task.organization.title if task.organization else None
+            workspace = task.workspace.workspace_name if task.workspace else None
+            project_type = json.loads(task.celery_task.kwargs.replace("'", '"'))[
+                "project_type"
+            ]
+            schedule = (
+                "Daily"
+                if task.schedule == 1
+                else "Weekly"
+                if task.schedule == 2
+                else "Monthly"
+            )
+            scheduled_day = (
+                calendar.day_name[int(task.celery_task.crontab.day_of_week) - 1]
+                if task.schedule == 2
+                else task.celery_task.crontab.day_of_month
+                if task.schedule == 3
+                else None
+            )
             result.append(
                 {
                     "id": task.id,
-                    "Report Level": "Organization"
-                    if task.report_level == 1
-                    else "Workspace",
-                    "Organization": task.organization.title
-                    if task.organization
-                    else None,
-                    "Workspace": task.workspace.workspace_name
-                    if task.workspace
-                    else None,
-                    "Project Type": json.loads(
-                        task.celery_task.kwargs.replace("'", '"')
-                    )["project_type"],
-                    "Schedule": "Daily"
-                    if task.schedule == 1
-                    else "Weekly"
-                    if task.schedule == 2
-                    else "Monthly",
+                    "Report Level": report_level,
+                    "Organization": organization,
+                    "Workspace": workspace,
+                    "Project Type": project_type,
+                    "Schedule": schedule,
+                    "Scheduled Day": scheduled_day,
                     "Created At": task.created_at,
                     "Run Count": task.celery_task.total_run_count,
                     "Status": "Enabled"
