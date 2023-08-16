@@ -2203,13 +2203,36 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from_date = None
+        to_date = None
+
+        if "from_date" in dict(request.data) and "to_date" in dict(request.data):
+            from_date = request.data.get("from_date")
+            to_date = request.data.get("to_date")
+            result_from, invalid_message = is_valid_date(from_date)
+            result_to, invalid_message = is_valid_date(to_date)
+            if not result_from or not result_to:
+                return Response(
+                    {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
+                )
+            start_date = datetime.strptime(from_date, "%Y-%m-%d")
+            end_date = datetime.strptime(to_date, "%Y-%m-%d")
+
+            if start_date > end_date:
+                return Response(
+                    {"message": "'To' Date should be after 'From' Date"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         project_type = request.data.get("project_type")
 
         send_user_reports_mail_org.delay(
-            organization.id,
-            user_id,
-            project_type,
-            participation_types,
+            org_id=organization.id,
+            user_id=user_id,
+            project_type=project_type,
+            participation_types=participation_types,
+            start_date=from_date,
+            end_date=to_date,
         )
 
         return Response(
