@@ -58,7 +58,7 @@ def get_all_annotation_reports(
             task__project_id__in=proj_ids,
             annotation_type=ANNOTATOR_ANNOTATION,
             completed_by=userid,
-            annotated_at__range=[start_date, end_date],
+            updated_at__range=[start_date, end_date],
         )
 
     submitted_tasks_count = submitted_tasks.count()
@@ -164,7 +164,7 @@ def get_all_review_reports(
             task__project_id__in=proj_ids,
             task__review_user=userid,
             annotation_type=REVIEWER_ANNOTATION,
-            annotated_at__range=[start_date, end_date],
+            updated_at__range=[start_date, end_date],
         )
 
     submitted_tasks_count = submitted_tasks.count()
@@ -255,7 +255,7 @@ def get_all_supercheck_reports(
             task__project_id__in=proj_ids,
             task__super_check_user=userid,
             annotation_type=SUPER_CHECKER_ANNOTATION,
-            annotated_at__range=[start_date, end_date],
+            updated_at__range=[start_date, end_date],
         )
 
     submitted_tasks_count = submitted_tasks.count()
