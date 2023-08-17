@@ -11,12 +11,16 @@ from datetime import datetime, timedelta
 
 from django.core.mail import send_mail
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.utils import timezone
+from django_celery_beat.models import PeriodicTask
 
 from organizations.models import Organization
+from workspaces.models import Workspace
 from shoonya_backend import settings
 from dotenv import load_dotenv
 
@@ -278,3 +282,90 @@ class User(AbstractBaseUser, PermissionsMixin):
         # Signing the payload with a secret key
         token = jwt.encode(payload, secret_key, algorithm="HS256")
         return token
+
+
+class CustomPeriodicTask(models.Model):
+    """
+    Celery Beat Tasks for Users.
+    """
+
+    celery_task = models.OneToOneField(
+        PeriodicTask,
+        on_delete=models.CASCADE,
+        null=False,
+        help_text=("Celery Beat Task for the user."),
+    )
+
+    created_at = models.DateTimeField(verbose_name="created_at", auto_now_add=True)
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name="user",
+        help_text=("User for which the task is created."),
+    )
+
+    DAILY = 1
+    WEEKLY = 2
+    MONTHLY = 3
+
+    SCHEDULE_CHOICES = (
+        (DAILY, "Daily"),
+        (WEEKLY, "Weekly"),
+        (MONTHLY, "Monthly"),
+    )
+
+    schedule = models.PositiveSmallIntegerField(
+        choices=SCHEDULE_CHOICES,
+        verbose_name="schedule",
+        blank=False,
+        null=False,
+        help_text=("Schedule of the task."),
+    )
+
+    project_type = models.CharField(
+        verbose_name="project_type",
+        max_length=256,
+        blank=False,
+        null=False,
+        help_text=("Project type of the task."),
+    )
+
+    ORGANIZATION_LEVEL = 1
+    WORKSPACE_LEVEL = 2
+
+    REPORT_LEVEL_CHOICES = (
+        (ORGANIZATION_LEVEL, "Organization Level"),
+        (WORKSPACE_LEVEL, "Workspace Level"),
+    )
+
+    report_level = models.PositiveSmallIntegerField(
+        choices=REPORT_LEVEL_CHOICES,
+        verbose_name="report_level",
+        blank=False,
+        null=False,
+        help_text=("Report level of the task."),
+    )
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        verbose_name="organization",
+        help_text=("Organization for which the reports will be generated."),
+        blank=True,
+        null=True,
+    )
+
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        verbose_name="workspace",
+        help_text=("Workspace for which the reports will be generated."),
+        blank=True,
+        null=True,
+    )
+
+
+@receiver(post_delete, sender=CustomPeriodicTask)
+def delete_celery_task(sender, instance, **kwargs):
+    instance.celery_task.delete()

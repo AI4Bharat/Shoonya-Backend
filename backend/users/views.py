@@ -1,3 +1,4 @@
+import json
 import os
 from http.client import responses
 import secrets
@@ -24,7 +25,7 @@ from .serializers import (
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
-from users.models import LANG_CHOICES, User
+from users.models import LANG_CHOICES, User, CustomPeriodicTask
 from rest_framework.decorators import action
 from tasks.models import (
     Task,
@@ -37,6 +38,7 @@ from projects.models import Project
 from tasks.models import Annotation
 from organizations.models import Organization
 from django.db.models import Q
+from django_celery_beat.models import PeriodicTask, CrontabSchedule
 from projects.utils import (
     no_of_words,
     is_valid_date,
@@ -45,6 +47,7 @@ from projects.utils import (
     get_audio_transcription_duration,
 )
 from datetime import datetime
+import calendar
 from django.conf import settings
 from django.core.mail import send_mail
 from workspaces.views import WorkspaceCustomViewSet
@@ -842,7 +845,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     annotation_type=REVIEWER_ANNOTATION,
-                    annotated_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
             elif supercheck_reports:
@@ -863,7 +866,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     annotation_type=SUPER_CHECKER_ANNOTATION,
-                    annotated_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )
             else:
@@ -885,7 +888,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 annotated_labeled_tasks = Annotation.objects.filter(
                     task_id__in=annotated_task_ids,
                     annotation_type=ANNOTATOR_ANNOTATION,
-                    annotated_at__range=[start_date, end_date],
+                    updated_at__range=[start_date, end_date],
                     completed_by=user_id,
                 )
 
@@ -1036,6 +1039,345 @@ class AnalyticsViewSet(viewsets.ViewSet):
             "project_summary": project_wise_summary,
         }
         return Response(final_result)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Schedule payment reports (e-mail)",
+        url_path="schedule_mail",
+        url_name="schedule_mail",
+    )
+    def schedule_mail(self, request, pk=None):
+        user = request.user
+        if not (
+            user.is_authenticated
+            and (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        report_level = request.data.get("report_level")
+        id = request.data.get("id")
+        if report_level == 1:
+            try:
+                organization = Organization.objects.get(pk=id)
+            except Organization.DoesNotExist:
+                return Response(
+                    {"message": "Organization not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if not (
+                user.is_superuser
+                or (
+                    user.role == User.ORGANIZATION_OWNER
+                    and user.organization == organization
+                )
+            ):
+                return Response(
+                    {"message": "Not Authorized"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        elif report_level == 2:
+            try:
+                workspace = Workspace.objects.get(pk=id)
+            except Workspace.DoesNotExist:
+                return Response(
+                    {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+            if not (
+                request.user.is_superuser
+                or (
+                    user.role == User.ORGANIZATION_OWNER
+                    and workspace.organization == user.organization
+                )
+                or user in workspace.managers.all()
+            ):
+                return Response(
+                    {"message": "Not Authorized"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            return Response(
+                {"message": "Invalid report level"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project_type = request.data.get("project_type")
+        schedule = request.data.get("schedule")
+        schedule_day = request.data.get("schedule_day")
+
+        if schedule == "Daily":
+            try:
+                crontab_schedule = CrontabSchedule.objects.get(
+                    minute="0",
+                    hour="6",
+                    day_of_week="*",
+                    day_of_month="*",
+                    month_of_year="*",
+                )
+            except CrontabSchedule.DoesNotExist:
+                crontab_schedule = CrontabSchedule.objects.create(
+                    minute="0",
+                    hour="6",
+                    day_of_week="*",
+                    day_of_month="*",
+                    month_of_year="*",
+                )
+        elif schedule == "Weekly":
+            try:
+                crontab_schedule = CrontabSchedule.objects.get(
+                    minute="0",
+                    hour="6",
+                    day_of_week=schedule_day,
+                    day_of_month="*",
+                    month_of_year="*",
+                )
+            except CrontabSchedule.DoesNotExist:
+                crontab_schedule = CrontabSchedule.objects.create(
+                    minute="0",
+                    hour="6",
+                    day_of_week=schedule_day,
+                    day_of_month="*",
+                    month_of_year="*",
+                )
+        elif schedule == "Monthly":
+            try:
+                crontab_schedule = CrontabSchedule.objects.get(
+                    minute="0",
+                    hour="6",
+                    day_of_week="*",
+                    day_of_month=schedule_day,
+                    month_of_year="*",
+                )
+            except CrontabSchedule.DoesNotExist:
+                crontab_schedule = CrontabSchedule.objects.create(
+                    minute="0",
+                    hour="6",
+                    day_of_week="*",
+                    day_of_month=schedule_day,
+                    month_of_year="*",
+                )
+        else:
+            return Response(
+                {"message": "Invalid schedule"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            task_obj = CustomPeriodicTask.objects.get(
+                user__id=user.id,
+                schedule=(
+                    1 if schedule == "Daily" else 2 if schedule == "Weekly" else 3
+                ),
+                project_type=project_type,
+                report_level=report_level,
+                organization=organization if report_level == 1 else None,
+                workspace=workspace if report_level == 2 else None,
+            )
+            return Response(
+                {"message": "Schedule already exists"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except CustomPeriodicTask.DoesNotExist:
+            try:
+                celery_task = PeriodicTask.objects.create(
+                    crontab=crontab_schedule,
+                    name=f"Payment Report {user.email} {schedule} {datetime.now()}",
+                    task=(
+                        "organizations.tasks.send_user_reports_mail_org"
+                        if report_level == 1
+                        else "workspaces.tasks.send_user_reports_mail_ws"
+                    ),
+                    kwargs={
+                        f'{"org_id" if report_level == 1 else "ws_id"}': id,
+                        "user_id": user.id,
+                        "project_type": project_type,
+                        "period": schedule,
+                    },
+                )
+                task_obj = CustomPeriodicTask.objects.create(
+                    celery_task=celery_task,
+                    user=user,
+                    schedule=(
+                        1 if schedule == "Daily" else 2 if schedule == "Weekly" else 3
+                    ),
+                    project_type=project_type,
+                    report_level=report_level,
+                    organization=organization if report_level == 1 else None,
+                    workspace=workspace if report_level == 2 else None,
+                )
+            except:
+                return Response(
+                    {"message": "Error in scheduling email"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        return Response(
+            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+        )
+
+    @action(
+        detail=True,
+        methods=["PATCH"],
+        name="Enable/disable payment reports (e-mail)",
+        url_name="update_scheduled_mail",
+        url_path="update_scheduled_mail",
+    )
+    def update_scheduled_mail(self, request, pk=None):
+        user = request.user
+        if not (
+            user.is_authenticated
+            and (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        task_id = request.data.get("task_id")
+
+        try:
+            task_obj = CustomPeriodicTask.objects.get(pk=task_id)
+            if not user.is_superuser and task_obj.user != user:
+                return Response(
+                    {"message": "Not Authorized"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            celery_task = task_obj.celery_task
+            celery_task.enabled = True if celery_task.enabled == False else False
+            celery_task.save()
+        except:
+            return Response(
+                {"message": "Error in modifying email schedule"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        message = (
+            "Email schedule disabled"
+            if celery_task.enabled == False
+            else "Email schedule enabled"
+        )
+        return Response({"message": message}, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Delete payment reports schedule (e-mail)",
+        url_name="delete_scheduled_mail",
+        url_path="delete_scheduled_mail",
+    )
+    def delete_scheduled_mail(self, request, pk=None):
+        user = request.user
+        if not (
+            user.is_authenticated
+            and (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        task_id = request.data.get("task_id")
+
+        try:
+            # task_obj is automatically deleted by models.CASCADE
+            task_obj = CustomPeriodicTask.objects.get(pk=task_id)
+            if not user.is_superuser and task_obj.user != user:
+                return Response(
+                    {"message": "Not Authorized"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            celery_task = task_obj.celery_task
+            celery_task.delete()
+        except:
+            return Response(
+                {"message": "Error in deleting email schedule"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {"message": "Email schedule deleted"}, status=status.HTTP_200_OK
+        )
+
+    @action(
+        detail=True,
+        methods=["GET"],
+        name="Get currently scheduled payment reports for user",
+        url_name="get_scheduled_mails",
+        url_path="get_scheduled_mails",
+    )
+    def get_scheduled_mails(self, request, pk=None):
+        user = request.user
+        if not (
+            user.is_authenticated
+            and (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        user_periodic_tasks = CustomPeriodicTask.objects.filter(
+            user__id=pk,
+        )
+        result = []
+        for task in user_periodic_tasks:
+            report_level = "Organization" if task.report_level == 1 else "Workspace"
+            organization = task.organization.title if task.organization else None
+            workspace = task.workspace.workspace_name if task.workspace else None
+            project_type = json.loads(task.celery_task.kwargs.replace("'", '"'))[
+                "project_type"
+            ]
+            schedule = (
+                "Daily"
+                if task.schedule == 1
+                else "Weekly"
+                if task.schedule == 2
+                else "Monthly"
+            )
+            scheduled_day = (
+                calendar.day_name[int(task.celery_task.crontab.day_of_week) - 1]
+                if task.schedule == 2
+                else task.celery_task.crontab.day_of_month
+                if task.schedule == 3
+                else None
+            )
+            result.append(
+                {
+                    "id": task.id,
+                    "Report Level": report_level,
+                    "Organization": organization,
+                    "Workspace": workspace,
+                    "Project Type": project_type,
+                    "Schedule": schedule,
+                    "Scheduled Day": scheduled_day,
+                    "Created At": task.created_at,
+                    "Run Count": task.celery_task.total_run_count,
+                    "Status": "Enabled"
+                    if task.celery_task.enabled == True
+                    else "Disabled",
+                }
+            )
+        result = sorted(result, key=lambda x: x["Created At"], reverse=True)
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class LanguageViewSet(viewsets.ViewSet):

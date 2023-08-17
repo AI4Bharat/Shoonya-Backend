@@ -1,3 +1,5 @@
+import datetime
+from dateutil.relativedelta import relativedelta
 from celery import shared_task
 import pandas as pd
 from django.conf import settings
@@ -23,7 +25,9 @@ from projects.utils import (
 def get_all_annotation_reports(
     proj_ids,
     userid,
-    project_type=None,
+    project_type,
+    start_date=None,
+    end_date=None,
 ):
     user = User.objects.get(pk=userid)
     participation_type = user.participation_type
@@ -41,12 +45,21 @@ def get_all_annotation_reports(
     email = user.email
     user_lang = user.languages
 
-    submitted_tasks = Annotation.objects.filter(
-        annotation_status="labeled",
-        task__project_id__in=proj_ids,
-        annotation_type=ANNOTATOR_ANNOTATION,
-        completed_by=userid,
-    )
+    if not start_date:
+        submitted_tasks = Annotation.objects.filter(
+            annotation_status="labeled",
+            task__project_id__in=proj_ids,
+            annotation_type=ANNOTATOR_ANNOTATION,
+            completed_by=userid,
+        )
+    else:
+        submitted_tasks = Annotation.objects.filter(
+            annotation_status="labeled",
+            task__project_id__in=proj_ids,
+            annotation_type=ANNOTATOR_ANNOTATION,
+            completed_by=userid,
+            updated_at__range=[start_date, end_date],
+        )
 
     submitted_tasks_count = submitted_tasks.count()
 
@@ -108,7 +121,9 @@ def get_all_annotation_reports(
 def get_all_review_reports(
     proj_ids,
     userid,
-    project_type=None,
+    project_type,
+    start_date=None,
+    end_date=None,
 ):
     user = User.objects.get(pk=userid)
     participation_type = user.participation_type
@@ -126,17 +141,31 @@ def get_all_review_reports(
     email = user.email
     user_lang = user.languages
 
-    submitted_tasks = Annotation.objects.filter(
-        annotation_status__in=[
-            "accepted",
-            "to_be_revised",
-            "accepted_with_minor_changes",
-            "accepted_with_major_changes",
-        ],
-        task__project_id__in=proj_ids,
-        task__review_user=userid,
-        annotation_type=REVIEWER_ANNOTATION,
-    )
+    if not start_date:
+        submitted_tasks = Annotation.objects.filter(
+            annotation_status__in=[
+                "accepted",
+                "to_be_revised",
+                "accepted_with_minor_changes",
+                "accepted_with_major_changes",
+            ],
+            task__project_id__in=proj_ids,
+            task__review_user=userid,
+            annotation_type=REVIEWER_ANNOTATION,
+        )
+    else:
+        submitted_tasks = Annotation.objects.filter(
+            annotation_status__in=[
+                "accepted",
+                "to_be_revised",
+                "accepted_with_minor_changes",
+                "accepted_with_major_changes",
+            ],
+            task__project_id__in=proj_ids,
+            task__review_user=userid,
+            annotation_type=REVIEWER_ANNOTATION,
+            updated_at__range=[start_date, end_date],
+        )
 
     submitted_tasks_count = submitted_tasks.count()
 
@@ -195,7 +224,9 @@ def get_all_review_reports(
     return result
 
 
-def get_all_supercheck_reports(proj_ids, userid, project_type=None):
+def get_all_supercheck_reports(
+    proj_ids, userid, project_type, start_date=None, end_date=None
+):
     user = User.objects.get(pk=userid)
     participation_type = (
         "Full Time"
@@ -211,12 +242,21 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
     email = user.email
     user_lang = user.languages
 
-    submitted_tasks = Annotation.objects.filter(
-        annotation_status__in=["validated", "validated_with_changes", "rejected"],
-        task__project_id__in=proj_ids,
-        task__super_check_user=userid,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
-    )
+    if not start_date:
+        submitted_tasks = Annotation.objects.filter(
+            annotation_status__in=["validated", "validated_with_changes", "rejected"],
+            task__project_id__in=proj_ids,
+            task__super_check_user=userid,
+            annotation_type=SUPER_CHECKER_ANNOTATION,
+        )
+    else:
+        submitted_tasks = Annotation.objects.filter(
+            annotation_status__in=["validated", "validated_with_changes", "rejected"],
+            task__project_id__in=proj_ids,
+            task__super_check_user=userid,
+            annotation_type=SUPER_CHECKER_ANNOTATION,
+            updated_at__range=[start_date, end_date],
+        )
 
     submitted_tasks_count = submitted_tasks.count()
 
@@ -281,14 +321,25 @@ def get_all_supercheck_reports(proj_ids, userid, project_type=None):
 
 
 @shared_task()
-def send_user_reports_mail_org(org_id, user_id, project_type, participation_types):
+def send_user_reports_mail_org(
+    org_id,
+    user_id,
+    project_type,
+    participation_types=None,
+    start_date=None,
+    end_date=None,
+    period=None,
+):
     """Function to generate CSV of organization user reports and send mail to the owner/admin
 
     Args:
-        org_id (int): ID of the organization
-        user_id (int): ID of the user requesting the report
-        project_type (str): Type of project
-        participation_types (list): User participation types
+        org_id (int): ID of the organization.
+        user_id (int): ID of the user requesting the report.
+        project_type (str): Type of project.
+        participation_types (list, optional): User participation types. Defaults to [1, 2, 4].
+        start_date (datetime, optional): Start date of the report. Defaults to None.
+        end_date (datetime, optional): End date of the report. Defaults to None.
+        period (str, optional): Period of the report. Defaults to None.
     """
 
     user = User.objects.get(id=user_id)
@@ -302,6 +353,29 @@ def send_user_reports_mail_org(org_id, user_id, project_type, participation_type
         proj_objs = Project.objects.filter(
             organization_id=org_id, project_type=project_type
         )
+
+    if period:
+        if period == "Daily":
+            start_date = datetime.datetime.now() + relativedelta(days=-1)
+            end_date = datetime.datetime.now() + relativedelta(days=-1)
+        elif period == "Weekly":
+            start_date = datetime.datetime.now() + relativedelta(days=-7)
+            end_date = datetime.now() + relativedelta(days=-1)
+        elif period == "Monthly":
+            start_date = datetime.datetime.now() + relativedelta(months=-1)
+            end_date = datetime.datetime.now() + relativedelta(days=-1)
+
+    if start_date:
+        start_date = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+        start_date = datetime.datetime.combine(start_date, datetime.time.min)
+        end_date = datetime.datetime.combine(end_date, datetime.time.max)
+
+    start_date = start_date.replace(tzinfo=datetime.timezone.utc)
+    end_date = end_date.replace(tzinfo=datetime.timezone.utc)
+
+    if not participation_types:
+        participation_types = [1, 2, 4]
 
     org_anno_list = []
     org_reviewer_list = []
@@ -342,6 +416,8 @@ def send_user_reports_mail_org(org_id, user_id, project_type, participation_type
             user_projs_ids,
             id,
             project_type,
+            start_date,
+            end_date,
         )
         final_reports.append(annotate_result)
 
@@ -356,6 +432,8 @@ def send_user_reports_mail_org(org_id, user_id, project_type, participation_type
             user_projs_ids,
             id,
             project_type,
+            start_date,
+            end_date,
         )
         final_reports.append(review_result)
 
@@ -370,6 +448,8 @@ def send_user_reports_mail_org(org_id, user_id, project_type, participation_type
             user_projs_ids,
             id,
             project_type,
+            start_date,
+            end_date,
         )
         final_reports.append(supercheck_result)
 
@@ -403,6 +483,11 @@ def send_user_reports_mail_org(org_id, user_id, project_type, participation_type
         + f"{project_type}"
         + "\nParticipation Types: "
         + f"{participation_types_string}"
+        + (
+            "\nStart Date: " + f"{start_date}" + "\nEnd Date: " + f"{end_date}"
+            if start_date
+            else ""
+        )
     )
 
     email = EmailMessage(
