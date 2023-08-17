@@ -217,9 +217,6 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400  # higher than the count of fields
 # # Get loglevel from env
 LOGLEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# Make a new directory for logs
-Path("/logs/logs_web").mkdir(exist_ok=True)
-
 # Define the list of formatters
 formatters = {
     "console": {
@@ -248,6 +245,9 @@ handlers = {
 
 # If logging is enabled, add file handlers
 if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
+    # Make a new directory for logs
+    Path("/logs/logs_web").mkdir(exist_ok=True)
+    
     handlers["file"] = {
         "level": "WARNING",
         "class": "logging.FileHandler",
