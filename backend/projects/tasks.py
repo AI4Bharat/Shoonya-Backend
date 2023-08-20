@@ -214,6 +214,10 @@ def create_tasks_from_dataitems(items, project):
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
 
+    if "automatic_annotation_creation_mode" in project.metadata_json:
+        create_automatic_annotations(
+            tasks, project.metadata_json["automatic_annotation_creation_mode"]
+        )
     if input_dataset_info["prediction"] is not None:
         user_object = User.objects.get(email="prediction@ai4bharat.org")
 
@@ -317,7 +321,7 @@ def create_parameters_for_task_creation(
         sampling_parameters (dict): Parameters for sampling
         variable_parameters (dict): _description_
         project_id (int): ID of the project object created in this iteration
-
+        automatic_annotation_creation_mode: Creation mode for tasks
     """
 
     filtered_items = filter_data_items(
@@ -360,6 +364,10 @@ def create_parameters_for_task_creation(
     # Create Tasks from Parameters
     tasks = create_tasks_from_dataitems(sampled_items, project)
     if automatic_annotation_creation_mode != None:
+        project.metadata_json[
+            "automatic_annotation_creation_mode"
+        ] = automatic_annotation_creation_mode
+        project.save()
         create_automatic_annotations(tasks, automatic_annotation_creation_mode)
 
 

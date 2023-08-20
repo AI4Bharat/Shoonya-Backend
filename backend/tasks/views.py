@@ -138,7 +138,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         # modifications for integrations of chitralekha UI
         if "enable_chitralekha_UI" in dict(request.query_params):
             for ann in annotations:
-                modified_result = convert_result_to_chitralekha_format(ann.result)
+                modified_result = convert_result_to_chitralekha_format(
+                    ann.result, ann.id
+                )
                 ann.result = modified_result
 
         serializer = AnnotationSerializer(annotations, many=True)

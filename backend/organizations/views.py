@@ -2265,6 +2265,8 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             proj_objs = Project.objects.filter(
                 organization_id=pk, project_type=project_type
             )
+            if not request.user.is_authenticated:
+                proj_objs = proj_objs.filter(workspace_id__public_analytics=True)
 
             languages = list(set([proj.tgt_language for proj in proj_objs]))
             general_lang = []
