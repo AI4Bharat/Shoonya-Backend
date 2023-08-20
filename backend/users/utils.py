@@ -101,6 +101,36 @@ LANG_NAME_TO_CODE_ULCA = {
     "Urdu": "ur",
 }
 
+LANG_NAME_TO_CODE_ITV2 = {
+    "English": "en",
+    "Assamese": "as",
+    "Bhojpuri": "bho",
+    "Bengali": "bn",
+    "Bodo": "brx",
+    "Dogri": "doi",
+    "Dhivehi": "dv",
+    "Konkani": "gom",
+    "Gujarati": "gu",
+    "Hindi": "hi",
+    "Kannada": "kn",
+    "Kashmiri": "ks",
+    "Mizo": "lus",
+    "Maithili": "mai",
+    "Malayalam": "ml",
+    "Manipuri": "mni",
+    "Marathi": "mr",
+    "Nepali": "ne",
+    "Odia": "or",
+    "Punjabi": "pa",
+    "Sanskrit": "sa",
+    "Santali": "sat",
+    "Sindhi": "sd",
+    "Sinhala": "si",
+    "Tamil": "ta",
+    "Telugu": "te",
+    "Urdu": "ur",
+}
+
 # Language codes to language names
 LANG_CODE_TO_NAME_GOOGLE = {
     lang_code: lang_name for lang_name, lang_code in LANG_NAME_TO_CODE_GOOGLE.items()

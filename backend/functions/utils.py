@@ -15,6 +15,7 @@ from users.utils import (
     LANG_NAME_TO_CODE_ULCA,
     LANG_TRANS_MODEL_CODES,
     LANG_NAME_TO_CODE_AZURE,
+    LANG_NAME_TO_CODE_ITV2,
 )
 from google.cloud import vision
 from users.utils import LANG_NAME_TO_CODE_ULCA
@@ -234,8 +235,8 @@ def get_batch_translations_using_indictransv2_nmt_api(
             target_language = "Urdu"
 
     # Convert language names to the language code
-    source_language = LANG_NAME_TO_CODE_ULCA[source_language]
-    target_language = LANG_NAME_TO_CODE_ULCA[target_language]
+    source_language = LANG_NAME_TO_CODE_ITV2[source_language]
+    target_language = LANG_NAME_TO_CODE_ITV2[target_language]
 
     # Create the input sentences list
     input_sentences = [{"source": sentence} for sentence in sentence_list]
