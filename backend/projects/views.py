@@ -1785,9 +1785,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_id = project_response.data["id"]
 
             proj = Project.objects.get(id=project_id)
+            if automatic_annotation_creation_mode != None:
+                if proj.metadata_json == None:
+                    proj.metadata_json = {}
+                proj.metadata_json[
+                    "automatic_annotation_creation_mode"
+                ] = automatic_annotation_creation_mode
             if proj.required_annotators_per_task > 1:
                 proj.project_stage = REVIEW_STAGE
-                proj.save()
+            proj.save()
 
             # Function call to create the paramters for the sampling and filtering of sentences
             create_parameters_for_task_creation.delay(
