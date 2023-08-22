@@ -1422,6 +1422,7 @@ class AnnotationViewSet(
                         ACCEPTED,
                         ACCEPTED_WITH_MINOR_CHANGES,
                         ACCEPTED_WITH_MAJOR_CHANGES,
+                        TO_BE_REVISED,
                     ]
                     and annotation_obj.annotated_at is None
                     else False
@@ -1572,6 +1573,7 @@ class AnnotationViewSet(
                     in [
                         VALIDATED,
                         VALIDATED_WITH_CHANGES,
+                        REJECTED,
                     ]
                     and annotation_obj.annotated_at is None
                     else False
