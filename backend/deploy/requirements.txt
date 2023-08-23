@@ -31,3 +31,4 @@ pretty-html-table
 sacrebleu
 tqdm
 jiwer
+logstash-formatter
