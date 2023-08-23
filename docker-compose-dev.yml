@@ -75,6 +75,13 @@ services:
     depends_on:
       - redis
       - web
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:7.14.0
+    volumes:
+      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - logs_vol:/logs
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf  
 
   # Celery beats - for scheduling daily e-mails - commented out for dev hostings.
   # celery-beat:
