@@ -363,12 +363,6 @@ def create_parameters_for_task_creation(
 
     # Create Tasks from Parameters
     tasks = create_tasks_from_dataitems(sampled_items, project)
-    if automatic_annotation_creation_mode != None:
-        project.metadata_json[
-            "automatic_annotation_creation_mode"
-        ] = automatic_annotation_creation_mode
-        project.save()
-        create_automatic_annotations(tasks, automatic_annotation_creation_mode)
 
 
 @shared_task
