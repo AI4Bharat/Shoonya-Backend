@@ -42,6 +42,7 @@ services:
     volumes:
       - ./backend/:/usr/src/backend/
       - static_volume:/usr/src/backend/static
+      - logs_vol:/logs
     ports:
       - 8000:8000
     depends_on:
@@ -86,6 +87,8 @@ services:
   #    - web
 
 volumes:
+  logs_vol:
+    external: true
   nginx_conf:
     external: true
   letsencrypt_certs:
