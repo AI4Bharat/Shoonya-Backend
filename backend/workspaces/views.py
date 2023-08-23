@@ -1269,7 +1269,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     for each_task in labeled_tasks:
                         try:
                             annotate_annotation = Annotation.objects.filter(
-                                task=each_task, annotation_type=ANNOTATOR_ANNOTATION
+                                task=each_task, annotation_type=ANNOTATOR_ANNOTATION, annotation_status__in=["labeled"]
                             )[0]
                             total_duration_annotated_count_list.append(
                                 get_audio_transcription_duration(
@@ -1282,7 +1282,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     for each_task in reviewed_tasks:
                         try:
                             review_annotation = Annotation.objects.filter(
-                                task=each_task, annotation_type=REVIEWER_ANNOTATION
+                                task=each_task, annotation_type=REVIEWER_ANNOTATION, annotation_status__in=["accepted", "accepted_with_minor_changes", "accepted_with_major_changes"]
+                            )[0
                             )[0]
                             total_duration_reviewed_count_list.append(
                                 get_audio_transcription_duration(
@@ -1311,7 +1312,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     for each_task in superchecked_tasks:
                         try:
                             supercheck_annotation = Annotation.objects.filter(
-                                task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                                task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION, annotation_status__in=["validated", "validated_with_changes"]
+                            )[0
                             )[0]
                             total_duration_superchecked_count_list.append(
                                 get_audio_transcription_duration(
