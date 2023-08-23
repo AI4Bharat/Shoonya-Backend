@@ -1,7 +1,14 @@
 def create_memory(result):
     memory = {}
     for i in range(len(result)):
-        key = result[i]["id"]
+        try:
+            key = result[i]["id"]
+        except KeyError:
+            print(
+                f"The entry number {i} is not having an id hence cannot be converted to CL_format"
+            )
+            del result[i]
+            continue
         if key not in memory:
             memory[key] = {"labels_dict_idx": -1, "text_dict_idx": -1}
         if result[i]["type"] == "labels":
@@ -12,6 +19,8 @@ def create_memory(result):
 
 
 def convert_result_to_chitralekha_format(result, ann_id):
+    if len(result) == 1 and result[0] == {}:
+        return [{}]
     memory = create_memory(result)
     modified_result = []
     count = 1
