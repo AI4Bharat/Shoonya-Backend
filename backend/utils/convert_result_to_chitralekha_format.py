@@ -3,15 +3,16 @@ def create_memory(result):
     for i in range(len(result)):
         try:
             key = result[i]["id"]
+            dict_type = result[i]["type"]
         except KeyError:
             print(
-                f"The entry number {i} is not having an id hence cannot be converted to CL_format"
+                f"The entry number {i} is not having an id or type hence cannot be converted to chitralekha format"
             )
             del result[i]
             continue
         if key not in memory:
             memory[key] = {"labels_dict_idx": -1, "text_dict_idx": -1}
-        if result[i]["type"] == "labels":
+        if dict_type == "labels":
             memory[key]["labels_dict_idx"] = i
         else:
             memory[key]["text_dict_idx"] = i
@@ -47,7 +48,10 @@ def convert_result_to_chitralekha_format(result, ann_id):
             text_dict = result[text_dict_idx]
             seen.add(labels_dict_idx)
             seen.add(text_dict_idx)
-            speaker_id = label_dict["value"]["labels"][0]
+            try:
+                speaker_id = label_dict["value"]["labels"][0]
+            except KeyError:
+                speaker_id = "Speaker 0"
         text = text_dict["value"]["text"][0] if text_dict["value"]["text"] else ""
         try:
             chitra_dict = {
@@ -69,7 +73,7 @@ def convert_result_to_chitralekha_format(result, ann_id):
     modified_result = (
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
-    return modified_result
+    return modified_result if len(modified_result) > 0 else [{}]
 
 
 def convert_fractional_time_to_formatted(decimal_time, ann_id, data_id):

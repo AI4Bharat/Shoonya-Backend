@@ -1335,7 +1335,7 @@ class AnnotationViewSet(
 
             if auto_save:
                 update_fields_list = ["result", "lead_time"]
-                if "cl_format" in request.data:
+                if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
                         request.data["result"], annotation_obj.task
                     )
@@ -1359,6 +1359,11 @@ class AnnotationViewSet(
                         annotation_obj.save(update_fields=["annotated_at", "result"])
                     else:
                         annotation_obj.save(update_fields=["annotated_at"])
+                elif "cl_format" in request.query_params:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"], annotation_obj.task
+                    )
+                    annotation_obj.save(update_fields=["result"])
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1482,6 +1487,11 @@ class AnnotationViewSet(
                         annotation_obj.save(update_fields=["annotated_at", "result"])
                     else:
                         annotation_obj.save(update_fields=["annotated_at"])
+                elif "cl_format" in request.query_params:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"], annotation_obj.task
+                    )
+                    annotation_obj.save(update_fields=["result"])
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1633,6 +1643,11 @@ class AnnotationViewSet(
                         annotation_obj.save(update_fields=["annotated_at", "result"])
                     else:
                         annotation_obj.save(update_fields=["annotated_at"])
+                elif "cl_format" in request.query_params:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"], annotation_obj.task
+                    )
+                    annotation_obj.save(update_fields=["result"])
                 annotation_response = super().partial_update(request)
             task = annotation.task
 
@@ -1726,6 +1741,10 @@ class AnnotationViewSet(
         if result == None or len(result) == 0:
             return modified_result
         for idx, val in enumerate(result):
+            if "type" in val or "value" in val:
+                print(f"The item number {idx} is already in LSF")
+                modified_result.append(val)
+                continue
             label_dict = {
                 "origin": "manual",
                 "to_name": "audio_url",
