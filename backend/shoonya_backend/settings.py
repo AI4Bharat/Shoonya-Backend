@@ -262,12 +262,12 @@ if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
         "formatter": "csvfile",
     }
 
-    handlers["logstash"] = {
-        "level": "WARNING",
-        "class": "logstash_formatter.LogstashFormatterTCP",
-        "port": 9600,
-        "version": 1,
-    }
+#    handlers["logstash"] = {
+#        "level": "WARNING",
+#        "class": "logstash_formatter.LogstashFormatterTCP",
+#        "port": 9600,
+#        "version": 1,
+#    }
 
 # Setup the Cloud Logging Client
 # if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
