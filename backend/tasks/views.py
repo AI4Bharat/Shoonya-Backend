@@ -1364,6 +1364,7 @@ class AnnotationViewSet(
                         request.data["result"], annotation_obj.task
                     )
                     annotation_obj.save(update_fields=["result"])
+                request.data["result"] = annotation_obj.result
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1492,6 +1493,7 @@ class AnnotationViewSet(
                         request.data["result"], annotation_obj.task
                     )
                     annotation_obj.save(update_fields=["result"])
+                request.data["result"] = annotation_obj.result
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1648,6 +1650,7 @@ class AnnotationViewSet(
                         request.data["result"], annotation_obj.task
                     )
                     annotation_obj.save(update_fields=["result"])
+                request.data["result"] = annotation_obj.result
                 annotation_response = super().partial_update(request)
             task = annotation.task
 
