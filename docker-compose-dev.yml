@@ -84,7 +84,7 @@ services:
       - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
       - logs_vol:/logs
     extra_hosts:
-+      - "elasticsearch:20.42.57.194"
+      - "elasticsearch:20.42.57.194"
     command: logstash -f /usr/share/logstash/pipeline/logstash.conf  
 
   # Celery beats - for scheduling daily e-mails - commented out for dev hostings.
