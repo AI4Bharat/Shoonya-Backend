@@ -1786,8 +1786,8 @@ class AnnotationViewSet(
 
     def convert_formatted_time_to_fractional(self, formatted_time):
         hours, minutes, seconds = map(float, formatted_time.split(":"))
-        total_minutes = hours * 60 + minutes + seconds / 60
-        return total_minutes
+        total_seconds = (hours * 3600) + (minutes * 60) + seconds
+        return total_seconds
 
 
 class PredictionViewSet(
