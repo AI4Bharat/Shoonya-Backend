@@ -86,12 +86,21 @@ def convert_fractional_time_to_formatted(decimal_time, ann_id, data_id):
             f"The data is corrupt for annotation id-{ann_id}, data id- {data_id}. "
             f"Its start/end time are not stored as proper data type (int or float or string)."
         )
-    decimal_time = float(decimal_time)
-    hours = int(decimal_time // 60)
-    remaining_minutes = int(decimal_time % 60)
-    seconds_fraction = decimal_time - ((hours * 60) + remaining_minutes)
-    seconds = int(seconds_fraction * 60)
-    milliseconds = int((seconds_fraction * 60 - seconds) * 1000)
+        return "00:00:00.000"
+    if isinstance(decimal_time, str):
+        try:
+            decimal_time = float(decimal_time)
+        except ValueError:
+            print(
+                f"The data is corrupt for annotation id-{ann_id}, data id- {data_id}. "
+                f"Failed to convert '{decimal_time}' to a valid numeric format."
+            )
+            return "00:00:00.000"
+
+    hours = int(decimal_time // 3600)
+    remaining_minutes = int((decimal_time % 3600) // 60)
+    seconds = int(decimal_time % 60)
+    milliseconds = int((decimal_time - int(decimal_time)) * 1000)
 
     return f"{hours:02d}:{remaining_minutes:02d}:{seconds:02d}.{milliseconds:03d}"
 
