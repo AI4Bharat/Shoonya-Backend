@@ -698,6 +698,40 @@ class UserViewSet(viewsets.ViewSet):
             {"message": "User password changed."}, status=status.HTTP_200_OK
         )
 
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="update_ui_prefs",
+        url_name="update_ui_prefs",
+    )
+    def update_ui_prefs(self, request):
+        """
+        Update UI preferences for user
+        """
+        prefer_cl_ui = request.data.get("prefer_cl_ui")
+
+        if prefer_cl_ui == True or prefer_cl_ui == False:
+            pass
+        else:
+            return Response(
+                {"message": "Please enter valid input(True/False)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if request.user.is_authenticated:
+            user = request.user
+        else:
+            return Response(
+                {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        user.prefer_cl_ui = prefer_cl_ui
+        user.save()
+        return Response(
+            {"message": "Successfully updated UI preferences."},
+            status=status.HTTP_200_OK,
+        )
+
 
 class AnalyticsViewSet(viewsets.ViewSet):
     permission_classes = (AllowAny,)
