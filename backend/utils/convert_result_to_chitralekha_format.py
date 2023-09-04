@@ -102,14 +102,14 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
     if acoustic_text_dict_idx is not None:
-        standardised_transcription = (
+        """standardised_transcription = (
             result[memory["standardised_transcription"]]["value"]["text"][0]
             if result[memory["standardised_transcription"]]["value"]["text"]
             else ""
-        )
+        )"""
         return (
             modified_result if len(modified_result) > 0 else [{}],
-            standardised_transcription,
+            "",
         )
 
     return (modified_result if len(modified_result) > 0 else [{}], None)
