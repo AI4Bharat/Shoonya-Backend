@@ -138,10 +138,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         # modifications for integrations of chitralekha UI
         if "enable_chitralekha_UI" in dict(request.query_params):
             for ann in annotations:
-                modified_result = convert_result_to_chitralekha_format(
-                    ann.result, ann.id
+                (
+                    subtitles,
+                    standardised_transcription,
+                ) = convert_result_to_chitralekha_format(
+                    ann.result, ann.id, project.project_type
                 )
-                ann.result = modified_result
+                # ann.result = {"subtitles": subtitles, "standardised_transcription": standardised_transcription}
+                ann.result = subtitles
 
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
@@ -1301,6 +1305,13 @@ class AnnotationViewSet(
             if annotation_obj.annotation_type == REJECTED:
                 is_rejected = True
 
+        is_acoustic_project_type = (
+            True
+            if annotation_obj.task.project_id.project_type
+            == "AcousticNormalisedTranscription"
+            else False
+        )
+
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
@@ -1337,7 +1348,9 @@ class AnnotationViewSet(
                 update_fields_list = ["result", "lead_time"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"], annotation_obj.task
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1352,19 +1365,13 @@ class AnnotationViewSet(
             else:
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
-                    if "cl_format" in request.query_params:
-                        annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                            request.data["result"], annotation_obj.task
-                        )
-                        annotation_obj.save(update_fields=["annotated_at", "result"])
-                    else:
-                        annotation_obj.save(update_fields=["annotated_at"])
-                elif "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"], annotation_obj.task
+                    annotation_obj.save(update_fields=["annotated_at"])
+                if "cl_format" in request.query_params:
+                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
                     )
-                    annotation_obj.save(update_fields=["result"])
-                request.data["result"] = annotation_obj.result
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1466,7 +1473,9 @@ class AnnotationViewSet(
                 update_fields_list = ["result", "lead_time"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"], annotation_obj.task
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1481,19 +1490,13 @@ class AnnotationViewSet(
             else:
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
-                    if "cl_format" in request.query_params:
-                        annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                            request.data["result"], annotation_obj.task
-                        )
-                        annotation_obj.save(update_fields=["annotated_at", "result"])
-                    else:
-                        annotation_obj.save(update_fields=["annotated_at"])
-                elif "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"], annotation_obj.task
+                    annotation_obj.save(update_fields=["annotated_at"])
+                if "cl_format" in request.query_params:
+                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
                     )
-                    annotation_obj.save(update_fields=["result"])
-                request.data["result"] = annotation_obj.result
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
             annotation = Annotation.objects.get(pk=annotation_id)
@@ -1623,7 +1626,9 @@ class AnnotationViewSet(
                 update_fields_list = ["result", "lead_time"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"], annotation_obj.task
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1638,19 +1643,13 @@ class AnnotationViewSet(
             else:
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
-                    if "cl_format" in request.query_params:
-                        annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                            request.data["result"], annotation_obj.task
-                        )
-                        annotation_obj.save(update_fields=["annotated_at", "result"])
-                    else:
-                        annotation_obj.save(update_fields=["annotated_at"])
-                elif "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"], annotation_obj.task
+                    annotation_obj.save(update_fields=["annotated_at"])
+                if "cl_format" in request.query_params:
+                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
                     )
-                    annotation_obj.save(update_fields=["result"])
-                request.data["result"] = annotation_obj.result
                 annotation_response = super().partial_update(request)
             task = annotation.task
 
@@ -1738,12 +1737,26 @@ class AnnotationViewSet(
     #     return annotation_response
 
     # convert chitralekha_format to LSF
-    def convert_chitralekha_format_to_LSF(self, result, task):
+    def convert_chitralekha_format_to_LSF(self, result, task, is_acoustic=False):
         modified_result = []
         audio_duration = task.data["audio_duration"]
         if result == None or len(result) == 0:
             return modified_result
         for idx, val in enumerate(result):
+            if "standardised_transcription" in val:
+                standardised_dict = {
+                    "id": f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}",
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "standardised_transcription",
+                    "original_length": audio_duration,
+                    "type": "textarea",
+                    "value": {
+                        "text": [val["standardised_transcription"]],
+                    },
+                }
+                modified_result.append(standardised_dict)
+                continue
             if "type" in val or "value" in val:
                 print(f"The item number {idx} is already in LSF")
                 modified_result.append(val)
@@ -1760,11 +1773,19 @@ class AnnotationViewSet(
                 "from_name": "transcribed_json",
                 "original_length": audio_duration,
             }
+            acoustic_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "acoustic_normalised_transcribed_json",
+                "original_length": audio_duration,
+            }
             id = f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}"
             label_dict["id"] = id
             text_dict["id"] = id
+            acoustic_dict["id"] = id
             label_dict["type"] = "labels"
             text_dict["type"] = "textarea"
+            acoustic_dict["type"] = "textarea"
 
             value_labels = {
                 "start": self.convert_formatted_time_to_fractional(val["start_time"]),
@@ -1776,9 +1797,20 @@ class AnnotationViewSet(
                 "end": self.convert_formatted_time_to_fractional(val["end_time"]),
                 "text": [val["text"]],
             }
+            value_acoustic = {
+                "start": self.convert_formatted_time_to_fractional(val["start_time"]),
+                "end": self.convert_formatted_time_to_fractional(val["end_time"]),
+                "text": [val["acoustic_normalised_text"]] if is_acoustic else "",
+            }
 
             label_dict["value"] = value_labels
             text_dict["value"] = value_text
+
+            if is_acoustic:
+                acoustic_dict["value"] = value_acoustic
+                text_dict["from_name"] = "verbatim_transcribed_json"
+                modified_result.append(acoustic_dict)
+
             modified_result.append(label_dict)
             modified_result.append(text_dict)
 

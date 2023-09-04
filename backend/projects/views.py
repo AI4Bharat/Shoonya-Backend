@@ -1779,6 +1779,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             sampling_mode = request.data.get("sampling_mode")
             sampling_parameters = request.data.get("sampling_parameters_json")
             variable_parameters = request.data.get("variable_parameters")
+            acoustic_enabled_stage = request.data.get("acoustic_enabled_stage")
 
             # Create project object
             project_response = super().create(request, *args, **kwargs)
@@ -1791,6 +1792,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 proj.metadata_json[
                     "automatic_annotation_creation_mode"
                 ] = automatic_annotation_creation_mode
+            if proj.project_type == "AcousticNormalisedTranscription":
+                if proj.metadata_json == None:
+                    proj.metadata_json = {}
+                proj.metadata_json["acoustic_enabled_stage"] = (
+                    acoustic_enabled_stage if acoustic_enabled_stage != None else 2
+                )
             if proj.required_annotators_per_task > 1:
                 proj.project_stage = REVIEW_STAGE
             proj.save()

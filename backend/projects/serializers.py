@@ -46,6 +46,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "project_stage",
             "revision_loop_count",
             "k_value",
+            "metadata_json",
         ]
 
 

@@ -3,7 +3,7 @@ def create_memory(result):
     for i in range(len(result)):
         try:
             key = result[i]["id"]
-            dict_type = result[i]["type"]
+            dict_type = result[i]["from_name"]
         except KeyError:
             print(
                 f"The entry number {i} is not having an id or type hence cannot be converted to chitralekha format"
@@ -11,15 +11,23 @@ def create_memory(result):
             del result[i]
             continue
         if key not in memory:
-            memory[key] = {"labels_dict_idx": -1, "text_dict_idx": -1}
+            memory[key] = {
+                "labels_dict_idx": -1,
+                "text_dict_idx": -1,
+                "acoustic_text_dict_idx": -1,
+            }
         if dict_type == "labels":
             memory[key]["labels_dict_idx"] = i
+        elif dict_type == "acoustic_normalised_transcribed_json":
+            memory[key]["acoustic_text_dict_idx"] = i
+        elif dict_type == "standardised_transcription":
+            memory["standardised_transcription"] = i
         else:
             memory[key]["text_dict_idx"] = i
     return memory
 
 
-def convert_result_to_chitralekha_format(result, ann_id):
+def convert_result_to_chitralekha_format(result, ann_id, project_type):
     if len(result) == 1 and result[0] == {}:
         return [{}]
     memory = create_memory(result)
@@ -33,8 +41,15 @@ def convert_result_to_chitralekha_format(result, ann_id):
             memory[result[i]["id"]]["labels_dict_idx"],
             memory[result[i]["id"]]["text_dict_idx"],
         )
+        acoustic_text_dict_idx = (
+            memory[result[i]["id"]]["acoustic_text_dict_idx"]
+            if project_type == "AcousticNormalisedTranscription"
+            else None
+        )
         if labels_dict_idx == -1:
             text_dict = result[text_dict_idx]
+            if acoustic_text_dict_idx is not None:
+                acoustic_dict = result[acoustic_text_dict_idx]
             speaker_id = "Speaker 0"
             seen.add(text_dict_idx)
         elif text_dict_idx == -1:
@@ -46,13 +61,24 @@ def convert_result_to_chitralekha_format(result, ann_id):
         else:
             label_dict = result[labels_dict_idx]
             text_dict = result[text_dict_idx]
+            if acoustic_text_dict_idx is not None:
+                acoustic_dict = result[acoustic_text_dict_idx]
             seen.add(labels_dict_idx)
             seen.add(text_dict_idx)
+            if acoustic_text_dict_idx is not None:
+                seen.add(acoustic_text_dict_idx)
             try:
                 speaker_id = label_dict["value"]["labels"][0]
             except KeyError:
                 speaker_id = "Speaker 0"
+
         text = text_dict["value"]["text"][0] if text_dict["value"]["text"] else ""
+        if acoustic_text_dict_idx is not None:
+            acoustic_normalised_text = (
+                acoustic_dict["value"]["text"][0]
+                if acoustic_dict["value"]["text"]
+                else ""
+            )
         try:
             chitra_dict = {
                 "text": text,
@@ -65,6 +91,8 @@ def convert_result_to_chitralekha_format(result, ann_id):
                 ),
                 "id": count,
             }
+            if acoustic_text_dict_idx is not None:
+                chitra_dict["acoustic_normalised_text"] = acoustic_normalised_text
         except Exception:
             continue
         count += 1
@@ -73,7 +101,18 @@ def convert_result_to_chitralekha_format(result, ann_id):
     modified_result = (
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
-    return modified_result if len(modified_result) > 0 else [{}]
+    if acoustic_text_dict_idx is not None:
+        standardised_transcription = (
+            result[memory["standardised_transcription"]]["value"]["text"][0]
+            if result[memory["standardised_transcription"]]["value"]["text"]
+            else ""
+        )
+        return (
+            modified_result if len(modified_result) > 0 else [{}],
+            standardised_transcription,
+        )
+
+    return (modified_result if len(modified_result) > 0 else [{}], None)
 
 
 def convert_fractional_time_to_formatted(decimal_time, ann_id, data_id):
