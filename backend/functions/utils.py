@@ -527,8 +527,8 @@ def get_batch_ocr_predictions_using_google(id, image_url):
                     - paragraph_bounding_box[0]["y"],
                     "labels": ["Body"],
                     "rotation": 0,
-                    "original_width": 1510,
-                    "original_height": 2373,
+                    "original_width": page.width,
+                    "original_height": page.height,
                 }
 
                 ocr_prediction = ocr_format_conversion(ocr_prediction)
