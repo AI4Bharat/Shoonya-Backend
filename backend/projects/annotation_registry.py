@@ -130,11 +130,23 @@ ANNOTATION_REGISTRY_DICT = {
             "type": ["textarea", "labels", "textarea"],
         },
     },
+    "AcousticNormalisedTranscription": {
+        "transcribed_json": {
+            "to_name": "audio_url",
+            "from_name": [
+                "labels",
+                "verbatim_transcribed_json",
+                "acoustic_normalised_transcribed_json",
+                "standardised_transcription",
+            ],
+            "type": ["labels", "textarea", "textarea", "textarea"],
+        },
+    },
 }
 
 
 def convert_prediction_json_to_annotation_result(
-    prediction_json, speakers_json, audio_duration, index
+    prediction_json, speakers_json, audio_duration, index, is_acoustic=False
 ):
     """
     Convert prediction_json and transcribed_json to annotation_result
@@ -157,11 +169,19 @@ def convert_prediction_json_to_annotation_result(
             "from_name": "transcribed_json",
             "original_length": audio_duration,
         }
+        acoustic_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "acoustic_normalised_transcribed_json",
+            "original_length": audio_duration,
+        }
         id = f"shoonya_{index}s{idx}s{generate_random_string(13-len(str(idx)))}"
         label_dict["id"] = id
         text_dict["id"] = id
+        acoustic_dict["id"] = id
         label_dict["type"] = "labels"
         text_dict["type"] = "textarea"
+        acoustic_dict["type"] = "textarea"
 
         value_labels = {
             "start": val["start"],
@@ -175,12 +195,36 @@ def convert_prediction_json_to_annotation_result(
             ],
         }
         value_text = {"start": val["start"], "end": val["end"], "text": [val["text"]]}
+        value_acoustic = {
+            "start": val["start"],
+            "end": val["end"],
+            "text": "",
+        }
 
         label_dict["value"] = value_labels
         text_dict["value"] = value_text
+        if is_acoustic:
+            acoustic_dict["value"] = value_acoustic
+            text_dict["from_name"] = "verbatim_transcribed_json"
+            result.append(acoustic_dict)
 
         result.append(label_dict)
         result.append(text_dict)
+
+    if is_acoustic:
+        result.append(
+            {
+                "id": f"shoonya_{idx}s{generate_random_string(15)}",
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "standardised_transcription",
+                "original_length": audio_duration,
+                "type": "textarea",
+                "value": {
+                    "text": "",
+                },
+            }
+        )
 
     return result
 
@@ -229,7 +273,11 @@ def draft_data_json_to_annotation_result(draft_data_json, project_type, pk=None)
                 ans = convert_conversation_json_to_annotation_result(value, idx)
             elif field == "transcribed_json" or field == "prediction_json":
                 ans = convert_prediction_json_to_annotation_result(
-                    value, dataset_item.speakers_json, dataset_item.audio_duration, idx
+                    value,
+                    dataset_item.speakers_json,
+                    dataset_item.audio_duration,
+                    idx,
+                    project_type == "AcousticNormalisedTranscription",
                 )
             else:
                 if field_type == "textarea":

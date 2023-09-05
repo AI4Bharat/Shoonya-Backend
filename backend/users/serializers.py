@@ -70,6 +70,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "unverified_email",
             "date_joined",
             "participation_type",
+            "prefer_cl_ui",
         ]
         read_only_fields = [
             "id",
