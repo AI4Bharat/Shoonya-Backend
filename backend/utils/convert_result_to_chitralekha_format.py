@@ -29,7 +29,7 @@ def create_memory(result):
 
 def convert_result_to_chitralekha_format(result, ann_id, project_type):
     if (len(result) == 1 and result[0] == {}) or len(result) == 0:
-        return []
+        return [], None
     memory = create_memory(result)
     modified_result = []
     count = 1
