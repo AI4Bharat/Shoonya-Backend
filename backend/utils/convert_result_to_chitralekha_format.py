@@ -29,7 +29,7 @@ def create_memory(result):
 
 def convert_result_to_chitralekha_format(result, ann_id, project_type):
     if len(result) == 1 and result[0] == {}:
-        return [{}]
+        return []
     memory = create_memory(result)
     modified_result = []
     count = 1
@@ -101,18 +101,15 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
     modified_result = (
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
-    if acoustic_text_dict_idx is not None:
-        """standardised_transcription = (
+    standardised_transcription = None
+    """ if project_type == "AcousticNormalisedTranscription":
+        standardised_transcription = (
             result[memory["standardised_transcription"]]["value"]["text"][0]
             if result[memory["standardised_transcription"]]["value"]["text"]
             else ""
-        )"""
-        return (
-            modified_result if len(modified_result) > 0 else [{}],
-            "",
         )
-
-    return (modified_result if len(modified_result) > 0 else [{}], None)
+    """
+    return (modified_result, standardised_transcription)
 
 
 def convert_fractional_time_to_formatted(decimal_time, ann_id, data_id):
