@@ -6,7 +6,7 @@ def create_memory(result):
             dict_type = result[i]["from_name"]
         except KeyError:
             print(
-                f"The entry number {i} is not having an id or type hence cannot be converted to chitralekha format"
+                f"The entry number {i} is not having an id or from_name hence cannot be converted to chitralekha format"
             )
             del result[i]
             continue
@@ -27,7 +27,7 @@ def create_memory(result):
     return memory
 
 
-def convert_result_to_chitralekha_format(result, ann_id):
+def convert_result_to_chitralekha_format(result, ann_id, project_type):
     if (len(result) == 1 and result[0] == {}) or len(result) == 0:
         return []
     memory = create_memory(result)
