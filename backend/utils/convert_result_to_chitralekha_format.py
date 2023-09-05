@@ -20,8 +20,8 @@ def create_memory(result):
 
 
 def convert_result_to_chitralekha_format(result, ann_id):
-    if len(result) == 1 and result[0] == {}:
-        return [{}]
+    if (len(result) == 1 and result[0] == {}) or len(result) == 0:
+        return []
     memory = create_memory(result)
     modified_result = []
     count = 1
@@ -73,7 +73,7 @@ def convert_result_to_chitralekha_format(result, ann_id):
     modified_result = (
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
-    return modified_result if len(modified_result) > 0 else [{}]
+    return modified_result if len(modified_result) > 0 else []
 
 
 def convert_fractional_time_to_formatted(decimal_time, ann_id, data_id):
