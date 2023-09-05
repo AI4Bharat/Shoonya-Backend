@@ -1318,6 +1318,12 @@ class AnnotationViewSet(
                 SKIPPED,
             ]:
                 annotation_status = request.data["annotation_status"]
+                if annotation_status == LABELED:
+                    response_message = "Task Successfully Submitted"
+                elif annotation_status == DRAFT:
+                    response_message = "Task Saved as Draft"
+                else:
+                    response_message = "Success"
                 is_to_be_revised_task = (
                     True if annotation_obj.annotation_status == TO_BE_REVISED else False
                 )
@@ -1421,6 +1427,18 @@ class AnnotationViewSet(
                 TO_BE_REVISED,
             ]:
                 review_status = request.data["annotation_status"]
+                if review_status in [
+                    ACCEPTED,
+                    ACCEPTED_WITH_MINOR_CHANGES,
+                    ACCEPTED_WITH_MAJOR_CHANGES,
+                ]:
+                    response_message = "Task Successfully Accepted"
+                elif review_status == DRAFT:
+                    response_message = "Task Saved as Draft"
+                elif review_status == TO_BE_REVISED:
+                    response_message = "Task Saved as 'To Be Revised'"
+                else:
+                    response_message = "Success"
                 update_annotated_at = (
                     True
                     if review_status
@@ -1579,6 +1597,14 @@ class AnnotationViewSet(
                 SKIPPED,
             ]:
                 supercheck_status = request.data["annotation_status"]
+                if supercheck_status in [VALIDATED, VALIDATED_WITH_CHANGES]:
+                    response_message = "Task Successfully Validated"
+                elif supercheck_status == DRAFT:
+                    response_message = "Task Saved as Draft"
+                elif supercheck_status == REJECTED:
+                    response_message = "Task Rejected"
+                else:
+                    response_message = "Success"
                 update_annotated_at = (
                     True
                     if supercheck_status
@@ -1703,7 +1729,7 @@ class AnnotationViewSet(
             if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
                 task.correct_annotation = None
                 task.save()
-
+        annotation_response.data["message"] = response_message
         return annotation_response
 
     def destroy(self, request, pk=None):
