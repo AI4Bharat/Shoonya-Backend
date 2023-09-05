@@ -27,8 +27,8 @@ def create_memory(result):
     return memory
 
 
-def convert_result_to_chitralekha_format(result, ann_id, project_type):
-    if len(result) == 1 and result[0] == {}:
+def convert_result_to_chitralekha_format(result, ann_id):
+    if (len(result) == 1 and result[0] == {}) or len(result) == 0:
         return []
     memory = create_memory(result)
     modified_result = []
@@ -101,7 +101,7 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
     modified_result = (
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
-    standardised_transcription = None
+   standardised_transcription = None
     """ if project_type == "AcousticNormalisedTranscription":
         standardised_transcription = (
             result[memory["standardised_transcription"]]["value"]["text"][0]
