@@ -103,12 +103,18 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
     )
     if project_type == "AcousticNormalisedTranscription":
         standardised_transcription = (
-            (result[memory["standardised_transcription"]]["value"]["text"][0]
-            if result[memory["standardised_transcription"]]["value"]["text"]
-            else "") if "standardised_transcription" in memory.keys() else ""
+            (
+                result[memory["standardised_transcription"]]["value"]["text"][0]
+                if result[memory["standardised_transcription"]]["value"]["text"]
+                else ""
+            )
+            if "standardised_transcription" in memory.keys()
+            else ""
         )
-        modified_result.append({'standardised_transcription': standardised_transcription})
-    
+        modified_result.append(
+            {"standardised_transcription": standardised_transcription}
+        )
+
     return (modified_result, None)
 
 
