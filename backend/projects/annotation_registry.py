@@ -221,7 +221,7 @@ def convert_prediction_json_to_annotation_result(
                 "original_length": audio_duration,
                 "type": "textarea",
                 "value": {
-                    "text": "",
+                    "text": [],
                 },
             }
         )
