@@ -146,28 +146,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
                 # ann.result = {"subtitles": subtitles, "standardised_transcription": standardised_transcription}
                 ann.result = subtitles
-            try:
-                page_number = int(request.query_params["page_number"])
-            except KeyError:
-                page_number = 1
-            try:
-                number_of_records = int(request.query_params["records"])
-                if number_of_records <= 0:
-                    number_of_records = 10
-            except KeyError:
-                number_of_records = 10
-            serializer = AnnotationSerializer(annotations, many=True)
-            for i in range(len(annotations)):
-                paginator = Paginator(serializer.data[i]["result"], number_of_records)
-                if page_number > paginator.num_pages or page_number < 1:
-                    page = []
-                else:
-                    page = paginator.get_page(page_number)
-                serializer.data[i]["result"] = [item for item in page]
-                serializer.data[i]["total_records"] = paginator.count
-                serializer.data[i]["total_pages"] = paginator.num_pages
-                serializer.data[i]["page_number"] = page_number
-            return Response(serializer.data)
+
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
