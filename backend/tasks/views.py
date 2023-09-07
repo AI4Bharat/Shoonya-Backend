@@ -138,14 +138,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         # modifications for integrations of chitralekha UI
         if "enable_chitralekha_UI" in dict(request.query_params):
             for ann in annotations:
-                (
-                    subtitles,
-                    standardised_transcription,
-                ) = convert_result_to_chitralekha_format(
+                ann.result = convert_result_to_chitralekha_format(
                     ann.result, ann.id, project.project_type
                 )
-                # ann.result = {"subtitles": subtitles, "standardised_transcription": standardised_transcription}
-                ann.result = subtitles
 
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
