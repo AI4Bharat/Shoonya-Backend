@@ -444,7 +444,7 @@ def export_project_in_place(
                 print(error)
                 export_excluded_task_ids.append(task.id)
                 continue
-            if project_type == "AcousticNormalisedTranscription":
+            if project_type == "AcousticNormalisedTranscriptionEditing":
                 try:
                     ta_transcribed_json = json.loads(ta["verbatim_transcribed_json"])
                 except json.JSONDecodeError:
@@ -498,12 +498,12 @@ def export_project_in_place(
                         )["speaker_id"]
                         ta_labels[idx]["speaker_id"] = speaker_id
                         del ta_labels[idx]["labels"]
-                        if project_type == "AcousticNormalisedTranscription":
+                        if project_type == "AcousticNormalisedTranscriptionEditing":
                             temp = deepcopy(ta_labels[idx])
                             temp["text"] = ta_acoustic_transcribed_json[idx]
                             ta_acoustic_transcribed_json[idx] = temp
                             print(temp)
-                    if project_type == "AcousticNormalisedTranscription":
+                    if project_type == "AcousticNormalisedTranscriptionEditing":
                         try:
                             standardised_transcription = json.loads(
                                 ta["standardised_transcription"]

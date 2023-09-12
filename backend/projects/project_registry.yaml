@@ -334,7 +334,7 @@ Audio:
         fields: 
           annotations: 
             - transcribed_json
-    AcousticNormalisedTranscription: 
+    AcousticNormalisedTranscriptionEditing: 
       project_mode: "Annotation" 
       label_studio_jsx_file: "audio/acoustic_transcription.jsx" 
       input_dataset: 

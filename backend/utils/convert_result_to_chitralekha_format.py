@@ -41,14 +41,10 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
             memory[result[i]["id"]]["labels_dict_idx"],
             memory[result[i]["id"]]["text_dict_idx"],
         )
-        acoustic_text_dict_idx = (
-            memory[result[i]["id"]]["acoustic_text_dict_idx"]
-            if project_type == "AcousticNormalisedTranscription"
-            else None
-        )
+        acoustic_text_dict_idx = memory[result[i]["id"]]["acoustic_text_dict_idx"]
         if labels_dict_idx == -1:
             text_dict = result[text_dict_idx]
-            if acoustic_text_dict_idx is not None:
+            if acoustic_text_dict_idx != -1:
                 acoustic_dict = result[acoustic_text_dict_idx]
             speaker_id = "Speaker 0"
             seen.add(text_dict_idx)
@@ -61,19 +57,18 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
         else:
             label_dict = result[labels_dict_idx]
             text_dict = result[text_dict_idx]
-            if acoustic_text_dict_idx is not None:
+            if acoustic_text_dict_idx != -1:
                 acoustic_dict = result[acoustic_text_dict_idx]
+                seen.add(acoustic_text_dict_idx)
             seen.add(labels_dict_idx)
             seen.add(text_dict_idx)
-            if acoustic_text_dict_idx is not None:
-                seen.add(acoustic_text_dict_idx)
             try:
                 speaker_id = label_dict["value"]["labels"][0]
             except KeyError:
                 speaker_id = "Speaker 0"
 
         text = text_dict["value"]["text"][0] if text_dict["value"]["text"] else ""
-        if acoustic_text_dict_idx is not None:
+        if acoustic_text_dict_idx != -1:
             acoustic_normalised_text = (
                 acoustic_dict["value"]["text"][0]
                 if acoustic_dict["value"]["text"]
@@ -91,7 +86,7 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
                 ),
                 "id": count,
             }
-            if acoustic_text_dict_idx is not None:
+            if acoustic_text_dict_idx != -1:
                 chitra_dict["acoustic_normalised_text"] = acoustic_normalised_text
         except Exception:
             continue
@@ -101,15 +96,17 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
     modified_result = (
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
-    if project_type == "AcousticNormalisedTranscription":
-        standardised_transcription = (
-            result[memory["standardised_transcription"]]["value"]["text"][0]
-            if "standardised_transcription" in memory.keys()
-            and result[memory["standardised_transcription"]]["value"]["text"]
-            else ""
-        )
+    if (
+        project_type == "AcousticNormalisedTranscriptionEditing"
+        and "standardised_transcription" in memory.keys()
+        and result[memory["standardised_transcription"]]["value"]["text"]
+    ):
         modified_result.append(
-            {"standardised_transcription": standardised_transcription}
+            {
+                "standardised_transcription": result[
+                    memory["standardised_transcription"]
+                ]["value"]["text"][0]
+            }
         )
 
     return modified_result
