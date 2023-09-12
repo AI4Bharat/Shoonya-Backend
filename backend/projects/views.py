@@ -781,7 +781,10 @@ def get_task_count_unassigned(pk, user):
 
 def convert_prediction_json_to_annotation_result(pk, proj_type):
     result = []
-    if proj_type == "AudioTranscriptionEditing":
+    if (
+        proj_type == "AudioTranscriptionEditing"
+        or proj_type == "AcousticNormalisedTranscriptionEditing"
+    ):
         data_item = SpeechConversation.objects.get(pk=pk)
         prediction_json = data_item.prediction_json
         speakers_json = data_item.speakers_json
@@ -802,6 +805,8 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 "from_name": "transcribed_json",
                 "original_length": audio_duration,
             }
+            if proj_type == "AcousticNormalisedTranscriptionEditing":
+                text_dict["from_name"] = "verbatim_transcribed_json"
             id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
             label_dict["id"] = id
             text_dict["id"] = id
@@ -1792,7 +1797,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 proj.metadata_json[
                     "automatic_annotation_creation_mode"
                 ] = automatic_annotation_creation_mode
-            if proj.project_type == "AcousticNormalisedTranscription":
+            if proj.project_type == "AcousticNormalisedTranscriptionEditing":
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
                 proj.metadata_json["acoustic_enabled_stage"] = (
@@ -2008,6 +2013,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task.save()
             result = []
             if project.project_type in [
+                "AcousticNormalisedTranscriptionEditing",
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
             ]:

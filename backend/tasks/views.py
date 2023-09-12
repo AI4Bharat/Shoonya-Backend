@@ -1303,7 +1303,7 @@ class AnnotationViewSet(
         is_acoustic_project_type = (
             True
             if annotation_obj.task.project_id.project_type
-            == "AcousticNormalisedTranscription"
+            == "AcousticNormalisedTranscriptionEditing"
             else False
         )
 
@@ -1352,6 +1352,11 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        == 1,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1372,6 +1377,11 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        == 1,
                     )
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
@@ -1489,6 +1499,11 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        <= 2,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1509,6 +1524,11 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        <= 2,
                     )
                 annotation_response = super().partial_update(request)
             annotation_id = annotation_response.data["id"]
@@ -1650,6 +1670,11 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        <= 3,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1670,6 +1695,11 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        <= 3,
                     )
                 annotation_response = super().partial_update(request)
             task = annotation.task
@@ -1758,25 +1788,28 @@ class AnnotationViewSet(
     #     return annotation_response
 
     # convert chitralekha_format to LSF
-    def convert_chitralekha_format_to_LSF(self, result, task, is_acoustic=False):
+    def convert_chitralekha_format_to_LSF(
+        self, result, task, is_acoustic=False, acoustic_enabled=False
+    ):
         modified_result = []
         audio_duration = task.data["audio_duration"]
         if result == None or len(result) == 0:
             return modified_result
         for idx, val in enumerate(result):
             if "standardised_transcription" in val:
-                standardised_dict = {
-                    "id": f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}",
-                    "origin": "manual",
-                    "to_name": "audio_url",
-                    "from_name": "standardised_transcription",
-                    "original_length": audio_duration,
-                    "type": "textarea",
-                    "value": {
-                        "text": [val["standardised_transcription"]],
-                    },
-                }
-                modified_result.append(standardised_dict)
+                if acoustic_enabled:
+                    standardised_dict = {
+                        "id": f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}",
+                        "origin": "manual",
+                        "to_name": "audio_url",
+                        "from_name": "standardised_transcription",
+                        "original_length": audio_duration,
+                        "type": "textarea",
+                        "value": {
+                            "text": [val["standardised_transcription"]],
+                        },
+                    }
+                    modified_result.append(standardised_dict)
                 continue
             if "type" in val or "value" in val:
                 print(f"The item number {idx} is already in LSF")
@@ -1791,22 +1824,17 @@ class AnnotationViewSet(
             text_dict = {
                 "origin": "manual",
                 "to_name": "audio_url",
-                "from_name": "transcribed_json",
+                "from_name": "transcribed_json"
+                if not is_acoustic
+                else "verbatim_transcribed_json",
                 "original_length": audio_duration,
             }
-            acoustic_dict = {
-                "origin": "manual",
-                "to_name": "audio_url",
-                "from_name": "acoustic_normalised_transcribed_json",
-                "original_length": audio_duration,
-            }
+
             id = f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}"
             label_dict["id"] = id
             text_dict["id"] = id
-            acoustic_dict["id"] = id
             label_dict["type"] = "labels"
             text_dict["type"] = "textarea"
-            acoustic_dict["type"] = "textarea"
 
             value_labels = {
                 "start": self.convert_formatted_time_to_fractional(val["start_time"]),
@@ -1818,18 +1846,28 @@ class AnnotationViewSet(
                 "end": self.convert_formatted_time_to_fractional(val["end_time"]),
                 "text": [val["text"]],
             }
-            value_acoustic = {
-                "start": self.convert_formatted_time_to_fractional(val["start_time"]),
-                "end": self.convert_formatted_time_to_fractional(val["end_time"]),
-                "text": [val["acoustic_normalised_text"]] if is_acoustic else "",
-            }
 
             label_dict["value"] = value_labels
             text_dict["value"] = value_text
 
-            if is_acoustic:
-                acoustic_dict["value"] = value_acoustic
-                text_dict["from_name"] = "verbatim_transcribed_json"
+            if acoustic_enabled:
+                acoustic_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "acoustic_normalised_transcribed_json",
+                    "original_length": audio_duration,
+                    "id": id,
+                    "type": "textarea",
+                    "value": {
+                        "start": self.convert_formatted_time_to_fractional(
+                            val["start_time"]
+                        ),
+                        "end": self.convert_formatted_time_to_fractional(
+                            val["end_time"]
+                        ),
+                        "text": [val["acoustic_normalised_text"]],
+                    },
+                }
                 modified_result.append(acoustic_dict)
 
             modified_result.append(label_dict)
