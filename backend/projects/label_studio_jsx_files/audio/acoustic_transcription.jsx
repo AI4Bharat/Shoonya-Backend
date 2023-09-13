@@ -18,14 +18,17 @@
     <Header value="Provide Transcription" />
   </View>
   <View style="overflow: auto; width: 50%;">
-    <TextArea name="verbatim_transcribed_json" toName="audio_url" perRegion="true" className="ignore_assertion" />
-    <TextArea name="acoustic_normalised_transcribed_json" toName="audio_url" perRegion="true" className="ignore_assertion" />
+    <TextArea name="verbatim_transcribed_json" transcription="true" toName="audio_url" 
+      rows="2" editable="false" maxSubmissions="1"
+      perRegion="true" required="true" className="ignore_assertion"/>
   </View>
-  <TextArea name="standardised_transcription" toName="audio_url" className="ignore_assertion"/>
+  <View style="display: none;">
+    <TextArea name="acoustic_normalised_transcribed_json" toName="audio_url" perRegion="true" className="ignore_assertion" />
+    <TextArea name="standardised_transcription" toName="audio_url" className="ignore_assertion"/>
+  </View>
   {reference_raw_transcript ? <Header value="Reference Transcript" /> 
    <Text name="reference_raw_transcript" 
     value="$reference_raw_transcript"/> : null}
-
 
 </View >
 
