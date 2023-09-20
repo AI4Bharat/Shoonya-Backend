@@ -907,6 +907,8 @@ def convert_annotation_result_to_formatted_json(
     annotation_result, speakers_json, dataset_type, is_acoustic=False
 ):
     transcribed_json = []
+    acoustic_transcribed_json = []
+    standardised_transcription = ""
     if dataset_type == "SpeechConversation":
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
@@ -922,7 +924,7 @@ def convert_annotation_result_to_formatted_json(
             ):
                 acoustic_text_dict = annotation_result[idx1]
             elif annotation_result[idx1]["from_name"] == "standardised_transcription":
-                transcribed_json.append(annotation_result[idx1]["value"]["text"][0])
+                standardised_transcription = annotation_result[idx1]["value"]["text"][0]
                 continue
             else:
                 text_dict = annotation_result[idx1]
@@ -958,27 +960,24 @@ def convert_annotation_result_to_formatted_json(
                     formatted_result_dict["start"] = labels_dict["value"]["start"]
                     formatted_result_dict["end"] = labels_dict["value"]["end"]
 
-                if is_acoustic:
-                    if not acoustic_text_dict:
-                        formatted_result_dict["acoustic_normalised_text"] = ""
-                    else:
-                        formatted_result_dict[
-                            "acoustic_normalised_text"
-                        ] = acoustic_text_dict["value"]["text"][0]
-                        formatted_result_dict["start"] = acoustic_text_dict["value"][
-                            "start"
-                        ]
-                        formatted_result_dict["end"] = acoustic_text_dict["value"][
-                            "end"
-                        ]
-
                 if not text_dict:
                     formatted_result_dict["text"] = ""
                 else:
                     formatted_result_dict["text"] = text_dict["value"]["text"][0]
                     formatted_result_dict["start"] = text_dict["value"]["start"]
                     formatted_result_dict["end"] = text_dict["value"]["end"]
+
                 transcribed_json.append(formatted_result_dict)
+
+                if is_acoustic:
+                    acoustic_formatted_result_dict = deepcopy(formatted_result_dict)
+                    acoustic_formatted_result_dict["text"] = (
+                        acoustic_text_dict["value"]["text"][0]
+                        if acoustic_text_dict
+                        else ""
+                    )
+                    acoustic_transcribed_json.append(acoustic_formatted_result_dict)
+
     else:
         for idx1 in range(0, len(annotation_result), 3):
             rectangle_dict = {}
@@ -1006,6 +1005,13 @@ def convert_annotation_result_to_formatted_json(
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             transcribed_json.append(formatted_result_dict)
+
+    if is_acoustic:
+        return {
+            "verbatim_transcribed_json": transcribed_json,
+            "acoustic_normalised_transcribed_json": acoustic_transcribed_json,
+            "standardised_transcription": standardised_transcription,
+        }
 
     return transcribed_json
 
