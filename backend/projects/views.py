@@ -904,7 +904,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
 
 
 def convert_annotation_result_to_formatted_json(
-    annotation_result, speakers_json, dataset_type
+    annotation_result, speakers_json, dataset_type, is_acoustic=False
 ):
     transcribed_json = []
     if dataset_type == "SpeechConversation":
@@ -913,17 +913,34 @@ def convert_annotation_result_to_formatted_json(
             formatted_result_dict = {}
             labels_dict = {}
             text_dict = {}
-            if annotation_result[idx1]["type"] == "labels":
+            acoustic_text_dict = {}
+            if annotation_result[idx1]["from_name"] == "labels":
                 labels_dict = annotation_result[idx1]
+            elif (
+                annotation_result[idx1]["from_name"]
+                == "acoustic_normalised_transcribed_json"
+            ):
+                acoustic_text_dict = annotation_result[idx1]
+            elif annotation_result[idx1]["from_name"] == "standardised_transcription":
+                transcribed_json.append(annotation_result[idx1]["value"]["text"][0])
+                continue
             else:
                 text_dict = annotation_result[idx1]
             for idx2 in range(idx1 + 1, len(annotation_result)):
                 if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
-                    if annotation_result[idx2]["type"] == "labels":
+                    if annotation_result[idx2]["from_name"] == "labels":
                         labels_dict = annotation_result[idx2]
+                    elif (
+                        annotation_result[idx2]["from_name"]
+                        == "acoustic_normalised_transcribed_json"
+                    ):
+                        acoustic_text_dict = annotation_result[idx2]
                     else:
                         text_dict = annotation_result[idx2]
-                    break
+                    if not is_acoustic or (
+                        labels_dict and acoustic_text_dict and text_dict
+                    ):
+                        break
 
             if annotation_result[idx1]["id"] not in ids_formatted:
                 ids_formatted[annotation_result[idx1]["id"]] = "formatted"
@@ -940,6 +957,20 @@ def convert_annotation_result_to_formatted_json(
                         formatted_result_dict["speaker_id"] = None
                     formatted_result_dict["start"] = labels_dict["value"]["start"]
                     formatted_result_dict["end"] = labels_dict["value"]["end"]
+
+                if is_acoustic:
+                    if not acoustic_text_dict:
+                        formatted_result_dict["acoustic_normalised_text"] = ""
+                    else:
+                        formatted_result_dict[
+                            "acoustic_normalised_text"
+                        ] = acoustic_text_dict["value"]["text"][0]
+                        formatted_result_dict["start"] = acoustic_text_dict["value"][
+                            "start"
+                        ]
+                        formatted_result_dict["end"] = acoustic_text_dict["value"][
+                            "end"
+                        ]
 
                 if not text_dict:
                     formatted_result_dict["text"] = ""
@@ -3788,7 +3819,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             task["data"][
                                 "transcribed_json"
                             ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, speakers_json, dataset_type
+                                annotation_result,
+                                speakers_json,
+                                dataset_type,
+                                project_type
+                                == "AcousticNormalisedTranscriptionEditing",
                             )
                 else:
                     for task in tasks_list:
