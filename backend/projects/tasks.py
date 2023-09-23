@@ -502,7 +502,6 @@ def export_project_in_place(
                             temp = deepcopy(ta_labels[idx])
                             temp["text"] = ta_acoustic_transcribed_json[idx]
                             ta_acoustic_transcribed_json[idx] = temp
-                            print(temp)
                     if project_type == "AcousticNormalisedTranscriptionEditing":
                         try:
                             standardised_transcription = json.loads(
