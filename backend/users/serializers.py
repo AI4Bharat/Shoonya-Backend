@@ -46,6 +46,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "participation_type",
             "organization",
             "role",
+            "is_active",
         ]
         read_only_fields = ["email"]
 
@@ -71,6 +72,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "date_joined",
             "participation_type",
             "prefer_cl_ui",
+            "is_active",
         ]
         read_only_fields = [
             "id",
