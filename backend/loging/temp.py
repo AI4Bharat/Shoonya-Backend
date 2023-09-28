@@ -1,5 +1,5 @@
 from azure.storage.blob import BlobServiceClient
-import  os
+import os
 
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 CONTAINER_NAME = os.getenv("CONTAINER_NAME")
@@ -27,4 +27,4 @@ blob_data = blob_client.download_blob()
 content = blob_data.readall()
 
 # Now, 'content' contains the content of the blob
-print(content.decode('utf-8'))  # Assuming the blob contains text data
+print(content.decode("utf-8"))  # Assuming the blob contains text data
