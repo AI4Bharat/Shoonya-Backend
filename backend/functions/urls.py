@@ -27,6 +27,7 @@ urlpatterns = [
         "schedule_asr_prediction_json_population",
         schedule_asr_prediction_json_population,
     ),
+    path("schedule_project_reports_email", schedule_project_reports_email),
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)

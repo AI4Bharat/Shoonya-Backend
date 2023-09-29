@@ -1,7 +1,21 @@
 import pandas as pd
 from celery import shared_task
 from dataset import models as dataset_models
+from organizations.models import Organization
+from projects.models import Project
+from projects.utils import (
+    convert_seconds_to_hours,
+    get_audio_project_types,
+    get_audio_transcription_duration,
+    calculate_word_error_rate_between_two_audio_transcription_annotation,
+)
+from shoonya_backend import settings
+from tasks.models import Annotation, ANNOTATOR_ANNOTATION, REVIEWER_ANNOTATION
+from tasks.views import SentenceOperationViewSet
+from users.models import User
+from django.core.mail import EmailMessage
 from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
+from workspaces.models import Workspace
 
 from .utils import (
     get_batch_translations,
@@ -659,3 +673,426 @@ def populate_draft_data_json(self, pk, fields_list):
             cnt += 1
 
     return f"successfully populated {cnt} dataset items with draft_data_json"
+
+
+@shared_task(bind=True)
+def schedule_mail(
+    self,
+    project_type,
+    user_id,
+    anno_stats,
+    meta_stats,
+    complete_stats,
+    workspace_level_reports,
+    organization_level_reports,
+    dataset_level_reports,
+    wid,
+    oid,
+    did,
+):
+    proj_objs = get_proj_objs(
+        workspace_level_reports,
+        organization_level_reports,
+        dataset_level_reports,
+        project_type,
+        wid,
+        oid,
+        did,
+    )
+    if len(proj_objs) == 0:
+        print("No projects found")
+        return 0
+    user = User.objects.get(id=user_id)
+    result = get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type)
+    df = pd.DataFrame.from_dict(result)
+
+    content = df.to_csv(index=True)
+    content_type = "text/csv"
+
+    if workspace_level_reports:
+        workspace = Workspace.objects.filter(id=wid)
+        name = workspace[0].workspace_name
+        type = "workspace"
+        filename = f"{name}_user_analytics.csv"
+    elif dataset_level_reports:
+        dataset = DatasetInstance.objects.filter(instance_id=did)
+        name = dataset[0].instance_name
+        type = "dataset"
+        filename = f"{name}_user_analytics.csv"
+    else:
+        organization = Organization.objects.filter(id=oid)
+        name = organization[0].title
+        type = "organization"
+        filename = f"{name}_user_analytics.csv"
+
+    message = (
+        "Dear "
+        + str(user.username)
+        + f",\nYour user reports for the {type}"
+        + f"{name}"
+        + " are ready.\n Thanks for contributing on Shoonya!"
+        + "\nProject Type: "
+        + f"{project_type}"
+    )
+
+    email = EmailMessage(
+        f"{name}" + " Payment Reports",
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        attachments=[(filename, content, content_type)],
+    )
+    try:
+        email.send()
+    except Exception as e:
+        print(f"An error occurred while sending email: {e}")
+
+
+def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type):
+    result = {}
+    for proj in proj_objs:
+        annotations = Annotation.objects.filter(task__project_id=proj.id)
+        (
+            result_ann_anno_stats,
+            result_rev_anno_stats,
+            result_sup_anno_stats,
+            result_ann_meta_stats,
+            result_rev_meta_stats,
+            result_sup_meta_stats,
+            average_ann_vs_rev_CED,
+            average_ann_vs_rev_WER,
+            average_rev_vs_sup_CED,
+            average_rev_vs_sup_WER,
+        ) = get_stats_definitions()
+        for ann_obj in annotations:
+            if ann_obj.annotation_type == ANNOTATOR_ANNOTATION:
+                try:
+                    get_stats_helper(
+                        anno_stats,
+                        meta_stats,
+                        complete_stats,
+                        result_ann_anno_stats,
+                        result_ann_meta_stats,
+                        ann_obj,
+                        project_type,
+                        average_ann_vs_rev_CED,
+                        average_ann_vs_rev_WER,
+                    )
+                except:
+                    continue
+            elif ann_obj.annotation_type == REVIEWER_ANNOTATION:
+                try:
+                    get_stats_helper(
+                        anno_stats,
+                        meta_stats,
+                        complete_stats,
+                        result_rev_anno_stats,
+                        result_rev_meta_stats,
+                        ann_obj,
+                        project_type,
+                        average_rev_vs_sup_CED,
+                        average_rev_vs_sup_WER,
+                    )
+                except:
+                    continue
+            else:
+                try:
+                    get_stats_helper(
+                        anno_stats,
+                        meta_stats,
+                        complete_stats,
+                        result_sup_anno_stats,
+                        result_sup_meta_stats,
+                        ann_obj,
+                        project_type,
+                        [],
+                        [],
+                    )
+                except:
+                    continue
+        result[f"{proj.id} - {proj.title}"] = get_modified_stats_result(
+            result_ann_meta_stats,
+            result_rev_meta_stats,
+            result_sup_meta_stats,
+            result_ann_anno_stats,
+            result_rev_anno_stats,
+            result_sup_anno_stats,
+            anno_stats,
+            meta_stats,
+            complete_stats,
+            average_ann_vs_rev_CED,
+            average_ann_vs_rev_WER,
+            average_rev_vs_sup_CED,
+            average_rev_vs_sup_WER,
+        )
+
+    return result
+
+
+def get_stats_definitions():
+    result_ann_anno_stats = {
+        "unlabeled": 0,
+        "labeled": 0,
+        "skipped": 0,
+        "draft": 0,
+        "to_be_revised": 0,
+    }
+    result_rev_anno_stats = {
+        "unreviewed": 0,
+        "skipped": 0,
+        "draft": 0,
+        "to_be_revised": 0,
+        "accepted": 0,
+        "accepted_with_minor_changes": 0,
+        "accepted_with_major_changes": 0,
+        "rejected": 0,
+    }
+    result_sup_anno_stats = {
+        "unvalidated": 0,
+        "skipped": 0,
+        "draft": 0,
+        "validated": 0,
+        "validated_with_changes": 0,
+        "rejected": 0,
+    }
+    result_ann_meta_stats = {
+        "unlabeled": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "skipped": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "draft": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "labeled": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "to_be_revised": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Word Count": 0,
+        },
+    }
+    result_rev_meta_stats = {
+        "unreviewed": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "skipped": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "draft": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "to_be_revised": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "accepted": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "accepted_with_minor_changes": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "accepted_with_major_changes": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "rejected": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+    }
+    result_sup_meta_stats = {
+        "unvalidated": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "skipped": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "draft": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "validated": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "validate_with_changes": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "rejected": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+    }
+    return (
+        result_ann_anno_stats,
+        result_rev_anno_stats,
+        result_sup_anno_stats,
+        result_ann_meta_stats,
+        result_rev_meta_stats,
+        result_sup_meta_stats,
+        [],
+        [],
+        [],
+        [],
+    )
+
+
+def get_modified_stats_result(
+    result_ann_meta_stats,
+    result_rev_meta_stats,
+    result_sup_meta_stats,
+    result_ann_anno_stats,
+    result_rev_anno_stats,
+    result_sup_anno_stats,
+    anno_stats,
+    meta_stats,
+    complete_stats,
+    average_ann_vs_rev_CED,
+    average_ann_vs_rev_WER,
+    average_rev_vs_sup_CED,
+    average_rev_vs_sup_WER,
+):
+    result = {}
+    if anno_stats or complete_stats:
+        for key, value in result_ann_anno_stats.items():
+            result[f"Annotator - {key.replace('_', ' ').title()} Annotations"] = value
+        for key, value in result_rev_anno_stats.items():
+            result[f"Reviewer - {key.replace('_', ' ').title()} Annotations"] = value
+        for key, value in result_sup_anno_stats.items():
+            result[
+                f"Superchecker - {key.replace('_', ' ').title()} Annotations"
+            ] = value
+    if meta_stats or complete_stats:
+        for key, stats in result_ann_meta_stats.items():
+            raw_audio_duration = stats["Raw Audio Duration"]
+            segment_duration = stats["Segment Duration"]
+            converted_duration_rad = convert_seconds_to_hours(raw_audio_duration)
+            converted_duration_sd = convert_seconds_to_hours(segment_duration)
+            stats["Raw Audio Duration"] = converted_duration_rad
+            stats["Segment Duration"] = converted_duration_sd
+        for key, stats in result_rev_meta_stats.items():
+            raw_audio_duration = stats["Raw Audio Duration"]
+            segment_duration = stats["Segment Duration"]
+            converted_duration_rad = convert_seconds_to_hours(raw_audio_duration)
+            converted_duration_sd = convert_seconds_to_hours(segment_duration)
+            stats["Raw Audio Duration"] = converted_duration_rad
+            stats["Segment Duration"] = converted_duration_sd
+        for key, stats in result_sup_meta_stats.items():
+            raw_audio_duration = stats["Raw Audio Duration"]
+            segment_duration = stats["Segment Duration"]
+            converted_duration_rad = convert_seconds_to_hours(raw_audio_duration)
+            converted_duration_sd = convert_seconds_to_hours(segment_duration)
+            stats["Raw Audio Duration"] = converted_duration_rad
+            stats["Segment Duration"] = converted_duration_sd
+        for key, value in result_ann_meta_stats.items():
+            for sub_key in value.keys():
+                result[
+                    f"Annotator - {key.replace('_', ' ').title()} {sub_key}"
+                ] = value[sub_key]
+        for key, value in result_rev_meta_stats.items():
+            for sub_key in value.keys():
+                result[f"Reviewer - {key.replace('_', ' ').title()} {sub_key}"] = value[
+                    sub_key
+                ]
+        for key, value in result_sup_meta_stats.items():
+            for sub_key in value.keys():
+                result[
+                    f"Superchecker - {key.replace('_', ' ').title()} {sub_key}"
+                ] = value[sub_key]
+
+        result[
+            "Average Annotator VS Reviewer Character Edit Distance"
+        ] = "{:.2f}".format(get_average_of_a_list(average_ann_vs_rev_CED))
+        result["Average Annotator VS Reviewer Word Error Rate"] = "{:.2f}".format(
+            get_average_of_a_list(average_ann_vs_rev_WER)
+        )
+        result[
+            "Average Reviewer VS Superchecker Character Edit Distance"
+        ] = "{:.2f}".format(get_average_of_a_list(average_rev_vs_sup_CED))
+        result["Average Reviewer VS Superchecker Word Error Rate"] = "{:.2f}".format(
+            get_average_of_a_list(average_rev_vs_sup_WER)
+        )
+    return result
+
+
+def get_average_of_a_list(arr):
+    sum_of_elements = 0
+    number_of_elements = 0
+    for num in arr:
+        if num != 0:
+            number_of_elements += 1
+        sum_of_elements += num
+    return sum_of_elements / number_of_elements if number_of_elements > 0 else 0
+
+
+def get_stats_helper(
+    anno_stats,
+    meta_stats,
+    complete_stats,
+    result_anno_stats,
+    result_meta_stats,
+    ann_obj,
+    project_type,
+    average_CED,
+    average_WER,
+):
+    if anno_stats or complete_stats:
+        result_anno_stats[ann_obj.annotation_status] += 1
+        if anno_stats:
+            return 0
+    task_obj = ann_obj.task
+    if project_type not in get_audio_project_types():
+        result_meta_stats[ann_obj.annotation_status]["Word Count"] += task_obj.data[
+            "word_count"
+        ]
+        return 0
+    result_meta_stats[ann_obj.annotation_status]["Raw Audio Duration"] += task_obj.data[
+        "audio_duration"
+    ]
+    result_meta_stats[ann_obj.annotation_status][
+        "Segment Duration"
+    ] += get_audio_transcription_duration(ann_obj.result)
+
+    sentence_operation = SentenceOperationViewSet()
+    try:
+        parent_obj = Annotation.objects.filter(parent_annotation_id=ann_obj.id)
+        if len(parent_obj) == 0 or len(parent_obj[0].result) == 0:
+            return 0
+    except Annotation.DoesNotExist:
+        return 0
+    for i in range(len(ann_obj.result)):
+        if "value" in ann_obj.result[i]:
+            if "text" in ann_obj.result[i]["value"]:
+                str1 = ann_obj.result[i]["value"]["text"]
+            else:
+                continue
+        else:
+            continue
+        if "value" in parent_obj[0].result[i]:
+            if "text" in parent_obj[0].result[i]["value"]:
+                str2 = parent_obj[0].result[i]["value"]["text"]
+            else:
+                continue
+        else:
+            continue
+        data = {"sentence1": str1[0], "sentence2": str2[0]}
+        try:
+            char_level_distance = (
+                sentence_operation.calculate_normalized_character_level_edit_distance(
+                    data
+                )
+            )
+        except:
+            continue
+        average_CED.append(
+            char_level_distance.data["normalized_character_level_edit_distance"]
+        )
+        average_WER.append(
+            calculate_word_error_rate_between_two_audio_transcription_annotation(
+                ann_obj.result, ann_obj.parent_annotation.result
+            )
+        )
+    return 0
+
+
+def get_proj_objs(
+    workspace_level_reports,
+    organization_level_reports,
+    dataset_level_reports,
+    project_type,
+    wid,
+    oid,
+    did,
+):
+    if workspace_level_reports:
+        proj_objs = Project.objects.filter(workspace_id=wid, project_type=project_type)
+    elif organization_level_reports:
+        proj_objs = Project.objects.filter(
+            organization_id=oid, project_type=project_type
+        )
+    elif dataset_level_reports:
+        proj_objs = Project.objects.filter(dataset_id=did, project_type=project_type)
+    else:
+        proj_objs = {}
+    return proj_objs
