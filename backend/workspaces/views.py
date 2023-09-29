@@ -532,16 +532,7 @@ def get_review_reports(
         total_word_error_rate_ar_list = []
         total_word_error_rate_rs_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-            for anno in total_rev_annos_accepted:
-                try:
-                    total_word_count_list.append(anno.task.data["word_count"])
-                    total_word_error_rate_ar_list.append(
-                        calculate_word_error_rate_between_two_audio_transcription_annotation(
-                            anno.result, anno.parent_annotation.result
-                        )
-                    )
-                except:
-                    pass
+            pass
         elif project_type in get_audio_project_types():
             for anno in total_rev_annos_accepted:
                 try:
@@ -550,6 +541,12 @@ def get_review_reports(
                     )
                     total_raw_audio_duration_list.append(
                         anno.task.data["audio_duration"]
+                    )
+                    total_word_count_list.append(anno.task.data["word_count"])
+                    total_word_error_rate_ar_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
                     )
                 except:
                     pass
