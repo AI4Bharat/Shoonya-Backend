@@ -160,17 +160,19 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
     annotation_result2_text = ""
 
     for result in annotation_result1:
-        try:
-            for s in result["value"]["text"]:
-                annotation_result1_text += s
-        except:
-            pass
+        if result["from_name"] in ["transcribed_json", "verbatim_transcribed_json"]:
+            try:
+                for s in result["value"]["text"]:
+                    annotation_result1_text += s
+            except:
+                pass
 
     for result in annotation_result2:
-        try:
-            for s in result["value"]["text"]:
-                annotation_result2_text += s
-        except:
-            pass
+        if result["from_name"] in ["transcribed_json", "verbatim_transcribed_json"]:
+            try:
+                for s in result["value"]["text"]:
+                    annotation_result2_text += s
+            except:
+                pass
 
     return wer(annotation_result1_text, annotation_result2_text)
