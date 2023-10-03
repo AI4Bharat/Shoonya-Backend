@@ -123,6 +123,8 @@ def convert_fractional_time_to_formatted(decimal_time, ann_id, data_id):
             f"Its start/end time are not stored as proper data type (int or float or string)."
         )
         return "00:00:00.000"
+    if decimal_time < 0:
+        return "00:00:00.000"
     if isinstance(decimal_time, str):
         try:
             decimal_time = float(decimal_time)

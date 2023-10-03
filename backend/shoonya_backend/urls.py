@@ -2,6 +2,7 @@ import os
 from django.contrib import admin
 from django.urls import path, include, re_path
 from os.path import basename
+from os.path import basename
 from rest_framework import permissions
 from rest_framework import routers
 from drf_yasg.views import get_schema_view
@@ -46,7 +47,6 @@ urlpatterns = [
     path("projects/", include("projects.urls")),
     path("functions/", include("functions.urls")),
     path("data/", include("dataset.urls")),
-    path("notifications/", include("notifications.urls")),
     re_path(
         r"^swagger(?P<format>\.json|\.yaml)$",
         SchemaView.without_ui(cache_timeout=0),

@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "tasks",
     "functions",
     'notifications',
+    "loging",
     "corsheaders",
     "import_export",
     "django_celery_results",
