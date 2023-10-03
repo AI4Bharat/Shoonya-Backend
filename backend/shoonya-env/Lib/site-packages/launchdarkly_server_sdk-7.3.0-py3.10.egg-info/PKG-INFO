@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: launchdarkly-server-sdk
+Version: 7.3.0
+Summary: LaunchDarkly SDK for Python
+Home-page: https://github.com/launchdarkly/python-server-sdk
+Author: LaunchDarkly
+Author-email: team@launchdarkly.com
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Provides-Extra: redis
+Provides-Extra: consul
+Provides-Extra: dynamodb
+License-File: LICENSE.txt
+
+LaunchDarkly SDK for Python
+

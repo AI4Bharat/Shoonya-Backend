@@ -1,0 +1,6 @@
+
+[test]
+pytest>=3.0.5
+pytest-cov>=2.4.0
+pytest-flake8>=0.8.1
+django>=1.8.0

@@ -1,0 +1,9 @@
+setup.cfg
+setup.py
+django_ranged_fileresponse.egg-info/PKG-INFO
+django_ranged_fileresponse.egg-info/SOURCES.txt
+django_ranged_fileresponse.egg-info/dependency_links.txt
+django_ranged_fileresponse.egg-info/not-zip-safe
+django_ranged_fileresponse.egg-info/requires.txt
+django_ranged_fileresponse.egg-info/top_level.txt
+ranged_fileresponse/__init__.py

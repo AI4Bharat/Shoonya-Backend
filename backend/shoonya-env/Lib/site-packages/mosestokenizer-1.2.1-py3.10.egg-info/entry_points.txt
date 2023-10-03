@@ -1,0 +1,6 @@
+[console_scripts]
+moses-detokenizer = mosestokenizer.detokenizer:main
+moses-punct-normalizer = mosestokenizer.punctnormalizer:main
+moses-sent-splitter = mosestokenizer.sentsplitter:main
+moses-tokenizer = mosestokenizer.tokenizer:main
+

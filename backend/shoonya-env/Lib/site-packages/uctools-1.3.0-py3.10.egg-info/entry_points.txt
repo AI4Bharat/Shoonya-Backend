@@ -1,0 +1,5 @@
+[console_scripts]
+ucenum = ucenum:_main
+ucinfo = ucinfo:_main
+ucnorm = ucnorm:_main
+

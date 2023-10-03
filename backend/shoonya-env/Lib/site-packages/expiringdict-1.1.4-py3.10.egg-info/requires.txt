@@ -1,0 +1,5 @@
+
+[test]
+nose
+mock
+coverage

@@ -1,0 +1,9 @@
+README.md
+attr.py
+dry_attr.py
+setup.cfg
+setup.py
+attr.egg-info/PKG-INFO
+attr.egg-info/SOURCES.txt
+attr.egg-info/dependency_links.txt
+attr.egg-info/top_level.txt

@@ -1,0 +1,2 @@
+grpcio<2.0.0dev,>=1.0.0
+googleapis-common-protos[grpc]<2.0.0dev,>=1.5.2

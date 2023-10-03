@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: label-studio-tools
+Version: 0.0.1
+Summary: Label studio common tools
+Home-page: https://github.com/heartexlabs/label-studio-tools
+Author: Heartex
+Author-email: hello@heartex.ai
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+Requires-Dist: appdirs (>=1.4.3)
+Requires-Dist: lxml (>=4.2.5)
+
+# Common tools for Label Studio 
+
+
