@@ -1,4 +1,5 @@
 from __future__ import absolute_import, unicode_literals
+from datetime import timedelta
 from celery.schedules import crontab
 import os
 
@@ -32,7 +33,11 @@ celery_app.conf.beat_schedule = {
         "task": "send_mail_task",
         "schedule": crontab(minute=0, hour=6),  # execute every day at 6 am
         #'args': (2,) you can pass arguments also if rquired
-    }
+    },
+    'rotate-logs-task': {
+        'task': 'rotate_logs', 
+        'schedule': crontab(minute=0, hour=23, day_of_month='L'), # every month end at 11 pm
+    },
 }
 
 # Celery Task related settings
