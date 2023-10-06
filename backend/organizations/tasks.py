@@ -76,8 +76,7 @@ def get_all_annotation_reports(
             except:
                 pass
     elif (
-        project_type in get_audio_project_types()
-        or project_type == "AudioTranscription + Editing"
+        project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
             try:
@@ -107,10 +106,7 @@ def get_all_annotation_reports(
         "Language": user_lang,
     }
 
-    if (
-        project_type in get_audio_project_types()
-        or project_type == "AudioTranscription + Editing"
-    ):
+    if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -182,8 +178,7 @@ def get_all_review_reports(
             except:
                 pass
     elif (
-        project_type in get_audio_project_types()
-        or project_type == "AudioTranscription + Editing"
+        project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
             try:
@@ -213,10 +208,7 @@ def get_all_review_reports(
         "Language": user_lang,
     }
 
-    if (
-        project_type in get_audio_project_types()
-        or project_type == "AudioTranscription + Editing"
-    ):
+    if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -274,8 +266,7 @@ def get_all_supercheck_reports(
             except:
                 pass
     elif (
-        project_type in get_audio_project_types()
-        or project_type == "AudioTranscription + Editing"
+        project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
             try:
@@ -309,10 +300,7 @@ def get_all_supercheck_reports(
         "Language": user_lang,
     }
 
-    if (
-        project_type in get_audio_project_types()
-        or project_type == "AudioTranscription + Editing"
-    ):
+    if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -345,10 +333,14 @@ def send_user_reports_mail_org(
 
     user = User.objects.get(id=user_id)
     organization = Organization.objects.get(pk=org_id)
-    if project_type == "AudioTranscription + Editing":
+    if project_type == "AllAudioProjects":
         proj_objs = Project.objects.filter(
             organization_id=org_id,
-            project_type__in=["AudioTranscription", "AudioTranscriptionEditing"],
+            project_type__in=[
+                "AudioTranscription",
+                "AudioTranscriptionEditing",
+                "AcousticNormalisedTranscriptionEditing",
+            ],
         )
     else:
         proj_objs = Project.objects.filter(
