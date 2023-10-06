@@ -492,6 +492,7 @@ def send_user_reports_mail_org(
     )
     email.send()
 
+
 @shared_task()
 def send_project_analytics_mail_org(
     organization,
@@ -523,8 +524,7 @@ def send_project_analytics_mail_org(
     if projects_obj.count() != 0:
         for proj in projects_obj:
             proj_manager = [
-                manager.get_username()
-                for manager in proj.workspace_id.managers.all()
+                manager.get_username() for manager in proj.workspace_id.managers.all()
             ]
             try:
                 org_owner = proj.organization_id.created_by.get_username()
@@ -541,9 +541,7 @@ def send_project_analytics_mail_org(
             )
             all_tasks = Task.objects.filter(project_id=proj.id)
             total_tasks = all_tasks.count()
-            annotators_list = [
-                user_.get_username() for user_ in proj.annotators.all()
-            ]
+            annotators_list = [user_.get_username() for user_ in proj.annotators.all()]
             no_of_annotators_assigned = len(
                 [
                     annotator
@@ -631,9 +629,7 @@ def send_project_analytics_mail_org(
                             task=each_task, parent_annotation_id__isnull=True
                         )[0]
                         total_duration_annotated_count_list.append(
-                            get_audio_transcription_duration(
-                                annotate_annotation.result
-                            )
+                            get_audio_transcription_duration(annotate_annotation.result)
                         )
                     except:
                         pass
@@ -644,9 +640,7 @@ def send_project_analytics_mail_org(
                             task=each_task, parent_annotation_id__isnull=False
                         )[0]
                         total_duration_reviewed_count_list.append(
-                            get_audio_transcription_duration(
-                                review_annotation.result
-                            )
+                            get_audio_transcription_duration(review_annotation.result)
                         )
                     except:
                         pass
@@ -749,7 +743,7 @@ def send_project_analytics_mail_org(
                 del result["SuperChecked Tasks Audio Duration"]
 
             final_result.append(result)
-    
+
     df = pd.DataFrame.from_dict(final_result)
 
     content = df.to_csv(index=False)

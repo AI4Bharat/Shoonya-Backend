@@ -46,7 +46,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
 )
-from .tasks import (send_user_reports_mail_org, send_project_analytics_mail_org)
+from .tasks import send_user_reports_mail_org, send_project_analytics_mail_org
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -1118,12 +1118,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         email_id = request.data.get("email_id")
 
         send_project_analytics_mail_org.delay(
-            organization = organization,
-            tgt_language = tgt_language,
-            project_type = project_type,
-            email_id = email_id,
-            sort_by_column_name = sort_by_column_name,
-            descending_order = descending_order,
+            organization=organization,
+            tgt_language=tgt_language,
+            project_type=project_type,
+            email_id=email_id,
+            sort_by_column_name=sort_by_column_name,
+            descending_order=descending_order,
         )
 
         return Response(
