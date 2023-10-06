@@ -35,8 +35,8 @@ celery_app.conf.beat_schedule = {
         #'args': (2,) you can pass arguments also if rquired
     },
     'rotate-logs-task': {
-        'task': 'rotate_logs', 
-        'schedule': crontab(minute=0, hour=23, day_of_month='L'), # every month end at 11 pm
+        'task': 'check_size', 
+        'schedule': crontab(minute=0, hour=0), # every mid night
     },
 }
 

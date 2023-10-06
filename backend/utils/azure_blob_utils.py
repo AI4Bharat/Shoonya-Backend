@@ -1,12 +1,6 @@
-from azure.storage.blob import BlockBlobService, AzureHttpError
-from dotenv import load_dotenv
-import os
 import re
-
-load_dotenv()
-
-AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
-CONTAINER_NAME = os.getenv("CONTAINER_NAME")
+from azure.storage.blob import BlobServiceClient
+from azure.core.exceptions import AzureError, ResourceNotFoundError
 
 
 # function to extract the account_key from the azure connection string
@@ -17,7 +11,6 @@ def extract_account_key(connection_string):
         return match.group(1)
     else:
         return None
-
 
 # function to extract the account_name from the azure connection string
 def extract_account_name(connection_string):
@@ -31,20 +24,26 @@ def extract_account_name(connection_string):
 
 
 # function to check the connection by adding and deleting the blob in the container
-def test_container_connection():
+def test_container_connection(connection_string, container_name):
     try:
+        blob_service_client = BlobServiceClient.from_connection_string(
+            connection_string
+        )
+        container_client = blob_service_client.get_container_client(container_name)
+
         name = "connection_test"
         text_to_upload = "This is a sample text to check the connection"
-        block_blob_service = BlockBlobService(
-            account_name=extract_account_name(AZURE_STORAGE_CONNECTION_STRING),
-            account_key=extract_account_key(AZURE_STORAGE_CONNECTION_STRING),
-        )
-        block_blob_service.create_blob_from_text(CONTAINER_NAME, name, text_to_upload)
-        block_blob_service.delete_blob(CONTAINER_NAME, name)
+
+        container_client.upload_blob(name, text_to_upload, overwrite=True)
+        container_client.delete_blob(name)
+
         return True
-    except AzureHttpError as error:
-        print("Azure HTTP error:", error)
+    except ResourceNotFoundError:
+        print("The specified resource does not exist.")
+        return False
+    except AzureError as error:
+        print(f"Azure Error: {error}")
         return False
     except Exception as error:
-        print("An error occurred:", error)
+        print(f"An error occurred: {error}")
         return False
