@@ -10,7 +10,12 @@ from projects.utils import (
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 from shoonya_backend import settings
-from tasks.models import Annotation, ANNOTATOR_ANNOTATION, REVIEWER_ANNOTATION
+from tasks.models import (
+    Annotation,
+    ANNOTATOR_ANNOTATION,
+    REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
+)
 from tasks.views import SentenceOperationViewSet
 from users.models import User
 from django.core.mail import EmailMessage
@@ -728,7 +733,7 @@ def schedule_mail(
     message = (
         "Dear "
         + str(user.username)
-        + f",\nYour user reports for the {type}"
+        + f",\nYour project reports for the {type}"
         + f"{name}"
         + " are ready.\n Thanks for contributing on Shoonya!"
         + "\nProject Type: "
@@ -763,6 +768,8 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type):
             average_ann_vs_rev_WER,
             average_rev_vs_sup_CED,
             average_rev_vs_sup_WER,
+            average_ann_vs_sup_CED,
+            average_ann_vs_sup_WER,
         ) = get_stats_definitions()
         for ann_obj in annotations:
             if ann_obj.annotation_type == ANNOTATOR_ANNOTATION:
@@ -777,6 +784,10 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type):
                         project_type,
                         average_ann_vs_rev_CED,
                         average_ann_vs_rev_WER,
+                        average_rev_vs_sup_CED,
+                        average_rev_vs_sup_WER,
+                        average_ann_vs_sup_CED,
+                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -790,8 +801,12 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type):
                         result_rev_meta_stats,
                         ann_obj,
                         project_type,
+                        average_ann_vs_rev_CED,
+                        average_ann_vs_rev_WER,
                         average_rev_vs_sup_CED,
                         average_rev_vs_sup_WER,
+                        average_ann_vs_sup_CED,
+                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -805,8 +820,12 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type):
                         result_sup_meta_stats,
                         ann_obj,
                         project_type,
-                        [],
-                        [],
+                        average_ann_vs_rev_CED,
+                        average_ann_vs_rev_WER,
+                        average_rev_vs_sup_CED,
+                        average_rev_vs_sup_WER,
+                        average_ann_vs_sup_CED,
+                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -824,6 +843,8 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type):
             average_ann_vs_rev_WER,
             average_rev_vs_sup_CED,
             average_rev_vs_sup_WER,
+            average_ann_vs_sup_CED,
+            average_ann_vs_sup_WER,
         )
 
     return result
@@ -915,6 +936,8 @@ def get_stats_definitions():
         [],
         [],
         [],
+        [],
+        [],
     )
 
 
@@ -932,6 +955,8 @@ def get_modified_stats_result(
     average_ann_vs_rev_WER,
     average_rev_vs_sup_CED,
     average_rev_vs_sup_WER,
+    average_ann_vs_sup_CED,
+    average_ann_vs_sup_WER,
 ):
     result = {}
     if anno_stats or complete_stats:
@@ -993,87 +1018,20 @@ def get_modified_stats_result(
         result["Average Reviewer VS Superchecker Word Error Rate"] = "{:.2f}".format(
             get_average_of_a_list(average_rev_vs_sup_WER)
         )
+        result[
+            "Average Annotator VS Superchecker Character Edit Distance"
+        ] = "{:.2f}".format(get_average_of_a_list(average_ann_vs_sup_CED))
+        result["Average Annotator VS Superchecker Word Error Rate"] = "{:.2f}".format(
+            get_average_of_a_list(average_ann_vs_sup_WER)
+        )
     return result
 
 
 def get_average_of_a_list(arr):
-    sum_of_elements = 0
-    number_of_elements = 0
-    for num in arr:
-        if num != 0:
-            number_of_elements += 1
-        sum_of_elements += num
-    return sum_of_elements / number_of_elements if number_of_elements > 0 else 0
-
-
-def get_stats_helper(
-    anno_stats,
-    meta_stats,
-    complete_stats,
-    result_anno_stats,
-    result_meta_stats,
-    ann_obj,
-    project_type,
-    average_CED,
-    average_WER,
-):
-    if anno_stats or complete_stats:
-        result_anno_stats[ann_obj.annotation_status] += 1
-        if anno_stats:
-            return 0
-    task_obj = ann_obj.task
-    if project_type not in get_audio_project_types():
-        result_meta_stats[ann_obj.annotation_status]["Word Count"] += task_obj.data[
-            "word_count"
-        ]
+    if len(arr) > 0:
+        return sum(arr) / len(arr)
+    else:
         return 0
-    result_meta_stats[ann_obj.annotation_status]["Raw Audio Duration"] += task_obj.data[
-        "audio_duration"
-    ]
-    result_meta_stats[ann_obj.annotation_status][
-        "Segment Duration"
-    ] += get_audio_transcription_duration(ann_obj.result)
-
-    sentence_operation = SentenceOperationViewSet()
-    try:
-        parent_obj = Annotation.objects.filter(parent_annotation_id=ann_obj.id)
-        if len(parent_obj) == 0 or len(parent_obj[0].result) == 0:
-            return 0
-    except Annotation.DoesNotExist:
-        return 0
-    for i in range(len(ann_obj.result)):
-        if "value" in ann_obj.result[i]:
-            if "text" in ann_obj.result[i]["value"]:
-                str1 = ann_obj.result[i]["value"]["text"]
-            else:
-                continue
-        else:
-            continue
-        if "value" in parent_obj[0].result[i]:
-            if "text" in parent_obj[0].result[i]["value"]:
-                str2 = parent_obj[0].result[i]["value"]["text"]
-            else:
-                continue
-        else:
-            continue
-        data = {"sentence1": str1[0], "sentence2": str2[0]}
-        try:
-            char_level_distance = (
-                sentence_operation.calculate_normalized_character_level_edit_distance(
-                    data
-                )
-            )
-        except:
-            continue
-        average_CED.append(
-            char_level_distance.data["normalized_character_level_edit_distance"]
-        )
-        average_WER.append(
-            calculate_word_error_rate_between_two_audio_transcription_annotation(
-                ann_obj.result, ann_obj.parent_annotation.result
-            )
-        )
-    return 0
 
 
 def get_proj_objs(
@@ -1096,3 +1054,218 @@ def get_proj_objs(
     else:
         proj_objs = {}
     return proj_objs
+
+
+def get_stats_helper(
+    anno_stats,
+    meta_stats,
+    complete_stats,
+    result_anno_stats,
+    result_meta_stats,
+    ann_obj,
+    project_type,
+    average_ann_vs_rev_CED,
+    average_ann_vs_rev_WER,
+    average_rev_vs_sup_CED,
+    average_rev_vs_sup_WER,
+    average_ann_vs_sup_CED,
+    average_ann_vs_sup_WER,
+):
+    ced_project_type_choices = ["ContextualTranslationEditing"]
+    task_obj = ann_obj.task
+    task_data = task_obj.data
+
+    if anno_stats or complete_stats:
+        update_anno_stats(result_anno_stats, ann_obj, anno_stats)
+        if anno_stats:
+            return 0
+    update_meta_stats(
+        result_meta_stats,
+        ann_obj,
+        task_data,
+        project_type,
+        ced_project_type_choices,
+    )
+    if task_obj.task_status == "reviewed":
+        if ann_obj.annotation_type == REVIEWER_ANNOTATION:
+            if project_type in ced_project_type_choices:
+                try:
+                    average_ann_vs_rev_CED.append(
+                        get_average_of_a_list(
+                            calculate_ced_between_two_annotations(
+                                get_most_recent_annotation(ann_obj.parent_annotation),
+                                get_most_recent_annotation(ann_obj),
+                            )
+                        )
+                    )
+                except Exception as error:
+                    pass
+            elif project_type in get_audio_project_types():
+                try:
+                    # we pass the reviewer first has the reference sentence and annotator second which
+                    # has the hypothesis sentence.
+                    # A higher grade has the reference sentence and the lower has the hypothesis sentence
+                    average_ann_vs_rev_WER.append(
+                        calculate_wer_between_two_annotations(
+                            get_most_recent_annotation(ann_obj).result,
+                            get_most_recent_annotation(
+                                ann_obj.parent_annotation
+                            ).result,
+                        )
+                    )
+                    print(average_ann_vs_rev_WER)
+                except Exception as error:
+                    pass
+    elif task_obj.task_status == "super_checked":
+        if ann_obj.annotation_type == SUPER_CHECKER_ANNOTATION:
+            if project_type in ced_project_type_choices:
+                try:
+                    average_ann_vs_rev_CED.append(
+                        get_average_of_a_list(
+                            calculate_ced_between_two_annotations(
+                                get_most_recent_annotation(
+                                    ann_obj.parent_annotation.parent_annotation
+                                ),
+                                get_most_recent_annotation(ann_obj.parent_annotation),
+                            )
+                        )
+                    )
+                except Exception as error:
+                    pass
+                try:
+                    average_rev_vs_sup_CED.append(
+                        get_average_of_a_list(
+                            calculate_ced_between_two_annotations(
+                                get_most_recent_annotation(ann_obj.parent_annotation),
+                                get_most_recent_annotation(ann_obj),
+                            )
+                        )
+                    )
+                except Exception as error:
+                    pass
+                try:
+                    average_ann_vs_sup_CED.append(
+                        get_average_of_a_list(
+                            calculate_ced_between_two_annotations(
+                                get_most_recent_annotation(
+                                    ann_obj.parent_annotation.parent_annotation
+                                ),
+                                get_most_recent_annotation(ann_obj),
+                            )
+                        )
+                    )
+                except Exception as error:
+                    pass
+            elif project_type in get_audio_project_types():
+                try:
+                    average_ann_vs_rev_WER.append(
+                        calculate_wer_between_two_annotations(
+                            get_most_recent_annotation(
+                                ann_obj.parent_annotation
+                            ).result,
+                            get_most_recent_annotation(
+                                ann_obj.parent_annotation.parent_annotation
+                            ).result,
+                        )
+                    )
+                except Exception as error:
+                    pass
+                try:
+                    average_rev_vs_sup_WER.append(
+                        calculate_wer_between_two_annotations(
+                            get_most_recent_annotation(ann_obj).result,
+                            get_most_recent_annotation(
+                                ann_obj.parent_annotation
+                            ).result,
+                        )
+                    )
+                except Exception as error:
+                    pass
+                try:
+                    average_ann_vs_sup_WER.append(
+                        calculate_wer_between_two_annotations(
+                            get_most_recent_annotation(ann_obj).result,
+                            get_most_recent_annotation(
+                                ann_obj.parent_annotation.parent_annotation
+                            ).result,
+                        )
+                    )
+                except Exception as error:
+                    pass
+    return 0
+
+
+def update_anno_stats(result_anno_stats, ann_obj, anno_stats):
+    result_anno_stats[ann_obj.annotation_status] += 1
+    return 0 if anno_stats else None
+
+
+def update_meta_stats(
+    result_meta_stats, ann_obj, task_data, project_type, ced_project_type_choices
+):
+    if project_type in ced_project_type_choices:
+        try:
+            result_meta_stats[ann_obj.annotation_status]["Word Count"] += task_data[
+                "word_count"
+            ]
+        except Exception as e:
+            return 0
+    elif project_type in get_audio_project_types():
+        result_meta_stats[ann_obj.annotation_status]["Raw Audio Duration"] += task_data[
+            "audio_duration"
+        ]
+        result_meta_stats[ann_obj.annotation_status][
+            "Segment Duration"
+        ] += get_audio_transcription_duration(ann_obj.result)
+
+
+def calculate_ced_between_two_annotations(annotation1, annotation2):
+    sentence_operation = SentenceOperationViewSet()
+    ced_list = []
+    for i in range(len(annotation1.result)):
+        if "value" in annotation1.result[i]:
+            if "text" in annotation1.result[i]["value"]:
+                str1 = annotation1.result[i]["value"]["text"]
+            else:
+                continue
+        else:
+            continue
+        if "value" in annotation2.result[i]:
+            if "text" in annotation2.result[i]["value"]:
+                str2 = annotation2.result[i]["value"]["text"]
+            else:
+                continue
+        else:
+            continue
+        data = {"sentence1": str1, "sentence2": str2}
+        try:
+            char_level_distance = (
+                sentence_operation.calculate_normalized_character_level_edit_distance(
+                    data
+                )
+            )
+            ced_list.append(
+                char_level_distance.data["normalized_character_level_edit_distance"]
+            )
+        except Exception as e:
+            continue
+    return ced_list
+
+
+def calculate_wer_between_two_annotations(annotation1, annotation2):
+    try:
+        return calculate_word_error_rate_between_two_audio_transcription_annotation(
+            annotation1, annotation2
+        )
+    except Exception as e:
+        pass
+
+
+def get_most_recent_annotation(annotation):
+    duplicate_ann = Annotation.objects.filter(
+        task=annotation.task, annotation_type=annotation.annotation_type
+    )
+    for ann in duplicate_ann:
+        if annotation.updated_at < ann.updated_at:
+            annotation = ann
+    return annotation
