@@ -503,7 +503,7 @@ def send_project_analytics_mail_org(
     descending_order,
 ):
     organization = Organization.objects.get(pk=org_id)
-    
+
     if sort_by_column_name == None:
         sort_by_column_name = "User Name"
 
