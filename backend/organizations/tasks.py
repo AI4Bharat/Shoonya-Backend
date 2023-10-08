@@ -495,13 +495,15 @@ def send_user_reports_mail_org(
 
 @shared_task()
 def send_project_analytics_mail_org(
-    organization,
+    org_id,
     tgt_language,
     project_type,
     email_id,
     sort_by_column_name,
     descending_order,
 ):
+    organization = Organization.objects.get(pk=org_id)
+    
     if sort_by_column_name == None:
         sort_by_column_name = "User Name"
 
@@ -511,12 +513,12 @@ def send_project_analytics_mail_org(
     if tgt_language == None:
         selected_language = "-"
         projects_obj = Project.objects.filter(
-            organization_id=organization, project_type=project_type
+            organization_id=org_id, project_type=project_type
         )
     else:
         selected_language = tgt_language
         projects_obj = Project.objects.filter(
-            organization_id=organization,
+            organization_id=org_id,
             tgt_language=tgt_language,
             project_type=project_type,
         )
