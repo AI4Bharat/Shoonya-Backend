@@ -1118,7 +1118,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         email_id = request.data.get("email_id")
 
         send_project_analytics_mail_org.delay(
-            organization=organization,
+            org_id=organization.id,
             tgt_language=tgt_language,
             project_type=project_type,
             email_id=email_id,
