@@ -903,18 +903,20 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
 
         send_user_analytics_mail_org.delay(
-            organization,
-            tgt_language,
-            project_type,
-            user_id,
-            sort_by_column_name,
-            descending_order,
-            pk,
-            start_date,
-            end_date,
-            is_translation_project,
-            project_progress_stage,
-            final_reports,
+            organization=organization,
+            tgt_language=tgt_language,
+            project_type=project_type,
+            user_id=user_id,
+            sort_by_column_name=sort_by_column_name,
+            descending_order=descending_order,
+            pk=pk,
+            start_date=start_date,
+            end_date=end_date,
+            is_translation_project=is_translation_project,
+            project_progress_stage=project_progress_stage,
+            final_reports=final_reports,
+            get_counts=get_counts,
+            get_translation_quality_reports=get_translation_quality_reports,
         )
 
         # download_csv = request.data.get("download_csv", False)

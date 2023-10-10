@@ -1,5 +1,4 @@
 import datetime
-from .views import get_counts, get_translation_quality_reports
 from dateutil.relativedelta import relativedelta
 from celery import shared_task
 import pandas as pd
@@ -788,6 +787,8 @@ def send_user_analytics_mail_org(
     is_translation_project,
     project_progress_stage,
     final_reports,
+    get_counts,
+    get_translation_quality_reports,
 ):
     if not final_reports:
         if tgt_language == None:
