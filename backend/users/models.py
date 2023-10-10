@@ -191,7 +191,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     unverified_email = models.EmailField(blank=True)
     old_email_update_code = models.CharField(max_length=256, blank=True)
     new_email_verification_code = models.CharField(max_length=256, blank=True)
-
+    notification_limit = models.BigIntegerField(
+        null=True,
+        default=100,
+        help_text=(
+            "Indicates the number of maximum notifications a user will receive."
+        ),
+    )
     objects = UserManager()
 
     EMAIL_FIELD = "email"
