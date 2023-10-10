@@ -10,10 +10,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
-CONTAINER_NAME = os.getenv("CONTAINER_NAME")
+CONTAINER_NAME = os.getenv("LOGS_CONTAINER_NAME")
 MAX_FILE_SIZE_LIMIT = 10000000000
 
-log_file_path = "logs/default.log"
+log_file_dir = "logs/"
+log_file_name = "default.log"
+log_file_path = log_file_dir+log_file_name
+
 
 blob_service_client = BlobServiceClient.from_connection_string(
     AZURE_STORAGE_CONNECTION_STRING
@@ -50,31 +53,25 @@ def test_container_connection(connection_string, container_name):
 
 def get_most_recent_creation_date():
     blobs = list(container_client.list_blobs())
-
     if not blobs:
         return None
 
     most_recent_blob = max(blobs, key=lambda x: x["creation_time"])
     creation_time = most_recent_blob["creation_time"]
-
-    # Extract the date part from the datetime object
     most_recent_date = creation_time.date()
-
     return most_recent_date
 
 
-def zip_log_file(log_file_path, start_date, end_date, zip_file_path):
-    zip_file_name = (
-        f"{start_date.strftime('%d-%m-%Y')} - {end_date.strftime('%d-%m-%Y')}.zip"
-    )
-    with zipfile.ZipFile(zip_file_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        zipf.write(log_file_path, os.path.basename(zip_file_name))
+def zip_log_file(zip_file_name ):
+    zip_file_path_on_disk = os.path.join(log_file_dir, zip_file_name)
+    log_dir = os.path.dirname(log_file_path)
+    zip_file_path_on_disk = os.path.join(log_dir, zip_file_name)
+    
+    with zipfile.ZipFile(zip_file_path_on_disk, "w", zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(log_file_path, os.path.basename(log_file_path))
 
 
 def rotate_logs():
-    log_file_size = os.path.getsize(log_file_path)
-    if log_file_size < 2000:
-        return
     try:
         if not test_container_connection(
             AZURE_STORAGE_CONNECTION_STRING, CONTAINER_NAME
@@ -83,33 +80,37 @@ def rotate_logs():
             return
 
         end_date = get_most_recent_creation_date()
-        #decide what should be the date if there is nothing in the blob
+
         if not end_date:
             end_date = datetime.today()
         start_date = datetime.today()
 
+        
         zip_file_name = (
             f"{start_date.strftime('%d-%m-%Y')} - {end_date.strftime('%d-%m-%Y')}.zip"
         )
 
-        # path to store in the disk
-        zip_file_path_on_disk = f"{zip_file_name}"
-        zip_log_file(log_file_path, start_date, end_date, zip_file_path_on_disk)
+        zip_log_file(zip_file_name)
+        
+        zip_file_path_on_disk = os.path.join(log_file_dir, zip_file_name)
+
+        
 
         blob_client = container_client.get_blob_client(zip_file_name)
         with open(zip_file_path_on_disk, "rb") as file:
             blob_client.upload_blob(file, blob_type="BlockBlob")
-
-        # os.remove(zip_file_path_on_disk)
+        os.remove(zip_file_path_on_disk)
 
         with open(log_file_path, "w") as log_file:
             log_file.truncate(0)
-
+        
         print(
             f"Log file has been zipped as {zip_file_name}, uploaded to Azure Blob Storage, and deleted from disk."
         )
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+
+rotate_logs()
 
 
 @shared_task(name="check_size")
@@ -117,4 +118,5 @@ def check_file_size_limit():
     log_file_size = os.path.getsize(log_file_path)
     if log_file_size >= MAX_FILE_SIZE_LIMIT:
         rotate_logs()
+
 
