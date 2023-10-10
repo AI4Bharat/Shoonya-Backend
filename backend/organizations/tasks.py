@@ -498,11 +498,12 @@ def send_project_analytics_mail_org(
     org_id,
     tgt_language,
     project_type,
-    email_id,
+    user_id,
     sort_by_column_name,
     descending_order,
 ):
     organization = Organization.objects.get(pk=org_id)
+    user = User.objects.get(id=user_id)
 
     if sort_by_column_name == None:
         sort_by_column_name = "User Name"
@@ -753,7 +754,8 @@ def send_project_analytics_mail_org(
     filename = f"{organization.title}_project_analytics.csv"
 
     message = (
-        "Dear User"
+        "Dear "
+        + str(user.username)
         + ",\nYour project analysis reports for "
         + f"{organization.title}"
         + " are ready.\n Thanks for contributing on Shoonya!"
@@ -765,7 +767,7 @@ def send_project_analytics_mail_org(
         f"{organization.title}" + " Project Analytics",
         message,
         settings.DEFAULT_FROM_EMAIL,
-        [email_id],
+        [user.email],
         attachments=[(filename, content, content_type)],
     )
     email.send()

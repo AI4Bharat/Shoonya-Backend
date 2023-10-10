@@ -1115,13 +1115,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
-        email_id = request.data.get("email_id")
+        user_id = request.data.get("user_id")
 
         send_project_analytics_mail_org.delay(
             org_id=organization.id,
             tgt_language=tgt_language,
             project_type=project_type,
-            email_id=email_id,
+            user_id=user_id,
             sort_by_column_name=sort_by_column_name,
             descending_order=descending_order,
         )
