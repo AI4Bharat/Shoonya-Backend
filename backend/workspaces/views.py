@@ -532,7 +532,8 @@ def get_review_reports(
         total_word_error_rate_ar_list = []
         total_word_error_rate_rs_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-            total_word_count_list.append(anno.task.data["word_count"])
+            for anno in total_rev_annos_accepted:
+                total_word_count_list.append(anno.task.data["word_count"])
         elif project_type in get_audio_project_types():
             for anno in total_rev_annos_accepted:
                 try:
