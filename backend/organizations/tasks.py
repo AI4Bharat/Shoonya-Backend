@@ -1168,6 +1168,7 @@ def send_user_analytics_mail_org(
     final_reports,
 ):
     organization = Organization.objects.get(pk=org_id)
+    user = User.objects.get(id=user_id)
     if not final_reports:
         if tgt_language == None:
             annotators = User.objects.filter(organization=organization).order_by(
@@ -1208,7 +1209,6 @@ def send_user_analytics_mail_org(
             user_id = annotator.id
             name = annotator.username
             email = annotator.get_username()
-            user = User.objects.get(id=user_id)
             user_lang = user.languages
             if tgt_language == None:
                 selected_language = user_lang
