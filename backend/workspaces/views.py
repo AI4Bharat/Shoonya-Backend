@@ -1063,6 +1063,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
         start_date = datetime.strptime(from_date, "%Y-%m-%d %H:%M")
         end_date = datetime.strptime(to_date, "%Y-%m-%d %H:%M")
+        final_reports = []
 
         if start_date > end_date:
             return Response(
@@ -1099,7 +1100,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 review_projects_ids.append(review_project.id)
 
             workspace_reviewer_list = list(set(workspace_reviewer_list))
-            final_reports = []
 
             if (
                 request.user.role == User.ORGANIZATION_OWNER
