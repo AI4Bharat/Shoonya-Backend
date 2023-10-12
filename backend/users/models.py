@@ -100,7 +100,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(verbose_name="first_name", max_length=265, blank=True)
     last_name = models.CharField(verbose_name="last_name", max_length=265, blank=True)
     phone = models.CharField(verbose_name="phone", max_length=256, blank=True)
-    profile_photo = models.ImageField(upload_to=hash_upload, blank=True)
+    profile_photo = models.CharField(
+        verbose_name="profile_photo", max_length=256, blank=True
+    )
 
     role = models.PositiveSmallIntegerField(
         choices=ROLE_CHOICES, blank=False, null=False, default=ANNOTATOR
