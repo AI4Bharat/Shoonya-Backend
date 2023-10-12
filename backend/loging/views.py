@@ -32,6 +32,24 @@ def extract_account_key(connection_string):
         return None
 
 
+def extract_account_name(connection_string):
+    pattern = r"AccountName=([^;]+)"
+    match = re.search(pattern, connection_string)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
+def extract_endpoint_suffix(connection_string):
+    pattern = r"EndpointSuffix=([^;]+)"
+    match = re.search(pattern, connection_string)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
 def create_empty_log_for_next_day(container_client):
     current_date = datetime.date.today()
     next_day = current_date + datetime.timedelta(days=1)
@@ -141,16 +159,21 @@ class TransliterationSelectionViewSet(APIView):
             blob_client.upload_blob(log_content, overwrite=True)
 
             expiry = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
+
+            account_name = extract_account_name(AZURE_STORAGE_CONNECTION_STRING)
+            account_key = extract_account_key(AZURE_STORAGE_CONNECTION_STRING)
+            endpoint_suffix = extract_endpoint_suffix(AZURE_STORAGE_CONNECTION_STRING)
+
             sas_token = generate_blob_sas(
                 container_name=CONTAINER_NAME,
                 blob_name=blob_client.blob_name,
-                account_name="shoonyastoragedevelop",
-                account_key=extract_account_key(AZURE_STORAGE_CONNECTION_STRING),
+                account_name=account_name,
+                account_key=account_key,
                 permission=BlobSasPermissions(read=True),
                 expiry=expiry,
             )
 
-            blob_url = f"https://shoonyastoragedevelop.blob.core.windows.net/{CONTAINER_NAME}/{blob_client.blob_name}?{sas_token}"
+            blob_url = f"https://{account_name}.blob.{endpoint_suffix}/{CONTAINER_NAME}/{blob_client.blob_name}?{sas_token}"
             result = send_email_with_url.delay(user.email, blob_url)
             task_status = result.get()
 
