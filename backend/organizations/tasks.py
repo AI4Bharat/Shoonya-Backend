@@ -23,7 +23,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
 )
-from workspaces.views import (
+from workspaces.tasks import (
     un_pack_annotation_tasks,
 )
 from django.db.models import Q
