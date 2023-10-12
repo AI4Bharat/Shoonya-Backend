@@ -9,12 +9,17 @@ from projects.utils import (
     get_audio_transcription_duration,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
+from projects.views import get_task_count_unassigned
 from shoonya_backend import settings
 from tasks.models import (
     Annotation,
     ANNOTATOR_ANNOTATION,
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
+    REVIEWED,
+    SUPER_CHECKED,
+    Task,
+    ANNOTATED,
 )
 from tasks.views import SentenceOperationViewSet
 from users.models import User
@@ -708,10 +713,12 @@ def schedule_mail(
         print("No projects found")
         return 0
     user = User.objects.get(id=user_id)
-    result = get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type)
+    result = get_stats(
+        proj_objs, anno_stats, meta_stats, complete_stats, project_type, user
+    )
     df = pd.DataFrame.from_dict(result)
-
-    content = df.to_csv(index=True)
+    transposed_df = df.transpose()
+    content = transposed_df.to_csv(index=True)
     content_type = "text/csv"
 
     if workspace_level_reports:
@@ -753,7 +760,7 @@ def schedule_mail(
         print(f"An error occurred while sending email: {e}")
 
 
-def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type):
+def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, user):
     result = {}
     for proj in proj_objs:
         annotations = Annotation.objects.filter(task__project_id=proj.id)
@@ -845,6 +852,8 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type):
             average_rev_vs_sup_WER,
             average_ann_vs_sup_CED,
             average_ann_vs_sup_WER,
+            proj.id,
+            user,
         )
 
     return result
@@ -957,6 +966,8 @@ def get_modified_stats_result(
     average_rev_vs_sup_WER,
     average_ann_vs_sup_CED,
     average_ann_vs_sup_WER,
+    proj_id,
+    user,
 ):
     result = {}
     if anno_stats or complete_stats:
@@ -1024,14 +1035,36 @@ def get_modified_stats_result(
         result["Average Annotator VS Superchecker Word Error Rate"] = "{:.2f}".format(
             get_average_of_a_list(average_ann_vs_sup_WER)
         )
+    # adding unassigned tasks count
+    result["Annotator - Unassigned Tasks"] = get_task_count_unassigned(proj_id, user)
+    result["Reviewer - Unassigned Tasks"] = (
+        Task.objects.filter(project_id=proj_id)
+        .filter(task_status=ANNOTATED)
+        .filter(review_user__isnull=True)
+        .exclude(annotation_users=user.id)
+        .count()
+    )
+    result["Superchecker - Unassigned Tasks"] = (
+        Task.objects.filter(project_id=proj_id)
+        .filter(task_status=REVIEWED)
+        .filter(super_check_user__isnull=True)
+        .exclude(annotation_users=user.id)
+        .exclude(review_user=user.id)
+        .count()
+    )
     return result
 
 
 def get_average_of_a_list(arr):
-    if len(arr) > 0:
-        return sum(arr) / len(arr)
-    else:
+    if not isinstance(arr, list):
         return 0
+    total_sum = 0
+    total_length = 0
+    for num in arr:
+        if isinstance(num, int):
+            total_sum += num
+            total_length += 1
+    return total_sum / total_length if total_length > 0 else 0
 
 
 def get_proj_objs(
@@ -1086,7 +1119,7 @@ def get_stats_helper(
         project_type,
         ced_project_type_choices,
     )
-    if task_obj.task_status == "reviewed":
+    if task_obj.task_status == REVIEWED:
         if ann_obj.annotation_type == REVIEWER_ANNOTATION:
             if project_type in ced_project_type_choices:
                 try:
@@ -1113,10 +1146,9 @@ def get_stats_helper(
                             ).result,
                         )
                     )
-                    print(average_ann_vs_rev_WER)
                 except Exception as error:
                     pass
-    elif task_obj.task_status == "super_checked":
+    elif task_obj.task_status == SUPER_CHECKED:
         if ann_obj.annotation_type == SUPER_CHECKER_ANNOTATION:
             if project_type in ced_project_type_choices:
                 try:
@@ -1258,7 +1290,7 @@ def calculate_wer_between_two_annotations(annotation1, annotation2):
             annotation1, annotation2
         )
     except Exception as e:
-        pass
+        return 0
 
 
 def get_most_recent_annotation(annotation):

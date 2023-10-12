@@ -3,6 +3,9 @@ import os
 from http.client import responses
 import secrets
 import string
+from azure.storage.blob import BlobClient
+from io import BytesIO
+import pathlib
 from wsgiref.util import request_uri
 import jwt
 from jwt import DecodeError, InvalidSignatureError
@@ -606,6 +609,48 @@ class UserViewSet(viewsets.ViewSet):
         else:
             return Response(
                 {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+    @swagger_auto_schema(
+        operation_description="Upload file...",
+    )
+    @action(detail=True, methods=["post"], url_path="edit_user_profile_image")
+    def user_profile_image_update(self, request, pk=None):
+        try:
+            user = User.objects.filter(id=pk)
+            if len(user) == 0:
+                return Response(
+                    {"message": "Invalid User"}, status=status.HTTP_403_FORBIDDEN
+                )
+            user = user[0]
+            file = request.FILES["image"]
+            file_extension = pathlib.Path(file.name).suffix
+            file_upload_name = user.username + file_extension
+            try:
+                blob = BlobClient.from_connection_string(
+                    conn_str=os.getenv("STORAGE_ACCOUNT_CONNECTION_STRING"),
+                    container_name=os.getenv(
+                        "STORAGE_ACCOUNT_PROFILE_IMAGE_CONTAINER_NAME"
+                    ),
+                    blob_name=file_upload_name,
+                )
+                blob.upload_blob(BytesIO(file.read()), overwrite=True)
+            except:
+                return Response(
+                    {"message": "Could not connect to azure blob storage"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            record = User.objects.get(id=user.id)
+            record.profile_photo = blob.url
+            record.save(update_fields=["profile_photo"])
+            print(blob.url + " created in blob container")
+            return Response(
+                {"status": "profile photo uploaded successfully"}, status=201
+            )
+        except:
+            return Response(
+                {"message": "Could not upload image"}, status=status.HTTP_403_FORBIDDEN
             )
 
     @swagger_auto_schema(request_body=UserUpdateSerializer)

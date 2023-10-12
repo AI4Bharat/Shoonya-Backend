@@ -174,5 +174,6 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
                     annotation_result2_text += s
             except:
                 pass
-
+    if len(annotation_result1_text) == 0 or len(annotation_result2_text) == 0:
+        return 0
     return wer(annotation_result1_text, annotation_result2_text)
