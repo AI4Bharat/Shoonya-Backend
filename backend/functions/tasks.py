@@ -1,3 +1,7 @@
+import datetime
+import zipfile
+import threading
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 import pandas as pd
 from celery import shared_task
 from dataset import models as dataset_models
@@ -10,7 +14,7 @@ from projects.utils import (
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     ocr_word_count,
 )
-from projects.views import get_task_count_unassigned
+from projects.views import get_task_count_unassigned, ProjectViewSet
 from shoonya_backend import settings
 from tasks.models import (
     Annotation,
@@ -25,6 +29,13 @@ from tasks.models import (
 from tasks.views import SentenceOperationViewSet
 from users.models import User
 from django.core.mail import EmailMessage
+
+from utils.blob_functions import (
+    extract_account_name,
+    extract_account_key,
+    extract_endpoint_suffix,
+    test_container_connection,
+)
 from utils.custom_bulk_create import multi_inheritance_table_bulk_insert
 from workspaces.models import Workspace
 
@@ -36,6 +47,11 @@ from .utils import (
 from django.db import transaction, DataError, IntegrityError
 from dataset.models import DatasetInstance
 from django.apps import apps
+from rest_framework.test import APIRequestFactory
+from django.http import QueryDict
+from rest_framework.request import Request
+import os
+import tempfile
 
 
 ## CELERY SHARED TASKS
@@ -687,7 +703,7 @@ def populate_draft_data_json(self, pk, fields_list):
 
 
 @shared_task(bind=True)
-def schedule_mail(
+def schedule_mail_for_project_reports(
     self,
     project_type,
     user_id,
@@ -759,6 +775,7 @@ def schedule_mail(
         email.send()
     except Exception as e:
         print(f"An error occurred while sending email: {e}")
+    print(f"Email sent successfully - {user_id}")
 
 
 def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, user):
@@ -1078,13 +1095,26 @@ def get_proj_objs(
     did,
 ):
     if workspace_level_reports:
-        proj_objs = Project.objects.filter(workspace_id=wid, project_type=project_type)
+        if project_type:
+            proj_objs = Project.objects.filter(
+                workspace_id=wid, project_type=project_type
+            )
+        else:
+            proj_objs = Project.objects.filter(workspace_id=wid)
     elif organization_level_reports:
-        proj_objs = Project.objects.filter(
-            organization_id=oid, project_type=project_type
-        )
+        if project_type:
+            proj_objs = Project.objects.filter(
+                organization_id=oid, project_type=project_type
+            )
+        else:
+            proj_objs = Project.objects.filter(organization_id=oid)
     elif dataset_level_reports:
-        proj_objs = Project.objects.filter(dataset_id=did, project_type=project_type)
+        if project_type:
+            proj_objs = Project.objects.filter(
+                dataset_id=did, project_type=project_type
+            )
+        else:
+            proj_objs = Project.objects.filter(dataset_id=did)
     else:
         proj_objs = {}
     return proj_objs
@@ -1306,3 +1336,132 @@ def get_most_recent_annotation(annotation):
         if annotation.updated_at < ann.updated_at:
             annotation = ann
     return annotation
+
+
+@shared_task(bind=True)
+def schedule_mail_to_download_all_projects(
+    self, workspace_level_projects, dataset_level_projects, wid, did, user_id
+):
+    download_lock = threading.Lock()
+    download_lock.acquire()
+    proj_objs = get_proj_objs(
+        workspace_level_projects,
+        False,
+        dataset_level_projects,
+        None,
+        wid,
+        0,
+        did,
+    )
+    if len(proj_objs) == 0 and workspace_level_projects:
+        print(f"No projects found for workspace id- {wid}")
+        return 0
+    elif len(proj_objs) == 0 and dataset_level_projects:
+        print(f"No projects found for dataset id- {did}")
+        return 0
+    user = User.objects.get(id=user_id)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        for proj in proj_objs:
+            proj_view_set_obj = ProjectViewSet()
+            factory = APIRequestFactory()
+            url = f"/projects/{proj.id}/download"
+            query_params = QueryDict(mutable=True)
+            query_params["include_input_data_metadata_json"] = "true"
+            query_params["export_type"] = "CSV"
+            query_params[
+                "task_status"
+            ] = "incomplete,annotated,reviewed,super_checked,exported"
+            custom_request = Request(factory.get(url, data=query_params, timeout=15))
+            custom_request.user = user
+            try:
+                proj_file = proj_view_set_obj.download(custom_request, proj.id)
+            except Exception as e:
+                print(f"Downloading project timed out, Project id- {proj.id}")
+                continue
+            file_path = os.path.join(temp_dir, f"{proj.id} - {proj.title}.csv")
+            with open(file_path, "wb") as f:
+                f.write(proj_file.content)
+        url = upload_all_projects_to_blob_and_get_url(temp_dir)
+    if url:
+        message = (
+            "Dear "
+            + str(user.username)
+            + f",\nYou can download all the projects by clicking on- "
+            + f"{url}"
+            + " This link is active only for 1 hour.\n Thanks for contributing on Shoonya!"
+        )
+        email = EmailMessage(
+            f"{user.username}" + "- Link to download all projects",
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+        )
+        try:
+            email.send()
+        except Exception as e:
+            print(f"An error occurred while sending email: {e}")
+            return 0
+        download_lock.release()
+        print(f"Email sent successfully - {user_id}")
+    else:
+        download_lock.release()
+        print(url)
+
+
+def upload_all_projects_to_blob_and_get_url(csv_files_directory):
+    date_time_string = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    zip_file_name = f"output_all_projects - {date_time_string}.zip"
+    AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
+    CONTAINER_NAME_FOR_DOWNLOAD_ALL_PROJECTS = os.getenv(
+        "CONTAINER_NAME_FOR_DOWNLOAD_ALL_PROJECTS"
+    )
+    try:
+        blob_service_client = BlobServiceClient.from_connection_string(
+            AZURE_STORAGE_CONNECTION_STRING
+        )
+        container_client = blob_service_client.get_container_client(
+            CONTAINER_NAME_FOR_DOWNLOAD_ALL_PROJECTS
+        )
+    except Exception as e:
+        return "Error in connecting to blob_service_client or container_client"
+    if not test_container_connection(
+        AZURE_STORAGE_CONNECTION_STRING, CONTAINER_NAME_FOR_DOWNLOAD_ALL_PROJECTS
+    ):
+        print("Azure Blob Storage connection test failed. Exiting...")
+        return "test_container_connection failed"
+    blob_url = ""
+    if os.path.exists(csv_files_directory):
+        zip_file_path_on_disk = csv_files_directory + "/" + f"{zip_file_name}"
+        try:
+            with zipfile.ZipFile(
+                zip_file_path_on_disk, "w", zipfile.ZIP_DEFLATED
+            ) as zipf:
+                for root, dirs, files in os.walk(csv_files_directory):
+                    for file in files:
+                        if file.endswith(".csv"):
+                            file_path = os.path.join(root, file)
+                            zipf.write(
+                                file_path,
+                                os.path.relpath(file_path, csv_files_directory),
+                            )
+        except Exception as e:
+            return "Error in creating zip file"
+        blob_client = container_client.get_blob_client(zip_file_name)
+        with open(zip_file_path_on_disk, "rb") as file:
+            blob_client.upload_blob(file, blob_type="BlockBlob")
+        try:
+            expiry = datetime.datetime.now() + datetime.timedelta(hours=1)
+            account_name = extract_account_name(AZURE_STORAGE_CONNECTION_STRING)
+            endpoint_suffix = extract_endpoint_suffix(AZURE_STORAGE_CONNECTION_STRING)
+            sas_token = generate_blob_sas(
+                container_name=CONTAINER_NAME_FOR_DOWNLOAD_ALL_PROJECTS,
+                blob_name=blob_client.blob_name,
+                account_name=account_name,
+                account_key=extract_account_key(AZURE_STORAGE_CONNECTION_STRING),
+                permission=BlobSasPermissions(read=True),
+                expiry=expiry,
+            )
+        except Exception as e:
+            return "Error in generating url"
+        blob_url = f"https://{account_name}.blob.{endpoint_suffix}/{CONTAINER_NAME_FOR_DOWNLOAD_ALL_PROJECTS}/{blob_client.blob_name}?{sas_token}"
+    return blob_url
