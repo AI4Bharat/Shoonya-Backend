@@ -7,13 +7,26 @@ from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 from .tasks import retrieve_logs, send_email_with_url
 from users.models import User
 from rest_framework.permissions import IsAuthenticated
+from utils.blob_functions import (
+    extract_account_key,
+    extract_account_name,
+    extract_endpoint_suffix,
+    test_container_connection,
+)
 import os
 import json
 import datetime
-import re
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
-CONTAINER_NAME = os.getenv("CONTAINER_NAME")
+TRANSLITERATION_CONTAINER_NAME = os.getenv("TRANSLITERATION_CONTAINER_NAME")
+
+account_key = extract_account_key(AZURE_STORAGE_CONNECTION_STRING)
+account_name = extract_account_name(AZURE_STORAGE_CONNECTION_STRING)
+endpoint_suffix = extract_endpoint_suffix(AZURE_STORAGE_CONNECTION_STRING)
 
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -21,33 +34,6 @@ class CustomJSONEncoder(json.JSONEncoder):
         if isinstance(obj, datetime.datetime):
             return obj.isoformat()
         return super().default(obj)
-
-
-def extract_account_key(connection_string):
-    pattern = r"AccountKey=([^;]+);"
-    match = re.search(pattern, connection_string)
-    if match:
-        return match.group(1)
-    else:
-        return None
-
-
-def extract_account_name(connection_string):
-    pattern = r"AccountName=([^;]+)"
-    match = re.search(pattern, connection_string)
-    if match:
-        return match.group(1)
-    else:
-        return None
-
-
-def extract_endpoint_suffix(connection_string):
-    pattern = r"EndpointSuffix=([^;]+)"
-    match = re.search(pattern, connection_string)
-    if match:
-        return match.group(1)
-    else:
-        return None
 
 
 def create_empty_log_for_next_day(container_client):
@@ -68,6 +54,14 @@ class TransliterationSelectionViewSet(APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             try:
+                if not test_container_connection(
+                    AZURE_STORAGE_CONNECTION_STRING, TRANSLITERATION_CONTAINER_NAME
+                ):
+                    return Response(
+                        {
+                            "message": "Failed to establish the connection with the blob container"
+                        },
+                    )
                 current_date = datetime.date.today()
                 log_file_name = f"{current_date.isoformat()}.log"
 
@@ -75,7 +69,7 @@ class TransliterationSelectionViewSet(APIView):
                     AZURE_STORAGE_CONNECTION_STRING
                 )
                 container_client = blob_service_client.get_container_client(
-                    CONTAINER_NAME
+                    TRANSLITERATION_CONTAINER_NAME
                 )
                 blob_client = container_client.get_blob_client(log_file_name)
 
@@ -123,6 +117,14 @@ class TransliterationSelectionViewSet(APIView):
 
     def get(self, request):
         try:
+            if not test_container_connection(
+                AZURE_STORAGE_CONNECTION_STRING, TRANSLITERATION_CONTAINER_NAME
+            ):
+                return Response(
+                    {
+                        "message": "Failed to establish the connection with the blob container"
+                    },
+                )
             user_id = request.query_params.get("user_id")
             start_date_str = request.query_params.get("start_date")
             end_date_str = request.query_params.get("end_date")
@@ -154,7 +156,9 @@ class TransliterationSelectionViewSet(APIView):
             blob_service_client = BlobServiceClient.from_connection_string(
                 AZURE_STORAGE_CONNECTION_STRING
             )
-            container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+            container_client = blob_service_client.get_container_client(
+                TRANSLITERATION_CONTAINER_NAME
+            )
             blob_client = container_client.get_blob_client(file_name_with_prefix)
             blob_client.upload_blob(log_content, overwrite=True)
 
@@ -165,7 +169,7 @@ class TransliterationSelectionViewSet(APIView):
             endpoint_suffix = extract_endpoint_suffix(AZURE_STORAGE_CONNECTION_STRING)
 
             sas_token = generate_blob_sas(
-                container_name=CONTAINER_NAME,
+                container_name=TRANSLITERATION_CONTAINER_NAME,
                 blob_name=blob_client.blob_name,
                 account_name=account_name,
                 account_key=account_key,
@@ -173,7 +177,7 @@ class TransliterationSelectionViewSet(APIView):
                 expiry=expiry,
             )
 
-            blob_url = f"https://{account_name}.blob.{endpoint_suffix}/{CONTAINER_NAME}/{blob_client.blob_name}?{sas_token}"
+            blob_url = f"https://{account_name}.blob.{endpoint_suffix}/{TRANSLITERATION_CONTAINER_NAME}/{blob_client.blob_name}?{sas_token}"
             result = send_email_with_url.delay(user.email, blob_url)
             task_status = result.get()
 
