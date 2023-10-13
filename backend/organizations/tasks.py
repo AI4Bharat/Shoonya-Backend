@@ -4,6 +4,7 @@ from celery import shared_task
 import pandas as pd
 from django.conf import settings
 from django.core.mail import EmailMessage
+from tasks.views import SentenceOperationViewSet
 
 from tasks.models import (
     Task,
@@ -20,7 +21,12 @@ from projects.utils import (
     convert_seconds_to_hours,
     get_audio_project_types,
     get_audio_transcription_duration,
+    get_audio_segments_count,
 )
+from workspaces.tasks import (
+    un_pack_annotation_tasks,
+)
+from django.db.models import Q
 
 
 def get_all_annotation_reports(
@@ -493,16 +499,390 @@ def send_user_reports_mail_org(
     email.send()
 
 
+def get_counts(
+    pk,
+    annotator,
+    project_type,
+    start_date,
+    end_date,
+    is_translation_project,
+    project_progress_stage,
+    tgt_language=None,
+):
+    annotated_tasks = 0
+    accepted = 0
+    to_be_revised = 0
+    accepted_wt_minor_changes = 0
+    accepted_wt_major_changes = 0
+    labeled = 0
+    if tgt_language == None:
+        if project_progress_stage == None:
+            projects_objs = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                annotators=annotator,
+            )
+        else:
+            projects_objs = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                project_stage=project_progress_stage,
+                annotators=annotator,
+            )
+    else:
+        if project_progress_stage == None:
+            projects_objs = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                tgt_language=tgt_language,
+                annotators=annotator,
+            )
+        else:
+            projects_objs = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                project_stage=project_progress_stage,
+                tgt_language=tgt_language,
+                annotators=annotator,
+            )
+    project_count = projects_objs.count()
+    no_of_workspaces_objs = len(
+        set([each_proj.workspace_id.id for each_proj in projects_objs])
+    )
+    proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
+
+    all_tasks_in_project = Task.objects.filter(
+        Q(project_id__in=proj_ids) & Q(annotation_users=annotator)
+    )
+    assigned_tasks = all_tasks_in_project.count()
+
+    if project_progress_stage != None and project_progress_stage > ANNOTATION_STAGE:
+        (
+            accepted,
+            to_be_revised,
+            accepted_wt_minor_changes,
+            accepted_wt_major_changes,
+            labeled,
+            avg_lead_time,
+            total_word_count,
+            total_duration,
+            total_raw_duration,
+            avg_segment_duration,
+            avg_segments_per_task,
+        ) = un_pack_annotation_tasks(
+            proj_ids,
+            annotator,
+            start_date,
+            end_date,
+            is_translation_project,
+            project_type,
+        )
+
+    else:
+        labeled_annotations = Annotation.objects.filter(
+            task__project_id__in=proj_ids,
+            annotation_status="labeled",
+            annotation_type=ANNOTATOR_ANNOTATION,
+            updated_at__range=[start_date, end_date],
+            completed_by=annotator,
+        )
+
+        annotated_tasks = labeled_annotations.count()
+        lead_time_annotated_tasks = [
+            eachtask.lead_time for eachtask in labeled_annotations
+        ]
+        avg_lead_time = 0
+        if len(lead_time_annotated_tasks) > 0:
+            avg_lead_time = sum(lead_time_annotated_tasks) / len(
+                lead_time_annotated_tasks
+            )
+        total_word_count = 0
+        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
+            total_word_count_list = []
+            for each_task in labeled_annotations:
+                try:
+                    total_word_count_list.append(each_task.task.data["word_count"])
+                except:
+                    pass
+
+            total_word_count = sum(total_word_count_list)
+
+        total_duration = "0:00:00"
+        avg_segment_duration = 0
+        avg_segments_per_task = 0
+        if project_type in get_audio_project_types():
+            total_duration_list = []
+            total_raw_duration_list = []
+            total_audio_segments_list = []
+            for each_task in labeled_annotations:
+                try:
+                    total_duration_list.append(
+                        get_audio_transcription_duration(each_task.result)
+                    )
+                    total_audio_segments_list.append(
+                        get_audio_segments_count(each_task.result)
+                    )
+                    total_raw_duration_list.append(
+                        each_task.task.data["audio_duration"]
+                    )
+                except:
+                    pass
+            total_duration = convert_seconds_to_hours(sum(total_duration_list))
+            total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
+            total_audio_segments = sum(total_audio_segments_list)
+            try:
+                avg_segment_duration = total_duration / total_audio_segments
+                avg_segments_per_task = total_audio_segments / len(labeled_annotations)
+            except:
+                avg_segment_duration = 0
+                avg_segments_per_task = 0
+
+    total_skipped_tasks = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="skipped",
+        annotation_type=ANNOTATOR_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+        completed_by=annotator,
+    )
+    all_pending_tasks_in_project = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="unlabeled",
+        annotation_type=ANNOTATOR_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+        completed_by=annotator,
+    )
+
+    all_draft_tasks_in_project = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        annotation_status="draft",
+        annotation_type=ANNOTATOR_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+        completed_by=annotator,
+    )
+
+    return (
+        assigned_tasks,
+        annotated_tasks,
+        accepted,
+        to_be_revised,
+        accepted_wt_minor_changes,
+        accepted_wt_major_changes,
+        labeled,
+        avg_lead_time,
+        total_skipped_tasks.count(),
+        all_pending_tasks_in_project.count(),
+        all_draft_tasks_in_project.count(),
+        project_count,
+        no_of_workspaces_objs,
+        total_word_count,
+        total_duration,
+        total_raw_duration,
+        avg_segment_duration,
+        avg_segments_per_task,
+    )
+
+
+def get_translation_quality_reports(
+    pk,
+    annotator,
+    project_type,
+    start_date,
+    end_date,
+    project_progress_stage=None,
+    tgt_language=None,
+):
+    sentence_operation = SentenceOperationViewSet()
+    if tgt_language == None:
+        projects_objs = Project.objects.filter(
+            organization_id_id=pk,
+            project_type=project_type,
+            project_stage=project_progress_stage,
+            annotators=annotator,
+        )
+    else:
+        projects_objs = Project.objects.filter(
+            organization_id_id=pk,
+            project_type=project_type,
+            project_stage=project_progress_stage,
+            tgt_language=tgt_language,
+            annotators=annotator,
+        )
+
+    proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
+
+    all_reviewd_tasks = Annotation.objects.filter(
+        annotation_status__in=[
+            "accepted",
+            "to_be_revised",
+            "accepted_with_minor_changes",
+            "accepted_with_major_changes",
+        ],
+        task__project_id__in=proj_ids,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    parent_anno_ids_of_reviewed = [
+        ann.parent_annotation_id for ann in all_reviewd_tasks
+    ]
+    reviewed_annotations_of_user = Annotation.objects.filter(
+        id__in=parent_anno_ids_of_reviewed,
+        completed_by=annotator,
+    )
+
+    all_reviewd_tasks_count = reviewed_annotations_of_user.count()
+
+    accepted_tasks = all_reviewd_tasks.all().exclude(
+        annotation_status__in=[
+            "to_be_revised",
+            "accepted_with_minor_changes",
+            "accepted_with_major_changes",
+        ],
+    )
+
+    parent_anno_ids_of_accepted = [ann.parent_annotation_id for ann in accepted_tasks]
+    accepted_annotations_of_user = Annotation.objects.filter(
+        id__in=parent_anno_ids_of_accepted,
+        completed_by=annotator,
+    )
+
+    accepted_count = accepted_annotations_of_user.count()
+
+    if all_reviewd_tasks_count == 0:
+        reviewed_except_accepted = 0
+    else:
+        reviewed_except_accepted = round(
+            (accepted_count / all_reviewd_tasks_count) * 100, 2
+        )
+
+    accepted_with_minor_changes_tasks = all_reviewd_tasks.all().exclude(
+        annotation_status__in=[
+            "to_be_revised",
+            "accepted",
+            "accepted_with_major_changes",
+        ],
+    )
+
+    parent_annotation_minor_changes = [
+        ann.parent_annotation_id for ann in accepted_with_minor_changes_tasks
+    ]
+    minor_changes_annotations_of_user = Annotation.objects.filter(
+        id__in=parent_annotation_minor_changes,
+        completed_by=annotator,
+    )
+    minor_changes_count = minor_changes_annotations_of_user.count()
+
+    accepted_with_major_changes_tasks = all_reviewd_tasks.all().exclude(
+        annotation_status__in=[
+            "to_be_revised",
+            "accepted",
+            "accepted_with_minor_changes",
+        ],
+    )
+
+    parent_annotation_major_changes = [
+        ann.parent_annotation_id for ann in accepted_with_major_changes_tasks
+    ]
+    major_changes_annotations_of_user = Annotation.objects.filter(
+        id__in=parent_annotation_major_changes,
+        completed_by=annotator,
+    )
+    major_changes_count = major_changes_annotations_of_user.count()
+
+    accepted_with_changes_tasks = list(major_changes_annotations_of_user) + list(
+        minor_changes_annotations_of_user
+    )
+
+    total_bleu_score = 0
+    total_char_score = 0
+
+    bleu_score_error_count = 0
+    char_score_error_count = 0
+    total_lead_time = []
+    for annot in accepted_with_changes_tasks:
+        annotator_obj = annot
+        reviewer_obj = Annotation.objects.filter(parent_annotation_id=annot.id)
+
+        str1 = annotator_obj.result[0]["value"]["text"]
+        str2 = reviewer_obj[0].result[0]["value"]["text"]
+        lead_time = reviewer_obj[0].lead_time
+        total_lead_time.append(lead_time)
+
+        data = {"sentence1": str1[0], "sentence2": str2[0]}
+        try:
+            bleu_score = sentence_operation.calculate_bleu_score(data)
+            total_bleu_score += float(bleu_score.data["bleu_score"])
+        except:
+            bleu_score_error_count += 1
+        try:
+            char_level_distance = (
+                sentence_operation.calculate_normalized_character_level_edit_distance(
+                    data
+                )
+            )
+            total_char_score += float(
+                char_level_distance.data["normalized_character_level_edit_distance"]
+            )
+        except:
+            char_score_error_count += 1
+
+    if len(accepted_with_changes_tasks) + accepted_count > 0:
+        accepted_with_change_minus_bleu_score_error = (
+            len(accepted_with_changes_tasks) + accepted_count - bleu_score_error_count
+        )
+        accepted_with_change_minus_char_score_error = (
+            len(accepted_with_changes_tasks) + accepted_count - char_score_error_count
+        )
+
+        if accepted_with_change_minus_bleu_score_error == 0:
+            avg_bleu_score = "all tasks bleu scores given some error"
+        else:
+            avg_bleu_score = (
+                total_bleu_score / accepted_with_change_minus_bleu_score_error
+            )
+            avg_bleu_score = round(avg_bleu_score, 3)
+
+        if accepted_with_change_minus_char_score_error == 0:
+            avg_char_score = "all tasks char scores given some error"
+
+        else:
+            avg_char_score = (
+                total_char_score / accepted_with_change_minus_char_score_error
+            )
+            avg_char_score = round(avg_char_score, 3)
+
+    else:
+        avg_bleu_score = "no accepted with changes tasks"
+        avg_char_score = "no accepted with changes tasks"
+
+    avg_lead_time = 0
+    if len(total_lead_time) > 0:
+        avg_lead_time = sum(total_lead_time) / len(total_lead_time)
+        avg_lead_time = round(avg_lead_time, 2)
+
+    return (
+        all_reviewd_tasks_count,
+        accepted_count,
+        reviewed_except_accepted,
+        minor_changes_count,
+        major_changes_count,
+        avg_char_score,
+        avg_bleu_score,
+        avg_lead_time,
+    )
+
+
 @shared_task()
 def send_project_analytics_mail_org(
     org_id,
     tgt_language,
     project_type,
-    email_id,
+    user_id,
     sort_by_column_name,
     descending_order,
 ):
     organization = Organization.objects.get(pk=org_id)
+    user = User.objects.get(id=user_id)
 
     if sort_by_column_name == None:
         sort_by_column_name = "User Name"
@@ -753,7 +1133,8 @@ def send_project_analytics_mail_org(
     filename = f"{organization.title}_project_analytics.csv"
 
     message = (
-        "Dear User"
+        "Dear "
+        + str(user.username)
         + ",\nYour project analysis reports for "
         + f"{organization.title}"
         + " are ready.\n Thanks for contributing on Shoonya!"
@@ -765,7 +1146,212 @@ def send_project_analytics_mail_org(
         f"{organization.title}" + " Project Analytics",
         message,
         settings.DEFAULT_FROM_EMAIL,
-        [email_id],
+        [user.email],
+        attachments=[(filename, content, content_type)],
+    )
+    email.send()
+
+
+@shared_task()
+def send_user_analytics_mail_org(
+    org_id,
+    tgt_language,
+    project_type,
+    user_id,
+    sort_by_column_name,
+    descending_order,
+    pk,
+    start_date,
+    end_date,
+    is_translation_project,
+    project_progress_stage,
+    final_reports,
+):
+    organization = Organization.objects.get(pk=org_id)
+    user = User.objects.get(id=user_id)
+    if not final_reports:
+        if tgt_language == None:
+            annotators = User.objects.filter(organization=organization).order_by(
+                "username"
+            )
+        else:
+            proj_objects = Project.objects.filter(
+                organization_id_id=pk,
+                project_type=project_type,
+                tgt_language=tgt_language,
+            )
+
+            proj_users_list = [
+                list(pro_obj.annotators.all()) for pro_obj in proj_objects
+            ]
+            proj_users = sum(proj_users_list, [])
+            annotators = list(set(proj_users))
+
+        annotators = [
+            ann_user
+            for ann_user in annotators
+            if (ann_user.participation_type in [1, 2, 4])
+        ]
+
+        result = []
+        for annotator in annotators:
+            participation_type = annotator.participation_type
+            participation_type = (
+                "Full Time"
+                if participation_type == 1
+                else "Part Time"
+                if participation_type == 2
+                else "Contract Basis"
+                if participation_type == 4
+                else "N/A"
+            )
+            role = get_role_name(annotator.role)
+            user_id = annotator.id
+            name = annotator.username
+            email = annotator.get_username()
+            user_lang = user.languages
+            if tgt_language == None:
+                selected_language = user_lang
+                if "English" in selected_language:
+                    selected_language.remove("English")
+            else:
+                selected_language = tgt_language
+            (
+                total_no_of_tasks_count,
+                annotated_tasks_count,
+                accepted,
+                to_be_revised,
+                accepted_wt_minor_changes,
+                accepted_wt_major_changes,
+                labeled,
+                avg_lead_time,
+                total_skipped_tasks_count,
+                total_unlabeled_tasks_count,
+                total_draft_tasks_count,
+                no_of_projects,
+                no_of_workspaces_objs,
+                total_word_count,
+                total_duration,
+                total_raw_duration,
+                avg_segment_duration,
+                avg_segments_per_task,
+            ) = get_counts(
+                pk,
+                annotator,
+                project_type,
+                start_date,
+                end_date,
+                is_translation_project,
+                project_progress_stage,
+                None if tgt_language == None else tgt_language,
+            )
+
+            if (
+                project_progress_stage != None
+                and project_progress_stage > ANNOTATION_STAGE
+            ):
+                temp_result = {
+                    "Annotator": name,
+                    "Email": email,
+                    "Language": selected_language,
+                    "No. of Workspaces": no_of_workspaces_objs,
+                    "No. of Projects": no_of_projects,
+                    "Assigned": total_no_of_tasks_count,
+                    "Labeled": labeled,
+                    "Accepted": accepted,
+                    "Accepted With Minor Changes": accepted_wt_minor_changes,
+                    "Accepted With Major Changes": accepted_wt_major_changes,
+                    "To Be Revised": to_be_revised,
+                    "Unlabeled": total_unlabeled_tasks_count,
+                    "Skipped": total_skipped_tasks_count,
+                    "Draft": total_draft_tasks_count,
+                    "Word Count": total_word_count,
+                    "Total Segments Duration": total_duration,
+                    "Total Raw Audio Duration": total_raw_duration,
+                    "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
+                    "Participation Type": participation_type,
+                    "User Role": role,
+                    "Avg Segment Duration": round(avg_segment_duration, 2),
+                    "Average Segments Per Task": round(avg_segments_per_task, 2),
+                }
+                if project_type != None and is_translation_project:
+                    (
+                        avg_char_score,
+                        avg_bleu_score,
+                    ) = get_translation_quality_reports(
+                        pk,
+                        annotator,
+                        project_type,
+                        start_date,
+                        end_date,
+                        project_progress_stage,
+                        tgt_language,
+                    )
+                    temp_result["Average Bleu Score"] = avg_bleu_score
+                    temp_result["Avergae Char Score"] = avg_char_score
+            else:
+                temp_result = {
+                    "Annotator": name,
+                    "Email": email,
+                    "Language": selected_language,
+                    "No. of Workspaces": no_of_workspaces_objs,
+                    "No. of Projects": no_of_projects,
+                    "Assigned": total_no_of_tasks_count,
+                    "Annotated": annotated_tasks_count,
+                    "Unlabeled": total_unlabeled_tasks_count,
+                    "Skipped": total_skipped_tasks_count,
+                    "Draft": total_draft_tasks_count,
+                    "Word Count": total_word_count,
+                    "Total Segments Duration": total_duration,
+                    "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
+                    "Participation Type": participation_type,
+                    "User Role": role,
+                    "Avg Segment Duration": round(avg_segment_duration, 2),
+                    "Average Segments Per Task": round(avg_segments_per_task, 2),
+                }
+
+            if project_type in get_audio_project_types():
+                del temp_result["Word Count"]
+            elif (
+                is_translation_project
+                or project_type == "SemanticTextualSimilarity_Scale5"
+            ):
+                del temp_result["Total Segments Duration"]
+                del temp_result["Avg Segment Duration"]
+                del temp_result["Average Segments Per Task"]
+            else:
+                del temp_result["Word Count"]
+                del temp_result["Total Segments Duration"]
+                del temp_result["Avg Segment Duration"]
+                del temp_result["Average Segments Per Task"]
+            result.append(temp_result)
+        final_result = sorted(
+            result, key=lambda x: x[sort_by_column_name], reverse=descending_order
+        )
+    else:
+        final_result = final_reports
+
+    df = pd.DataFrame.from_dict(final_result)
+
+    content = df.to_csv(index=False)
+    content_type = "text/csv"
+    filename = f"{organization.title}_user_analytics.csv"
+
+    message = (
+        "Dear "
+        + str(user.username)
+        + ",\nYour user analysis reports for "
+        + f"{organization.title}"
+        + " are ready.\n Thanks for contributing on Shoonya!"
+        + "\nProject Type: "
+        + f"{project_type}"
+    )
+
+    email = EmailMessage(
+        f"{organization.title}" + " User Analytics",
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
         attachments=[(filename, content, content_type)],
     )
     email.send()
