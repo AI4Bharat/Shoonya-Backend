@@ -85,7 +85,6 @@ def get_all_annotation_reports(
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
             total_word_count_list.append(ocr_word_count(anno.result))
-            print(total_word_count_list[-1])
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
