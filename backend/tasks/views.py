@@ -1356,7 +1356,9 @@ class AnnotationViewSet(
                     else:
                         response_message = "Success"
                     is_to_be_revised_task = (
-                        True if annotation_obj.annotation_status == TO_BE_REVISED else False
+                        True
+                        if annotation_obj.annotation_status == TO_BE_REVISED
+                        else False
                     )
                     update_annotated_at = (
                         True
