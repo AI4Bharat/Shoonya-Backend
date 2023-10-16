@@ -566,7 +566,7 @@ def get_counts(
     )
     assigned_tasks = all_tasks_in_project.count()
     total_raw_duration = 0
-    
+
     if project_progress_stage != None and project_progress_stage > ANNOTATION_STAGE:
         (
             accepted,
