@@ -555,7 +555,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             )
                         ann_filter1 = ann.filter(task__in=tasks)
                         task_ids = [an.task_id for an in ann_filter1]
-                        task_ids.sort()
+                        task_ids.sort(reverse=True)
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
                         ordered_tasks = []
