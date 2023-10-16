@@ -712,7 +712,7 @@ def schedule_project_reports_email(request):
     )
 
 
-@api_view(["GET"])
+@api_view(["POST"])
 def download_all_projects(request):
     (
         workspace_level_projects,
