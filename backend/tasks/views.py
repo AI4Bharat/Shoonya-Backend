@@ -392,7 +392,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
                 tasks = Task.objects.filter(annotations__in=ann)
                 tasks = tasks.distinct()
-                tasks = tasks.orger_by("id)
+                tasks = tasks.orger_by("id")
                 # Handle search query (if any)
                 if len(tasks):
                     tasks = tasks.filter(
