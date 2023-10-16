@@ -626,6 +626,48 @@ def send_project_analysis_reports_mail_ws(
                         )
                     except:
                         pass
+            elif "OCRTranscription" in project_type:
+                for each_task in labeled_tasks:
+                    try:
+                        annotate_annotation = Annotation.objects.filter(
+                            task=each_task, annotation_type=ANNOTATOR_ANNOTATION
+                        )[0]
+                        total_word_annotated_count_list.append(
+                            ocr_word_count(annotate_annotation.result)
+                        )
+                    except:
+                        pass
+
+                for each_task in reviewed_tasks:
+                    try:
+                        review_annotation = Annotation.objects.filter(
+                            task=each_task, annotation_type=REVIEWER_ANNOTATION
+                        )[0]
+                        total_word_reviewed_count_list.append(
+                            ocr_word_count(review_annotation.result)
+                        )
+                    except:
+                        pass
+
+                for each_task in exported_tasks:
+                    try:
+                        total_word_exported_count_list.append(
+                            ocr_word_count(each_task.correct_annotation.result)
+                        )
+                    except:
+                        pass
+
+                for each_task in superchecked_tasks:
+                    try:
+                        supercheck_annotation = Annotation.objects.filter(
+                            task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                        )[0]
+                        total_word_superchecked_count_list.append(
+                            ocr_word_count(supercheck_annotation.result)
+                        )
+                    except:
+                        pass
+
             total_word_annotated_count = sum(total_word_annotated_count_list)
             total_word_reviewed_count = sum(total_word_reviewed_count_list)
             total_word_exported_count = sum(total_word_exported_count_list)
@@ -790,10 +832,11 @@ def send_project_analysis_reports_mail_ws(
                 del result["Exported Tasks Word Count"]
                 del result["SuperChecked Tasks Word Count"]
 
-            elif (
-                is_translation_project
-                or project_type == "SemanticTextualSimilarity_Scale5"
-            ):
+            elif is_translation_project or project_type in [
+                "SemanticTextualSimilarity_Scale5",
+                "OCRTranscriptionEditing",
+                "OCRTranscription",
+            ]:
                 del result["Annotated Tasks Audio Duration"]
                 del result["Reviewed Tasks Audio Duration"]
                 del result["Exported Tasks Audio Duration"]
@@ -945,6 +988,11 @@ def un_pack_annotation_tasks(
                 pass
 
         total_word_count = sum(total_word_count_list)
+    elif "OCRTranscription" in project_type:
+        total_word_count = 0
+        for each_anno in labeled_annotations:
+            total_word_count += ocr_word_count(each_anno.result)
+
     total_duration = "0:00:00"
     total_raw_duration = 0.0
     avg_segment_duration = 0
@@ -1133,6 +1181,11 @@ def send_user_analysis_reports_mail_ws(
                             pass
 
                     total_word_count = sum(total_word_count_list)
+                elif "OCRTranscription" in project_type:
+                    total_word_count = 0
+                    for each_anno in labeled_annotations:
+                        total_word_count += ocr_word_count(each_anno.result)
+
                 total_duration = "0:00:00"
                 total_raw_duration = "0:00:00"
                 avg_segment_duration = 0
@@ -1239,10 +1292,11 @@ def send_user_analysis_reports_mail_ws(
 
             if project_type in get_audio_project_types():
                 del result["Word Count"]
-            elif (
-                is_translation_project
-                or project_type == "SemanticTextualSimilarity_Scale5"
-            ):
+            elif is_translation_project or project_type in [
+                "SemanticTextualSimilarity_Scale5",
+                "OCRTranscriptionEditing",
+                "OCRTranscription",
+            ]:
                 del result["Total Segments Duration"]
                 del result["Total Raw Audio Duration"]
                 del result["Avg Segment Duration"]
