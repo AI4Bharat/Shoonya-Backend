@@ -24,6 +24,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     get_audio_segments_count,
+    ocr_word_count,
 )
 
 
@@ -79,6 +80,9 @@ def get_all_annotation_reports(
                 total_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
+    elif "OCRTranscription" in project_type:
+        for anno in submitted_tasks:
+            total_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
@@ -181,6 +185,9 @@ def get_all_review_reports(
                 total_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
+    elif "OCRTranscription" in project_type:
+        for anno in submitted_tasks:
+            total_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
@@ -269,6 +276,9 @@ def get_all_supercheck_reports(
                 validated_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
+    elif "OCRTranscription" in project_type:
+        for anno in submitted_tasks:
+            validated_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):

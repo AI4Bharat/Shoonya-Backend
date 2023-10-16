@@ -12,6 +12,7 @@ from projects.utils import (
     get_audio_project_types,
     get_audio_transcription_duration,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
+    ocr_word_count,
 )
 from projects.views import get_task_count_unassigned, ProjectViewSet
 from shoonya_backend import settings
@@ -1272,6 +1273,10 @@ def update_meta_stats(
             ]
         except Exception as e:
             return 0
+    elif "OCRTranscription" in project_type:
+        result_meta_stats[ann_obj.annotation_status]["Word Count"] += ocr_word_count(
+            ann_obj.result
+        )
     elif project_type in get_audio_project_types():
         result_meta_stats[ann_obj.annotation_status]["Raw Audio Duration"] += task_data[
             "audio_duration"

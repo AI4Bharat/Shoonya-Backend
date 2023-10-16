@@ -48,6 +48,7 @@ from projects.utils import (
     convert_seconds_to_hours,
     get_audio_project_types,
     get_audio_transcription_duration,
+    ocr_word_count,
 )
 from datetime import datetime
 import calendar
@@ -986,7 +987,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 avg_lead_time = round(avg_lead_time, 2)
 
             total_word_count = 0
-            if is_textual_project:
+            if "OCRTranscription" in project_type:
+                for each_anno in annotated_labeled_tasks:
+                    total_word_count += ocr_word_count(each_anno.result)
+            elif is_textual_project:
                 total_word_count_list = []
                 for each_task in annotated_labeled_tasks:
                     try:

@@ -34,6 +34,7 @@ from projects.utils import (
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     get_translation_dataset_project_types,
     convert_hours_to_seconds,
+    ocr_word_count,
 )
 from projects.views import ProjectViewSet
 
@@ -255,6 +256,15 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                     rejected_word_count_list.append(anno.task.data["word_count"])
                 except:
                     pass
+        elif "OCRTranscription" in project_type:
+            for anno in validated_objs:
+                validated_word_count_list.append(ocr_word_count(anno.result))
+            for anno in validated_with_changes_objs:
+                validated_with_changes_word_count_list.append(
+                    ocr_word_count(anno.result)
+                )
+            for anno in rejected_objs:
+                rejected_word_count_list.append(ocr_word_count(anno.result))
         elif project_type in get_audio_project_types():
             for anno in validated_objs:
                 try:
@@ -339,7 +349,11 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
     }
 
     if project_type != None:
-        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
+        if is_translation_project or project_type in [
+            "SemanticTextualSimilarity_Scale5",
+            "OCRTranscriptionEditing",
+            "OCRTranscription",
+        ]:
             result["Validated Word Count"] = validated_word_count
             result[
                 "Validated With Changes Word Count"
@@ -538,6 +552,9 @@ def get_review_reports(
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             for anno in total_rev_annos_accepted:
                 total_word_count_list.append(anno.task.data["word_count"])
+        elif "OCRTranscription" in project_type:
+            for anno in total_rev_annos_accepted:
+                total_word_count_list.append(ocr_word_count(anno.result))
         elif project_type in get_audio_project_types():
             for anno in total_rev_annos_accepted:
                 try:
@@ -647,10 +664,11 @@ def get_review_reports(
         }
 
         if project_type != None:
-            if (
-                is_translation_project
-                or project_type == "SemanticTextualSimilarity_Scale5"
-            ):
+            if is_translation_project or project_type in [
+                "SemanticTextualSimilarity_Scale5",
+                "OCRTranscriptionEditing",
+                "OCRTranscription",
+            ]:
                 result["Total Word Count"] = total_word_count
             elif project_type in get_audio_project_types():
                 result["Total Segments Duration"] = total_audio_duration
@@ -1373,6 +1391,51 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             "ann_cumulative_word_count": sum(total_ann_word_count_list),
                             "rew_cumulative_word_count": sum(total_rev_word_count_list),
                         }
+                    elif "OCRTranscription" in project_type:
+                        total_rev_word_count = 0
+
+                        for each_task in reviewer_tasks:
+                            if each_task.task_status == "reviewed":
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=REVIEWER_ANNOTATION,
+                                )[0]
+                            elif each_task.task_status == "super_checked":
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                                )[0]
+                            else:
+                                anno = each_task.correct_annotation
+                            total_rev_word_count += ocr_word_count(anno.result)
+
+                        total_anno_word_count = 0
+
+                        for each_task in annotation_tasks:
+                            if each_task.task_status == "reviewed":
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=REVIEWER_ANNOTATION,
+                                )[0]
+                            elif each_task.task_status == "exported":
+                                anno = each_task.correct_annotation
+                            elif each_task.task_status == "super_checked":
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                                )[0]
+                            else:
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=ANNOTATOR_ANNOTATION,
+                                )[0]
+                            total_anno_word_count += ocr_word_count(anno.result)
+
+                        result = {
+                            "language": lang,
+                            "ann_cumulative_aud_duration": total_anno_word_count,
+                            "rew_cumulative_aud_duration": total_rev_word_count,
+                        }
 
                 else:
                     reviewer_task_count = reviewer_tasks.count()
@@ -1680,6 +1743,67 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             "language": lang,
                             "cumulative_word_count": sum(total_ann_word_count_list),
                         }
+                elif "OCRTranscription" in project_type:
+                    total_word_count = 0
+
+                    for each_task in tasks:
+                        if reviewer_reports == True:
+                            try:
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=REVIEWER_ANNOTATION,
+                                    )[0]
+                                elif each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = each_task.correct_annotation
+                                total_word_count += ocr_word_count(anno.result)
+
+                            except:
+                                pass
+                        elif supercheck_reports == True:
+                            try:
+                                if each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = each_task.correct_annotation
+                                total_word_count += ocr_word_count(anno.result)
+                            except:
+                                pass
+                        else:
+                            try:
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=REVIEWER_ANNOTATION,
+                                    )[0]
+                                elif each_task.task_status == "exported":
+                                    anno = each_task.correct_annotation
+                                elif each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=ANNOTATOR_ANNOTATION,
+                                    )[0]
+                                total_word_count += ocr_word_count(anno.result)
+                            except:
+                                pass
+
+                        result = {
+                            "language": lang,
+                            "cumulative_word_count": total_word_count,
+                        }
             else:
                 result = {"language": lang, "cumulative_tasks_count": tasks_count}
 
@@ -1740,6 +1864,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             or (
                 project_type in get_translation_dataset_project_types()
                 or "ConversationTranslation" in project_type
+                or "OCRTranscription" in project_type
             )
         ):
             final_result = []
@@ -2125,6 +2250,34 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                 "language": lang,
                                 "periodical_word_count": sum(total_ann_word_count_list),
                             }
+                    elif "OCRTranscription" in project_type:
+                        total_word_count = 0
+                        annotations = Annotation.objects.filter(
+                            task_id__in=labeled_count_tasks_ids,
+                            updated_at__gte=periodical_list[period],
+                            updated_at__lt=periodical_list[period + 1],
+                        )
+
+                        if reviewer_reports == True:
+                            annotations = annotations.filter(
+                                annotation_type=REVIEWER_ANNOTATION
+                            )
+                        elif supercheck_reports == True:
+                            annotations = annotations.filter(
+                                annotation_type=SUPER_CHECKER_ANNOTATION
+                            )
+                        else:
+                            annotations = annotations.filter(
+                                annotation_type=ANNOTATOR_ANNOTATION
+                            )
+
+                        for each_anno in annotations:
+                            total_word_count += ocr_word_count(each_anno.result)
+
+                        result = {
+                            "language": lang,
+                            "periodical_word_count": total_word_count,
+                        }
                 else:
                     result = {
                         "language": lang,
@@ -2188,6 +2341,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 or (
                     project_type in get_translation_dataset_project_types()
                     or "ConversationTranslation" in project_type
+                    or "OCRTranscription" in project_type
                 )
             ):
                 period_result = []

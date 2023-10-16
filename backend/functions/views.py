@@ -623,7 +623,7 @@ def schedule_asr_prediction_json_population(request):
     return Response(ret_dict, status=ret_status)
 
 
-@api_view(["POST"])
+@api_view(["GET"])
 def schedule_project_reports_email(request):
     (
         workspace_level_reports,
