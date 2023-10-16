@@ -222,6 +222,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                         task_ids = [an.task_id for an in ann_filter1]
+                        task_ids.sort()
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
                         final_dict = {}
@@ -286,6 +287,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                 task_ids = [an.task_id for an in ann_filter1]
+                task_ids.sort()
                 annotation_status = [an.annotation_status for an in ann_filter1]
                 user_mail = [an.completed_by.email for an in ann_filter1]
                 annotation_result_json = [an.result for an in ann_filter1]
@@ -351,6 +353,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                         task_ids = [an.task_id for an in ann_filter1]
+                        task_ids.sort()
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
                         ordered_tasks = []
@@ -389,6 +392,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
                 tasks = Task.objects.filter(annotations__in=ann)
                 tasks = tasks.distinct()
+                tasks = tasks.order_by("id")
                 # Handle search query (if any)
                 if len(tasks):
                     tasks = tasks.filter(
@@ -455,6 +459,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     else:
                         parent_annotator_annotation.append("-")
                         parent_annotator_mail.append("-")
+                task_ids.sort()
                 ordered_tasks = []
                 final_dict = {}
                 for idx, ids in enumerate(task_ids):
@@ -555,7 +560,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             )
                         ann_filter1 = ann.filter(task__in=tasks)
                         task_ids = [an.task_id for an in ann_filter1]
-                        task_ids.sort(reverse=True)
+                        task_ids.sort()
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
                         ordered_tasks = []
@@ -634,6 +639,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     else:
                         annotator_mail.append("-")
 
+                task_ids.sort()
                 ordered_tasks = []
                 final_dict = {}
                 proj_type = proj_objs[0].project_type
@@ -810,6 +816,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     task_status__in=tas_status,
                     super_checker_user_id=user_id,
                 )
+                tasks = tasks.order_by("id")
 
                 # Handle search query (if any)
                 if len(tasks):
