@@ -323,7 +323,7 @@ def get_all_supercheck_reports(
     return result
 
 
-@shared_task()
+@shared_task(queue="reports")
 def send_user_reports_mail_ws(
     ws_id,
     user_id,
@@ -507,7 +507,7 @@ def send_user_reports_mail_ws(
     email.send()
 
 
-@shared_task()
+@shared_task(queue="reports")
 def send_project_analysis_reports_mail_ws(
     pk,
     user_id,
@@ -1039,7 +1039,7 @@ def un_pack_annotation_tasks(
     )
 
 
-@shared_task()
+@shared_task(queue="reports")
 def send_user_analysis_reports_mail_ws(
     pk,
     user_id,

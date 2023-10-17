@@ -325,7 +325,7 @@ def get_all_supercheck_reports(
     return result
 
 
-@shared_task()
+@shared_task(queue="reports")
 def send_user_reports_mail_org(
     org_id,
     user_id,
@@ -887,7 +887,7 @@ def get_translation_quality_reports(
     )
 
 
-@shared_task()
+@shared_task(queue="reports")
 def send_project_analytics_mail_org(
     org_id,
     tgt_language,
@@ -1210,7 +1210,7 @@ def send_project_analytics_mail_org(
     email.send()
 
 
-@shared_task()
+@shared_task(queue="reports")
 def send_user_analytics_mail_org(
     org_id,
     tgt_language,
