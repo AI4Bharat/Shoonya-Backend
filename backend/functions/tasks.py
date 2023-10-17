@@ -702,7 +702,7 @@ def populate_draft_data_json(self, pk, fields_list):
     return f"successfully populated {cnt} dataset items with draft_data_json"
 
 
-@shared_task(bind=True)
+@shared_task(queue="reports")
 def schedule_mail_for_project_reports(
     self,
     project_type,
