@@ -697,7 +697,11 @@ def get_review_reports(
     }
 
     if project_type != None:
-        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
+        if is_translation_project or project_type in [
+            "SemanticTextualSimilarity_Scale5",
+            "OCRTranscriptionEditing",
+            "OCRTranscription",
+        ]:
             result["Total Word Count"] = total_word_count
         elif project_type in get_audio_project_types():
             result["Total Segments Duration"] = total_audio_duration
