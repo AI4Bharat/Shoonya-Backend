@@ -215,7 +215,10 @@ def create_tasks_from_dataitems(items, project):
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
 
-    if project.metadata_json is not None and "automatic_annotation_creation_mode" in project.metadata_json:
+    if (
+        project.metadata_json is not None
+        and "automatic_annotation_creation_mode" in project.metadata_json
+    ):
         create_automatic_annotations(
             tasks, project.metadata_json["automatic_annotation_creation_mode"]
         )
