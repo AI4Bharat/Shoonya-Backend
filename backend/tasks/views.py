@@ -1323,7 +1323,7 @@ class AnnotationViewSet(
             # need to add few filters here
 
             if auto_save:
-                update_fields_list = ["result", "lead_time"]
+                update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
@@ -1438,7 +1438,7 @@ class AnnotationViewSet(
                 return Response(ret_dict, status=ret_status)
 
             if auto_save:
-                update_fields_list = ["result", "lead_time"]
+                update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
@@ -1617,7 +1617,7 @@ class AnnotationViewSet(
                 return Response(ret_dict, status=ret_status)
 
             if auto_save:
-                update_fields_list = ["result", "lead_time"]
+                update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
