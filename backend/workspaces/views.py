@@ -1015,7 +1015,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         tgt_language = request.data.get("tgt_language")
         project_type = request.data.get("project_type")
         send_mail = request.data.get("send_mail", False)
-        
+
         # enable_task_reviews = request.data.get("enable_task_reviews")
         if send_mail == True:
             send_project_analysis_reports_mail_ws.delay(
@@ -1026,7 +1026,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             )
 
             ret_status = status.HTTP_200_OK
-            return Response({"message": "Email scheduled successfully"}, status=ret_status)
+            return Response(
+                {"message": "Email scheduled successfully"}, status=ret_status
+            )
         else:
             try:
                 ws_owner = ws.created_by.get_username()
@@ -1047,7 +1049,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             else:
                 selected_language = tgt_language
                 projects_objs = Project.objects.filter(
-                    workspace_id=pk, project_type=project_type, tgt_language=tgt_language
+                    workspace_id=pk,
+                    project_type=project_type,
+                    tgt_language=tgt_language,
                 )
             final_result = []
             if projects_objs.count() != 0:
@@ -1072,7 +1076,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     except:
                         pass
                     no_of_annotators_assigned = len(
-                        [annotator for annotator in annotators_list if annotator not in owners]
+                        [
+                            annotator
+                            for annotator in annotators_list
+                            if annotator not in owners
+                        ]
                     )
 
                     incomplete_tasks = Task.objects.filter(
@@ -1172,7 +1180,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         for each_task in superchecked_tasks:
                             try:
                                 supercheck_annotation = Annotation.objects.filter(
-                                    task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                                    task=each_task,
+                                    annotation_type=SUPER_CHECKER_ANNOTATION,
                                 )[0]
                                 total_word_superchecked_count_list.append(
                                     ocr_word_count(supercheck_annotation.result)
@@ -1183,7 +1192,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     total_word_annotated_count = sum(total_word_annotated_count_list)
                     total_word_reviewed_count = sum(total_word_reviewed_count_list)
                     total_word_exported_count = sum(total_word_exported_count_list)
-                    total_word_superchecked_count = sum(total_word_superchecked_count_list)
+                    total_word_superchecked_count = sum(
+                        total_word_superchecked_count_list
+                    )
 
                     total_duration_annotated_count_list = []
                     total_duration_reviewed_count_list = []
@@ -1201,7 +1212,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     annotation_status__in=["labeled"],
                                 )[0]
                                 total_duration_annotated_count_list.append(
-                                    get_audio_transcription_duration(annotate_annotation.result)
+                                    get_audio_transcription_duration(
+                                        annotate_annotation.result
+                                    )
                                 )
                             except:
                                 pass
@@ -1218,7 +1231,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     ],
                                 )[0]
                                 total_duration_reviewed_count_list.append(
-                                    get_audio_transcription_duration(review_annotation.result)
+                                    get_audio_transcription_duration(
+                                        review_annotation.result
+                                    )
                                 )
                                 total_word_error_rate_ar_list.append(
                                     calculate_word_error_rate_between_two_audio_transcription_annotation(
@@ -1265,7 +1280,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                         for each_task in all_tasks:
                             try:
-                                total_raw_duration_list.append(each_task.data["audio_duration"])
+                                total_raw_duration_list.append(
+                                    each_task.data["audio_duration"]
+                                )
                             except:
                                 pass
 
@@ -1282,18 +1299,20 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         sum(total_duration_superchecked_count_list)
                     )
 
-                    total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
+                    total_raw_duration = convert_seconds_to_hours(
+                        sum(total_raw_duration_list)
+                    )
 
                     if len(total_word_error_rate_rs_list) > 0:
-                        avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
+                        avg_word_error_rate_rs = sum(
                             total_word_error_rate_rs_list
-                        )
+                        ) / len(total_word_error_rate_rs_list)
                     else:
                         avg_word_error_rate_rs = 0
                     if len(total_word_error_rate_ar_list) > 0:
-                        avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+                        avg_word_error_rate_ar = sum(
                             total_word_error_rate_ar_list
-                        )
+                        ) / len(total_word_error_rate_ar_list)
                     else:
                         avg_word_error_rate_ar = 0
 
@@ -1372,7 +1391,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     final_result.append(result)
             ret_status = status.HTTP_200_OK
             return Response(final_result, status=ret_status)
-
 
     @action(
         detail=True,
@@ -1658,7 +1676,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
 
                 all_tasks_in_project = Task.objects.filter(
-                    Q(project_id__in=proj_ids) & Q(annotation_users=each_annotation_user)
+                    Q(project_id__in=proj_ids)
+                    & Q(annotation_users=each_annotation_user)
                 )
                 assigned_tasks = all_tasks_in_project.count()
 
@@ -1746,7 +1765,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                 )
                             except:
                                 pass
-                        total_duration = convert_seconds_to_hours(sum(total_duration_list))
+                        total_duration = convert_seconds_to_hours(
+                            sum(total_duration_list)
+                        )
                         total_raw_duration = convert_seconds_to_hours(
                             sum(total_raw_duration_list)
                         )
