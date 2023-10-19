@@ -1,7 +1,6 @@
 from datetime import datetime
 import os
 import zipfile
-import re
 from azure.storage.blob import BlobServiceClient
 from celery import shared_task
 from azure.core.exceptions import AzureError, ResourceNotFoundError
@@ -109,9 +108,6 @@ def rotate_logs():
         )
     except Exception as e:
         print(f"An error occurred: {str(e)}")
-
-rotate_logs()
-
 
 @shared_task(name="check_size")
 def check_file_size_limit():
