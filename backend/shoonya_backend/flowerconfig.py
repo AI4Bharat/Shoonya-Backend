@@ -8,4 +8,6 @@ port = int(os.getenv("FLOWER_PORT"))
 broker_url = os.getenv("CELERY_BROKER_URL")
 
 # Enable basic authentication
-basic_auth = ["shoonya:flower123"]
+flower_username = os.getenv("FLOWER_USERNAME")
+flower_password = os.getenv("FLOWER_PASSWORD")
+basic_auth = [f"{flower_username}:{flower_password}"]
