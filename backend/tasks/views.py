@@ -2,14 +2,18 @@ from datetime import timezone
 from locale import normalize
 from urllib.parse import unquote
 import ast
-
+import requests
+from django.http import JsonResponse
+from requests.exceptions import RequestException
+from dotenv import load_dotenv
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
+from drf_yasg.utils import swagger_auto_schema
 
 
 from tasks.models import *
@@ -2023,3 +2027,56 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 {"message": "Invalid parameters in request body!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+@swagger_auto_schema(
+    method="get",
+    operation_description="Get a list of Celery tasks with an optional filter by task state. use State = 'FAILURE' for retrieving failed tasks, State = 'SUCCESS' for retrieving successful tasks, State = 'STARTED' for retrieving active tasks and State = None for all retrieving tasks",
+    responses={
+        200: "Success",
+        400: "Bad Request",
+    },
+    manual_parameters=[
+        openapi.Parameter(
+            name="state",
+            in_=openapi.IN_QUERY,
+            type=openapi.TYPE_STRING,
+            description="Filter tasks by state",
+            required=False,
+        ),
+    ],
+)
+@api_view(["GET"])
+def get_celery_tasks(request):
+    try:
+        state = request.GET.get("state")
+        load_dotenv()
+        address = os.getenv("FLOWER_ADDRESS")
+        port = int(os.getenv("FLOWER_PORT"))
+        flower_url = f"{address}:{port}"
+        tasks_url = f"http://{flower_url}/api/tasks"
+        flower_username = os.getenv("FLOWER_USERNAME")
+        flower_password = os.getenv("FLOWER_PASSWORD")
+        response = requests.get(tasks_url, auth=(flower_username, flower_password))
+
+        if response.status_code == 200:
+            all_tasks = response.json()
+            if state:
+                filtered_tasks = {
+                    task_id: task
+                    for task_id, task in all_tasks.items()
+                    if task.get("state") == state
+                }
+                return JsonResponse(filtered_tasks, safe=False)
+            else:
+                return JsonResponse(all_tasks, safe=False)
+        elif response.status_code == 503:
+            return JsonResponse(
+                {"message": "Service temporarily unavailable, check flower"}, status=503
+            )
+        else:
+            return JsonResponse(
+                {"message": "Failed to retrieve tasks from Flower"}, status=500
+            )
+    except RequestException:
+        return JsonResponse({"message": "Failed to connect to Flower API"}, status=503)
