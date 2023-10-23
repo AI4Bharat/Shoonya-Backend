@@ -295,7 +295,7 @@ LOGGING = {
         "django.server": {"propagate": True},
     },
 }
-CELERY_IMPORTS = ("users.tasks",)
+CELERY_IMPORTS = ("users.tasks","shoonya_backend.tasks")
 
 # Celery settings
 CELERY_TIMEZONE = "Asia/Kolkata"

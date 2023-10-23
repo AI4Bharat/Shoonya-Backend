@@ -5,6 +5,7 @@ from azure.storage.blob import BlobServiceClient
 from celery import shared_task
 from azure.core.exceptions import AzureError, ResourceNotFoundError
 from dotenv import load_dotenv
+from loging.utils import delete_elasticsearch_documents
 
 load_dotenv()
 
@@ -69,8 +70,8 @@ def zip_log_file(zip_file_name ):
     with zipfile.ZipFile(zip_file_path_on_disk, "w", zipfile.ZIP_DEFLATED) as zipf:
         zipf.write(log_file_path, os.path.basename(log_file_path))
 
-
 def rotate_logs():
+    flag = True
     try:
         if not test_container_connection(
             AZURE_STORAGE_CONNECTION_STRING, CONTAINER_NAME
@@ -108,6 +109,10 @@ def rotate_logs():
         )
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+        flag = False
+    if flag:
+        delete_elasticsearch_documents()
+        
 
 @shared_task(name="check_size")
 def check_file_size_limit():
