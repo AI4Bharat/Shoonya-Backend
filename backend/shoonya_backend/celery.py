@@ -33,7 +33,7 @@ celery_app.conf.beat_schedule = {
     },
     'rotate-logs-task': {
         'task': 'check_size', 
-        'schedule': crontab(minute=0, hour=0), # every mid night
+        'schedule': crontab(minute=0, hour=0),# every mid night
     },
 }
 
