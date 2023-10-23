@@ -82,7 +82,7 @@ services:
     image: docker.elastic.co/logstash/logstash:7.14.0
     hostname: shoonya_dev_logger
     volumes:
-      - ./logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./logstash_dev.conf:/usr/share/logstash/pipeline/logstash.conf
       - logs_vol:/logs
     extra_hosts:
       - "elasticsearch:20.42.57.194"
