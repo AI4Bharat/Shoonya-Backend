@@ -254,6 +254,12 @@ class Annotation(models.Model):
     annotation_source = models.PositiveSmallIntegerField(
         choices=ANNOTATION_SOURCE, blank=False, null=False, default=MANUAL_ANNOTATION
     )
+    annotated_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="annotation_annotated_at",
+        help_text=("Time when the annotation was first labeled/accepted/validated"),
+    )
 
     def __str__(self):
         return str(self.id)
@@ -416,7 +422,12 @@ class DataExport(object):
     ):
         # prepare for saving
         now = datetime.now()
-        data = json.dumps(tasks, ensure_ascii=False)
+
+        def serialize_datetime(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+
+        data = json.dumps(tasks, default=serialize_datetime, ensure_ascii=False)
         md5 = hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
         name = (
             "project-"
@@ -459,7 +470,12 @@ class DataExport(object):
     def export_csv_file(project, tasks, download_resources, get_args):
         # prepare for saving
         now = datetime.now()
-        data = json.dumps(tasks, ensure_ascii=False)
+
+        def serialize_datetime(obj):
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+
+        data = json.dumps(tasks, default=serialize_datetime, ensure_ascii=False)
         md5 = hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
         name = (
             "project-"

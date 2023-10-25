@@ -1,10 +1,28 @@
+import os
+from smtplib import (
+    SMTPAuthenticationError,
+    SMTPException,
+    SMTPRecipientsRefused,
+    SMTPServerDisconnected,
+)
+import socket
+import jwt
+from datetime import datetime, timedelta
+
+from django.core.mail import send_mail
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.utils import timezone
+from django_celery_beat.models import PeriodicTask
 
 from organizations.models import Organization
+from workspaces.models import Workspace
+from shoonya_backend import settings
+from dotenv import load_dotenv
 
 from .utils import hash_upload
 from .managers import UserManager
@@ -36,7 +54,7 @@ LANG_CHOICES = (
     ("Telugu", "Telugu"),
     ("Urdu", "Urdu"),
 )
-
+load_dotenv()
 # Create your models here.
 # class Language(models.Model):
 #     language = models.CharField(
@@ -82,7 +100,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(verbose_name="first_name", max_length=265, blank=True)
     last_name = models.CharField(verbose_name="last_name", max_length=265, blank=True)
     phone = models.CharField(verbose_name="phone", max_length=256, blank=True)
-    profile_photo = models.ImageField(upload_to=hash_upload, blank=True)
+    profile_photo = models.CharField(
+        verbose_name="profile_photo", max_length=256, blank=True
+    )
 
     role = models.PositiveSmallIntegerField(
         choices=ROLE_CHOICES, blank=False, null=False, default=ANNOTATOR
@@ -153,11 +173,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     FULL_TIME = 1
     PART_TIME = 2
     NA = 3
+    CONTRACT_BASIS = 4
 
     PARTICIPATION_TYPE_CHOICES = (
         (FULL_TIME, "Full-Time"),
         (PART_TIME, "Part-Time"),
         (NA, "N/A"),
+        (CONTRACT_BASIS, "Contract Basis"),
     )
 
     participation_type = models.PositiveSmallIntegerField(
@@ -177,6 +199,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     EMAIL_FIELD = "email"
     USERNAME_FIELD = "email"
     REQUIRED_FIELD = ()
+
+    prefer_cl_ui = models.BooleanField(
+        verbose_name="prefer_cl_ui",
+        default=False,
+        help_text=(
+            "Indicates whether user prefers Chitralekha UI for audio transcription tasks or not."
+        ),
+    )
 
     class Meta:
         db_table = "user"
@@ -224,3 +254,128 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def is_admin(self):
         return self.role == User.ADMIN
+
+    def send_mail_to_change_password(self, email, key):
+        sent_token = self.generate_reset_token(key)
+        prefix = os.getenv("FRONTEND_URL_FOR_RESET_PASSWORD")
+        link = f"{prefix}/#/forget-password/confirm/{key}/{sent_token}"
+        try:
+            send_mail(
+                "Reset password link for shoonya",
+                f"Hello! Please click on the following link to reset your password - {link}",
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+            )
+        except SMTPAuthenticationError:
+            raise Exception(
+                "Failed to authenticate with the SMTP server. Check your email settings."
+            )
+        except (
+            SMTPException,
+            socket.gaierror,
+            SMTPRecipientsRefused,
+            SMTPServerDisconnected,
+        ) as e:
+            raise Exception("Failed to send the email. Please try again later.")
+
+    def generate_reset_token(self, user_id):
+        # Setting token expiration time (2 hours)
+        expiration_time = datetime.utcnow() + timedelta(hours=2)
+        secret_key = os.getenv("SECRET_KEY")
+
+        # Creating the payload containing user ID and expiration time
+        payload = {
+            "user_id": user_id,
+            "exp": expiration_time,
+        }
+
+        # Signing the payload with a secret key
+        token = jwt.encode(payload, secret_key, algorithm="HS256")
+        return token
+
+
+class CustomPeriodicTask(models.Model):
+    """
+    Celery Beat Tasks for Users.
+    """
+
+    celery_task = models.OneToOneField(
+        PeriodicTask,
+        on_delete=models.CASCADE,
+        null=False,
+        help_text=("Celery Beat Task for the user."),
+    )
+
+    created_at = models.DateTimeField(verbose_name="created_at", auto_now_add=True)
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name="user",
+        help_text=("User for which the task is created."),
+    )
+
+    DAILY = 1
+    WEEKLY = 2
+    MONTHLY = 3
+
+    SCHEDULE_CHOICES = (
+        (DAILY, "Daily"),
+        (WEEKLY, "Weekly"),
+        (MONTHLY, "Monthly"),
+    )
+
+    schedule = models.PositiveSmallIntegerField(
+        choices=SCHEDULE_CHOICES,
+        verbose_name="schedule",
+        blank=False,
+        null=False,
+        help_text=("Schedule of the task."),
+    )
+
+    project_type = models.CharField(
+        verbose_name="project_type",
+        max_length=256,
+        blank=False,
+        null=False,
+        help_text=("Project type of the task."),
+    )
+
+    ORGANIZATION_LEVEL = 1
+    WORKSPACE_LEVEL = 2
+
+    REPORT_LEVEL_CHOICES = (
+        (ORGANIZATION_LEVEL, "Organization Level"),
+        (WORKSPACE_LEVEL, "Workspace Level"),
+    )
+
+    report_level = models.PositiveSmallIntegerField(
+        choices=REPORT_LEVEL_CHOICES,
+        verbose_name="report_level",
+        blank=False,
+        null=False,
+        help_text=("Report level of the task."),
+    )
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        verbose_name="organization",
+        help_text=("Organization for which the reports will be generated."),
+        blank=True,
+        null=True,
+    )
+
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        verbose_name="workspace",
+        help_text=("Workspace for which the reports will be generated."),
+        blank=True,
+        null=True,
+    )
+
+
+@receiver(post_delete, sender=CustomPeriodicTask)
+def delete_celery_task(sender, instance, **kwargs):
+    instance.celery_task.delete()

@@ -21,6 +21,10 @@ from .tasks import (
     conversation_data_machine_translation,
     sentence_text_translate_and_save_translation_pairs,
     populate_draft_data_json,
+    generate_ocr_prediction_json,
+    generate_asr_prediction_json,
+    schedule_mail_for_project_reports,
+    schedule_mail_to_download_all_projects,
 )
 from .utils import (
     check_conversation_translation_function_inputs,
@@ -447,6 +451,97 @@ def schedule_conversation_translation_job(request):
     return Response(ret_dict, status=ret_status)
 
 
+@swagger_auto_schema(
+    method="post",
+    manual_parameters=[
+        openapi.Parameter(
+            "dataset_instance_id",
+            openapi.IN_QUERY,
+            description="Dataset Instance ID",
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "organization_id",
+            openapi.IN_QUERY,
+            description="Organization ID",
+            type=openapi.TYPE_INTEGER,
+            required=True,
+        ),
+        openapi.Parameter(
+            "api_type",
+            openapi.IN_QUERY,
+            description="Type of API to use for translation",
+            type=openapi.TYPE_STRING,
+            required=False,
+        ),
+        openapi.Parameter(
+            "automate_missing_data_items",
+            openapi.IN_QUERY,
+            description="Boolean to translate only missing data items",
+            type=openapi.TYPE_BOOLEAN,
+            required=False,
+        ),
+    ],
+    responses={
+        200: "Starting the process of populating ocr_prediction_json for OCR dataset."
+    },
+)
+@api_view(["POST"])
+def schedule_ocr_prediction_json_population(request):
+    """
+    Schedules a OCR prediction population job for a given dataset instance and API type.
+
+    Request Body
+    {
+        "dataset_instance_id": <int>,
+        "organization_id": <int>,
+        "api_type": <str>,
+        "automate_missing_data_items": <bool>
+    }
+
+    Response Body
+    {
+        "message": <str>
+        "result": <str>
+        "status": DjangoStatusCode
+    }
+    """
+    # Check if the user is the organization owner
+    result = check_if_particular_organization_owner(request)
+    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
+        return Response({"error": result["error"]}, status=result["status"])
+
+    # Fetching request data
+    try:
+        dataset_instance_id = request.data["dataset_instance_id"]
+    except KeyError:
+        return Response(
+            {"error": "Please send a dataset_instance_id"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        api_type = request.data["api_type"]
+    except KeyError:
+        api_type = "google"
+    try:
+        automate_missing_data_items = request.data["automate_missing_data_items"]
+    except KeyError:
+        automate_missing_data_items = True
+
+    # Calling a function asynchronously to create ocr predictions.
+    generate_ocr_prediction_json.delay(
+        dataset_instance_id=dataset_instance_id,
+        api_type=api_type,
+        automate_missing_data_items=automate_missing_data_items,
+    )
+
+    # Returning response
+    ret_dict = {"message": "Generating OCR Predictions"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
+
+
 @api_view(["POST"])
 def schedule_draft_data_json_population(request):
     """
@@ -471,3 +566,200 @@ def schedule_draft_data_json_population(request):
     ret_dict = {"message": "draft_data_json population started"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
+
+
+@api_view(["POST"])
+def schedule_asr_prediction_json_population(request):
+    """
+    Schedules a ASR prediction population job for a given dataset instance and API type.
+
+    Request Body
+    {
+        "dataset_instance_id": <int>,
+        "organization_id": <int>,
+        "api_type": <str>,
+        "automate_missing_data_items": <bool>
+    }
+
+    Response Body
+    {
+        "message": <str>
+        "result": <str>
+        "status": DjangoStatusCode
+    }
+    """
+    # Check if the user is the organization owner
+    result = check_if_particular_organization_owner(request)
+    if result["status"] in [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND]:
+        return Response({"error": result["error"]}, status=result["status"])
+
+    # Fetching request data
+    try:
+        dataset_instance_id = request.data["dataset_instance_id"]
+    except KeyError:
+        return Response(
+            {"error": "Please send a dataset_instance_id"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        api_type = request.data["api_type"]
+    except KeyError:
+        api_type = "dhruva_asr"
+    try:
+        automate_missing_data_items = request.data["automate_missing_data_items"]
+    except KeyError:
+        automate_missing_data_items = True
+
+    # Calling a function asynchronously to create ocr predictions.
+    generate_asr_prediction_json.delay(  # add delay
+        dataset_instance_id=dataset_instance_id,
+        api_type=api_type,
+        automate_missing_data_items=automate_missing_data_items,
+    )
+
+    # Returning response
+    ret_dict = {"message": "Generating ASR Predictions"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
+
+
+@api_view(["GET"])
+def schedule_project_reports_email(request):
+    (
+        workspace_level_reports,
+        organization_level_reports,
+        dataset_level_reports,
+        wid,
+        oid,
+        did,
+    ) = (False, False, False, 0, 0, 0)
+    if "workspace_id" in request.data:
+        workspace_level_reports = True
+        wid = request.data.get("workspace_id")
+    elif "organization_id" in request.data:
+        organization_level_reports = True
+        oid = request.data.get("organization_id")
+    elif "dataset_id" in request.data:
+        dataset_level_reports = True
+        did = request.data.get("dataset_id")
+    else:
+        ret_dict = {
+            "message": "Please send a workspace_id or a organization_id or a dataset_id"
+        }
+        ret_status = status.HTTP_400_BAD_REQUEST
+        return Response(ret_dict, status=ret_status)
+
+    anno_stats, meta_stats, complete_stats = False, False, False
+    if "annotation_statistics" in request.data:
+        anno_stats = True
+    elif "meta-info_statistics" in request.data:
+        meta_stats = True
+    elif "complete_statistics" in request.data:
+        complete_stats = True
+    else:
+        ret_dict = {"message": "Please send a statistics_type"}
+        ret_status = status.HTTP_400_BAD_REQUEST
+        return Response(ret_dict, status=ret_status)
+
+    try:
+        user_id = request.data.get("user_id")
+    except KeyError:
+        return Response(
+            {"message": "Please send an user id"}, status=status.HTTP_404_NOT_FOUND
+        )
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not (
+        user.is_authenticated
+        and (
+            user.role in [User.ORGANIZATION_OWNER, User.WORKSPACE_MANAGER, User.ADMIN]
+            or user.is_superuser
+        )
+    ):
+        final_response = {
+            "message": "You do not have enough permissions to access this!"
+        }
+        return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        project_type = request.data.get("project_type")
+    except KeyError:
+        return Response(
+            {"message": "Please send the project type"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    schedule_mail_for_project_reports.delay(
+        project_type,
+        user_id,
+        anno_stats,
+        meta_stats,
+        complete_stats,
+        workspace_level_reports,
+        organization_level_reports,
+        dataset_level_reports,
+        wid,
+        oid,
+        did,
+    )
+
+    return Response(
+        {"message": "You will receive an email with the reports shortly"},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+def download_all_projects(request):
+    (
+        workspace_level_projects,
+        dataset_level_projects,
+        wid,
+        did,
+    ) = (False, False, 0, 0)
+    if "workspace_id" in request.query_params:
+        workspace_level_projects = True
+        wid = request.query_params["workspace_id"]
+    elif "dataset_id" in request.query_params:
+        dataset_level_projects = True
+        did = request.query_params["dataset_id"]
+    else:
+        ret_dict = {"message": "Please send a workspace_id or a dataset_id"}
+        ret_status = status.HTTP_400_BAD_REQUEST
+        return Response(ret_dict, status=ret_status)
+
+    try:
+        user_id = request.data.get("user_id")
+    except KeyError:
+        return Response(
+            {"message": "Please send an user id"}, status=status.HTTP_404_NOT_FOUND
+        )
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not (
+        user.is_authenticated
+        and (
+            user.role in [User.ORGANIZATION_OWNER, User.WORKSPACE_MANAGER, User.ADMIN]
+            or user.is_superuser
+        )
+    ):
+        final_response = {
+            "message": "You do not have enough permissions to access this!"
+        }
+        return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+    schedule_mail_to_download_all_projects.delay(
+        workspace_level_projects, dataset_level_projects, wid, did, user_id
+    )
+
+    return Response(
+        {"message": "You will receive an email with the download link shortly"},
+        status=status.HTTP_200_OK,
+    )
+    pass

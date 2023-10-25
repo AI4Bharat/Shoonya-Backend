@@ -46,6 +46,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "participation_type",
             "organization",
             "role",
+            "is_active",
         ]
         read_only_fields = ["email"]
 
@@ -65,11 +66,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "phone",
+            "profile_photo",
             "role",
             "organization",
             "unverified_email",
             "date_joined",
             "participation_type",
+            "prefer_cl_ui",
+            "is_active",
         ]
         read_only_fields = [
             "id",
@@ -133,3 +137,19 @@ class UserEmailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["email"]
+
+
+class ChangePasswordWithoutOldPassword(serializers.Serializer):
+    new_password = serializers.CharField(max_length=128, write_only=True, required=True)
+
+    def validation_checks(self, instance, data):
+        try:
+            password_validation.validate_password(data["new_password"], instance)
+        except password_validation.ValidationError as e:
+            return " ".join(e.messages)
+        return "Validation successful"
+
+    def save(self, instance, validated_data):
+        instance.set_password(validated_data.get("new_password"))
+        instance.save()
+        return instance

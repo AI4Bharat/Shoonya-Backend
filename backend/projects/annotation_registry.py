@@ -130,11 +130,23 @@ ANNOTATION_REGISTRY_DICT = {
             "type": ["textarea", "labels", "textarea"],
         },
     },
+    "AcousticNormalisedTranscriptionEditing": {
+        "transcribed_json": {
+            "to_name": "audio_url",
+            "from_name": [
+                "labels",
+                "verbatim_transcribed_json",
+                "acoustic_normalised_transcribed_json",
+                "standardised_transcription",
+            ],
+            "type": ["labels", "textarea", "textarea", "textarea"],
+        },
+    },
 }
 
 
 def convert_prediction_json_to_annotation_result(
-    prediction_json, speakers_json, audio_duration, index
+    prediction_json, speakers_json, audio_duration, index, is_acoustic=False
 ):
     """
     Convert prediction_json and transcribed_json to annotation_result
@@ -157,6 +169,8 @@ def convert_prediction_json_to_annotation_result(
             "from_name": "transcribed_json",
             "original_length": audio_duration,
         }
+        if is_acoustic:
+            text_dict["from_name"] = "verbatim_transcribed_json"
         id = f"shoonya_{index}s{idx}s{generate_random_string(13-len(str(idx)))}"
         label_dict["id"] = id
         text_dict["id"] = id
@@ -178,7 +192,6 @@ def convert_prediction_json_to_annotation_result(
 
         label_dict["value"] = value_labels
         text_dict["value"] = value_text
-
         result.append(label_dict)
         result.append(text_dict)
 
@@ -229,7 +242,11 @@ def draft_data_json_to_annotation_result(draft_data_json, project_type, pk=None)
                 ans = convert_conversation_json_to_annotation_result(value, idx)
             elif field == "transcribed_json" or field == "prediction_json":
                 ans = convert_prediction_json_to_annotation_result(
-                    value, dataset_item.speakers_json, dataset_item.audio_duration, idx
+                    value,
+                    dataset_item.speakers_json,
+                    dataset_item.audio_duration,
+                    idx,
+                    project_type == "AcousticNormalisedTranscriptionEditing",
                 )
             else:
                 if field_type == "textarea":

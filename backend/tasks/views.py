@@ -1,3 +1,4 @@
+from datetime import timezone
 from locale import normalize
 from urllib.parse import unquote
 import ast
@@ -21,6 +22,10 @@ from tasks.serializers import (
 
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
+from users.utils import generate_random_string
+from utils.convert_result_to_chitralekha_format import (
+    convert_result_to_chitralekha_format,
+)
 
 from utils.search import process_search_query
 
@@ -129,6 +134,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         {"message": "You are not a part of this project"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+        # modifications for integrations of chitralekha UI
+        if "enable_chitralekha_UI" in dict(request.query_params):
+            for ann in annotations:
+                ann.result = convert_result_to_chitralekha_format(
+                    ann.result, ann.id, project.project_type
+                )
+
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
@@ -209,6 +222,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                         task_ids = [an.task_id for an in ann_filter1]
+                        task_ids.sort()
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
                         final_dict = {}
@@ -273,6 +287,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                 task_ids = [an.task_id for an in ann_filter1]
+                task_ids.sort()
                 annotation_status = [an.annotation_status for an in ann_filter1]
                 user_mail = [an.completed_by.email for an in ann_filter1]
                 annotation_result_json = [an.result for an in ann_filter1]
@@ -287,9 +302,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     if (ann_status[0] in ["labeled", "draft", "to_be_revised"]) and (
                         proj_type == "ContextualTranslationEditing"
                     ):
-                        tas["data"]["output_text"] = annotation_result_json[idx][0][
-                            "value"
-                        ]["text"][0]
+                        try:
+                            tas["data"]["output_text"] = annotation_result_json[idx][0][
+                                "value"
+                            ]["text"][0]
+                        except:
+                            tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
                     ordered_tasks.append(tas)
 
@@ -335,6 +353,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                         task_ids = [an.task_id for an in ann_filter1]
+                        task_ids.sort()
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
                         ordered_tasks = []
@@ -373,6 +392,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
                 tasks = Task.objects.filter(annotations__in=ann)
                 tasks = tasks.distinct()
+                tasks = tasks.order_by("id")
                 # Handle search query (if any)
                 if len(tasks):
                     tasks = tasks.filter(
@@ -439,6 +459,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     else:
                         parent_annotator_annotation.append("-")
                         parent_annotator_mail.append("-")
+                task_ids.sort()
                 ordered_tasks = []
                 final_dict = {}
                 for idx, ids in enumerate(task_ids):
@@ -455,9 +476,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             "accepted_with_minor_changes",
                         ]:
                             if reviewer_annotation[idx] is not None:
-                                tas["data"]["output_text"] = reviewer_annotation[idx][
-                                    0
-                                ]["value"]["text"][0]
+                                try:
+                                    tas["data"]["output_text"] = reviewer_annotation[
+                                        idx
+                                    ][0]["value"]["text"][0]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = "-"
                         elif rew_status[0] in [
@@ -465,26 +489,32 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             "skipped",
                         ]:
                             if parent_annotator_annotation[idx] != "-":
-                                tas["data"][
-                                    "output_text"
-                                ] = parent_annotator_annotation[idx][0]["value"][
-                                    "text"
-                                ][
-                                    0
-                                ]
+                                try:
+                                    tas["data"][
+                                        "output_text"
+                                    ] = parent_annotator_annotation[idx][0]["value"][
+                                        "text"
+                                    ][
+                                        0
+                                    ]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = first_annotator_annotation[
                                     idx
                                 ][0]["value"]["text"][0]
                         else:
                             if parent_annotator_annotation[idx] != "-":
-                                tas["data"][
-                                    "output_text"
-                                ] = parent_annotator_annotation[idx][0]["value"][
-                                    "text"
-                                ][
-                                    0
-                                ]
+                                try:
+                                    tas["data"][
+                                        "output_text"
+                                    ] = parent_annotator_annotation[idx][0]["value"][
+                                        "text"
+                                    ][
+                                        0
+                                    ]
+                                except:
+                                    tas["data"]["output_text"] = "-"
                             else:
                                 tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
@@ -528,9 +558,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("id")
-
+                        ann_filter1 = ann.filter(task__in=tasks)
                         task_ids = [an.task_id for an in ann_filter1]
+                        task_ids.sort()
                         annotation_status = [an.annotation_status for an in ann_filter1]
                         user_mail = [an.completed_by.email for an in ann_filter1]
                         ordered_tasks = []
@@ -609,6 +639,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     else:
                         annotator_mail.append("-")
 
+                task_ids.sort()
                 ordered_tasks = []
                 final_dict = {}
                 proj_type = proj_objs[0].project_type
@@ -785,6 +816,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     task_status__in=tas_status,
                     super_checker_user_id=user_id,
                 )
+                tasks = tasks.order_by("id")
 
                 # Handle search query (if any)
                 if len(tasks):
@@ -1262,6 +1294,10 @@ class AnnotationViewSet(
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(final_result, status=ret_status)
 
+        auto_save = False
+        if "auto_save" in request.data:
+            auto_save = True
+
         if annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             is_revised = False
             if annotation_obj.annotation_status == TO_BE_REVISED:
@@ -1271,6 +1307,13 @@ class AnnotationViewSet(
             if annotation_obj.annotation_type == REJECTED:
                 is_rejected = True
 
+        is_acoustic_project_type = (
+            True
+            if annotation_obj.task.project_id.project_type
+            == "AcousticNormalisedTranscriptionEditing"
+            else False
+        )
+
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
@@ -1279,57 +1322,113 @@ class AnnotationViewSet(
                 return Response(ret_dict, status=ret_status)
             # need to add few filters here
 
-            if "annotation_status" in dict(request.data) and request.data[
-                "annotation_status"
-            ] in [
-                UNLABELED,
-                LABELED,
-                DRAFT,
-                SKIPPED,
-            ]:
-                annotation_status = request.data["annotation_status"]
-                is_to_be_revised_task = (
-                    True if annotation_obj.annotation_status == TO_BE_REVISED else False
-                )
-
-            else:
-                ret_dict = {"message": "Missing param : annotation_status!"}
-                ret_status = status.HTTP_400_BAD_REQUEST
-                return Response(ret_dict, status=ret_status)
-
-            annotation_response = super().partial_update(request)
-            annotation_id = annotation_response.data["id"]
-            annotation = Annotation.objects.get(pk=annotation_id)
-            task = annotation.task
-
-            if annotation_status in [DRAFT, SKIPPED]:
-                task.task_status = INCOMPLETE
-                task.save()
-
-            if annotation_status == LABELED and is_to_be_revised_task:
-                try:
-                    review_annotation = Annotation.objects.get(
-                        task=task, annotation_type=REVIEWER_ANNOTATION
+            if auto_save:
+                update_fields_list = ["result", "lead_time", "updated_at"]
+                if "cl_format" in request.query_params:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        == 1,
                     )
-                    review_annotation.annotation_status = UNREVIEWED
-                    review_annotation.save()
-                except:
-                    pass
+                else:
+                    annotation_obj.result = request.data["result"]
+                if "annotation_notes" in dict(request.data):
+                    annotation_obj.annotation_notes = request.data["annotation_notes"]
+                    update_fields_list.append("annotation_notes")
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(update_fields=update_fields_list)
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+                response_message = "Success"
+            else:
+                if "annotation_status" in dict(request.data) and request.data[
+                    "annotation_status"
+                ] in [
+                    UNLABELED,
+                    LABELED,
+                    DRAFT,
+                    SKIPPED,
+                ]:
+                    annotation_status = request.data["annotation_status"]
+                    if annotation_status == LABELED:
+                        response_message = "Task Successfully Submitted"
+                    elif annotation_status == DRAFT:
+                        response_message = "Task Saved as Draft"
+                    else:
+                        response_message = "Success"
+                    is_to_be_revised_task = (
+                        True
+                        if annotation_obj.annotation_status == TO_BE_REVISED
+                        else False
+                    )
+                    update_annotated_at = (
+                        True
+                        if annotation_status == LABELED
+                        and annotation_obj.annotated_at is None
+                        else False
+                    )
 
-            no_of_annotations = task.annotations.filter(
-                annotation_type=ANNOTATOR_ANNOTATION, annotation_status="labeled"
-            ).count()
-            if task.project_id.required_annotators_per_task == no_of_annotations:
-                # if True:
-                task.task_status = ANNOTATED
-                if not (
-                    task.project_id.project_stage == REVIEW_STAGE
-                    or task.project_id.project_stage == SUPERCHECK_STAGE
-                ):
-                    if no_of_annotations == 1:
-                        task.correct_annotation = annotation
+                else:
+                    ret_dict = {"message": "Missing param : annotation_status!"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
 
-                task.save()
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
+                if "cl_format" in request.query_params:
+                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        == 1,
+                    )
+                annotation_response = super().partial_update(request)
+                annotation_id = annotation_response.data["id"]
+                annotation = Annotation.objects.get(pk=annotation_id)
+                task = annotation.task
+
+                if annotation_status in [DRAFT, SKIPPED]:
+                    task.task_status = INCOMPLETE
+                    task.save()
+
+                if annotation_status == LABELED and is_to_be_revised_task:
+                    try:
+                        review_annotation = Annotation.objects.get(
+                            task=task, annotation_type=REVIEWER_ANNOTATION
+                        )
+                        review_annotation.annotation_status = UNREVIEWED
+                        if auto_save:
+                            review_annotation.save(update_fields=["annotation_status"])
+                        else:
+                            review_annotation.save()
+                    except:
+                        pass
+
+                no_of_annotations = task.annotations.filter(
+                    annotation_type=ANNOTATOR_ANNOTATION, annotation_status="labeled"
+                ).count()
+                if task.project_id.required_annotators_per_task == no_of_annotations:
+                    # if True:
+                    task.task_status = ANNOTATED
+                    if not (
+                        task.project_id.project_stage == REVIEW_STAGE
+                        or task.project_id.project_stage == SUPERCHECK_STAGE
+                    ):
+                        if no_of_annotations == 1:
+                            task.correct_annotation = annotation
+
+                    task.save()
 
         # Review annotation update
         elif annotation_obj.annotation_type == REVIEWER_ANNOTATION:
@@ -1338,105 +1437,178 @@ class AnnotationViewSet(
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
 
-            if "annotation_status" in dict(request.data) and request.data[
-                "annotation_status"
-            ] in [
-                ACCEPTED,
-                UNREVIEWED,
-                ACCEPTED_WITH_MINOR_CHANGES,
-                ACCEPTED_WITH_MAJOR_CHANGES,
-                DRAFT,
-                SKIPPED,
-                TO_BE_REVISED,
-            ]:
-                review_status = request.data["annotation_status"]
-            else:
-                ret_dict = {"message": "Missing param : annotation_status!"}
-                ret_status = status.HTTP_400_BAD_REQUEST
-                return Response(ret_dict, status=ret_status)
+            if auto_save:
+                update_fields_list = ["result", "lead_time", "updated_at"]
+                if "cl_format" in request.query_params:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        <= 2,
+                    )
+                else:
+                    annotation_obj.result = request.data["result"]
+                if "review_notes" in dict(request.data):
+                    annotation_obj.review_notes = request.data["review_notes"]
+                    update_fields_list.append("review_notes")
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(update_fields=update_fields_list)
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+                response_message = "Success"
 
-            if (
-                review_status == ACCEPTED
-                or review_status == ACCEPTED_WITH_MINOR_CHANGES
-                or review_status == ACCEPTED_WITH_MAJOR_CHANGES
-                or review_status == TO_BE_REVISED
-            ):
-                if not "parent_annotation" in dict(request.data):
-                    ret_dict = {"message": "Missing param : parent_annotation!"}
+            else:
+                if "annotation_status" in dict(request.data) and request.data[
+                    "annotation_status"
+                ] in [
+                    ACCEPTED,
+                    UNREVIEWED,
+                    ACCEPTED_WITH_MINOR_CHANGES,
+                    ACCEPTED_WITH_MAJOR_CHANGES,
+                    DRAFT,
+                    SKIPPED,
+                    TO_BE_REVISED,
+                ]:
+                    review_status = request.data["annotation_status"]
+                    if review_status in [
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                    ]:
+                        response_message = "Task Successfully Accepted"
+                    elif review_status == DRAFT:
+                        response_message = "Task Saved as Draft"
+                    elif review_status == TO_BE_REVISED:
+                        response_message = "Task Saved as 'To Be Revised'"
+                    else:
+                        response_message = "Success"
+                    update_annotated_at = (
+                        True
+                        if review_status
+                        in [
+                            ACCEPTED,
+                            ACCEPTED_WITH_MINOR_CHANGES,
+                            ACCEPTED_WITH_MAJOR_CHANGES,
+                            TO_BE_REVISED,
+                        ]
+                        and annotation_obj.annotated_at is None
+                        else False
+                    )
+
+                else:
+                    ret_dict = {"message": "Missing param : annotation_status!"}
                     ret_status = status.HTTP_400_BAD_REQUEST
                     return Response(ret_dict, status=ret_status)
 
-                if review_status == TO_BE_REVISED:
-                    rev_loop_count = task.revision_loop_count
-                    if (
-                        rev_loop_count["review_count"]
-                        >= task.project_id.revision_loop_count
-                    ):
-                        ret_dict = {
-                            "message": "Maximum revision loop count for task reached!"
-                        }
-                        ret_status = status.HTTP_403_FORBIDDEN
+                if (
+                    review_status == ACCEPTED
+                    or review_status == ACCEPTED_WITH_MINOR_CHANGES
+                    or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+                    or review_status == TO_BE_REVISED
+                ):
+                    if not "parent_annotation" in dict(request.data):
+                        ret_dict = {"message": "Missing param : parent_annotation!"}
+                        ret_status = status.HTTP_400_BAD_REQUEST
                         return Response(ret_dict, status=ret_status)
 
-            annotation_response = super().partial_update(request)
-            annotation_id = annotation_response.data["id"]
-            annotation = Annotation.objects.get(pk=annotation_id)
-            task = annotation.task
+                    if review_status == TO_BE_REVISED:
+                        rev_loop_count = task.revision_loop_count
+                        if (
+                            rev_loop_count["review_count"]
+                            >= task.project_id.revision_loop_count
+                        ):
+                            ret_dict = {
+                                "message": "Maximum revision loop count for task reached!"
+                            }
+                            ret_status = status.HTTP_403_FORBIDDEN
+                            return Response(ret_dict, status=ret_status)
 
-            if review_status in [DRAFT, SKIPPED]:
-                task.task_status = ANNOTATED
-                task.save()
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
+                if "cl_format" in request.query_params:
+                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        <= 2,
+                    )
+                annotation_response = super().partial_update(request)
+                annotation_id = annotation_response.data["id"]
+                annotation = Annotation.objects.get(pk=annotation_id)
+                task = annotation.task
 
-            if (
-                review_status == ACCEPTED
-                or review_status == ACCEPTED_WITH_MINOR_CHANGES
-                or review_status == ACCEPTED_WITH_MAJOR_CHANGES
-                or review_status == TO_BE_REVISED
-            ):
-                if not (task.project_id.project_stage == SUPERCHECK_STAGE):
-                    task.correct_annotation = annotation
-                else:
+                if review_status in [DRAFT, SKIPPED]:
+                    task.task_status = ANNOTATED
+                    task.save()
+
+                if (
+                    review_status == ACCEPTED
+                    or review_status == ACCEPTED_WITH_MINOR_CHANGES
+                    or review_status == ACCEPTED_WITH_MAJOR_CHANGES
+                    or review_status == TO_BE_REVISED
+                ):
+                    if not (task.project_id.project_stage == SUPERCHECK_STAGE):
+                        task.correct_annotation = annotation
+                    else:
+                        task.correct_annotation = None
+                    parent = annotation.parent_annotation
+                    parent.review_notes = annotation.review_notes
+                    if review_status == TO_BE_REVISED:
+                        parent.annotation_status = TO_BE_REVISED
+                        task.task_status = INCOMPLETE
+                        rev_loop_count = task.revision_loop_count
+                        if not is_revised:
+                            rev_loop_count["review_count"] = (
+                                1 + rev_loop_count["review_count"]
+                            )
+                        task.revision_loop_count = rev_loop_count
+                    else:
+                        task.task_status = REVIEWED
+                        try:
+                            supercheck_annotation = Annotation.objects.get(
+                                task=task, annotation_type=SUPER_CHECKER_ANNOTATION
+                            )
+                            if supercheck_annotation.annotation_status == REJECTED:
+                                supercheck_annotation.annotation_status = UNVALIDATED
+                                if auto_save:
+                                    supercheck_annotation.save(
+                                        update_fields=["annotation_status"]
+                                    )
+                                else:
+                                    supercheck_annotation.save()
+                        except:
+                            pass
+                    parent.save(update_fields=["review_notes", "annotation_status"])
+                    task.save()
+
+                if review_status in [
+                    ACCEPTED,
+                    ACCEPTED_WITH_MAJOR_CHANGES,
+                    ACCEPTED_WITH_MINOR_CHANGES,
+                    SKIPPED,
+                    DRAFT,
+                ]:
+                    parent = annotation.parent_annotation
+                    if (parent.annotation_status) not in [LABELED]:
+                        if parent.annotated_at is None:
+                            parent.annotated_at = datetime.now(timezone.utc)
+                            parent.save(update_fields=["annotated_at"])
+                        parent.annotation_status = LABELED
+                        parent.save(update_fields=["annotation_status"])
+
+                if review_status in [UNREVIEWED, DRAFT, SKIPPED, TO_BE_REVISED]:
                     task.correct_annotation = None
-                parent = annotation.parent_annotation
-                parent.review_notes = annotation.review_notes
-                if review_status == TO_BE_REVISED:
-                    parent.annotation_status = TO_BE_REVISED
-                    task.task_status = INCOMPLETE
-                    rev_loop_count = task.revision_loop_count
-                    if not is_revised:
-                        rev_loop_count["review_count"] = (
-                            1 + rev_loop_count["review_count"]
-                        )
-                    task.revision_loop_count = rev_loop_count
-                else:
-                    task.task_status = REVIEWED
-                    try:
-                        supercheck_annotation = Annotation.objects.get(
-                            task=task, annotation_type=SUPER_CHECKER_ANNOTATION
-                        )
-                        if supercheck_annotation.annotation_status == REJECTED:
-                            supercheck_annotation.annotation_status = UNVALIDATED
-                            supercheck_annotation.save()
-                    except:
-                        pass
-                parent.save(update_fields=["review_notes", "annotation_status"])
-                task.save()
-
-            if review_status in [
-                ACCEPTED,
-                ACCEPTED_WITH_MAJOR_CHANGES,
-                ACCEPTED_WITH_MINOR_CHANGES,
-                SKIPPED,
-                DRAFT,
-            ]:
-                parent = annotation.parent_annotation
-                if (parent.annotation_status) not in [LABELED]:
-                    parent.annotation_status = LABELED
-                    parent.save(update_fields=["annotation_status"])
-
-            if review_status in [UNREVIEWED, DRAFT, SKIPPED, TO_BE_REVISED]:
-                task.correct_annotation = None
-                task.save()
+                    task.save()
         # supercheck annotation update
         else:
             if request.user != task.super_check_user:
@@ -1444,92 +1616,163 @@ class AnnotationViewSet(
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
 
-            if "annotation_status" in dict(request.data) and request.data[
-                "annotation_status"
-            ] in [
-                UNVALIDATED,
-                VALIDATED,
-                VALIDATED_WITH_CHANGES,
-                REJECTED,
-                DRAFT,
-                SKIPPED,
-            ]:
-                supercheck_status = request.data["annotation_status"]
-            else:
-                ret_dict = {"message": "Missing param : annotation_status!"}
-                ret_status = status.HTTP_400_BAD_REQUEST
-                return Response(ret_dict, status=ret_status)
+            if auto_save:
+                update_fields_list = ["result", "lead_time", "updated_at"]
+                if "cl_format" in request.query_params:
+                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        <= 3,
+                    )
+                else:
+                    annotation_obj.result = request.data["result"]
+                if "supercheck_notes" in dict(request.data):
+                    annotation_obj.supercheck_notes = request.data["supercheck_notes"]
+                    update_fields_list.append("supercheck_notes")
+                annotation_obj.lead_time = request.data["lead_time"]
+                annotation_obj.save(update_fields=update_fields_list)
+                annotation_response = Response(
+                    AnnotationSerializer(annotation_obj).data
+                )
+                response_message = "Success"
 
-            if (
-                supercheck_status == VALIDATED
-                or supercheck_status == VALIDATED_WITH_CHANGES
-                or supercheck_status == REJECTED
-            ):
-                if not "parent_annotation" in dict(request.data):
-                    ret_dict = {"message": "Missing param : parent_annotation!"}
+            else:
+                if "annotation_status" in dict(request.data) and request.data[
+                    "annotation_status"
+                ] in [
+                    UNVALIDATED,
+                    VALIDATED,
+                    VALIDATED_WITH_CHANGES,
+                    REJECTED,
+                    DRAFT,
+                    SKIPPED,
+                ]:
+                    supercheck_status = request.data["annotation_status"]
+                    if supercheck_status in [VALIDATED, VALIDATED_WITH_CHANGES]:
+                        response_message = "Task Successfully Validated"
+                    elif supercheck_status == DRAFT:
+                        response_message = "Task Saved as Draft"
+                    elif supercheck_status == REJECTED:
+                        response_message = "Task Rejected"
+                    else:
+                        response_message = "Success"
+                    update_annotated_at = (
+                        True
+                        if supercheck_status
+                        in [
+                            VALIDATED,
+                            VALIDATED_WITH_CHANGES,
+                            REJECTED,
+                        ]
+                        and annotation_obj.annotated_at is None
+                        else False
+                    )
+                else:
+                    ret_dict = {"message": "Missing param : annotation_status!"}
                     ret_status = status.HTTP_400_BAD_REQUEST
                     return Response(ret_dict, status=ret_status)
-                if supercheck_status == REJECTED:
-                    rev_loop_count = task.revision_loop_count
-                    if (
-                        rev_loop_count["super_check_count"]
-                        >= task.project_id.revision_loop_count
-                    ):
-                        ret_dict = {
-                            "message": "Maximum revision loop count for task reached!"
-                        }
-                        ret_status = status.HTTP_403_FORBIDDEN
+
+                if (
+                    supercheck_status == VALIDATED
+                    or supercheck_status == VALIDATED_WITH_CHANGES
+                    or supercheck_status == REJECTED
+                ):
+                    if not "parent_annotation" in dict(request.data):
+                        ret_dict = {"message": "Missing param : parent_annotation!"}
+                        ret_status = status.HTTP_400_BAD_REQUEST
                         return Response(ret_dict, status=ret_status)
+                    if supercheck_status == REJECTED:
+                        rev_loop_count = task.revision_loop_count
+                        if (
+                            rev_loop_count["super_check_count"]
+                            >= task.project_id.revision_loop_count
+                        ):
+                            ret_dict = {
+                                "message": "Maximum revision loop count for task reached!"
+                            }
+                            ret_status = status.HTTP_403_FORBIDDEN
+                            return Response(ret_dict, status=ret_status)
 
-            annotation_response = super().partial_update(request)
-            annotation_id = annotation_response.data["id"]
-            annotation = Annotation.objects.get(pk=annotation_id)
-            task = annotation.task
+                if update_annotated_at:
+                    annotation_obj.annotated_at = datetime.now(timezone.utc)
+                    annotation_obj.save(update_fields=["annotated_at"])
+                if "cl_format" in request.query_params:
+                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                        request.data["result"],
+                        annotation_obj.task,
+                        is_acoustic_project_type,
+                        is_acoustic_project_type
+                        and annotation_obj.task.project_id.metadata_json[
+                            "acoustic_enabled_stage"
+                        ]
+                        <= 3,
+                    )
+                annotation_response = super().partial_update(request)
+                annotation_id = annotation_response.data["id"]
+                annotation = Annotation.objects.get(pk=annotation_id)
 
-            if supercheck_status in [DRAFT, SKIPPED]:
-                task.task_status = REVIEWED
-                task.save()
+                task = annotation.task
 
-            if (
-                supercheck_status == VALIDATED
-                or supercheck_status == VALIDATED_WITH_CHANGES
-                or supercheck_status == REJECTED
-            ):
-                task.correct_annotation = annotation
-                parent = annotation.parent_annotation
-                parent.supercheck_notes = annotation.supercheck_notes
-                if supercheck_status == REJECTED:
-                    parent.annotation_status = REJECTED
-                    task.task_status = ANNOTATED
-                    rev_loop_count = task.revision_loop_count
-                    if not is_rejected:
-                        rev_loop_count["super_check_count"] = (
-                            1 + rev_loop_count["super_check_count"]
-                        )
-                    task.revision_loop_count = rev_loop_count
-                else:
-                    task.task_status = SUPER_CHECKED
-                parent.save(update_fields=["supercheck_notes", "annotation_status"])
-                task.save()
+                if supercheck_status in [DRAFT, SKIPPED]:
+                    task.task_status = REVIEWED
+                    task.save()
 
-            if supercheck_status in [VALIDATED, VALIDATED_WITH_CHANGES, SKIPPED, DRAFT]:
-                parent = annotation.parent_annotation
-                grand_parent = parent.parent_annotation
-                if (parent.annotation_status) not in [
-                    ACCEPTED,
-                    ACCEPTED_WITH_MAJOR_CHANGES,
-                    ACCEPTED_WITH_MINOR_CHANGES,
+                if (
+                    supercheck_status == VALIDATED
+                    or supercheck_status == VALIDATED_WITH_CHANGES
+                    or supercheck_status == REJECTED
+                ):
+                    task.correct_annotation = annotation
+                    parent = annotation.parent_annotation
+                    parent.supercheck_notes = annotation.supercheck_notes
+                    if supercheck_status == REJECTED:
+                        parent.annotation_status = REJECTED
+                        task.task_status = ANNOTATED
+                        rev_loop_count = task.revision_loop_count
+                        if not is_rejected:
+                            rev_loop_count["super_check_count"] = (
+                                1 + rev_loop_count["super_check_count"]
+                            )
+                        task.revision_loop_count = rev_loop_count
+                    else:
+                        task.task_status = SUPER_CHECKED
+                    parent.save(update_fields=["supercheck_notes", "annotation_status"])
+                    task.save()
+
+                if supercheck_status in [
+                    VALIDATED,
+                    VALIDATED_WITH_CHANGES,
+                    SKIPPED,
+                    DRAFT,
                 ]:
-                    parent.annotation_status = ACCEPTED
-                    parent.save(update_fields=["annotation_status"])
-                if (grand_parent.annotation_status) not in [LABELED]:
-                    grand_parent.annotation_status = LABELED
-                    grand_parent.save(update_fields=["annotation_status"])
+                    parent = annotation.parent_annotation
+                    grand_parent = parent.parent_annotation
+                    if (parent.annotation_status) not in [
+                        ACCEPTED,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                    ]:
+                        if parent.annotated_at is None:
+                            parent.annotated_at = datetime.now(timezone.utc)
+                            parent.save(update_fields=["annotated_at"])
+                        parent.annotation_status = ACCEPTED
+                        parent.save(update_fields=["annotation_status"])
+                    if (grand_parent.annotation_status) not in [LABELED]:
+                        if grand_parent.annotated_at is None:
+                            grand_parent.annotated_at = datetime.now(timezone.utc)
+                            grand_parent.save(update_fields=["annotated_at"])
+                        grand_parent.annotation_status = LABELED
+                        grand_parent.save(update_fields=["annotation_status"])
 
-            if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
-                task.correct_annotation = None
-                task.save()
-
+                if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
+                    task.correct_annotation = None
+                    task.save()
+        annotation_response.data["message"] = response_message
         return annotation_response
 
     def destroy(self, request, pk=None):
@@ -1562,6 +1805,99 @@ class AnnotationViewSet(
 
     #     task.save()
     #     return annotation_response
+
+    # convert chitralekha_format to LSF
+    def convert_chitralekha_format_to_LSF(
+        self, result, task, is_acoustic=False, acoustic_enabled=False
+    ):
+        modified_result = []
+        audio_duration = task.data["audio_duration"]
+        if result == None or len(result) == 0:
+            return modified_result
+        for idx, val in enumerate(result):
+            if "standardised_transcription" in val:
+                if acoustic_enabled:
+                    standardised_dict = {
+                        "id": f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}",
+                        "origin": "manual",
+                        "to_name": "audio_url",
+                        "from_name": "standardised_transcription",
+                        "original_length": audio_duration,
+                        "type": "textarea",
+                        "value": {
+                            "text": [val["standardised_transcription"]],
+                        },
+                    }
+                    modified_result.append(standardised_dict)
+                continue
+            if "type" in val or "value" in val:
+                print(f"The item number {idx} is already in LSF")
+                modified_result.append(val)
+                continue
+            label_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "labels",
+                "original_length": audio_duration,
+            }
+            text_dict = {
+                "origin": "manual",
+                "to_name": "audio_url",
+                "from_name": "transcribed_json"
+                if not is_acoustic
+                else "verbatim_transcribed_json",
+                "original_length": audio_duration,
+            }
+
+            id = f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}"
+            label_dict["id"] = id
+            text_dict["id"] = id
+            label_dict["type"] = "labels"
+            text_dict["type"] = "textarea"
+
+            value_labels = {
+                "start": self.convert_formatted_time_to_fractional(val["start_time"]),
+                "end": self.convert_formatted_time_to_fractional(val["end_time"]),
+                "labels": [val["speaker_id"]],
+            }
+            value_text = {
+                "start": self.convert_formatted_time_to_fractional(val["start_time"]),
+                "end": self.convert_formatted_time_to_fractional(val["end_time"]),
+                "text": [val["text"]],
+            }
+
+            label_dict["value"] = value_labels
+            text_dict["value"] = value_text
+
+            if acoustic_enabled:
+                acoustic_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "acoustic_normalised_transcribed_json",
+                    "original_length": audio_duration,
+                    "id": id,
+                    "type": "textarea",
+                    "value": {
+                        "start": self.convert_formatted_time_to_fractional(
+                            val["start_time"]
+                        ),
+                        "end": self.convert_formatted_time_to_fractional(
+                            val["end_time"]
+                        ),
+                        "text": [val["acoustic_normalised_text"]],
+                    },
+                }
+                modified_result.append(acoustic_dict)
+
+            modified_result.append(label_dict)
+            modified_result.append(text_dict)
+
+        return modified_result
+
+    def convert_formatted_time_to_fractional(self, formatted_time):
+        hours, minutes, seconds = map(float, formatted_time.split(":"))
+        total_seconds = (hours * 3600) + (minutes * 60) + seconds
+        return total_seconds
 
 
 class PredictionViewSet(

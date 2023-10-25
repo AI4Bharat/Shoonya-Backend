@@ -29,6 +29,8 @@ from projects.utils import (
     convert_seconds_to_hours,
     get_audio_project_types,
     get_audio_transcription_duration,
+    calculate_word_error_rate_between_two_audio_transcription_annotation,
+    ocr_word_count,
 )
 
 from . import resources
@@ -902,6 +904,48 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                             )
                         except:
                             pass
+                elif "OCRTranscription" in project_type:
+                    for each_task in labeled_tasks:
+                        try:
+                            annotate_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=ANNOTATOR_ANNOTATION
+                            )[0]
+                            total_word_annotated_count_list.append(
+                                ocr_word_count(annotate_annotation.result)
+                            )
+                        except:
+                            pass
+
+                    for each_task in reviewed_tasks:
+                        try:
+                            review_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=REVIEWER_ANNOTATION
+                            )[0]
+                            total_word_reviewed_count_list.append(
+                                ocr_word_count(review_annotation.result)
+                            )
+                        except:
+                            pass
+
+                    for each_task in exported_tasks:
+                        try:
+                            total_word_exported_count_list.append(
+                                ocr_word_count(each_task.correct_annotation.result)
+                            )
+                        except:
+                            pass
+
+                    for each_task in superchecked_tasks:
+                        try:
+                            supercheck_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                            )[0]
+                            total_word_superchecked_count_list.append(
+                                ocr_word_count(supercheck_annotation.result)
+                            )
+                        except:
+                            pass
+
                 total_word_annotated_count = sum(total_word_annotated_count_list)
                 total_word_reviewed_count = sum(total_word_reviewed_count_list)
                 total_word_exported_count = sum(total_word_exported_count_list)
@@ -911,6 +955,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 total_duration_reviewed_count_list = []
                 total_duration_exported_count_list = []
                 total_duration_superchecked_count_list = []
+                total_word_error_rate_rs_list = []
+                total_word_error_rate_ar_list = []
+                total_raw_duration_list = []
                 if project_type in get_audio_project_types():
                     for each_task in labeled_tasks:
                         try:
@@ -933,6 +980,12 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                             total_duration_reviewed_count_list.append(
                                 get_audio_transcription_duration(
                                     review_annotation.result
+                                )
+                            )
+                            total_word_error_rate_ar_list.append(
+                                calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                    review_annotation.result,
+                                    review_annotation.parent_annotation.result,
                                 )
                             )
                         except:
@@ -958,6 +1011,20 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                                     supercheck_annotation.result
                                 )
                             )
+                            total_word_error_rate_rs_list.append(
+                                calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                    supercheck_annotation.result,
+                                    supercheck_annotation.parent_annotation.result,
+                                )
+                            )
+                        except:
+                            pass
+
+                    for each_task in all_tasks:
+                        try:
+                            total_raw_duration_list.append(
+                                each_task.data["audio_duration"]
+                            )
                         except:
                             pass
 
@@ -973,6 +1040,22 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 total_duration_superchecked_count = convert_seconds_to_hours(
                     sum(total_duration_superchecked_count_list)
                 )
+                total_raw_duration = convert_seconds_to_hours(
+                    sum(total_raw_duration_list)
+                )
+
+                if len(total_word_error_rate_rs_list) > 0:
+                    avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
+                        total_word_error_rate_rs_list
+                    )
+                else:
+                    avg_word_error_rate_rs = 0
+                if len(total_word_error_rate_ar_list) > 0:
+                    avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+                        total_word_error_rate_ar_list
+                    )
+                else:
+                    avg_word_error_rate_ar = 0
 
                 if total_tasks == 0:
                     project_progress = 0.0
@@ -1001,10 +1084,13 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     "Reviewed": reviewed_count,
                     "Exported": exported_count,
                     "SuperChecked": superchecked_count,
-                    "Annotated Tasks Audio Duration": total_duration_annotated_count,
-                    "Reviewed Tasks Audio Duration": total_duration_reviewed_count,
-                    "Exported Tasks Audio Duration": total_duration_exported_count,
-                    "SuperChecked Tasks Audio Duration": total_duration_superchecked_count,
+                    "Annotated Tasks Segments Duration": total_duration_annotated_count,
+                    "Reviewed Tasks Segments Duration": total_duration_reviewed_count,
+                    "Exported Tasks Segments Duration": total_duration_exported_count,
+                    "SuperChecked Tasks Segments Duration": total_duration_superchecked_count,
+                    "Total Raw Audio Duration": total_raw_duration,
+                    "Average Word Error Rate A/R": round(avg_word_error_rate_ar, 2),
+                    "Average Word Error Rate R/S": round(avg_word_error_rate_rs, 2),
                     "Annotated Tasks Word Count": total_word_annotated_count,
                     "Reviewed Tasks Word Count": total_word_reviewed_count,
                     "Exported Tasks Word Count": total_word_exported_count,
@@ -1018,23 +1104,30 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     del result["Exported Tasks Word Count"]
                     del result["SuperChecked Tasks Word Count"]
 
-                elif (
-                    is_translation_project
-                    or project_type == "SemanticTextualSimilarity_Scale5"
-                ):
-                    del result["Annotated Tasks Audio Duration"]
-                    del result["Reviewed Tasks Audio Duration"]
-                    del result["Exported Tasks Audio Duration"]
-                    del result["SuperChecked Tasks Audio Duration"]
+                elif is_translation_project or project_type in [
+                    "SemanticTextualSimilarity_Scale5",
+                    "OCRTranscriptionEditing",
+                    "OCRTranscription",
+                ]:
+                    del result["Annotated Tasks Segments Duration"]
+                    del result["Reviewed Tasks Segments Duration"]
+                    del result["Exported Tasks Segments Duration"]
+                    del result["SuperChecked Tasks Segments Duration"]
+                    del result["Total Raw Audio Duration"]
+                    del result["Average Word Error Rate A/R"]
+                    del result["Average Word Error Rate R/S"]
                 else:
                     del result["Annotated Tasks Word Count"]
                     del result["Reviewed Tasks Word Count"]
                     del result["Exported Tasks Word Count"]
                     del result["SuperChecked Tasks Word Count"]
-                    del result["Annotated Tasks Audio Duration"]
-                    del result["Reviewed Tasks Audio Duration"]
-                    del result["Exported Tasks Audio Duration"]
-                    del result["SuperChecked Tasks Audio Duration"]
+                    del result["Annotated Tasks Segments Duration"]
+                    del result["Reviewed Tasks Segments Duration"]
+                    del result["Exported Tasks Segments Duration"]
+                    del result["SuperChecked Tasks Segments Duration"]
+                    del result["Total Raw Audio Duration"]
+                    del result["Average Word Error Rate A/R"]
+                    del result["Average Word Error Rate R/S"]
 
                 final_result.append(result)
         ret_status = status.HTTP_200_OK

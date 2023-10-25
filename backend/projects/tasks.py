@@ -1,4 +1,5 @@
 import random
+from copy import deepcopy
 from collections import OrderedDict
 from urllib.parse import parse_qsl
 
@@ -74,6 +75,9 @@ def create_automatic_annotations(tasks, automatic_annotation_creation_mode):
     if automatic_annotation_creation_mode in ["review", "supercheck"]:
         for task in tasks:
             if task.input_data.draft_data_json != None:
+                ann_type = task.input_data.draft_data_json.get("annotation_type", 3)
+                if ann_type < 2:
+                    continue
                 draft_data_json_fields_list = list(
                     task.input_data.draft_data_json.keys()
                 )
@@ -103,6 +107,9 @@ def create_automatic_annotations(tasks, automatic_annotation_creation_mode):
     if automatic_annotation_creation_mode in ["supercheck"]:
         for task in tasks:
             if task.input_data.draft_data_json != None:
+                ann_type = task.input_data.draft_data_json.get("annotation_type", 3)
+                if ann_type < 3:
+                    continue
                 draft_data_json_fields_list = list(
                     task.input_data.draft_data_json.keys()
                 )
@@ -208,6 +215,13 @@ def create_tasks_from_dataitems(items, project):
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
 
+    if (
+        project.metadata_json is not None
+        and "automatic_annotation_creation_mode" in project.metadata_json
+    ):
+        create_automatic_annotations(
+            tasks, project.metadata_json["automatic_annotation_creation_mode"]
+        )
     if input_dataset_info["prediction"] is not None:
         user_object = User.objects.get(email="prediction@ai4bharat.org")
 
@@ -311,7 +325,7 @@ def create_parameters_for_task_creation(
         sampling_parameters (dict): Parameters for sampling
         variable_parameters (dict): _description_
         project_id (int): ID of the project object created in this iteration
-
+        automatic_annotation_creation_mode: Creation mode for tasks
     """
 
     filtered_items = filter_data_items(
@@ -353,8 +367,6 @@ def create_parameters_for_task_creation(
 
     # Create Tasks from Parameters
     tasks = create_tasks_from_dataitems(sampled_items, project)
-    if automatic_annotation_creation_mode != None:
-        create_automatic_annotations(tasks, automatic_annotation_creation_mode)
 
 
 @shared_task
@@ -435,15 +447,39 @@ def export_project_in_place(
                 print(error)
                 export_excluded_task_ids.append(task.id)
                 continue
-            try:
-                ta_transcribed_json = json.loads(ta["transcribed_json"])
-            except json.JSONDecodeError:
-                ta_transcribed_json = [ta["transcribed_json"]]
-            except KeyError:
-                ta_transcribed_json = len(ta_labels) * [""]
-            if len(ta_labels) != len(ta_transcribed_json):
-                export_excluded_task_ids.append(task.id)
-                continue
+            if project_type == "AcousticNormalisedTranscriptionEditing":
+                try:
+                    ta_transcribed_json = json.loads(ta["verbatim_transcribed_json"])
+                except json.JSONDecodeError:
+                    ta_transcribed_json = [ta["verbatim_transcribed_json"]]
+                except KeyError:
+                    ta_transcribed_json = len(ta_labels) * [""]
+                if len(ta_labels) != len(ta_transcribed_json):
+                    export_excluded_task_ids.append(task.id)
+                    continue
+                try:
+                    ta_acoustic_transcribed_json = json.loads(
+                        ta["acoustic_normalised_transcribed_json"]
+                    )
+                except json.JSONDecodeError:
+                    ta_acoustic_transcribed_json = [
+                        ta["acoustic_normalised_transcribed_json"]
+                    ]
+                except KeyError:
+                    ta_acoustic_transcribed_json = len(ta_labels) * [""]
+                if len(ta_labels) != len(ta_acoustic_transcribed_json):
+                    export_excluded_task_ids.append(task.id)
+                    continue
+            else:
+                try:
+                    ta_transcribed_json = json.loads(ta["transcribed_json"])
+                except json.JSONDecodeError:
+                    ta_transcribed_json = [ta["transcribed_json"]]
+                except KeyError:
+                    ta_transcribed_json = len(ta_labels) * [""]
+                if len(ta_labels) != len(ta_transcribed_json):
+                    export_excluded_task_ids.append(task.id)
+                    continue
 
         task.output_data = task.input_data
         task.save()
@@ -465,7 +501,29 @@ def export_project_in_place(
                         )["speaker_id"]
                         ta_labels[idx]["speaker_id"] = speaker_id
                         del ta_labels[idx]["labels"]
-                    setattr(data_item, field, ta_labels)
+                        if project_type == "AcousticNormalisedTranscriptionEditing":
+                            temp = deepcopy(ta_labels[idx])
+                            temp["text"] = ta_acoustic_transcribed_json[idx]
+                            ta_acoustic_transcribed_json[idx] = temp
+                    if project_type == "AcousticNormalisedTranscriptionEditing":
+                        try:
+                            standardised_transcription = json.loads(
+                                ta["standardised_transcription"]
+                            )
+                        except json.JSONDecodeError:
+                            standardised_transcription = ta[
+                                "standardised_transcription"
+                            ]
+                        except KeyError:
+                            standardised_transcription = ""
+                        ta_transcribed_json = {
+                            "verbatim_transcribed_json": ta_labels,
+                            "acoustic_normalised_transcribed_json": ta_acoustic_transcribed_json,
+                            "standardised_transcription": standardised_transcription,
+                        }
+                        setattr(data_item, field, ta_transcribed_json)
+                    else:
+                        setattr(data_item, field, ta_labels)
                 elif field == "conversation_json":
                     if project.project_type == "ConversationVerification":
                         conversation_json = data_item.unverified_conversation_json
@@ -505,8 +563,7 @@ def export_project_in_place(
                             json.loads(ta["annotation_labels"])[idx]
                         )
                         # QUICKFIX for adjusting tasks_annotations
-                        if project_type == "OCRTranscriptionEditing":
-                            ta["annotation_transcripts"] = ta["ocr_transcribed_json"]
+                        ta["annotation_transcripts"] = ta["ocr_transcribed_json"]
                         if (
                             len(json.loads(ta["annotation_bboxes"])) > 1
                             and type(json.loads(ta["annotation_transcripts"])) == list

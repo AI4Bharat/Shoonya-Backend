@@ -19,6 +19,16 @@ urlpatterns = [
         "schedule_conversation_translation_job", schedule_conversation_translation_job
     ),
     path("schedule_draft_data_json_population", schedule_draft_data_json_population),
+    path(
+        "schedule_ocr_prediction_json_population",
+        schedule_ocr_prediction_json_population,
+    ),
+    path(
+        "schedule_asr_prediction_json_population",
+        schedule_asr_prediction_json_population,
+    ),
+    path("schedule_project_reports_email", schedule_project_reports_email),
+    path("download_all_projects", download_all_projects),
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)

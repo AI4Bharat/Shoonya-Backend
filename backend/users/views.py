@@ -1,8 +1,14 @@
+import json
 import os
 from http.client import responses
 import secrets
 import string
+from azure.storage.blob import BlobClient
+from io import BytesIO
+import pathlib
 from wsgiref.util import request_uri
+import jwt
+from jwt import DecodeError, InvalidSignatureError
 from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
@@ -17,11 +23,12 @@ from .serializers import (
     UserUpdateSerializer,
     LanguageSerializer,
     ChangePasswordSerializer,
+    ChangePasswordWithoutOldPassword,
 )
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
-from users.models import LANG_CHOICES, User
+from users.models import LANG_CHOICES, User, CustomPeriodicTask
 from rest_framework.decorators import action
 from tasks.models import (
     Task,
@@ -34,21 +41,26 @@ from projects.models import Project
 from tasks.models import Annotation
 from organizations.models import Organization
 from django.db.models import Q
+from django_celery_beat.models import PeriodicTask, CrontabSchedule
 from projects.utils import (
     no_of_words,
     is_valid_date,
     convert_seconds_to_hours,
     get_audio_project_types,
     get_audio_transcription_duration,
+    ocr_word_count,
 )
 from datetime import datetime
+import calendar
 from django.conf import settings
 from django.core.mail import send_mail
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
+from dotenv import load_dotenv
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+load_dotenv()
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -76,11 +88,7 @@ class InviteViewSet(viewsets.ViewSet):
         already_existing_emails = []
         valid_user_emails = []
         invalid_emails = []
-        invites = Invite.objects.all()
-        existing_emails = [invite.user.email for invite in invites]
-        existing_emails_set = set()
-        for existing_email in existing_emails:
-            existing_emails_set.add(existing_email)
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
         for email in distinct_emails:
             # Checking if the email is in valid format.
             if re.fullmatch(regex, email):
@@ -156,11 +164,7 @@ class InviteViewSet(viewsets.ViewSet):
         """
         all_emails = request.data.get("emails")
         distinct_emails = list(set(all_emails))
-        invites = Invite.objects.all()
-        existing_emails = [invite.user.email for invite in invites]
-        existing_emails_set = set()
-        for existing_email in existing_emails:
-            existing_emails_set.add(existing_email)
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
         # absent_users- for those who have never been invited
         # present_users- for those who have been invited earlier
         (
@@ -263,6 +267,8 @@ class InviteViewSet(viewsets.ViewSet):
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
 
+
+class AuthViewSet(viewsets.ViewSet):
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserLoginSerializer)
     @action(
@@ -278,10 +284,27 @@ class InviteViewSet(viewsets.ViewSet):
 
         try:
             email = request.data.get("email")
-            user = User.objects.get(email=email)
+            password = request.data.get("password")
+            if email == "" and password == "":
+                return Response(
+                    {"message": "Please Enter an Email and a Password"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            elif email == "":
+                return Response(
+                    {"message": "Please Enter an Email"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            elif password == "":
+                return Response(
+                    {"message": "Please Enter a Password"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            else:
+                user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
-                {"message": "User not found. Enter correct email id."},
+                {"message": "Incorrect email, User not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -311,6 +334,70 @@ class InviteViewSet(viewsets.ViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+    @permission_classes([AllowAny])
+    @swagger_auto_schema(request_body=ChangePasswordWithoutOldPassword)
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reset_password",
+        url_name="reset_password",
+    )
+    def reset_password(self, request, *args, **kwargs):
+        """
+        User change password functionality
+        """
+        if not request.data.get("new_password"):
+            try:
+                email = request.data.get("email")
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response(
+                    {"message": "Incorrect email, User not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            key = user.id
+            user.send_mail_to_change_password(email, key)
+            return Response(
+                {
+                    "message": "Please check your registered email and click on the link to reset your password.",
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            try:
+                received_token = request.data.get("token")
+                user_id = request.data.get("uid")
+                new_password = request.data.get("new_password")
+            except KeyError:
+                raise Exception("Insufficient details")
+            user = User.objects.get(id=user_id)
+            try:
+                secret_key = os.getenv("SECRET_KEY")
+                decodedToken = jwt.decode(received_token, secret_key, "HS256")
+            except InvalidSignatureError:
+                raise Exception(
+                    "The password reset link has expired. Please request a new link."
+                )
+            except DecodeError:
+                raise Exception(
+                    "Invalid token. Please make sure the token is correct and try again."
+                )
+
+            serializer = ChangePasswordWithoutOldPassword(user, request.data)
+            serializer.is_valid(raise_exception=True)
+
+            validation_response = serializer.validation_checks(
+                user, request.data
+            )  # checks for min_length, whether password is similar to user details etc.
+            if validation_response != "Validation successful":
+                return Response(
+                    {"message": validation_response},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user = serializer.save(user, request.data)
+            return Response({"message": "Password changed."}, status=status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ViewSet):
@@ -525,6 +612,48 @@ class UserViewSet(viewsets.ViewSet):
                 {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
             )
 
+    @swagger_auto_schema(
+        operation_description="Upload file...",
+    )
+    @action(detail=True, methods=["post"], url_path="edit_user_profile_image")
+    def user_profile_image_update(self, request, pk=None):
+        try:
+            user = User.objects.filter(id=pk)
+            if len(user) == 0:
+                return Response(
+                    {"message": "Invalid User"}, status=status.HTTP_403_FORBIDDEN
+                )
+            user = user[0]
+            file = request.FILES["image"]
+            file_extension = pathlib.Path(file.name).suffix
+            file_upload_name = user.username + file_extension
+            try:
+                blob = BlobClient.from_connection_string(
+                    conn_str=os.getenv("STORAGE_ACCOUNT_CONNECTION_STRING"),
+                    container_name=os.getenv(
+                        "STORAGE_ACCOUNT_PROFILE_IMAGE_CONTAINER_NAME"
+                    ),
+                    blob_name=file_upload_name,
+                )
+                blob.upload_blob(BytesIO(file.read()), overwrite=True)
+            except:
+                return Response(
+                    {"message": "Could not connect to azure blob storage"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            record = User.objects.get(id=user.id)
+            record.profile_photo = blob.url
+            record.save(update_fields=["profile_photo"])
+            print(blob.url + " created in blob container")
+            return Response(
+                {"status": "profile photo uploaded successfully"}, status=201
+            )
+        except:
+            return Response(
+                {"message": "Could not upload image"}, status=status.HTTP_403_FORBIDDEN
+            )
+
     @swagger_auto_schema(request_body=UserUpdateSerializer)
     @action(detail=True, methods=["patch"], url_path="edit_user_details")
     def user_details_update(self, request, pk=None):
@@ -613,6 +742,40 @@ class UserViewSet(viewsets.ViewSet):
         user = serializer.save(user, request.data)
         return Response(
             {"message": "User password changed."}, status=status.HTTP_200_OK
+        )
+
+    @action(
+        detail=False,
+        methods=["post"],
+        url_path="update_ui_prefs",
+        url_name="update_ui_prefs",
+    )
+    def update_ui_prefs(self, request):
+        """
+        Update UI preferences for user
+        """
+        prefer_cl_ui = request.data.get("prefer_cl_ui")
+
+        if prefer_cl_ui == True or prefer_cl_ui == False:
+            pass
+        else:
+            return Response(
+                {"message": "Please enter valid input(True/False)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if request.user.is_authenticated:
+            user = request.user
+        else:
+            return Response(
+                {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        user.prefer_cl_ui = prefer_cl_ui
+        user.save()
+        return Response(
+            {"message": "Successfully updated UI preferences."},
+            status=status.HTTP_200_OK,
         )
 
 
@@ -824,7 +987,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 avg_lead_time = round(avg_lead_time, 2)
 
             total_word_count = 0
-            if is_textual_project:
+            if "OCRTranscription" in project_type:
+                for each_anno in annotated_labeled_tasks:
+                    total_word_count += ocr_word_count(each_anno.result)
+            elif is_textual_project:
                 total_word_count_list = []
                 for each_task in annotated_labeled_tasks:
                     try:
@@ -860,7 +1026,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     )
                 ): annotated_tasks_count,
                 "Word Count": total_word_count,
-                "Total Audio Duration": total_duration,
+                "Total Segments Duration": total_duration,
                 (
                     "Avg Review Time (sec)"
                     if review_reports
@@ -875,10 +1041,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
             if project_type in get_audio_project_types():
                 del result["Word Count"]
             elif is_textual_project:
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
             else:
                 del result["Word Count"]
-                del result["Total Audio Duration"]
+                del result["Total Segments Duration"]
 
             if (
                 result[
@@ -928,7 +1094,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 else ("SuperChecked Tasks" if supercheck_reports else "Annotated Tasks")
             ): total_annotated_tasks_count,
             "Word Count": all_tasks_word_count,
-            "Total Audio Duration": convert_seconds_to_hours(
+            "Total Segments Duration": convert_seconds_to_hours(
                 all_projects_total_duration
             ),
             (
@@ -944,10 +1110,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
         if project_type_lower != "all" and project_type in get_audio_project_types():
             del total_result["Word Count"]
         elif project_type_lower != "all" and is_textual_project:
-            del total_result["Total Audio Duration"]
+            del total_result["Total Segments Duration"]
         elif project_type_lower != "all":
             del total_result["Word Count"]
-            del total_result["Total Audio Duration"]
+            del total_result["Total Segments Duration"]
 
         total_summary = [total_result]
 
@@ -956,6 +1122,345 @@ class AnalyticsViewSet(viewsets.ViewSet):
             "project_summary": project_wise_summary,
         }
         return Response(final_result)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Schedule payment reports (e-mail)",
+        url_path="schedule_mail",
+        url_name="schedule_mail",
+    )
+    def schedule_mail(self, request, pk=None):
+        user = request.user
+        if not (
+            user.is_authenticated
+            and (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        report_level = request.data.get("report_level")
+        id = request.data.get("id")
+        if report_level == 1:
+            try:
+                organization = Organization.objects.get(pk=id)
+            except Organization.DoesNotExist:
+                return Response(
+                    {"message": "Organization not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if not (
+                user.is_superuser
+                or (
+                    user.role == User.ORGANIZATION_OWNER
+                    and user.organization == organization
+                )
+            ):
+                return Response(
+                    {"message": "Not Authorized"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        elif report_level == 2:
+            try:
+                workspace = Workspace.objects.get(pk=id)
+            except Workspace.DoesNotExist:
+                return Response(
+                    {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+            if not (
+                request.user.is_superuser
+                or (
+                    user.role == User.ORGANIZATION_OWNER
+                    and workspace.organization == user.organization
+                )
+                or user in workspace.managers.all()
+            ):
+                return Response(
+                    {"message": "Not Authorized"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            return Response(
+                {"message": "Invalid report level"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        project_type = request.data.get("project_type")
+        schedule = request.data.get("schedule")
+        schedule_day = request.data.get("schedule_day")
+
+        if schedule == "Daily":
+            try:
+                crontab_schedule = CrontabSchedule.objects.get(
+                    minute="0",
+                    hour="6",
+                    day_of_week="*",
+                    day_of_month="*",
+                    month_of_year="*",
+                )
+            except CrontabSchedule.DoesNotExist:
+                crontab_schedule = CrontabSchedule.objects.create(
+                    minute="0",
+                    hour="6",
+                    day_of_week="*",
+                    day_of_month="*",
+                    month_of_year="*",
+                )
+        elif schedule == "Weekly":
+            try:
+                crontab_schedule = CrontabSchedule.objects.get(
+                    minute="0",
+                    hour="6",
+                    day_of_week=schedule_day,
+                    day_of_month="*",
+                    month_of_year="*",
+                )
+            except CrontabSchedule.DoesNotExist:
+                crontab_schedule = CrontabSchedule.objects.create(
+                    minute="0",
+                    hour="6",
+                    day_of_week=schedule_day,
+                    day_of_month="*",
+                    month_of_year="*",
+                )
+        elif schedule == "Monthly":
+            try:
+                crontab_schedule = CrontabSchedule.objects.get(
+                    minute="0",
+                    hour="6",
+                    day_of_week="*",
+                    day_of_month=schedule_day,
+                    month_of_year="*",
+                )
+            except CrontabSchedule.DoesNotExist:
+                crontab_schedule = CrontabSchedule.objects.create(
+                    minute="0",
+                    hour="6",
+                    day_of_week="*",
+                    day_of_month=schedule_day,
+                    month_of_year="*",
+                )
+        else:
+            return Response(
+                {"message": "Invalid schedule"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            task_obj = CustomPeriodicTask.objects.get(
+                user__id=user.id,
+                schedule=(
+                    1 if schedule == "Daily" else 2 if schedule == "Weekly" else 3
+                ),
+                project_type=project_type,
+                report_level=report_level,
+                organization=organization if report_level == 1 else None,
+                workspace=workspace if report_level == 2 else None,
+            )
+            return Response(
+                {"message": "Schedule already exists"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except CustomPeriodicTask.DoesNotExist:
+            try:
+                celery_task = PeriodicTask.objects.create(
+                    crontab=crontab_schedule,
+                    name=f"Payment Report {user.email} {schedule} {datetime.now()}",
+                    task=(
+                        "organizations.tasks.send_user_reports_mail_org"
+                        if report_level == 1
+                        else "workspaces.tasks.send_user_reports_mail_ws"
+                    ),
+                    kwargs={
+                        f'{"org_id" if report_level == 1 else "ws_id"}': id,
+                        "user_id": user.id,
+                        "project_type": project_type,
+                        "period": schedule,
+                    },
+                )
+                task_obj = CustomPeriodicTask.objects.create(
+                    celery_task=celery_task,
+                    user=user,
+                    schedule=(
+                        1 if schedule == "Daily" else 2 if schedule == "Weekly" else 3
+                    ),
+                    project_type=project_type,
+                    report_level=report_level,
+                    organization=organization if report_level == 1 else None,
+                    workspace=workspace if report_level == 2 else None,
+                )
+            except:
+                return Response(
+                    {"message": "Error in scheduling email"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        return Response(
+            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+        )
+
+    @action(
+        detail=True,
+        methods=["PATCH"],
+        name="Enable/disable payment reports (e-mail)",
+        url_name="update_scheduled_mail",
+        url_path="update_scheduled_mail",
+    )
+    def update_scheduled_mail(self, request, pk=None):
+        user = request.user
+        if not (
+            user.is_authenticated
+            and (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        task_id = request.data.get("task_id")
+
+        try:
+            task_obj = CustomPeriodicTask.objects.get(pk=task_id)
+            if not user.is_superuser and task_obj.user != user:
+                return Response(
+                    {"message": "Not Authorized"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            celery_task = task_obj.celery_task
+            celery_task.enabled = True if celery_task.enabled == False else False
+            celery_task.save()
+        except:
+            return Response(
+                {"message": "Error in modifying email schedule"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        message = (
+            "Email schedule disabled"
+            if celery_task.enabled == False
+            else "Email schedule enabled"
+        )
+        return Response({"message": message}, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Delete payment reports schedule (e-mail)",
+        url_name="delete_scheduled_mail",
+        url_path="delete_scheduled_mail",
+    )
+    def delete_scheduled_mail(self, request, pk=None):
+        user = request.user
+        if not (
+            user.is_authenticated
+            and (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        task_id = request.data.get("task_id")
+
+        try:
+            # task_obj is automatically deleted by models.CASCADE
+            task_obj = CustomPeriodicTask.objects.get(pk=task_id)
+            if not user.is_superuser and task_obj.user != user:
+                return Response(
+                    {"message": "Not Authorized"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            celery_task = task_obj.celery_task
+            celery_task.delete()
+        except:
+            return Response(
+                {"message": "Error in deleting email schedule"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {"message": "Email schedule deleted"}, status=status.HTTP_200_OK
+        )
+
+    @action(
+        detail=True,
+        methods=["GET"],
+        name="Get currently scheduled payment reports for user",
+        url_name="get_scheduled_mails",
+        url_path="get_scheduled_mails",
+    )
+    def get_scheduled_mails(self, request, pk=None):
+        user = request.user
+        if not (
+            user.is_authenticated
+            and (
+                user.role == User.ORGANIZATION_OWNER
+                or user.role == User.WORKSPACE_MANAGER
+                or user.is_superuser
+            )
+        ):
+            final_response = {
+                "message": "You do not have enough permissions to access this view!"
+            }
+            return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+        user_periodic_tasks = CustomPeriodicTask.objects.filter(
+            user__id=pk,
+        )
+        result = []
+        for task in user_periodic_tasks:
+            report_level = "Organization" if task.report_level == 1 else "Workspace"
+            organization = task.organization.title if task.organization else None
+            workspace = task.workspace.workspace_name if task.workspace else None
+            project_type = json.loads(task.celery_task.kwargs.replace("'", '"'))[
+                "project_type"
+            ]
+            schedule = (
+                "Daily"
+                if task.schedule == 1
+                else "Weekly"
+                if task.schedule == 2
+                else "Monthly"
+            )
+            scheduled_day = (
+                calendar.day_name[int(task.celery_task.crontab.day_of_week) - 1]
+                if task.schedule == 2
+                else task.celery_task.crontab.day_of_month
+                if task.schedule == 3
+                else None
+            )
+            result.append(
+                {
+                    "id": task.id,
+                    "Report Level": report_level,
+                    "Organization": organization,
+                    "Workspace": workspace,
+                    "Project Type": project_type,
+                    "Schedule": schedule,
+                    "Scheduled Day": scheduled_day,
+                    "Created At": task.created_at,
+                    "Run Count": task.celery_task.total_run_count,
+                    "Status": "Enabled"
+                    if task.celery_task.enabled == True
+                    else "Disabled",
+                }
+            )
+        result = sorted(result, key=lambda x: x["Created At"], reverse=True)
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class LanguageViewSet(viewsets.ViewSet):
