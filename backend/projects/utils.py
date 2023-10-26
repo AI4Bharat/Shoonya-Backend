@@ -174,5 +174,19 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
                     annotation_result2_text += s
             except:
                 pass
-
+    if len(annotation_result1_text) == 0 or len(annotation_result2_text) == 0:
+        return 0
     return wer(annotation_result1_text, annotation_result2_text)
+
+
+def ocr_word_count(annotation_result):
+    word_count = 0
+
+    for result in annotation_result:
+        if result["type"] == "textarea":
+            try:
+                word_count += no_of_words(result["value"]["text"][0])
+            except:
+                pass
+
+    return word_count
