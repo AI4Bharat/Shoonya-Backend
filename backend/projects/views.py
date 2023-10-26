@@ -974,7 +974,7 @@ def convert_annotation_result_to_formatted_json(
                             for speaker in speakers_json
                             if speaker["name"] == labels_dict["value"]["labels"][0]
                         )["speaker_id"]
-                    except KeyError:
+                    except (KeyError, StopIteration):
                         formatted_result_dict["speaker_id"] = None
                     formatted_result_dict["start"] = labels_dict["value"]["start"]
                     formatted_result_dict["end"] = labels_dict["value"]["end"]
