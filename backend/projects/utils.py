@@ -153,10 +153,10 @@ def get_not_null_audio_transcription_duration(annotation_result, ann_id):
                 acoustic_dict = annotation_result[indexes["acoustic_text_dict_idx"]]
                 if (
                     acoustic_dict["value"]["text"]
-                    and acoustic_dict["value"]["text"][0] == ""
+                    and len(acoustic_dict["value"]["text"][0]) <= 1
                 ):
                     continue
-            if text_dict["value"]["text"] and text_dict["value"]["text"][0] == "":
+            if text_dict["value"]["text"] and len(text_dict["value"]["text"][0]) <= 1:
                 continue
             audio_duration += get_audio_transcription_duration([label_dict])
     return audio_duration
