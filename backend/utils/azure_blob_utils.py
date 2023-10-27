@@ -12,6 +12,7 @@ def extract_account_key(connection_string):
     else:
         return None
 
+
 # function to extract the account_name from the azure connection string
 def extract_account_name(connection_string):
     pattern = r"AccountName=([^;]+);"
