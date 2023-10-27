@@ -9,6 +9,7 @@ import yaml
 from yaml.loader import SafeLoader
 from jiwer import wer
 
+from utils.convert_result_to_chitralekha_format import create_memory
 
 nltk.download("punkt")
 
@@ -136,8 +137,28 @@ def get_audio_transcription_duration(annotation_result):
         if result["type"] == "labels":
             start = result["value"]["start"]
             end = result["value"]["end"]
-            audio_duration += end - start
+            audio_duration += abs(end - start)
 
+    return audio_duration
+
+
+def get_not_null_audio_transcription_duration(annotation_result, ann_id):
+    audio_duration = 0
+    memory = create_memory(annotation_result)
+    for key, indexes in memory.items():
+        if indexes["labels_dict_idx"] != -1 and indexes["text_dict_idx"] != -1:
+            text_dict = annotation_result[indexes["text_dict_idx"]]
+            label_dict = annotation_result[indexes["labels_dict_idx"]]
+            if indexes["acoustic_text_dict_idx"] != -1:
+                acoustic_dict = annotation_result[indexes["acoustic_text_dict_idx"]]
+                if (
+                    acoustic_dict["value"]["text"]
+                    and len(acoustic_dict["value"]["text"][0]) <= 1
+                ):
+                    continue
+            if text_dict["value"]["text"] and len(text_dict["value"]["text"][0]) <= 1:
+                continue
+            audio_duration += get_audio_transcription_duration([label_dict])
     return audio_duration
 
 
