@@ -3,6 +3,9 @@ import os
 from http.client import responses
 import secrets
 import string
+from azure.storage.blob import BlobClient
+from io import BytesIO
+import pathlib
 from wsgiref.util import request_uri
 import jwt
 from jwt import DecodeError, InvalidSignatureError
@@ -45,6 +48,7 @@ from projects.utils import (
     convert_seconds_to_hours,
     get_audio_project_types,
     get_audio_transcription_duration,
+    ocr_word_count,
 )
 from datetime import datetime
 import calendar
@@ -616,6 +620,48 @@ class UserViewSet(viewsets.ViewSet):
                 {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
             )
 
+    @swagger_auto_schema(
+        operation_description="Upload file...",
+    )
+    @action(detail=True, methods=["post"], url_path="edit_user_profile_image")
+    def user_profile_image_update(self, request, pk=None):
+        try:
+            user = User.objects.filter(id=pk)
+            if len(user) == 0:
+                return Response(
+                    {"message": "Invalid User"}, status=status.HTTP_403_FORBIDDEN
+                )
+            user = user[0]
+            file = request.FILES["image"]
+            file_extension = pathlib.Path(file.name).suffix
+            file_upload_name = user.username + file_extension
+            try:
+                blob = BlobClient.from_connection_string(
+                    conn_str=os.getenv("STORAGE_ACCOUNT_CONNECTION_STRING"),
+                    container_name=os.getenv(
+                        "STORAGE_ACCOUNT_PROFILE_IMAGE_CONTAINER_NAME"
+                    ),
+                    blob_name=file_upload_name,
+                )
+                blob.upload_blob(BytesIO(file.read()), overwrite=True)
+            except:
+                return Response(
+                    {"message": "Could not connect to azure blob storage"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            record = User.objects.get(id=user.id)
+            record.profile_photo = blob.url
+            record.save(update_fields=["profile_photo"])
+            print(blob.url + " created in blob container")
+            return Response(
+                {"status": "profile photo uploaded successfully"}, status=201
+            )
+        except:
+            return Response(
+                {"message": "Could not upload image"}, status=status.HTTP_403_FORBIDDEN
+            )
+
     @swagger_auto_schema(request_body=UserUpdateSerializer)
     @action(detail=True, methods=["patch"], url_path="edit_user_details")
     def user_details_update(self, request, pk=None):
@@ -949,7 +995,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 avg_lead_time = round(avg_lead_time, 2)
 
             total_word_count = 0
-            if is_textual_project:
+            if "OCRTranscription" in project_type:
+                for each_anno in annotated_labeled_tasks:
+                    total_word_count += ocr_word_count(each_anno.result)
+            elif is_textual_project:
                 total_word_count_list = []
                 for each_task in annotated_labeled_tasks:
                     try:

@@ -22,7 +22,10 @@ celery_app.conf.result_expires = 0
 
 # Celery Queue related settings
 celery_app.conf.task_default_queue = "default"
-celery_app.conf.task_routes = {"functions.tasks.*": {"queue": "functions"}}
+celery_app.conf.task_routes = {
+    "functions.tasks.*": {"queue": "functions"},
+    "reports.tasks.*": {"queue": "reports"},
+}
 
 # Celery Beat tasks registration
 celery_app.conf.beat_schedule = {

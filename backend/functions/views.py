@@ -23,6 +23,8 @@ from .tasks import (
     populate_draft_data_json,
     generate_ocr_prediction_json,
     generate_asr_prediction_json,
+    schedule_mail_for_project_reports,
+    schedule_mail_to_download_all_projects,
 )
 from .utils import (
     check_conversation_translation_function_inputs,
@@ -619,3 +621,145 @@ def schedule_asr_prediction_json_population(request):
     ret_dict = {"message": "Generating ASR Predictions"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
+
+
+@api_view(["GET"])
+def schedule_project_reports_email(request):
+    (
+        workspace_level_reports,
+        organization_level_reports,
+        dataset_level_reports,
+        wid,
+        oid,
+        did,
+    ) = (False, False, False, 0, 0, 0)
+    if "workspace_id" in request.data:
+        workspace_level_reports = True
+        wid = request.data.get("workspace_id")
+    elif "organization_id" in request.data:
+        organization_level_reports = True
+        oid = request.data.get("organization_id")
+    elif "dataset_id" in request.data:
+        dataset_level_reports = True
+        did = request.data.get("dataset_id")
+    else:
+        ret_dict = {
+            "message": "Please send a workspace_id or a organization_id or a dataset_id"
+        }
+        ret_status = status.HTTP_400_BAD_REQUEST
+        return Response(ret_dict, status=ret_status)
+
+    anno_stats, meta_stats, complete_stats = False, False, False
+    if "annotation_statistics" in request.data:
+        anno_stats = True
+    elif "meta-info_statistics" in request.data:
+        meta_stats = True
+    elif "complete_statistics" in request.data:
+        complete_stats = True
+    else:
+        ret_dict = {"message": "Please send a statistics_type"}
+        ret_status = status.HTTP_400_BAD_REQUEST
+        return Response(ret_dict, status=ret_status)
+
+    try:
+        user_id = request.data.get("user_id")
+    except KeyError:
+        return Response(
+            {"message": "Please send an user id"}, status=status.HTTP_404_NOT_FOUND
+        )
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not (
+        user.is_authenticated
+        and (
+            user.role in [User.ORGANIZATION_OWNER, User.WORKSPACE_MANAGER, User.ADMIN]
+            or user.is_superuser
+        )
+    ):
+        final_response = {
+            "message": "You do not have enough permissions to access this!"
+        }
+        return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        project_type = request.data.get("project_type")
+    except KeyError:
+        return Response(
+            {"message": "Please send the project type"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    schedule_mail_for_project_reports.delay(
+        project_type,
+        user_id,
+        anno_stats,
+        meta_stats,
+        complete_stats,
+        workspace_level_reports,
+        organization_level_reports,
+        dataset_level_reports,
+        wid,
+        oid,
+        did,
+    )
+
+    return Response(
+        {"message": "You will receive an email with the reports shortly"},
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(["POST"])
+def download_all_projects(request):
+    (
+        workspace_level_projects,
+        dataset_level_projects,
+        wid,
+        did,
+    ) = (False, False, 0, 0)
+    if "workspace_id" in request.query_params:
+        workspace_level_projects = True
+        wid = request.query_params["workspace_id"]
+    elif "dataset_id" in request.query_params:
+        dataset_level_projects = True
+        did = request.query_params["dataset_id"]
+    else:
+        ret_dict = {"message": "Please send a workspace_id or a dataset_id"}
+        ret_status = status.HTTP_400_BAD_REQUEST
+        return Response(ret_dict, status=ret_status)
+
+    try:
+        user_id = request.data.get("user_id")
+    except KeyError:
+        return Response(
+            {"message": "Please send an user id"}, status=status.HTTP_404_NOT_FOUND
+        )
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not (
+        user.is_authenticated
+        and (
+            user.role in [User.ORGANIZATION_OWNER, User.WORKSPACE_MANAGER, User.ADMIN]
+            or user.is_superuser
+        )
+    ):
+        final_response = {
+            "message": "You do not have enough permissions to access this!"
+        }
+        return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+    schedule_mail_to_download_all_projects.delay(
+        workspace_level_projects, dataset_level_projects, wid, did, user_id
+    )
+
+    return Response(
+        {"message": "You will receive an email with the download link shortly"},
+        status=status.HTTP_200_OK,
+    )
+    pass
