@@ -25,6 +25,7 @@ blob_service_client = BlobServiceClient.from_connection_string(
 
 container_client = blob_service_client.get_container_client(CONTAINER_NAME)
 
+
 def get_most_recent_creation_date():
     blobs = list(container_client.list_blobs())
     if not blobs:
