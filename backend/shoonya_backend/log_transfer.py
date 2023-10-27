@@ -13,7 +13,7 @@ AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 CONTAINER_NAME = os.getenv("LOGS_CONTAINER_NAME")
 MAX_FILE_SIZE_LIMIT = 10000000000
 
-log_file_dir = "logs/"
+log_file_dir = "/logs/logs_web/"
 log_file_name = "default.log"
 log_file_path = log_file_dir+log_file_name
 
