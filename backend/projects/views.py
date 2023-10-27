@@ -1004,12 +1004,16 @@ def convert_annotation_result_to_formatted_json(
             text_dict = {}
             for idx2 in range(idx1, idx1 + 3):
                 formatted_result_dict = {}
+                if idx2 not in [0, len(annotation_result) - 1]:
+                    continue
                 if annotation_result[idx2]["type"] == "rectangle":
                     rectangle_dict = annotation_result[idx1]
                 elif annotation_result[idx2]["type"] == "labels":
                     labels_dict = annotation_result[idx2]
                 else:
                     text_dict = annotation_result[idx2]
+            if len(rectangle_dict) == 0 or len(labels_dict) == 0 or len(text_dict) == 0:
+                continue
             formatted_result_dict = rectangle_dict["value"]
             try:
                 formatted_result_dict["labels"] = labels_dict["value"]["labels"]
