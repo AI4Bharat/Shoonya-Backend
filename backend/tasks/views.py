@@ -23,6 +23,7 @@ from tasks.serializers import (
     PredictionSerializer,
     TaskAnnotationSerializer,
 )
+from tasks.utils import query_flower
 
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
@@ -2034,35 +2035,9 @@ class SentenceOperationViewSet(viewsets.ViewSet):
 )
 @api_view(["GET"])
 def get_celery_tasks(request):
-    try:
-        state = request.GET.get("state")
-        load_dotenv()
-        address = os.getenv("FLOWER_ADDRESS")
-        port = int(os.getenv("FLOWER_PORT"))
-        flower_url = f"{address}:{port}"
-        tasks_url = f"http://{flower_url}/api/tasks"
-        flower_username = os.getenv("FLOWER_USERNAME")
-        flower_password = os.getenv("FLOWER_PASSWORD")
-        response = requests.get(tasks_url, auth=(flower_username, flower_password))
+    filters = request.data
+    filtered_tasks = query_flower(filters)
+    if "error" in filtered_tasks:
+        return JsonResponse({"message": filtered_tasks["error"]}, status=503)
 
-        if response.status_code == 200:
-            all_tasks = response.json()
-            if state:
-                filtered_tasks = {
-                    task_id: task
-                    for task_id, task in all_tasks.items()
-                    if task.get("state") == state
-                }
-                return JsonResponse(filtered_tasks, safe=False)
-            else:
-                return JsonResponse(all_tasks, safe=False)
-        elif response.status_code == 503:
-            return JsonResponse(
-                {"message": "Service temporarily unavailable, check flower"}, status=503
-            )
-        else:
-            return JsonResponse(
-                {"message": "Failed to retrieve tasks from Flower"}, status=500
-            )
-    except RequestException:
-        return JsonResponse({"message": "Failed to connect to Flower API"}, status=503)
+    return JsonResponse(filtered_tasks, safe=False)
