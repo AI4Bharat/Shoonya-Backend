@@ -15,7 +15,7 @@ MAX_FILE_SIZE_LIMIT = 10000000000
 
 log_file_dir = "/logs/logs_web/"
 log_file_name = "default.log"
-log_file_path = log_file_dir+log_file_name
+log_file_path = log_file_dir + log_file_name
 
 
 blob_service_client = BlobServiceClient.from_connection_string(
@@ -62,13 +62,14 @@ def get_most_recent_creation_date():
     return most_recent_date
 
 
-def zip_log_file(zip_file_name ):
+def zip_log_file(zip_file_name):
     zip_file_path_on_disk = os.path.join(log_file_dir, zip_file_name)
     log_dir = os.path.dirname(log_file_path)
     zip_file_path_on_disk = os.path.join(log_dir, zip_file_name)
-    
+
     with zipfile.ZipFile(zip_file_path_on_disk, "w", zipfile.ZIP_DEFLATED) as zipf:
         zipf.write(log_file_path, os.path.basename(log_file_path))
+
 
 def rotate_logs():
     flag = True
@@ -85,16 +86,13 @@ def rotate_logs():
             end_date = datetime.today()
         start_date = datetime.today()
 
-        
         zip_file_name = (
             f"{start_date.strftime('%d-%m-%Y')} - {end_date.strftime('%d-%m-%Y')}.zip"
         )
 
         zip_log_file(zip_file_name)
-        
-        zip_file_path_on_disk = os.path.join(log_file_dir, zip_file_name)
 
-        
+        zip_file_path_on_disk = os.path.join(log_file_dir, zip_file_name)
 
         blob_client = container_client.get_blob_client(zip_file_name)
         with open(zip_file_path_on_disk, "rb") as file:
@@ -103,7 +101,7 @@ def rotate_logs():
 
         with open(log_file_path, "w") as log_file:
             log_file.truncate(0)
-        
+
         print(
             f"Log file has been zipped as {zip_file_name}, uploaded to Azure Blob Storage, and deleted from disk."
         )
@@ -112,12 +110,10 @@ def rotate_logs():
         flag = False
     if flag:
         delete_elasticsearch_documents()
-        
+
 
 @shared_task(name="check_size")
 def check_file_size_limit():
     log_file_size = os.path.getsize(log_file_path)
     if log_file_size >= MAX_FILE_SIZE_LIMIT:
         rotate_logs()
-
-
