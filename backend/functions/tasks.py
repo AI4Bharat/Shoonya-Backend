@@ -13,6 +13,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     ocr_word_count,
+    get_not_null_audio_transcription_duration,
 )
 from projects.views import get_task_count_unassigned, ProjectViewSet
 from shoonya_backend import settings
@@ -702,6 +703,9 @@ def populate_draft_data_json(self, pk, fields_list):
     return f"successfully populated {cnt} dataset items with draft_data_json"
 
 
+# The flow for project_reports- schedule_mail_for_project_reports -> get_proj_objs, get_stats ->
+# get_modified_stats_result, get_stats_helper -> update_meta_stats -> calculate_ced_between_two_annotations,
+# calculate_wer_between_two_annotations, get_most_recent_annotation.
 @shared_task(queue="reports")
 def schedule_mail_for_project_reports(
     project_type,
@@ -903,53 +907,124 @@ def get_stats_definitions():
         "rejected": 0,
     }
     result_ann_meta_stats = {
-        "unlabeled": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
-        "skipped": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
-        "draft": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
-        "labeled": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "unlabeled": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "skipped": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "draft": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "labeled": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
         "to_be_revised": {
             "Raw Audio Duration": 0,
             "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
             "Word Count": 0,
         },
     }
     result_rev_meta_stats = {
-        "unreviewed": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
-        "skipped": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
-        "draft": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "unreviewed": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "skipped": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "draft": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
         "to_be_revised": {
             "Raw Audio Duration": 0,
             "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
             "Word Count": 0,
         },
-        "accepted": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "accepted": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
         "accepted_with_minor_changes": {
             "Raw Audio Duration": 0,
             "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
             "Word Count": 0,
         },
         "accepted_with_major_changes": {
             "Raw Audio Duration": 0,
             "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
             "Word Count": 0,
         },
-        "rejected": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "rejected": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
     }
     result_sup_meta_stats = {
         "unvalidated": {
             "Raw Audio Duration": 0,
             "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
             "Word Count": 0,
         },
-        "skipped": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
-        "draft": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
-        "validated": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "skipped": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "draft": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
+        "validated": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
         "validate_with_changes": {
             "Raw Audio Duration": 0,
             "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
             "Word Count": 0,
         },
-        "rejected": {"Raw Audio Duration": 0, "Segment Duration": 0, "Word Count": 0},
+        "rejected": {
+            "Raw Audio Duration": 0,
+            "Segment Duration": 0,
+            "Not Null Segment Duration": 0,
+            "Word Count": 0,
+        },
     }
     return (
         result_ann_anno_stats,
@@ -998,26 +1073,11 @@ def get_modified_stats_result(
             ] = value
     if meta_stats or complete_stats:
         for key, stats in result_ann_meta_stats.items():
-            raw_audio_duration = stats["Raw Audio Duration"]
-            segment_duration = stats["Segment Duration"]
-            converted_duration_rad = convert_seconds_to_hours(raw_audio_duration)
-            converted_duration_sd = convert_seconds_to_hours(segment_duration)
-            stats["Raw Audio Duration"] = converted_duration_rad
-            stats["Segment Duration"] = converted_duration_sd
+            update_stats(stats)
         for key, stats in result_rev_meta_stats.items():
-            raw_audio_duration = stats["Raw Audio Duration"]
-            segment_duration = stats["Segment Duration"]
-            converted_duration_rad = convert_seconds_to_hours(raw_audio_duration)
-            converted_duration_sd = convert_seconds_to_hours(segment_duration)
-            stats["Raw Audio Duration"] = converted_duration_rad
-            stats["Segment Duration"] = converted_duration_sd
+            update_stats(stats)
         for key, stats in result_sup_meta_stats.items():
-            raw_audio_duration = stats["Raw Audio Duration"]
-            segment_duration = stats["Segment Duration"]
-            converted_duration_rad = convert_seconds_to_hours(raw_audio_duration)
-            converted_duration_sd = convert_seconds_to_hours(segment_duration)
-            stats["Raw Audio Duration"] = converted_duration_rad
-            stats["Segment Duration"] = converted_duration_sd
+            update_stats(stats)
         for key, value in result_ann_meta_stats.items():
             for sub_key in value.keys():
                 result[
@@ -1070,6 +1130,19 @@ def get_modified_stats_result(
         .count()
     )
     return result
+
+
+def update_stats(stats):
+    raw_audio_duration = stats["Raw Audio Duration"]
+    segment_duration = stats["Segment Duration"]
+    not_null_segment_duration = stats["Not Null Segment Duration"]
+    converted_duration_rad = convert_seconds_to_hours(raw_audio_duration)
+    converted_duration_sd = convert_seconds_to_hours(segment_duration)
+    converted_duration_nsd = convert_seconds_to_hours(not_null_segment_duration)
+    stats["Raw Audio Duration"] = converted_duration_rad
+    stats["Segment Duration"] = converted_duration_sd
+    stats["Not Null Segment Duration"] = converted_duration_nsd
+    return 0
 
 
 def get_average_of_a_list(arr):
@@ -1283,6 +1356,9 @@ def update_meta_stats(
         result_meta_stats[ann_obj.annotation_status][
             "Segment Duration"
         ] += get_audio_transcription_duration(ann_obj.result)
+        result_meta_stats[ann_obj.annotation_status][
+            "Not Null Segment Duration"
+        ] += get_not_null_audio_transcription_duration(ann_obj.result, ann_obj.id)
 
 
 def calculate_ced_between_two_annotations(annotation1, annotation2):
