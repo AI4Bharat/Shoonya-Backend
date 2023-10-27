@@ -6,6 +6,7 @@ from celery import shared_task
 from azure.core.exceptions import AzureError, ResourceNotFoundError
 from dotenv import load_dotenv
 from loging.utils import delete_elasticsearch_documents
+from utils.blob_functions import test_container_connection
 
 load_dotenv()
 
@@ -23,33 +24,6 @@ blob_service_client = BlobServiceClient.from_connection_string(
 )
 
 container_client = blob_service_client.get_container_client(CONTAINER_NAME)
-
-
-# function to check the connection by adding and deleting the blob in the container
-def test_container_connection(connection_string, container_name):
-    try:
-        blob_service_client = BlobServiceClient.from_connection_string(
-            connection_string
-        )
-        container_client = blob_service_client.get_container_client(container_name)
-
-        name = "connection_test"
-        text_to_upload = "This is a sample text to check the connection"
-
-        container_client.upload_blob(name, text_to_upload, overwrite=True)
-        container_client.delete_blob(name)
-
-        return True
-    except ResourceNotFoundError:
-        print("The specified resource does not exist.")
-        return False
-    except AzureError as error:
-        print(f"Azure Error: {error}")
-        return False
-    except Exception as error:
-        print(f"An error occurred: {error}")
-        return False
-
 
 def get_most_recent_creation_date():
     blobs = list(container_client.list_blobs())
