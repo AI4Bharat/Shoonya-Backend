@@ -258,7 +258,7 @@ if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
     handlers["csvfile"] = {
         "level": "WARNING",
         "class": "logging.FileHandler",
-        "filename": os.path.join(BASE_DIR, "logs/logs.csv"),
+        "filename": "/logs/logs_web/logs.csv",
         "formatter": "csvfile",
     }
 
