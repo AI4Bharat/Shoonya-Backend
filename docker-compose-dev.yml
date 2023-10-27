@@ -105,6 +105,7 @@ services:
     command: celery -A shoonya_backend.celery worker -Q reports --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
     depends_on:
       - redis
       - web
