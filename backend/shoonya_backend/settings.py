@@ -226,7 +226,8 @@ formatters = {
         "style": "{",
     },
     "file": {
-        "format": "{levelname} ({asctime}) [{module}:{process}|{thread}] {message}",
+        "()": "shoonya_backend.logger.FileFormatter",
+        "format": "{levelname} ({asctime}) [{module}:{process}|{thread}] {message} [User: {user_email} | Path: {request_path}]",
         "style": "{",
     },
     "csvfile": {
