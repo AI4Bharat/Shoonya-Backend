@@ -7,10 +7,9 @@ from django.db import models
 
 
 # Create your views here.
-def createNotification(request):
+def createNotification(request, project):
     """this is called after project has published"""
-    project_title = "Kt project"  # project title of pubulished project here
-    project = Project.objects.get(title=project_title)
+    project_title = project.title
     annotators = []
     for a in project.annotators.all():
         deleteNotification(a)
@@ -24,7 +23,7 @@ def createNotification(request):
     }
     notif = Notification(
         notification_type="publish_project",
-        title=f"{project_title} has been published once again 2",
+        title=f"{project_title} has been published.",
         metadata_json="null",
     )
     notif.save()
@@ -32,7 +31,7 @@ def createNotification(request):
         try:
             reciever_user = User.objects.get(email=a_email)
             notif.reciever_user_id.add(reciever_user)
-        except models.DoesNotExist as e:
+        except Exception as e:
             return HttpResponse(f"Bad Request. {a_email} does not exist.")
     response = json.dumps(d, indent=4)
     return HttpResponse(response)

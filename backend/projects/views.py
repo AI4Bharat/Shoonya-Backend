@@ -75,6 +75,11 @@ from .utils import (
 
 from workspaces.decorators import is_particular_workspace_manager
 from users.utils import generate_random_string
+from notifications.views import (
+    createNotification,
+    deleteNotification,
+    viewNotifications,
+)
 
 # Create your views here.
 
@@ -4073,6 +4078,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             project.is_published = True
             project.published_at = datetime.now()
+            # print(project,type(project))
+            createNotification(request, project)
             project.save()
 
             ret_dict = {"message": "This project is published"}
