@@ -9,6 +9,7 @@ import yaml
 from yaml.loader import SafeLoader
 from jiwer import wer
 
+from utils.convert_result_to_chitralekha_format import create_memory
 
 nltk.download("punkt")
 
@@ -136,8 +137,28 @@ def get_audio_transcription_duration(annotation_result):
         if result["type"] == "labels":
             start = result["value"]["start"]
             end = result["value"]["end"]
-            audio_duration += end - start
+            audio_duration += abs(end - start)
 
+    return audio_duration
+
+
+def get_not_null_audio_transcription_duration(annotation_result, ann_id):
+    audio_duration = 0
+    memory = create_memory(annotation_result)
+    for key, indexes in memory.items():
+        if indexes["labels_dict_idx"] != -1 and indexes["text_dict_idx"] != -1:
+            text_dict = annotation_result[indexes["text_dict_idx"]]
+            label_dict = annotation_result[indexes["labels_dict_idx"]]
+            if indexes["acoustic_text_dict_idx"] != -1:
+                acoustic_dict = annotation_result[indexes["acoustic_text_dict_idx"]]
+                if (
+                    acoustic_dict["value"]["text"]
+                    and len(acoustic_dict["value"]["text"][0]) <= 1
+                ):
+                    continue
+            if text_dict["value"]["text"] and len(text_dict["value"]["text"][0]) <= 1:
+                continue
+            audio_duration += get_audio_transcription_duration([label_dict])
     return audio_duration
 
 
@@ -177,3 +198,16 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
     if len(annotation_result1_text) == 0 or len(annotation_result2_text) == 0:
         return 0
     return wer(annotation_result1_text, annotation_result2_text)
+
+
+def ocr_word_count(annotation_result):
+    word_count = 0
+
+    for result in annotation_result:
+        if result["type"] == "textarea":
+            try:
+                word_count += no_of_words(result["value"]["text"][0])
+            except:
+                pass
+
+    return word_count

@@ -84,6 +84,18 @@ services:
   #  depends_on:
   #    - redis
   #    - web
+  
+  celery3:
+    container_name: celery-reports
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker -Q reports --concurrency=2 --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend/
+    depends_on:
+      - redis
+      - web
+
 
 volumes:
   nginx_conf:

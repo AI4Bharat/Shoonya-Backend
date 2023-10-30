@@ -30,6 +30,7 @@ from projects.utils import (
     get_audio_project_types,
     get_audio_transcription_duration,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
+    ocr_word_count,
 )
 
 from . import resources
@@ -903,6 +904,48 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                             )
                         except:
                             pass
+                elif "OCRTranscription" in project_type:
+                    for each_task in labeled_tasks:
+                        try:
+                            annotate_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=ANNOTATOR_ANNOTATION
+                            )[0]
+                            total_word_annotated_count_list.append(
+                                ocr_word_count(annotate_annotation.result)
+                            )
+                        except:
+                            pass
+
+                    for each_task in reviewed_tasks:
+                        try:
+                            review_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=REVIEWER_ANNOTATION
+                            )[0]
+                            total_word_reviewed_count_list.append(
+                                ocr_word_count(review_annotation.result)
+                            )
+                        except:
+                            pass
+
+                    for each_task in exported_tasks:
+                        try:
+                            total_word_exported_count_list.append(
+                                ocr_word_count(each_task.correct_annotation.result)
+                            )
+                        except:
+                            pass
+
+                    for each_task in superchecked_tasks:
+                        try:
+                            supercheck_annotation = Annotation.objects.filter(
+                                task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                            )[0]
+                            total_word_superchecked_count_list.append(
+                                ocr_word_count(supercheck_annotation.result)
+                            )
+                        except:
+                            pass
+
                 total_word_annotated_count = sum(total_word_annotated_count_list)
                 total_word_reviewed_count = sum(total_word_reviewed_count_list)
                 total_word_exported_count = sum(total_word_exported_count_list)
@@ -1061,10 +1104,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     del result["Exported Tasks Word Count"]
                     del result["SuperChecked Tasks Word Count"]
 
-                elif (
-                    is_translation_project
-                    or project_type == "SemanticTextualSimilarity_Scale5"
-                ):
+                elif is_translation_project or project_type in [
+                    "SemanticTextualSimilarity_Scale5",
+                    "OCRTranscriptionEditing",
+                    "OCRTranscription",
+                ]:
                     del result["Annotated Tasks Segments Duration"]
                     del result["Reviewed Tasks Segments Duration"]
                     del result["Exported Tasks Segments Duration"]

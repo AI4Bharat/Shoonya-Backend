@@ -21,14 +21,13 @@ from django.db.models import Avg, Count, F, FloatField, Q, Value, Subquery
 from django.db.models.functions import Cast, Coalesce
 from regex import R
 from tasks.models import Annotation
-from projects.utils import is_valid_date, no_of_words
+from projects.utils import is_valid_date, no_of_words, ocr_word_count
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 from dateutil import relativedelta
 import calendar
 from workspaces.views import (
     get_review_reports,
-    un_pack_annotation_tasks,
     get_supercheck_reports,
 )
 from drf_yasg import openapi
@@ -47,6 +46,7 @@ from projects.utils import (
     get_audio_segments_count,
 )
 from .tasks import (
+    get_counts,
     send_user_reports_mail_org,
     send_project_analytics_mail_org,
     send_user_analytics_mail_org,
@@ -98,189 +98,6 @@ def get_reviewd_tasks(
     )
 
     return annotated_labeled_tasks
-
-
-def get_counts(
-    pk,
-    annotator,
-    project_type,
-    start_date,
-    end_date,
-    is_translation_project,
-    project_progress_stage,
-    tgt_language=None,
-):
-    annotated_tasks = 0
-    accepted = 0
-    to_be_revised = 0
-    accepted_wt_minor_changes = 0
-    accepted_wt_major_changes = 0
-    labeled = 0
-    if tgt_language == None:
-        if project_progress_stage == None:
-            projects_objs = Project.objects.filter(
-                organization_id_id=pk,
-                project_type=project_type,
-                annotators=annotator,
-            )
-        else:
-            projects_objs = Project.objects.filter(
-                organization_id_id=pk,
-                project_type=project_type,
-                project_stage=project_progress_stage,
-                annotators=annotator,
-            )
-    else:
-        if project_progress_stage == None:
-            projects_objs = Project.objects.filter(
-                organization_id_id=pk,
-                project_type=project_type,
-                tgt_language=tgt_language,
-                annotators=annotator,
-            )
-        else:
-            projects_objs = Project.objects.filter(
-                organization_id_id=pk,
-                project_type=project_type,
-                project_stage=project_progress_stage,
-                tgt_language=tgt_language,
-                annotators=annotator,
-            )
-    project_count = projects_objs.count()
-    no_of_workspaces_objs = len(
-        set([each_proj.workspace_id.id for each_proj in projects_objs])
-    )
-    proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
-
-    all_tasks_in_project = Task.objects.filter(
-        Q(project_id__in=proj_ids) & Q(annotation_users=annotator)
-    )
-    assigned_tasks = all_tasks_in_project.count()
-
-    if project_progress_stage != None and project_progress_stage > ANNOTATION_STAGE:
-        (
-            accepted,
-            to_be_revised,
-            accepted_wt_minor_changes,
-            accepted_wt_major_changes,
-            labeled,
-            avg_lead_time,
-            total_word_count,
-            total_duration,
-            total_raw_duration,
-            avg_segment_duration,
-            avg_segments_per_task,
-        ) = un_pack_annotation_tasks(
-            proj_ids,
-            annotator,
-            start_date,
-            end_date,
-            is_translation_project,
-            project_type,
-        )
-
-    else:
-        labeled_annotations = Annotation.objects.filter(
-            task__project_id__in=proj_ids,
-            annotation_status="labeled",
-            annotation_type=ANNOTATOR_ANNOTATION,
-            updated_at__range=[start_date, end_date],
-            completed_by=annotator,
-        )
-
-        annotated_tasks = labeled_annotations.count()
-        lead_time_annotated_tasks = [
-            eachtask.lead_time for eachtask in labeled_annotations
-        ]
-        avg_lead_time = 0
-        if len(lead_time_annotated_tasks) > 0:
-            avg_lead_time = sum(lead_time_annotated_tasks) / len(
-                lead_time_annotated_tasks
-            )
-        total_word_count = 0
-        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-            total_word_count_list = []
-            for each_task in labeled_annotations:
-                try:
-                    total_word_count_list.append(each_task.task.data["word_count"])
-                except:
-                    pass
-
-            total_word_count = sum(total_word_count_list)
-
-        total_duration = "0:00:00"
-        avg_segment_duration = 0
-        avg_segments_per_task = 0
-        if project_type in get_audio_project_types():
-            total_duration_list = []
-            total_raw_duration_list = []
-            total_audio_segments_list = []
-            for each_task in labeled_annotations:
-                try:
-                    total_duration_list.append(
-                        get_audio_transcription_duration(each_task.result)
-                    )
-                    total_audio_segments_list.append(
-                        get_audio_segments_count(each_task.result)
-                    )
-                    total_raw_duration_list.append(
-                        each_task.task.data["audio_duration"]
-                    )
-                except:
-                    pass
-            total_duration = convert_seconds_to_hours(sum(total_duration_list))
-            total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
-            total_audio_segments = sum(total_audio_segments_list)
-            try:
-                avg_segment_duration = total_duration / total_audio_segments
-                avg_segments_per_task = total_audio_segments / len(labeled_annotations)
-            except:
-                avg_segment_duration = 0
-                avg_segments_per_task = 0
-
-    total_skipped_tasks = Annotation.objects.filter(
-        task__project_id__in=proj_ids,
-        annotation_status="skipped",
-        annotation_type=ANNOTATOR_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-        completed_by=annotator,
-    )
-    all_pending_tasks_in_project = Annotation.objects.filter(
-        task__project_id__in=proj_ids,
-        annotation_status="unlabeled",
-        annotation_type=ANNOTATOR_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-        completed_by=annotator,
-    )
-
-    all_draft_tasks_in_project = Annotation.objects.filter(
-        task__project_id__in=proj_ids,
-        annotation_status="draft",
-        annotation_type=ANNOTATOR_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-        completed_by=annotator,
-    )
-
-    return (
-        assigned_tasks,
-        annotated_tasks,
-        accepted,
-        to_be_revised,
-        accepted_wt_minor_changes,
-        accepted_wt_major_changes,
-        labeled,
-        avg_lead_time,
-        total_skipped_tasks.count(),
-        all_pending_tasks_in_project.count(),
-        all_draft_tasks_in_project.count(),
-        project_count,
-        no_of_workspaces_objs,
-        total_word_count,
-        total_duration,
-        total_raw_duration,
-        avg_segment_duration,
-        avg_segments_per_task,
-    )
 
 
 def get_translation_quality_reports(
@@ -720,6 +537,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         is_translation_project = True if "translation" in project_type_lower else False
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
+        send_mail = request.data.get("send_mail", False)
         if sort_by_column_name == None:
             sort_by_column_name = "Annotator"
 
@@ -902,52 +720,218 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             }
             return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
 
-        send_user_analytics_mail_org.delay(
-            organization,
-            tgt_language,
-            project_type,
-            user_id,
-            sort_by_column_name,
-            descending_order,
-            pk,
-            start_date,
-            end_date,
-            is_translation_project,
-            project_progress_stage,
-            final_reports,
-        )
+        user = User.objects.get(id=user_id)
 
-        # download_csv = request.data.get("download_csv", False)
+        if send_mail == True:
+            send_user_analytics_mail_org.delay(
+                org_id=organization.id,
+                tgt_language=tgt_language,
+                project_type=project_type,
+                user_id=user_id,
+                sort_by_column_name=sort_by_column_name,
+                descending_order=descending_order,
+                pk=pk,
+                start_date=start_date,
+                end_date=end_date,
+                is_translation_project=is_translation_project,
+                project_progress_stage=project_progress_stage,
+                final_reports=final_reports,
+            )
+            return Response(
+                {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+            )
+        else:
+            if tgt_language == None:
+                annotators = User.objects.filter(organization=organization).order_by(
+                    "username"
+                )
+            else:
+                proj_objects = Project.objects.filter(
+                    organization_id_id=pk,
+                    project_type=project_type,
+                    tgt_language=tgt_language,
+                )
 
-        # if download_csv:
+                proj_users_list = [
+                    list(pro_obj.annotators.all()) for pro_obj in proj_objects
+                ]
+                proj_users = sum(proj_users_list, [])
+                annotators = list(set(proj_users))
 
-        #     class Echo(object):
-        #         def write(self, value):
-        #             return value
+            annotators = [
+                ann_user
+                for ann_user in annotators
+                if (ann_user.participation_type in [1, 2, 4])
+            ]
 
-        #     def iter_items(items, pseudo_buffer):
-        #         writer = csv.DictWriter(pseudo_buffer, fieldnames=list(items[0].keys()))
-        #         headers = {}
-        #         for key in list(items[0].keys()):
-        #             headers[key] = key
-        #         yield writer.writerow(headers)
-        #         print(list(items[0].keys()))
-        #         for item in items:
-        #             yield writer.writerow(item)
+            result = []
+            for annotator in annotators:
+                participation_type = annotator.participation_type
+                participation_type = (
+                    "Full Time"
+                    if participation_type == 1
+                    else "Part Time"
+                    if participation_type == 2
+                    else "Contract Basis"
+                    if participation_type == 4
+                    else "N/A"
+                )
+                role = get_role_name(annotator.role)
+                user_id = annotator.id
+                name = annotator.username
+                email = annotator.get_username()
+                user_lang = user.languages
+                if tgt_language == None:
+                    selected_language = user_lang
+                    if "English" in selected_language:
+                        selected_language.remove("English")
+                else:
+                    selected_language = tgt_language
+                (
+                    total_no_of_tasks_count,
+                    annotated_tasks_count,
+                    accepted,
+                    to_be_revised,
+                    accepted_wt_minor_changes,
+                    accepted_wt_major_changes,
+                    labeled,
+                    avg_lead_time,
+                    total_skipped_tasks_count,
+                    total_unlabeled_tasks_count,
+                    total_draft_tasks_count,
+                    no_of_projects,
+                    no_of_workspaces_objs,
+                    total_word_count,
+                    total_duration,
+                    total_raw_duration,
+                    avg_segment_duration,
+                    avg_segments_per_task,
+                ) = get_counts(
+                    pk,
+                    annotator,
+                    project_type,
+                    start_date,
+                    end_date,
+                    is_translation_project,
+                    project_progress_stage,
+                    None if tgt_language == None else tgt_language,
+                )
 
-        #     response = StreamingHttpResponse(
-        #         iter_items(final_result, Echo()),
-        #         status=status.HTTP_200_OK,
-        #         content_type="text/csv",
-        #     )
-        #     response[
-        #         "Content-Disposition"
-        #     ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
-        #     return response
+                if (
+                    project_progress_stage != None
+                    and project_progress_stage > ANNOTATION_STAGE
+                ):
+                    temp_result = {
+                        "Annotator": name,
+                        "Email": email,
+                        "Language": selected_language,
+                        "No. of Workspaces": no_of_workspaces_objs,
+                        "No. of Projects": no_of_projects,
+                        "Assigned": total_no_of_tasks_count,
+                        "Labeled": labeled,
+                        "Accepted": accepted,
+                        "Accepted With Minor Changes": accepted_wt_minor_changes,
+                        "Accepted With Major Changes": accepted_wt_major_changes,
+                        "To Be Revised": to_be_revised,
+                        "Unlabeled": total_unlabeled_tasks_count,
+                        "Skipped": total_skipped_tasks_count,
+                        "Draft": total_draft_tasks_count,
+                        "Word Count": total_word_count,
+                        "Total Segments Duration": total_duration,
+                        "Total Raw Audio Duration": total_raw_duration,
+                        "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
+                        "Participation Type": participation_type,
+                        "User Role": role,
+                        "Avg Segment Duration": round(avg_segment_duration, 2),
+                        "Average Segments Per Task": round(avg_segments_per_task, 2),
+                    }
+                    if project_type != None and is_translation_project:
+                        (
+                            avg_char_score,
+                            avg_bleu_score,
+                        ) = get_translation_quality_reports(
+                            pk,
+                            annotator,
+                            project_type,
+                            start_date,
+                            end_date,
+                            project_progress_stage,
+                            tgt_language,
+                        )
+                        temp_result["Average Bleu Score"] = avg_bleu_score
+                        temp_result["Avergae Char Score"] = avg_char_score
+                else:
+                    temp_result = {
+                        "Annotator": name,
+                        "Email": email,
+                        "Language": selected_language,
+                        "No. of Workspaces": no_of_workspaces_objs,
+                        "No. of Projects": no_of_projects,
+                        "Assigned": total_no_of_tasks_count,
+                        "Annotated": annotated_tasks_count,
+                        "Unlabeled": total_unlabeled_tasks_count,
+                        "Skipped": total_skipped_tasks_count,
+                        "Draft": total_draft_tasks_count,
+                        "Word Count": total_word_count,
+                        "Total Segments Duration": total_duration,
+                        "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
+                        "Participation Type": participation_type,
+                        "User Role": role,
+                        "Avg Segment Duration": round(avg_segment_duration, 2),
+                        "Average Segments Per Task": round(avg_segments_per_task, 2),
+                    }
 
-        return Response(
-            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
-        )
+                if project_type in get_audio_project_types():
+                    del temp_result["Word Count"]
+                elif is_translation_project or project_type in [
+                    "SemanticTextualSimilarity_Scale5",
+                    "OCRTranscriptionEditing",
+                    "OCRTranscription",
+                ]:
+                    del temp_result["Total Segments Duration"]
+                    del temp_result["Avg Segment Duration"]
+                    del temp_result["Average Segments Per Task"]
+                else:
+                    del temp_result["Word Count"]
+                    del temp_result["Total Segments Duration"]
+                    del temp_result["Avg Segment Duration"]
+                    del temp_result["Average Segments Per Task"]
+                result.append(temp_result)
+            final_result = sorted(
+                result, key=lambda x: x[sort_by_column_name], reverse=descending_order
+            )
+
+            download_csv = request.data.get("download_csv", False)
+
+            if download_csv:
+
+                class Echo(object):
+                    def write(self, value):
+                        return value
+
+                def iter_items(items, pseudo_buffer):
+                    writer = csv.DictWriter(
+                        pseudo_buffer, fieldnames=list(items[0].keys())
+                    )
+                    headers = {}
+                    for key in list(items[0].keys()):
+                        headers[key] = key
+                    yield writer.writerow(headers)
+                    print(list(items[0].keys()))
+                    for item in items:
+                        yield writer.writerow(item)
+
+                response = StreamingHttpResponse(
+                    iter_items(final_result, Echo()),
+                    status=status.HTTP_200_OK,
+                    content_type="text/csv",
+                )
+                response[
+                    "Content-Disposition"
+                ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
+                return response
+
+            return Response(data=final_result, status=status.HTTP_200_OK)
 
     @is_organization_owner
     @action(
@@ -970,19 +954,318 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
         user_id = request.data.get("user_id")
+        send_mail = request.data.get("send_mail", False)
 
-        send_project_analytics_mail_org.delay(
-            org_id=organization.id,
-            tgt_language=tgt_language,
-            project_type=project_type,
-            user_id=user_id,
-            sort_by_column_name=sort_by_column_name,
-            descending_order=descending_order,
-        )
+        if send_mail == True:
+            send_project_analytics_mail_org.delay(
+                org_id=organization.id,
+                tgt_language=tgt_language,
+                project_type=project_type,
+                user_id=user_id,
+                sort_by_column_name=sort_by_column_name,
+                descending_order=descending_order,
+            )
 
-        return Response(
-            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
-        )
+            return Response(
+                {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+            )
+        else:
+            if sort_by_column_name == None:
+                sort_by_column_name = "User Name"
+
+            if descending_order == None:
+                descending_order = False
+
+            if tgt_language == None:
+                selected_language = "-"
+                projects_obj = Project.objects.filter(
+                    organization_id=organization.id, project_type=project_type
+                )
+            else:
+                selected_language = tgt_language
+                projects_obj = Project.objects.filter(
+                    organization_id=organization.id,
+                    tgt_language=tgt_language,
+                    project_type=project_type,
+                )
+            final_result = []
+            if projects_obj.count() != 0:
+                for proj in projects_obj:
+                    proj_manager = [
+                        manager.get_username()
+                        for manager in proj.workspace_id.managers.all()
+                    ]
+                    try:
+                        org_owner = proj.organization_id.created_by.get_username()
+                        proj_manager.append(org_owner)
+                    except:
+                        pass
+                    project_id = proj.id
+                    project_name = proj.title
+                    project_type = proj.project_type
+
+                    project_type_lower = project_type.lower()
+                    is_translation_project = (
+                        True if "translation" in project_type_lower else False
+                    )
+                    all_tasks = Task.objects.filter(project_id=proj.id)
+                    total_tasks = all_tasks.count()
+                    annotators_list = [
+                        user_.get_username() for user_ in proj.annotators.all()
+                    ]
+                    no_of_annotators_assigned = len(
+                        [
+                            annotator
+                            for annotator in annotators_list
+                            if annotator not in proj_manager
+                        ]
+                    )
+
+                    incomplete_tasks = Task.objects.filter(
+                        project_id=proj.id, task_status="incomplete"
+                    )
+                    incomplete_count = incomplete_tasks.count()
+
+                    labeled_tasks = Task.objects.filter(
+                        project_id=proj.id, task_status="annotated"
+                    )
+                    labeled_count = labeled_tasks.count()
+
+                    reviewed_tasks = Task.objects.filter(
+                        project_id=proj.id, task_status="reviewed"
+                    )
+
+                    reviewed_count = reviewed_tasks.count()
+
+                    exported_tasks = Task.objects.filter(
+                        project_id=proj.id, task_status="exported"
+                    )
+                    exported_count = exported_tasks.count()
+
+                    superchecked_tasks = Task.objects.filter(
+                        project_id=proj.id, task_status="super_checked"
+                    )
+                    superchecked_count = superchecked_tasks.count()
+
+                    total_word_annotated_count_list = []
+                    total_word_reviewed_count_list = []
+                    total_word_exported_count_list = []
+                    total_word_superchecked_count_list = []
+                    if (
+                        is_translation_project
+                        or project_type == "SemanticTextualSimilarity_Scale5"
+                    ):
+                        for each_task in labeled_tasks:
+                            try:
+                                total_word_annotated_count_list.append(
+                                    each_task.data["word_count"]
+                                )
+                            except:
+                                pass
+
+                        for each_task in reviewed_tasks:
+                            try:
+                                total_word_reviewed_count_list.append(
+                                    each_task.data["word_count"]
+                                )
+                            except:
+                                pass
+                        for each_task in exported_tasks:
+                            try:
+                                total_word_exported_count_list.append(
+                                    each_task.data["word_count"]
+                                )
+                            except:
+                                pass
+                        for each_task in superchecked_tasks:
+                            try:
+                                total_word_superchecked_count_list.append(
+                                    each_task.data["word_count"]
+                                )
+                            except:
+                                pass
+                    elif "OCRTranscription" in project_type:
+                        for each_task in labeled_tasks:
+                            try:
+                                annotate_annotation = Annotation.objects.filter(
+                                    task=each_task, annotation_type=ANNOTATOR_ANNOTATION
+                                )[0]
+                                total_word_annotated_count_list.append(
+                                    ocr_word_count(annotate_annotation.result)
+                                )
+                            except:
+                                pass
+
+                        for each_task in reviewed_tasks:
+                            try:
+                                review_annotation = Annotation.objects.filter(
+                                    task=each_task, annotation_type=REVIEWER_ANNOTATION
+                                )[0]
+                                total_word_reviewed_count_list.append(
+                                    ocr_word_count(review_annotation.result)
+                                )
+                            except:
+                                pass
+
+                        for each_task in exported_tasks:
+                            try:
+                                total_word_exported_count_list.append(
+                                    ocr_word_count(each_task.correct_annotation.result)
+                                )
+                            except:
+                                pass
+
+                        for each_task in superchecked_tasks:
+                            try:
+                                supercheck_annotation = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                                )[0]
+                                total_word_superchecked_count_list.append(
+                                    ocr_word_count(supercheck_annotation.result)
+                                )
+                            except:
+                                pass
+
+                    total_word_annotated_count = sum(total_word_annotated_count_list)
+                    total_word_reviewed_count = sum(total_word_reviewed_count_list)
+                    total_word_exported_count = sum(total_word_exported_count_list)
+                    total_word_superchecked_count = sum(
+                        total_word_superchecked_count_list
+                    )
+
+                    total_duration_annotated_count_list = []
+                    total_duration_reviewed_count_list = []
+                    total_duration_exported_count_list = []
+                    total_duration_superchecked_count_list = []
+                    if project_type in get_audio_project_types():
+                        for each_task in labeled_tasks:
+                            try:
+                                annotate_annotation = Annotation.objects.filter(
+                                    task=each_task, parent_annotation_id__isnull=True
+                                )[0]
+                                total_duration_annotated_count_list.append(
+                                    get_audio_transcription_duration(
+                                        annotate_annotation.result
+                                    )
+                                )
+                            except:
+                                pass
+
+                        for each_task in reviewed_tasks:
+                            try:
+                                review_annotation = Annotation.objects.filter(
+                                    task=each_task, parent_annotation_id__isnull=False
+                                )[0]
+                                total_duration_reviewed_count_list.append(
+                                    get_audio_transcription_duration(
+                                        review_annotation.result
+                                    )
+                                )
+                            except:
+                                pass
+
+                        for each_task in exported_tasks:
+                            try:
+                                total_duration_exported_count_list.append(
+                                    get_audio_transcription_duration(
+                                        each_task.correct_annotation.result
+                                    )
+                                )
+                            except:
+                                pass
+                        for each_task in superchecked_tasks:
+                            try:
+                                supercheck_annotation = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                                )[0]
+                                total_duration_superchecked_count_list.append(
+                                    get_audio_transcription_duration(
+                                        supercheck_annotation.result
+                                    )
+                                )
+                            except:
+                                pass
+
+                    total_duration_annotated_count = convert_seconds_to_hours(
+                        sum(total_duration_annotated_count_list)
+                    )
+                    total_duration_reviewed_count = convert_seconds_to_hours(
+                        sum(total_duration_reviewed_count_list)
+                    )
+                    total_duration_exported_count = convert_seconds_to_hours(
+                        sum(total_duration_exported_count_list)
+                    )
+                    total_duration_superchecked_count = convert_seconds_to_hours(
+                        sum(total_duration_superchecked_count_list)
+                    )
+
+                    if total_tasks == 0:
+                        project_progress = 0.0
+                    else:
+                        if proj.project_stage == ANNOTATION_STAGE:
+                            project_progress = (
+                                (labeled_count + exported_count) / total_tasks
+                            ) * 100
+                        elif proj.project_stage == REVIEW_STAGE:
+                            project_progress = (
+                                (reviewed_count + exported_count) / total_tasks
+                            ) * 100
+                        else:
+                            project_progress = (
+                                (superchecked_count + exported_count) / total_tasks
+                            ) * 100
+
+                    result = {
+                        "Project Id": project_id,
+                        "Project Name": project_name,
+                        "Language": selected_language,
+                        "No. of Annotators Assigned": no_of_annotators_assigned,
+                        "Total": total_tasks,
+                        "Annotated": labeled_count,
+                        "Incomplete": incomplete_count,
+                        "Reviewed": reviewed_count,
+                        "Exported": exported_count,
+                        "SuperChecked": superchecked_count,
+                        "Annotated Tasks Audio Duration": total_duration_annotated_count,
+                        "Reviewed Tasks Audio Duration": total_duration_reviewed_count,
+                        "Exported Tasks Audio Duration": total_duration_exported_count,
+                        "SuperChecked Tasks Audio Duration": total_duration_superchecked_count,
+                        "Annotated Tasks Word Count": total_word_annotated_count,
+                        "Reviewed Tasks Word Count": total_word_reviewed_count,
+                        "Exported Tasks Word Count": total_word_exported_count,
+                        "SuperChecked Tasks Word Count": total_word_superchecked_count,
+                        "Project Progress": round(project_progress, 3),
+                    }
+
+                    if project_type in get_audio_project_types():
+                        del result["Annotated Tasks Word Count"]
+                        del result["Reviewed Tasks Word Count"]
+                        del result["Exported Tasks Word Count"]
+                        del result["SuperChecked Tasks Word Count"]
+
+                    elif is_translation_project or project_type in [
+                        "SemanticTextualSimilarity_Scale5",
+                        "OCRTranscriptionEditing",
+                        "OCRTranscription",
+                    ]:
+                        del result["Annotated Tasks Audio Duration"]
+                        del result["Reviewed Tasks Audio Duration"]
+                        del result["Exported Tasks Audio Duration"]
+                        del result["SuperChecked Tasks Audio Duration"]
+                    else:
+                        del result["Annotated Tasks Word Count"]
+                        del result["Reviewed Tasks Word Count"]
+                        del result["Exported Tasks Word Count"]
+                        del result["SuperChecked Tasks Word Count"]
+                        del result["Annotated Tasks Audio Duration"]
+                        del result["Reviewed Tasks Audio Duration"]
+                        del result["Exported Tasks Audio Duration"]
+                        del result["SuperChecked Tasks Audio Duration"]
+
+                    final_result.append(result)
+            return Response(final_result)
 
     @action(
         detail=True,
@@ -1166,51 +1449,81 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             "language": lang,
                             "cumulative_aud_duration": ann_total_time,
                         }
-                elif (
-                    project_type in get_translation_dataset_project_types()
-                    or "ConversationTranslation" in project_type
-                ):
-                    total_rev_word_count_list = []
-                    total_ann_word_count_list = []
-                    total_sup_word_count_list = []
+                elif "OCRTranscription" in project_type:
+                    total_word_count = 0
 
                     for each_task in tasks:
                         if reviewer_reports == True:
                             try:
-                                total_rev_word_count_list.append(
-                                    each_task.data["word_count"]
-                                )
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=REVIEWER_ANNOTATION,
+                                    )[0]
+                                elif each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = each_task.correct_annotation
+                                total_word_count += ocr_word_count(anno.result)
                             except:
                                 pass
                         elif supercheck_reports == True:
                             try:
-                                total_sup_word_count_list.append(
-                                    each_task.data["word_count"]
-                                )
+                                if each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = each_task.correct_annotation
+                                total_word_count += ocr_word_count(anno.result)
                             except:
                                 pass
                         else:
                             try:
-                                total_ann_word_count_list.append(
-                                    each_task.data["word_count"]
-                                )
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=REVIEWER_ANNOTATION,
+                                    )[0]
+                                elif each_task.task_status == "exported":
+                                    anno = each_task.correct_annotation
+                                elif each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=ANNOTATOR_ANNOTATION,
+                                    )[0]
+                                total_word_count += ocr_word_count(anno.result)
                             except:
                                 pass
-                    if reviewer_reports == True:
-                        result = {
-                            "language": lang,
-                            "cumulative_word_count": sum(total_rev_word_count_list),
-                        }
-                    elif supercheck_reports == True:
-                        result = {
-                            "language": lang,
-                            "cumulative_word_count": sum(total_sup_word_count_list),
-                        }
-                    else:
-                        result = {
-                            "language": lang,
-                            "cumulative_word_count": sum(total_ann_word_count_list),
-                        }
+                    result = {
+                        "language": lang,
+                        "cumulative_word_count": total_word_count,
+                    }
+                elif (
+                    project_type in get_translation_dataset_project_types()
+                    or "ConversationTranslation" in project_type
+                ):
+                    total_word_count_list = []
+
+                    for each_task in tasks:
+                        try:
+                            total_word_count_list.append(each_task.data["word_count"])
+                        except:
+                            pass
+
+                    result = {
+                        "language": lang,
+                        "cumulative_word_count": sum(total_word_count_list),
+                    }
             else:
                 result = {"language": lang, "cumulative_tasks_count": tasks_count}
 
@@ -1656,6 +1969,34 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                 "language": lang,
                                 "periodical_word_count": sum(total_ann_word_count_list),
                             }
+                    elif "OCRTranscription" in project_type:
+                        total_word_count = 0
+                        annotations = Annotation.objects.filter(
+                            task_id__in=labeled_count_tasks_ids,
+                            updated_at__gte=periodical_list[period],
+                            updated_at__lt=periodical_list[period + 1],
+                        )
+
+                        if reviewer_reports == True:
+                            annotations = annotations.filter(
+                                annotation_type=REVIEWER_ANNOTATION
+                            )
+                        elif supercheck_reports == True:
+                            annotations = annotations.filter(
+                                annotation_type=SUPER_CHECKER_ANNOTATION
+                            )
+                        else:
+                            annotations = annotations.filter(
+                                annotation_type=ANNOTATOR_ANNOTATION
+                            )
+
+                        for each_anno in annotations:
+                            total_word_count += ocr_word_count(each_anno.result)
+
+                        result = {
+                            "language": lang,
+                            "periodical_word_count": total_word_count,
+                        }
 
                 else:
                     result = {
@@ -2003,6 +2344,51 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                             "language": lang,
                             "ann_cumulative_word_count": sum(total_ann_word_count_list),
                             "rew_cumulative_word_count": sum(total_rev_word_count_list),
+                        }
+                    elif "OCRTranscription" in project_type:
+                        total_rev_word_count = 0
+
+                        for each_task in reviewer_tasks:
+                            if each_task.task_status == "reviewed":
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=REVIEWER_ANNOTATION,
+                                )[0]
+                            elif each_task.task_status == "super_checked":
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                                )[0]
+                            else:
+                                anno = each_task.correct_annotation
+                            total_rev_word_count += ocr_word_count(anno.result)
+
+                        total_anno_word_count = 0
+
+                        for each_task in annotation_tasks:
+                            if each_task.task_status == "reviewed":
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=REVIEWER_ANNOTATION,
+                                )[0]
+                            elif each_task.task_status == "exported":
+                                anno = each_task.correct_annotation
+                            elif each_task.task_status == "super_checked":
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                                )[0]
+                            else:
+                                anno = Annotation.objects.filter(
+                                    task=each_task,
+                                    annotation_type=ANNOTATOR_ANNOTATION,
+                                )[0]
+                            total_anno_word_count += ocr_word_count(anno.result)
+
+                        result = {
+                            "language": lang,
+                            "ann_cumulative_aud_duration": total_anno_word_count,
+                            "rew_cumulative_aud_duration": total_rev_word_count,
                         }
 
                 else:

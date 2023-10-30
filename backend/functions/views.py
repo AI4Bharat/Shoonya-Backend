@@ -23,7 +23,8 @@ from .tasks import (
     populate_draft_data_json,
     generate_ocr_prediction_json,
     generate_asr_prediction_json,
-    schedule_mail,
+    schedule_mail_for_project_reports,
+    schedule_mail_to_download_all_projects,
 )
 from .utils import (
     check_conversation_translation_function_inputs,
@@ -691,7 +692,7 @@ def schedule_project_reports_email(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    schedule_mail.delay(
+    schedule_mail_for_project_reports.delay(
         project_type,
         user_id,
         anno_stats,
@@ -706,5 +707,59 @@ def schedule_project_reports_email(request):
     )
 
     return Response(
-        {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+        {"message": "You will receive an email with the reports shortly"},
+        status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+def download_all_projects(request):
+    (
+        workspace_level_projects,
+        dataset_level_projects,
+        wid,
+        did,
+    ) = (False, False, 0, 0)
+    if "workspace_id" in request.query_params:
+        workspace_level_projects = True
+        wid = request.query_params["workspace_id"]
+    elif "dataset_id" in request.query_params:
+        dataset_level_projects = True
+        did = request.query_params["dataset_id"]
+    else:
+        ret_dict = {"message": "Please send a workspace_id or a dataset_id"}
+        ret_status = status.HTTP_400_BAD_REQUEST
+        return Response(ret_dict, status=ret_status)
+
+    try:
+        user_id = request.data.get("user_id")
+    except KeyError:
+        return Response(
+            {"message": "Please send an user id"}, status=status.HTTP_404_NOT_FOUND
+        )
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    if not (
+        user.is_authenticated
+        and (
+            user.role in [User.ORGANIZATION_OWNER, User.WORKSPACE_MANAGER, User.ADMIN]
+            or user.is_superuser
+        )
+    ):
+        final_response = {
+            "message": "You do not have enough permissions to access this!"
+        }
+        return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
+
+    schedule_mail_to_download_all_projects.delay(
+        workspace_level_projects, dataset_level_projects, wid, did, user_id
+    )
+
+    return Response(
+        {"message": "You will receive an email with the download link shortly"},
+        status=status.HTTP_200_OK,
+    )
+    pass
