@@ -745,6 +745,35 @@ def get_project_export_status(pk):
     )
 
 
+def get_task_creation_status(pk) -> str:
+    """Function to return the status of the tasks of project that is queried.
+    Args:
+        pk (int): The primary key of the project
+    Returns:
+        str: Task Status
+    """
+    # Check the celery task creation status
+    project_id_keyword_arg = "'project_id': " + str(pk)
+    taskresult_queryset = TaskResult.objects.filter(
+        task_name="projects.tasks.create_parameters_for_task_creation",
+        task_kwargs__contains=project_id_keyword_arg,
+    )
+    task_creation_status_modified = {
+        "PENDING": "Task Creation Process Pending",
+        "RECEIVED": "Task Creation Process Received",
+        "STARTED": "Task Creation Process Started",
+        "SUCCESS": "Tasks Creation Process Successful",
+        "FAILURE": "Task Creation Process Failed",
+        "RETRY": "Task Creation Process Retried",
+        "REVOKED": "Task Creation Process Revoked",
+    }
+    # If the celery TaskResults table returns
+    if taskresult_queryset:
+        task_creation_status = taskresult_queryset.first().as_dict()["status"]
+        return task_creation_status_modified[task_creation_status]
+    return ""
+
+
 def get_project_creation_status(pk) -> str:
     # sourcery skip: use-named-expression
     """Function to return the status of the project that is queried.
@@ -758,26 +787,6 @@ def get_project_creation_status(pk) -> str:
 
     # Get the project object
     project = Project.objects.get(pk=pk)
-
-    # Create the keyword argument for project ID
-    project_id_keyword_arg = "'project_id': " + str(pk) + "}"
-
-    # Check the celery task creation status
-    taskresult_queryset = TaskResult.objects.filter(
-        task_name="projects.tasks.create_parameters_for_task_creation",
-        task_kwargs__contains=project_id_keyword_arg,
-    )
-
-    # If the celery TaskResults table returns
-    if taskresult_queryset:
-        task_creation_status = taskresult_queryset.first().as_dict()["status"]
-
-        # Check if the task has failed
-        if task_creation_status == "FAILURE":
-            return "Task Creation Process Failed!"
-        if task_creation_status != "SUCCESS":
-            return "Creating Annotation Tasks."
-    # If the background task function has already run, check the status of the project
     if project.is_archived:
         return "Archived"
     elif project.is_published:
@@ -1064,6 +1073,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         # Add a new field to the project response to indicate project status
         project_response.data["status"] = get_project_creation_status(pk)
+        project_response.data["task_creation_status"] = get_task_creation_status(pk)
 
         # Add a new field to the project to indicate the async project export status and last export date
         (
