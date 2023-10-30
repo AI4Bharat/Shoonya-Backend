@@ -746,7 +746,7 @@ def get_project_export_status(pk):
 
 
 def get_task_creation_status(pk) -> str:
-    """Function to return the status of the project that is queried.
+    """Function to return the status of the tasks of project that is queried.
     Args:
         pk (int): The primary key of the project
     Returns:
