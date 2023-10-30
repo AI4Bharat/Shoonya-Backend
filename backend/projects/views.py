@@ -753,22 +753,25 @@ def get_task_creation_status(pk) -> str:
         str: Task Status
     """
     # Check the celery task creation status
-    project_id_keyword_arg = "'project_id': " + str(pk) + "}"
+    project_id_keyword_arg = "'project_id': " + str(pk)
     taskresult_queryset = TaskResult.objects.filter(
         task_name="projects.tasks.create_parameters_for_task_creation",
         task_kwargs__contains=project_id_keyword_arg,
     )
-
+    task_creation_status_modified = {
+        "PENDING": "Task Creation Process Pending",
+        "RECEIVED": "Task Creation Process Received",
+        "STARTED": "Task Creation Process Started",
+        "SUCCESS": "Tasks Creation Process Successful",
+        "FAILURE": "Task Creation Process Failed",
+        "RETRY": "Task Creation Process Retried",
+        "REVOKED": "Task Creation Process Revoked",
+    }
     # If the celery TaskResults table returns
     if taskresult_queryset:
         task_creation_status = taskresult_queryset.first().as_dict()["status"]
-
-        # Check if the task has failed
-        if task_creation_status == "FAILURE":
-            return "Task Creation Process Failed!"
-        if task_creation_status != "SUCCESS":
-            return "Creating Annotation Tasks."
-    return "Tasks Successfully Created."
+        return task_creation_status_modified[task_creation_status]
+    return ""
 
 
 def get_project_creation_status(pk) -> str:
