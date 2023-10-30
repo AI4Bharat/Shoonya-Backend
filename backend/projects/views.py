@@ -745,24 +745,15 @@ def get_project_export_status(pk):
     )
 
 
-def get_project_creation_status(pk) -> str:
-    # sourcery skip: use-named-expression
+def get_task_creation_status(pk) -> str:
     """Function to return the status of the project that is queried.
-
     Args:
         pk (int): The primary key of the project
-
     Returns:
-        str: Project Status
+        str: Task Status
     """
-
-    # Get the project object
-    project = Project.objects.get(pk=pk)
-
-    # Create the keyword argument for project ID
-    project_id_keyword_arg = "'project_id': " + str(pk) + "}"
-
     # Check the celery task creation status
+    project_id_keyword_arg = "'project_id': " + str(pk) + "}"
     taskresult_queryset = TaskResult.objects.filter(
         task_name="projects.tasks.create_parameters_for_task_creation",
         task_kwargs__contains=project_id_keyword_arg,
@@ -777,7 +768,22 @@ def get_project_creation_status(pk) -> str:
             return "Task Creation Process Failed!"
         if task_creation_status != "SUCCESS":
             return "Creating Annotation Tasks."
-    # If the background task function has already run, check the status of the project
+    return "Tasks Successfully Created."
+
+
+def get_project_creation_status(pk) -> str:
+    # sourcery skip: use-named-expression
+    """Function to return the status of the project that is queried.
+
+    Args:
+        pk (int): The primary key of the project
+
+    Returns:
+        str: Project Status
+    """
+
+    # Get the project object
+    project = Project.objects.get(pk=pk)
     if project.is_archived:
         return "Archived"
     elif project.is_published:
@@ -1064,6 +1070,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         # Add a new field to the project response to indicate project status
         project_response.data["status"] = get_project_creation_status(pk)
+        project_response.data["task_creation_status"] = get_task_creation_status(pk)
 
         # Add a new field to the project to indicate the async project export status and last export date
         (
