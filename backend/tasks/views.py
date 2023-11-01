@@ -1402,7 +1402,7 @@ class AnnotationViewSet(
                         )
                         if review_annotation.annotation_status == TO_BE_REVISED:
                             review_annotation.annotation_status = UNREVIEWED
-                            review_annotation.save(update_fields=["annotation_status"])
+                            review_annotation.save()
                     except:
                         pass
 
@@ -1571,12 +1571,7 @@ class AnnotationViewSet(
                             )
                             if supercheck_annotation.annotation_status == REJECTED:
                                 supercheck_annotation.annotation_status = UNVALIDATED
-                                if auto_save:
-                                    supercheck_annotation.save(
-                                        update_fields=["annotation_status"]
-                                    )
-                                else:
-                                    supercheck_annotation.save()
+                                supercheck_annotation.save()
                         except:
                             pass
                     parent.save(update_fields=["review_notes", "annotation_status"])
