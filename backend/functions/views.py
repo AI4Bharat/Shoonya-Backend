@@ -691,6 +691,10 @@ def schedule_project_reports_email(request):
             {"message": "Please send the project type"},
             status=status.HTTP_404_NOT_FOUND,
         )
+    try:
+        language = request.data.get("language")
+    except KeyError:
+        language = "NULL"
 
     schedule_mail_for_project_reports.delay(
         project_type,
@@ -704,6 +708,7 @@ def schedule_project_reports_email(request):
         wid,
         oid,
         did,
+        language,
     )
 
     return Response(
