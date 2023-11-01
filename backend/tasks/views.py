@@ -1360,11 +1360,6 @@ class AnnotationViewSet(
                         response_message = "Task Saved as Draft"
                     else:
                         response_message = "Success"
-                    is_to_be_revised_task = (
-                        True
-                        if annotation_obj.annotation_status == TO_BE_REVISED
-                        else False
-                    )
                     update_annotated_at = (
                         True
                         if annotation_status == LABELED
@@ -1400,16 +1395,14 @@ class AnnotationViewSet(
                     task.task_status = INCOMPLETE
                     task.save()
 
-                if annotation_status == LABELED and is_to_be_revised_task:
+                if annotation_status == LABELED:
                     try:
                         review_annotation = Annotation.objects.get(
                             task=task, annotation_type=REVIEWER_ANNOTATION
                         )
-                        review_annotation.annotation_status = UNREVIEWED
-                        if auto_save:
+                        if review_annotation.annotation_status == TO_BE_REVISED:
+                            review_annotation.annotation_status = UNREVIEWED
                             review_annotation.save(update_fields=["annotation_status"])
-                        else:
-                            review_annotation.save()
                     except:
                         pass
 
