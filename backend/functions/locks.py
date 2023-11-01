@@ -62,12 +62,18 @@ class Lock:
             retrieved_json_str = self.redis_connection.get(self.user_id)
             retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
             if len(retrieved_dict) > 1:
-                del retrieved_dict[self.user_id]
+                del retrieved_dict[self.task_name]
                 new_json_str = json.dumps(retrieved_dict)
                 self.redis_connection.set(self.user_id, new_json_str)
             else:
                 self.redis_connection.delete(self.user_id)
 
+    def getRemainingTimeForLock(self):
+        if self.lockStatus() == 1:
+            retrieved_json_str = self.redis_connection.get(self.user_id)
+            retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
+            remaining_time=retrieved_dict[self.task_name]-time.time()
+            return remaining_time
 
 # testing
 # if __name__ == '__main__':
@@ -82,7 +88,7 @@ class Lock:
 #     print(f"After setting the lock the lock status is {lock.lockStatus()}")
 #
 #     time.sleep(31)
-#     print(f"After waiting 30sec the lock the lock status is {lock.lockStatus()}")
+#     print(f"After waiting 30sec the lock status is {lock.lockStatus()}")
 #
 #     lock.releaseLock()
 #     print(f"after releasing the lock the lock status is {lock.lockStatus()}")
@@ -96,3 +102,9 @@ class Lock:
 #     #test2 part2
 #     lock = Lock(user_id, task_name)
 #     print(f"few seconds after setting the lock for 200sec the lock status is {lock.lockStatus()}")
+#
+#     #test 3 for testing remanining time
+#     lock =Lock(user_id,task_name)
+#     lock.setLock(100)
+#     time.sleep(10)
+#     print(f"remaining time = {lock.getRemainingTimeForLock()}")
