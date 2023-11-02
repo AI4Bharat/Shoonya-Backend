@@ -821,45 +821,52 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
         if prediction_json == None:
             return result
         for idx, val in enumerate(prediction_json):
-            label_dict = {
-                "origin": "manual",
-                "to_name": "audio_url",
-                "from_name": "labels",
-                "original_length": audio_duration,
-            }
-            text_dict = {
-                "origin": "manual",
-                "to_name": "audio_url",
-                "from_name": "transcribed_json",
-                "original_length": audio_duration,
-            }
-            if proj_type == "AcousticNormalisedTranscriptionEditing":
-                text_dict["from_name"] = "verbatim_transcribed_json"
-            id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
-            label_dict["id"] = id
-            text_dict["id"] = id
-            label_dict["type"] = "labels"
-            text_dict["type"] = "textarea"
+            try:
+                label_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "labels",
+                    "original_length": audio_duration,
+                }
+                text_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "transcribed_json",
+                    "original_length": audio_duration,
+                }
+                if proj_type == "AcousticNormalisedTranscriptionEditing":
+                    text_dict["from_name"] = "verbatim_transcribed_json"
+                id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+                label_dict["id"] = id
+                text_dict["id"] = id
+                label_dict["type"] = "labels"
+                text_dict["type"] = "textarea"
 
-            value_labels = {
-                "start": val["start"],
-                "end": val["end"],
-                "labels": [
-                    next(
-                        speaker
-                        for speaker in speakers_json
-                        if speaker["speaker_id"] == val["speaker_id"]
-                    )["name"]
-                ],
-            }
-            value_text = {
-                "start": val["start"],
-                "end": val["end"],
-                "text": [val["text"]],
-            }
+                value_labels = {
+                    "start": val["start"],
+                    "end": val["end"],
+                    "labels": [
+                        next(
+                            speaker
+                            for speaker in speakers_json
+                            if speaker["speaker_id"] == val["speaker_id"]
+                        )["name"]
+                    ],
+                }
+                value_text = {
+                    "start": val["start"],
+                    "end": val["end"],
+                    "text": [val["text"]],
+                }
 
-            label_dict["value"] = value_labels
-            text_dict["value"] = value_text
+                label_dict["value"] = value_labels
+                text_dict["value"] = value_text
+            except Exception as e:
+                print(
+                    f"The prediction json of the data item-{pk} is corrupt. "
+                    f"Please check item number-{idx+1} in the list"
+                )
+                continue
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
@@ -869,61 +876,69 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
         if ocr_prediction_json == None:
             return result
         for idx, val in enumerate(ocr_prediction_json):
-            image_rotation = (
-                ocr_prediction_json["image_rotation"]
-                if "image_rotation" in ocr_prediction_json
-                else 0
-            )
-            custom_id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
-            # creating values
-            common_value = {
-                "x": val["x"],
-                "y": val["y"],
-                "width": val["width"],
-                "height": val["height"],
-                "rotation": val["rotation"],
-            }
-            # assigning common values to all
-            value_rectangle = common_value.copy()
-            value_labels = common_value.copy()
-            value_text = common_value.copy()
-            value_labels["labels"] = val["labels"]
-            value_text["text"] = [val["text"]]
+            try:
+                image_rotation = (
+                    ocr_prediction_json["image_rotation"]
+                    if "image_rotation" in ocr_prediction_json
+                    else 0
+                )
+                custom_id = (
+                    f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+                )
+                # creating values
+                common_value = {
+                    "x": val["x"],
+                    "y": val["y"],
+                    "width": val["width"],
+                    "height": val["height"],
+                    "rotation": val["rotation"],
+                }
+                # assigning common values to all
+                value_rectangle = common_value.copy()
+                value_labels = common_value.copy()
+                value_text = common_value.copy()
+                value_labels["labels"] = val["labels"]
+                value_text["text"] = [val["text"]]
 
-            rectangle_dict = {
-                "id": custom_id,
-                "origin": "manual",
-                "to_name": "image_url",
-                "from_name": "annotation_bboxes",
-                "type": "rectangle",
-                "image_rotation": image_rotation,
-                "original_width": val["original_width"],
-                "original_height": val["original_height"],
-                "value": value_rectangle,
-            }
-            label_dict = {
-                "id": custom_id,
-                "origin": "manual",
-                "to_name": "image_url",
-                "from_name": "annotation_labels",
-                "type": "labels",
-                "image_rotation": image_rotation,
-                "original_width": val["original_width"],
-                "original_height": val["original_height"],
-                "value": value_labels,
-            }
-            text_dict = {
-                "id": custom_id,
-                "origin": "manual",
-                "to_name": "image_url",
-                "from_name": "ocr_transcribed_json",
-                "type": "textarea",
-                "image_rotation": image_rotation,
-                "original_width": val["original_width"],
-                "original_height": val["original_height"],
-                "value": value_text,
-            }
-
+                rectangle_dict = {
+                    "id": custom_id,
+                    "origin": "manual",
+                    "to_name": "image_url",
+                    "from_name": "annotation_bboxes",
+                    "type": "rectangle",
+                    "image_rotation": image_rotation,
+                    "original_width": val["original_width"],
+                    "original_height": val["original_height"],
+                    "value": value_rectangle,
+                }
+                label_dict = {
+                    "id": custom_id,
+                    "origin": "manual",
+                    "to_name": "image_url",
+                    "from_name": "annotation_labels",
+                    "type": "labels",
+                    "image_rotation": image_rotation,
+                    "original_width": val["original_width"],
+                    "original_height": val["original_height"],
+                    "value": value_labels,
+                }
+                text_dict = {
+                    "id": custom_id,
+                    "origin": "manual",
+                    "to_name": "image_url",
+                    "from_name": "ocr_transcribed_json",
+                    "type": "textarea",
+                    "image_rotation": image_rotation,
+                    "original_width": val["original_width"],
+                    "original_height": val["original_height"],
+                    "value": value_text,
+                }
+            except Exception as e:
+                print(
+                    f"The prediction json of the data item-{pk} is corrupt. "
+                    f"Please check item number-{idx + 1} in the list"
+                )
+                continue
             result.append(rectangle_dict)
             result.append(label_dict)
             result.append(text_dict)
