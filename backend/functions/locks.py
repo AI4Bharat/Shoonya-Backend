@@ -2,6 +2,7 @@ import os
 import json
 import redis
 import time
+import logging
 from dotenv import load_dotenv
 
 """
@@ -14,6 +15,10 @@ userid is the key in redis, and the python dictionary is stored as a JSON string
 """
 
 
+class LockException(Exception):
+    pass
+
+
 class Lock:
     def __init__(self, user_id, task_name):
         load_dotenv()
@@ -24,56 +29,72 @@ class Lock:
         )
         self.user_id = user_id
         self.task_name = task_name
+        # self.logger = logging.getLogger(f"Lock-{self.user_id}-{self.task_name}")
+        # self.logger.setLevel(logging.INFO)
 
     # Return 1 if the lock is set and 0 if lock is not set
     def lockStatus(self):
-        retrieved_json_str = self.redis_connection.get(self.user_id)
-        if retrieved_json_str:
-            retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
-            if self.task_name in retrieved_dict:
-                validity = retrieved_dict[self.task_name]
-                if time.time() > validity:
-                    return 0  # Lock has expired
-                else:
-                    return 1  # Lock is valid
-            else:
-                return 0  # Task name doesn't exist in locks
-        else:
-            return 0  # user id doesn't exist in Redis
-
-    def setLock(self, timeout):
-        if self.lockStatus() == 0:
+        try:
             retrieved_json_str = self.redis_connection.get(self.user_id)
             if retrieved_json_str:
-                # JSON for user already exists, append the task name and validity
                 retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
-                retrieved_dict[self.task_name] = time.time() + timeout
-                new_json_str = json.dumps(retrieved_dict)
-                self.redis_connection.set(self.user_id, new_json_str)
-
+                if self.task_name in retrieved_dict:
+                    validity = retrieved_dict[self.task_name]
+                    if time.time() > validity:
+                        return 0  # Lock has expired
+                    else:
+                        return 1  # Lock is valid
+                else:
+                    return 0  # Task name doesn't exist in locks
             else:
-                # create new JSON for redis entry
-                new_dict = {self.task_name: time.time() + timeout}
-                new_json_str = json.dumps(new_dict)
-                self.redis_connection.set(self.user_id, new_json_str)
+                return 0  # user id doesn't exist in Redis
+        except Exception as e:
+            raise LockException(f"Error setting lock: {str(e)}")
+
+    def setLock(self, timeout):
+        try:
+            if self.lockStatus() == 0:
+                retrieved_json_str = self.redis_connection.get(self.user_id)
+                if retrieved_json_str:
+                    # JSON for user already exists, append the task name and validity
+                    retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
+                    retrieved_dict[self.task_name] = time.time() + timeout
+                    new_json_str = json.dumps(retrieved_dict)
+                    self.redis_connection.set(self.user_id, new_json_str)
+                    # self.logger.info(f"Lock set for task {self.task_name} and user {self.user_id} for {timeout} seconds")
+
+                else:
+                    # create new JSON for redis entry
+                    new_dict = {self.task_name: time.time() + timeout}
+                    new_json_str = json.dumps(new_dict)
+                    self.redis_connection.set(self.user_id, new_json_str)
+                    # self.logger.info(f"Lock set for task {self.task_name} and user {self.user_id} for {timeout} seconds")
+        except Exception as e:
+            raise LockException(f"Error setting lock: {str(e)}")
 
     def releaseLock(self):
-        if self.lockStatus() == 1:
-            retrieved_json_str = self.redis_connection.get(self.user_id)
-            retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
-            if len(retrieved_dict) > 1:
-                del retrieved_dict[self.task_name]
-                new_json_str = json.dumps(retrieved_dict)
-                self.redis_connection.set(self.user_id, new_json_str)
-            else:
-                self.redis_connection.delete(self.user_id)
+        try:
+            if self.lockStatus() == 1:
+                retrieved_json_str = self.redis_connection.get(self.user_id)
+                retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
+                if len(retrieved_dict) > 1:
+                    del retrieved_dict[self.task_name]
+                    new_json_str = json.dumps(retrieved_dict)
+                    self.redis_connection.set(self.user_id, new_json_str)
+                    # self.logger.info(f"Lock released for task {self.task_name} and user {self.user_id}")
+                else:
+                    self.redis_connection.delete(self.user_id)
+                    # self.logger.info(f"Lock released for task {self.task_name} and user {self.user_id}")
+        except Exception as e:
+            raise LockException(f"Error releasing lock: {str(e)}")
 
     def getRemainingTimeForLock(self):
         if self.lockStatus() == 1:
             retrieved_json_str = self.redis_connection.get(self.user_id)
             retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
-            remaining_time=retrieved_dict[self.task_name]-time.time()
+            remaining_time = retrieved_dict[self.task_name] - time.time()
             return remaining_time
+
 
 # testing
 # if __name__ == '__main__':
