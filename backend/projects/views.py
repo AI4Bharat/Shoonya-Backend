@@ -2087,9 +2087,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
             ]:
-                result = convert_prediction_json_to_annotation_result(
-                    task.input_data.id, project.project_type
-                )
+                try:
+                    result = convert_prediction_json_to_annotation_result(
+                        task.input_data.id, project.project_type
+                    )
+                except Exception as e:
+                    print(f"The prediction_json of data item id-{pk} is corrupt")
+                    continue
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
             ).count()
