@@ -1,4 +1,5 @@
 import datetime
+import time
 import zipfile
 import threading
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -53,6 +54,7 @@ from django.http import QueryDict
 from rest_framework.request import Request
 import os
 import tempfile
+from functions.locks import Lock
 
 
 ## CELERY SHARED TASKS
@@ -730,6 +732,8 @@ def schedule_mail_for_project_reports(
         did,
     )
     if len(proj_objs) == 0:
+        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+        celery_lock.releaseLock()
         print("No projects found")
         return 0
     user = User.objects.get(id=user_id)
@@ -775,7 +779,9 @@ def schedule_mail_for_project_reports(
         attachments=[(filename, content, content_type)],
     )
     try:
+        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
         email.send()
+        celery_lock.releaseLock()
     except Exception as e:
         print(f"An error occurred while sending email: {e}")
     print(f"Email sent successfully - {user_id}")
