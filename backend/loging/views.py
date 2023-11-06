@@ -24,9 +24,16 @@ load_dotenv()
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 TRANSLITERATION_CONTAINER_NAME = os.getenv("TRANSLITERATION_CONTAINER_NAME")
 
-account_key = extract_account_key(AZURE_STORAGE_CONNECTION_STRING)
-account_name = extract_account_name(AZURE_STORAGE_CONNECTION_STRING)
-endpoint_suffix = extract_endpoint_suffix(AZURE_STORAGE_CONNECTION_STRING)
+
+def get_azure_credentials(connection_string):
+    account_key = extract_account_key(connection_string)
+    account_name = extract_account_name(connection_string)
+    endpoint_suffix = extract_endpoint_suffix(connection_string)
+
+    if not account_key or not account_name or not endpoint_suffix:
+        raise Exception("Azure credentials are missing or incorrect")
+
+    return account_key, account_name, endpoint_suffix
 
 
 class CustomJSONEncoder(json.JSONEncoder):
@@ -164,9 +171,9 @@ class TransliterationSelectionViewSet(APIView):
 
             expiry = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
 
-            account_name = extract_account_name(AZURE_STORAGE_CONNECTION_STRING)
-            account_key = extract_account_key(AZURE_STORAGE_CONNECTION_STRING)
-            endpoint_suffix = extract_endpoint_suffix(AZURE_STORAGE_CONNECTION_STRING)
+            account_key, account_name, endpoint_suffix = get_azure_credentials(
+                AZURE_STORAGE_CONNECTION_STRING
+            )
 
             sas_token = generate_blob_sas(
                 container_name=TRANSLITERATION_CONTAINER_NAME,
