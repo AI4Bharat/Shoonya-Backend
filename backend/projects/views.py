@@ -1049,7 +1049,9 @@ def convert_annotation_result_to_formatted_json(
                     {"message": "Some data is missing in annotation result- " + f"{e}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            transcribed_json.append(formatted_result_dict)
+            transcribed_json.append(
+                json.dumps(formatted_result_dict, ensure_ascii=False)
+            )
 
     if is_acoustic:
         return {
