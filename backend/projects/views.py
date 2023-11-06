@@ -814,7 +814,11 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
         or proj_type == "AcousticNormalisedTranscriptionEditing"
     ):
         data_item = SpeechConversation.objects.get(pk=pk)
-        prediction_json = data_item.prediction_json
+        prediction_json = (
+            json.loads(data_item.prediction_json)
+            if isinstance(data_item.prediction_json, str)
+            else data_item.prediction_json
+        )
         speakers_json = data_item.speakers_json
         audio_duration = data_item.audio_duration
         # converting prediction_json to result (wherever it exists) for every task.
@@ -865,7 +869,11 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             result.append(text_dict)
     elif proj_type == "OCRTranscriptionEditing":
         data_item = OCRDocument.objects.get(pk=pk)
-        ocr_prediction_json = data_item.ocr_prediction_json
+        ocr_prediction_json = (
+            json.loads(data_item.ocr_prediction_json)
+            if isinstance(data_item.ocr_prediction_json, str)
+            else data_item.ocr_prediction_json
+        )
         if ocr_prediction_json == None:
             return result
         for idx, val in enumerate(ocr_prediction_json):
@@ -923,7 +931,6 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 "original_height": val["original_height"],
                 "value": value_text,
             }
-
             result.append(rectangle_dict)
             result.append(label_dict)
             result.append(text_dict)
@@ -2087,9 +2094,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
             ]:
-                result = convert_prediction_json_to_annotation_result(
-                    task.input_data.id, project.project_type
-                )
+                try:
+                    result = convert_prediction_json_to_annotation_result(
+                        task.input_data.id, project.project_type
+                    )
+                except Exception as e:
+                    print(
+                        f"The prediction json of the data item-{task.input_data.id} is corrupt."
+                    )
+                    task.delete()
+                    continue
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
             ).count()
