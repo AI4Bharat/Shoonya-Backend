@@ -1,3 +1,4 @@
+import json
 import re
 from collections import OrderedDict
 from datetime import datetime
@@ -1049,9 +1050,7 @@ def convert_annotation_result_to_formatted_json(
                     {"message": "Some data is missing in annotation result- " + f"{e}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            transcribed_json.append(
-                json.dumps(formatted_result_dict, ensure_ascii=False)
-            )
+            transcribed_json.append(formatted_result_dict)
 
     if is_acoustic:
         return {
@@ -1059,8 +1058,8 @@ def convert_annotation_result_to_formatted_json(
             "acoustic_normalised_transcribed_json": acoustic_transcribed_json,
             "standardised_transcription": standardised_transcription,
         }
-
-    return transcribed_json
+    transcribed_json_modified = json.dumps(transcribed_json, ensure_ascii=False)
+    return transcribed_json_modified
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
