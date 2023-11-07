@@ -1,4 +1,5 @@
 import ast
+import json
 import re
 from base64 import b64encode
 from urllib.parse import parse_qsl
@@ -45,6 +46,12 @@ from tasks.models import (
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
 )
+
+exception_messages = {
+    "EncodeError": {
+        "TypeError('Object of type set is not JSON serializable')": "The dataset that you have uploaded is empty",
+    },
+}
 
 
 ## Utility functions used inside the view functions
@@ -533,6 +540,20 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             serializer.data[i]["date"] = all_dates[i]
             serializer.data[i]["time"] = all_times[i]
             serializer.data[i]["status"] = status_list[i]
+
+            #displaying user friendly error messages
+            result_data = json.loads(serializer.data[i]["result"]) 
+            error_msg_list = result_data.get("exc_message", [])
+            error_type = result_data.get("exc_type")
+            
+            if error_type=="InvalidDimensions":
+                serializer.data[i]["result"] = "The data type of some value does not match the required data type or the dimensions of the dataset that you have uploaded are incorrect"
+            elif error_type=="EncodeError" and error_msg_list[0]=="TypeError('Object of type set is not JSON serializable')":
+                serializer.data[i]["result"] = "The dataset that you have uploaded is empty"
+            else:
+                serializer.data[i]["result"] = "Type of error : "+error_type + "\n"
+                if len(error_msg_list)>0:
+                    serializer.data[i]["result"] += "Error message : " + error_msg_list[0]
 
         # Add the project ID from the task kwargs to the serializer data
         if "projects" in task_name:
