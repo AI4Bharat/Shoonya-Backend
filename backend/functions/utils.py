@@ -532,7 +532,8 @@ def get_batch_ocr_predictions_using_google(id, image_url):
                 }
 
                 ocr_prediction = ocr_format_conversion(ocr_prediction)
-                ocr_predictions.append(ocr_prediction)
+                ocr_prediction_json = json.dumps(ocr_prediction, ensure_ascii=False)
+                ocr_predictions.append(ocr_prediction_json)
 
     return ocr_predictions
 

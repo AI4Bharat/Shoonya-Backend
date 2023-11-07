@@ -1013,7 +1013,7 @@ def get_stats_definitions():
             "Not Null Segment Duration": 0,
             "Word Count": 0,
         },
-        "validate_with_changes": {
+        "validated_with_changes": {
             "Raw Audio Duration": 0,
             "Segment Duration": 0,
             "Not Null Segment Duration": 0,
