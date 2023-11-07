@@ -1,3 +1,4 @@
+import json
 import re
 from collections import OrderedDict
 from datetime import datetime
@@ -1020,23 +1021,29 @@ def convert_annotation_result_to_formatted_json(
             text_dict = {}
             for idx2 in range(idx1, idx1 + 3):
                 formatted_result_dict = {}
-                if idx2 not in [0, len(annotation_result) - 1]:
+                if idx2 >= len(annotation_result) or idx2 < 0:
                     continue
                 if annotation_result[idx2]["type"] == "rectangle":
                     rectangle_dict = annotation_result[idx1]
                 elif annotation_result[idx2]["type"] == "labels":
                     labels_dict = annotation_result[idx2]
                 else:
-                    text_dict = annotation_result[idx2]
+                    if isinstance(annotation_result[idx2], str):
+                        text_dict = annotation_result[idx2]
+                    else:
+                        text_dict = json.dumps(
+                            annotation_result[idx2], ensure_ascii=False
+                        )
             if len(rectangle_dict) == 0 or len(labels_dict) == 0 or len(text_dict) == 0:
                 continue
             formatted_result_dict = rectangle_dict["value"]
             try:
                 formatted_result_dict["labels"] = labels_dict["value"]["labels"]
+                text_dict_json = json.loads(text_dict)
                 formatted_result_dict["text"] = (
-                    text_dict["value"]["text"][0]
-                    if type(text_dict["value"]["text"]) == list
-                    else text_dict["value"]["text"]
+                    text_dict_json["value"]["text"][0]
+                    if type(text_dict_json["value"]["text"]) == list
+                    else text_dict_json["value"]["text"]
                 )
             except Exception as e:
                 return Response(
@@ -1051,8 +1058,8 @@ def convert_annotation_result_to_formatted_json(
             "acoustic_normalised_transcribed_json": acoustic_transcribed_json,
             "standardised_transcription": standardised_transcription,
         }
-
-    return transcribed_json
+    transcribed_json_modified = json.dumps(transcribed_json, ensure_ascii=False)
+    return transcribed_json_modified
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
