@@ -1,3 +1,4 @@
+import json
 import re
 from collections import OrderedDict
 from datetime import datetime
@@ -745,6 +746,35 @@ def get_project_export_status(pk):
     )
 
 
+def get_task_creation_status(pk) -> str:
+    """Function to return the status of the tasks of project that is queried.
+    Args:
+        pk (int): The primary key of the project
+    Returns:
+        str: Task Status
+    """
+    # Check the celery task creation status
+    project_id_keyword_arg = "'project_id': " + str(pk)
+    taskresult_queryset = TaskResult.objects.filter(
+        task_name="projects.tasks.create_parameters_for_task_creation",
+        task_kwargs__contains=project_id_keyword_arg,
+    )
+    task_creation_status_modified = {
+        "PENDING": "Task Creation Process Pending",
+        "RECEIVED": "Task Creation Process Received",
+        "STARTED": "Task Creation Process Started",
+        "SUCCESS": "Tasks Creation Process Successful",
+        "FAILURE": "Task Creation Process Failed",
+        "RETRY": "Task Creation Process Retried",
+        "REVOKED": "Task Creation Process Revoked",
+    }
+    # If the celery TaskResults table returns
+    if taskresult_queryset:
+        task_creation_status = taskresult_queryset.first().as_dict()["status"]
+        return task_creation_status_modified[task_creation_status]
+    return ""
+
+
 def get_project_creation_status(pk) -> str:
     # sourcery skip: use-named-expression
     """Function to return the status of the project that is queried.
@@ -758,26 +788,6 @@ def get_project_creation_status(pk) -> str:
 
     # Get the project object
     project = Project.objects.get(pk=pk)
-
-    # Create the keyword argument for project ID
-    project_id_keyword_arg = "'project_id': " + str(pk) + "}"
-
-    # Check the celery task creation status
-    taskresult_queryset = TaskResult.objects.filter(
-        task_name="projects.tasks.create_parameters_for_task_creation",
-        task_kwargs__contains=project_id_keyword_arg,
-    )
-
-    # If the celery TaskResults table returns
-    if taskresult_queryset:
-        task_creation_status = taskresult_queryset.first().as_dict()["status"]
-
-        # Check if the task has failed
-        if task_creation_status == "FAILURE":
-            return "Task Creation Process Failed!"
-        if task_creation_status != "SUCCESS":
-            return "Creating Annotation Tasks."
-    # If the background task function has already run, check the status of the project
     if project.is_archived:
         return "Archived"
     elif project.is_published:
@@ -805,7 +815,11 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
         or proj_type == "AcousticNormalisedTranscriptionEditing"
     ):
         data_item = SpeechConversation.objects.get(pk=pk)
-        prediction_json = data_item.prediction_json
+        prediction_json = (
+            json.loads(data_item.prediction_json)
+            if isinstance(data_item.prediction_json, str)
+            else data_item.prediction_json
+        )
         speakers_json = data_item.speakers_json
         audio_duration = data_item.audio_duration
         # converting prediction_json to result (wherever it exists) for every task.
@@ -856,7 +870,11 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             result.append(text_dict)
     elif proj_type == "OCRTranscriptionEditing":
         data_item = OCRDocument.objects.get(pk=pk)
-        ocr_prediction_json = data_item.ocr_prediction_json
+        ocr_prediction_json = (
+            json.loads(data_item.ocr_prediction_json)
+            if isinstance(data_item.ocr_prediction_json, str)
+            else data_item.ocr_prediction_json
+        )
         if ocr_prediction_json == None:
             return result
         for idx, val in enumerate(ocr_prediction_json):
@@ -914,7 +932,6 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 "original_height": val["original_height"],
                 "value": value_text,
             }
-
             result.append(rectangle_dict)
             result.append(label_dict)
             result.append(text_dict)
@@ -1004,23 +1021,29 @@ def convert_annotation_result_to_formatted_json(
             text_dict = {}
             for idx2 in range(idx1, idx1 + 3):
                 formatted_result_dict = {}
-                if idx2 not in [0, len(annotation_result) - 1]:
+                if idx2 >= len(annotation_result) or idx2 < 0:
                     continue
                 if annotation_result[idx2]["type"] == "rectangle":
                     rectangle_dict = annotation_result[idx1]
                 elif annotation_result[idx2]["type"] == "labels":
                     labels_dict = annotation_result[idx2]
                 else:
-                    text_dict = annotation_result[idx2]
+                    if isinstance(annotation_result[idx2], str):
+                        text_dict = annotation_result[idx2]
+                    else:
+                        text_dict = json.dumps(
+                            annotation_result[idx2], ensure_ascii=False
+                        )
             if len(rectangle_dict) == 0 or len(labels_dict) == 0 or len(text_dict) == 0:
                 continue
             formatted_result_dict = rectangle_dict["value"]
             try:
                 formatted_result_dict["labels"] = labels_dict["value"]["labels"]
+                text_dict_json = json.loads(text_dict)
                 formatted_result_dict["text"] = (
-                    text_dict["value"]["text"][0]
-                    if type(text_dict["value"]["text"]) == list
-                    else text_dict["value"]["text"]
+                    text_dict_json["value"]["text"][0]
+                    if type(text_dict_json["value"]["text"]) == list
+                    else text_dict_json["value"]["text"]
                 )
             except Exception as e:
                 return Response(
@@ -1035,8 +1058,8 @@ def convert_annotation_result_to_formatted_json(
             "acoustic_normalised_transcribed_json": acoustic_transcribed_json,
             "standardised_transcription": standardised_transcription,
         }
-
-    return transcribed_json
+    transcribed_json_modified = json.dumps(transcribed_json, ensure_ascii=False)
+    return transcribed_json_modified
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -1064,6 +1087,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         # Add a new field to the project response to indicate project status
         project_response.data["status"] = get_project_creation_status(pk)
+        project_response.data["task_creation_status"] = get_task_creation_status(pk)
 
         # Add a new field to the project to indicate the async project export status and last export date
         (
@@ -2077,9 +2101,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
             ]:
-                result = convert_prediction_json_to_annotation_result(
-                    task.input_data.id, project.project_type
-                )
+                try:
+                    result = convert_prediction_json_to_annotation_result(
+                        task.input_data.id, project.project_type
+                    )
+                except Exception as e:
+                    print(
+                        f"The prediction json of the data item-{task.input_data.id} is corrupt."
+                    )
+                    task.delete()
+                    continue
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
             ).count()

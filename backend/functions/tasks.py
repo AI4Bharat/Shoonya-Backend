@@ -719,6 +719,7 @@ def schedule_mail_for_project_reports(
     wid,
     oid,
     did,
+    language,
 ):
     proj_objs = get_proj_objs(
         workspace_level_reports,
@@ -728,6 +729,7 @@ def schedule_mail_for_project_reports(
         wid,
         oid,
         did,
+        language,
     )
     if len(proj_objs) == 0:
         print("No projects found")
@@ -838,7 +840,7 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                     )
                 except:
                     continue
-            else:
+            elif ann_obj.annotation_type == SUPER_CHECKER_ANNOTATION:
                 try:
                     get_stats_helper(
                         anno_stats,
@@ -1013,7 +1015,7 @@ def get_stats_definitions():
             "Not Null Segment Duration": 0,
             "Word Count": 0,
         },
-        "validate_with_changes": {
+        "validated_with_changes": {
             "Raw Audio Duration": 0,
             "Segment Duration": 0,
             "Not Null Segment Duration": 0,
@@ -1165,26 +1167,48 @@ def get_proj_objs(
     wid,
     oid,
     did,
+    language,
 ):
     if workspace_level_reports:
         if project_type:
-            proj_objs = Project.objects.filter(
-                workspace_id=wid, project_type=project_type
-            )
+            if language != "NULL":
+                proj_objs = Project.objects.filter(
+                    workspace_id=wid,
+                    project_type=project_type,
+                    tgt_language=language,
+                )
+            else:
+                proj_objs = Project.objects.filter(
+                    workspace_id=wid, project_type=project_type
+                )
         else:
             proj_objs = Project.objects.filter(workspace_id=wid)
     elif organization_level_reports:
         if project_type:
-            proj_objs = Project.objects.filter(
-                organization_id=oid, project_type=project_type
-            )
+            if language != "NULL":
+                proj_objs = Project.objects.filter(
+                    organization_id=oid,
+                    project_type=project_type,
+                    tgt_language=language,
+                )
+            else:
+                proj_objs = Project.objects.filter(
+                    organization_id=oid, project_type=project_type
+                )
         else:
             proj_objs = Project.objects.filter(organization_id=oid)
     elif dataset_level_reports:
         if project_type:
-            proj_objs = Project.objects.filter(
-                dataset_id=did, project_type=project_type
-            )
+            if language != "NULL":
+                proj_objs = Project.objects.filter(
+                    dataset_id=did,
+                    project_type=project_type,
+                    tgt_language=language,
+                )
+            else:
+                proj_objs = Project.objects.filter(
+                    dataset_id=did, project_type=project_type
+                )
         else:
             proj_objs = Project.objects.filter(dataset_id=did)
     else:
