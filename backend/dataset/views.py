@@ -47,12 +47,6 @@ from tasks.models import (
     SUPER_CHECKER_ANNOTATION,
 )
 
-exception_messages = {
-    "EncodeError": {
-        "TypeError('Object of type set is not JSON serializable')": "The dataset that you have uploaded is empty",
-    },
-}
-
 
 ## Utility functions used inside the view functions
 def extract_status_date_time_from_task_queryset(task_queryset):
