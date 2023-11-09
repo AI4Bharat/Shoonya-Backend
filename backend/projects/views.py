@@ -78,7 +78,6 @@ from workspaces.decorators import is_particular_workspace_manager
 from users.utils import generate_random_string
 from notifications.views import (
     createNotification,
-    deleteNotification,
     viewNotifications,
 )
 
@@ -4141,12 +4140,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             project.is_published = True
             project.published_at = datetime.now()
-            # print(project,type(project))
-            createNotification(request, project)
-            project.save()
-
-            ret_dict = {"message": "This project is published"}
-            ret_status = status.HTTP_200_OK
+            # creating notifications
+            title = f"{project.id} - {project.title} has been published."
+            notification_type = "publish_project"
+            annotators_ids = [a.get("id") for a in annotators]
+            try:
+                project.save()
+                createNotification(title, notification_type, annotators_ids)
+                ret_dict = {"message": "This project is published"}
+                ret_status = status.HTTP_200_OK
+            except Exception as e:
+                ret_dict = {"message": "This project is not published"}
+                ret_status = status.HTTP_500_INTERNAL_SERVER_ERROR
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
