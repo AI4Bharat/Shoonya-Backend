@@ -945,6 +945,7 @@ def convert_annotation_result_to_formatted_json(
     transcribed_json = []
     acoustic_transcribed_json = []
     standardised_transcription = ""
+    transcribed_json_modified, acoustic_transcribed_json_modified = [], []
     if dataset_type == "SpeechConversation":
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
@@ -952,18 +953,22 @@ def convert_annotation_result_to_formatted_json(
             labels_dict = {}
             text_dict = {}
             acoustic_text_dict = {}
+            if isinstance(annotation_result[idx1], str):
+                annotation_result[idx1] = json.loads(annotation_result[idx1])
             if annotation_result[idx1]["from_name"] == "labels":
                 labels_dict = annotation_result[idx1]
             elif (
                 annotation_result[idx1]["from_name"]
                 == "acoustic_normalised_transcribed_json"
             ):
-                acoustic_text_dict = annotation_result[idx1]
+                acoustic_text_dict = json.dumps(
+                    annotation_result[idx1], ensure_ascii=False
+                )
             elif annotation_result[idx1]["from_name"] == "standardised_transcription":
                 standardised_transcription = annotation_result[idx1]["value"]["text"][0]
                 continue
             else:
-                text_dict = annotation_result[idx1]
+                text_dict = json.dumps(annotation_result[idx1], ensure_ascii=False)
             for idx2 in range(idx1 + 1, len(annotation_result)):
                 if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
                     if annotation_result[idx2]["from_name"] == "labels":
@@ -972,9 +977,13 @@ def convert_annotation_result_to_formatted_json(
                         annotation_result[idx2]["from_name"]
                         == "acoustic_normalised_transcribed_json"
                     ):
-                        acoustic_text_dict = annotation_result[idx2]
+                        acoustic_text_dict = json.dumps(
+                            annotation_result[idx2], ensure_ascii=False
+                        )
                     else:
-                        text_dict = annotation_result[idx2]
+                        text_dict = json.dumps(
+                            annotation_result[idx2], ensure_ascii=False
+                        )
                     if not is_acoustic or (
                         labels_dict and acoustic_text_dict and text_dict
                     ):
@@ -999,26 +1008,33 @@ def convert_annotation_result_to_formatted_json(
                 if not text_dict:
                     formatted_result_dict["text"] = ""
                 else:
-                    formatted_result_dict["text"] = text_dict["value"]["text"][0]
-                    formatted_result_dict["start"] = text_dict["value"]["start"]
-                    formatted_result_dict["end"] = text_dict["value"]["end"]
+                    text_dict_json = json.loads(text_dict)
+                    formatted_result_dict["text"] = text_dict_json["value"]["text"][0]
+                    formatted_result_dict["start"] = text_dict_json["value"]["start"]
+                    formatted_result_dict["end"] = text_dict_json["value"]["end"]
 
                 transcribed_json.append(formatted_result_dict)
 
                 if is_acoustic:
                     acoustic_formatted_result_dict = deepcopy(formatted_result_dict)
+                    acoustic_dict_json = json.loads(acoustic_text_dict)
                     acoustic_formatted_result_dict["text"] = (
-                        acoustic_text_dict["value"]["text"][0]
-                        if acoustic_text_dict
+                        acoustic_dict_json["value"]["text"][0]
+                        if acoustic_dict_json
                         else ""
                     )
                     acoustic_transcribed_json.append(acoustic_formatted_result_dict)
-
+        if acoustic_transcribed_json:
+            acoustic_transcribed_json_modified = json.dumps(
+                acoustic_transcribed_json, ensure_ascii=False
+            )
     else:
         for idx1 in range(0, len(annotation_result), 3):
             rectangle_dict = {}
             labels_dict = {}
             text_dict = {}
+            if isinstance(annotation_result[idx1], str):
+                annotation_result[idx1] = json.loads(annotation_result[idx1])
             for idx2 in range(idx1, idx1 + 3):
                 formatted_result_dict = {}
                 if idx2 >= len(annotation_result) or idx2 < 0:
@@ -1051,14 +1067,13 @@ def convert_annotation_result_to_formatted_json(
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             transcribed_json.append(formatted_result_dict)
-
+    transcribed_json_modified = json.dumps(transcribed_json, ensure_ascii=False)
     if is_acoustic:
         return {
-            "verbatim_transcribed_json": transcribed_json,
-            "acoustic_normalised_transcribed_json": acoustic_transcribed_json,
+            "verbatim_transcribed_json": transcribed_json_modified,
+            "acoustic_normalised_transcribed_json": acoustic_transcribed_json_modified,
             "standardised_transcription": standardised_transcription,
         }
-    transcribed_json_modified = json.dumps(transcribed_json, ensure_ascii=False)
     return transcribed_json_modified
 
 
@@ -3850,21 +3865,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
                         ).machine_translated_conversation_json
+                    if isinstance(conversation_json, str):
+                        conversation_json = json.loads(conversation_json)
                     for idx1 in range(len(conversation_json)):
                         for idx2 in range(len(conversation_json[idx1]["sentences"])):
                             conversation_json[idx1]["sentences"][idx2] = ""
                     for result in task["annotations"][0]["result"]:
+                        if isinstance(result, str):
+                            text_dict = result
+                        else:
+                            text_dict = json.dumps(result, ensure_ascii=False)
+                        result_formatted = json.loads(text_dict)
                         if result["to_name"] != "quality_status":
                             to_name_list = result["to_name"].split("_")
                             idx1 = int(to_name_list[1])
                             idx2 = int(to_name_list[2])
                             conversation_json[idx1]["sentences"][idx2] = ".".join(
-                                map(str, result["value"]["text"])
+                                map(str, result_formatted["value"]["text"])
                             )
                         else:
-                            task["data"]["conversation_quality_status"] = result[
-                                "value"
-                            ]["choices"][0]
+                            task["data"][
+                                "conversation_quality_status"
+                            ] = result_formatted["value"]["choices"][0]
                     if project_type == "ConversationVerification":
                         task["data"]["verified_conversation_json"] = conversation_json
                     else:
@@ -3873,6 +3895,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if dataset_type == "SpeechConversation":
                     for task in tasks_list:
                         annotation_result = task["annotations"][0]["result"]
+                        annotation_result = (
+                            json.loads(annotation_result)
+                            if isinstance(annotation_result, str)
+                            else annotation_result
+                        )
                         speakers_json = task["data"]["speakers_json"]
                         task["annotations"][0]["result"] = []
                         if project_type == "AudioSegmentation":
@@ -3894,6 +3921,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 else:
                     for task in tasks_list:
                         annotation_result = task["annotations"][0]["result"]
+                        annotation_result = (
+                            json.loads(annotation_result)
+                            if isinstance(annotation_result, str)
+                            else annotation_result
+                        )
                         task["annotations"][0]["result"] = []
                         if project_type in [
                             "OCRTranscriptionEditing",
