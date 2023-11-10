@@ -16,7 +16,7 @@ from tasks.models import (
 )
 from .models import Workspace
 from users.models import User
-from projects.models import Project, ANNOTATION_STAGE, REVIEW_STAGE
+from projects.models import Project, ANNOTATION_STAGE, REVIEW_STAGE, SUPERCHECK_STAGE
 from users.utils import get_role_name
 from projects.utils import (
     convert_seconds_to_hours,
@@ -885,6 +885,600 @@ def send_project_analysis_reports_mail_ws(
     email.send()
 
 
+def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=None):
+    user = User.objects.get(id=userid)
+    participation_type = user.participation_type
+    participation_type = (
+        "Full Time"
+        if participation_type == 1
+        else "Part Time"
+        if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 4
+        else "N/A"
+    )
+    role = get_role_name(user.role)
+    userName = user.username
+    email = user.email
+
+    superchecker_languages = user.languages
+
+    total_tasks = Task.objects.filter(project_id__in=proj_ids, super_check_user=userid)
+
+    total_task_count = total_tasks.count()
+
+    validated_objs = Annotation.objects.filter(
+        annotation_status="validated",
+        task__project_id__in=proj_ids,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    validated_objs_count = validated_objs.count()
+
+    validated_with_changes_objs = Annotation.objects.filter(
+        annotation_status="validated_with_changes",
+        task__project_id__in=proj_ids,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    validated_with_changes_objs_count = validated_with_changes_objs.count()
+
+    unvalidated_objs = Annotation.objects.filter(
+        annotation_status="unvalidated",
+        task__project_id__in=proj_ids,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    unvalidated_objs_count = unvalidated_objs.count()
+
+    rejected_objs = Annotation.objects.filter(
+        annotation_status="rejected",
+        task__project_id__in=proj_ids,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    rejected_objs_count = rejected_objs.count()
+
+    skipped_objs = Annotation.objects.filter(
+        annotation_status="skipped",
+        task__project_id__in=proj_ids,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    skipped_objs_count = skipped_objs.count()
+
+    draft_objs = Annotation.objects.filter(
+        annotation_status="draft",
+        task__project_id__in=proj_ids,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    draft_objs_count = draft_objs.count()
+
+    total_sup_annos = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        task__super_check_user=userid,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    total_superchecked_annos = total_sup_annos.filter(task__task_status="super_checked")
+
+    total_rejection_loop_value_list = [
+        anno.task.revision_loop_count["super_check_count"] for anno in total_sup_annos
+    ]
+    if len(total_rejection_loop_value_list) > 0:
+        avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
+            total_rejection_loop_value_list
+        )
+    else:
+        avg_rejection_loop_value = 0
+    tasks_rejected_max_times = 0
+    for anno in total_sup_annos:
+        if (
+            anno.task.revision_loop_count["super_check_count"]
+            >= anno.task.project_id.revision_loop_count
+        ):
+            tasks_rejected_max_times += 1
+
+    if project_type != None:
+        project_type_lower = project_type.lower()
+        is_translation_project = True if "translation" in project_type_lower else False
+
+        validated_word_count_list = []
+        validated_with_changes_word_count_list = []
+        rejected_word_count_list = []
+        validated_audio_duration_list = []
+        validated_with_changes_audio_duration_list = []
+        rejected_audio_duration_list = []
+        total_raw_audio_duration_list = []
+        total_word_error_rate_rs_list = []
+        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
+            for anno in validated_objs:
+                try:
+                    validated_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
+            for anno in validated_with_changes_objs:
+                try:
+                    validated_with_changes_word_count_list.append(
+                        anno.task.data["word_count"]
+                    )
+                except:
+                    pass
+            for anno in rejected_objs:
+                try:
+                    rejected_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
+        elif "OCRTranscription" in project_type:
+            for anno in validated_objs:
+                validated_word_count_list.append(ocr_word_count(anno.result))
+            for anno in validated_with_changes_objs:
+                validated_with_changes_word_count_list.append(
+                    ocr_word_count(anno.result)
+                )
+            for anno in rejected_objs:
+                rejected_word_count_list.append(ocr_word_count(anno.result))
+        elif project_type in get_audio_project_types():
+            for anno in validated_objs:
+                try:
+                    validated_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
+            for anno in validated_with_changes_objs:
+                try:
+                    validated_with_changes_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
+            for anno in rejected_objs:
+                try:
+                    rejected_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
+            for anno in total_sup_annos:
+                try:
+                    total_word_error_rate_rs_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
+                    )
+                    total_raw_audio_duration_list.append(
+                        anno.task.data["audio_duration"]
+                    )
+                except:
+                    pass
+            for anno in total_superchecked_annos:
+                try:
+                    total_word_error_rate_rs_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
+                    )
+                except:
+                    pass
+
+        validated_word_count = sum(validated_word_count_list)
+        validated_with_changes_word_count = sum(validated_with_changes_word_count_list)
+        rejected_word_count = sum(rejected_word_count_list)
+        validated_audio_duration = convert_seconds_to_hours(
+            sum(validated_audio_duration_list)
+        )
+        validated_with_changes_audio_duration = convert_seconds_to_hours(
+            sum(validated_with_changes_audio_duration_list)
+        )
+        rejected_audio_duration = convert_seconds_to_hours(
+            sum(rejected_audio_duration_list)
+        )
+        total_raw_audio_duration = convert_seconds_to_hours(
+            sum(total_raw_audio_duration_list)
+        )
+        if len(total_word_error_rate_rs_list) > 0:
+            avg_word_error_rate = sum(total_word_error_rate_rs_list) / len(
+                total_word_error_rate_rs_list
+            )
+        else:
+            avg_word_error_rate = 0
+
+    result = {
+        "SuperChecker Name": userName,
+        "Email": email,
+        "Participation Type": participation_type,
+        "User Role": role,
+        "Language": superchecker_languages,
+        "Assigned": total_task_count,
+        "Validated": validated_objs_count,
+        "Validated With Changes": validated_with_changes_objs_count,
+        "Rejected": rejected_objs_count,
+        "Unvalidated": unvalidated_objs_count,
+        "Skipped": skipped_objs_count,
+        "Draft": draft_objs_count,
+        "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
+        "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+    }
+
+    if project_type != None:
+        if is_translation_project or project_type in [
+            "SemanticTextualSimilarity_Scale5",
+            "OCRTranscriptionEditing",
+            "OCRTranscription",
+        ]:
+            result["Validated Word Count"] = validated_word_count
+            result[
+                "Validated With Changes Word Count"
+            ] = validated_with_changes_word_count
+            result["Rejected Word Count"] = rejected_word_count
+        elif project_type in get_audio_project_types():
+            result["Validated Audio Duration"] = validated_audio_duration
+            result[
+                "Validated With Changes Audio Duration"
+            ] = validated_with_changes_audio_duration
+            result["Rejected Audio Duration"] = rejected_audio_duration
+            result["Total Raw Audio Duration"] = total_raw_audio_duration
+            result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
+
+    return result
+
+
+def get_review_reports(
+    proj_ids,
+    userid,
+    start_date,
+    end_date,
+    project_progress_stage=None,
+    project_type=None,
+):
+    user = User.objects.get(id=userid)
+    participation_type = user.participation_type
+    participation_type = (
+        "Full Time"
+        if participation_type == 1
+        else "Part Time"
+        if participation_type == 2
+        else "Contract Basis"
+        if participation_type == 4
+        else "N/A"
+    )
+    role = get_role_name(user.role)
+    userName = user.username
+    email = user.email
+
+    reviewer_languages = user.languages
+
+    total_tasks = Task.objects.filter(project_id__in=proj_ids, review_user=userid)
+
+    total_task_count = total_tasks.count()
+
+    accepted_tasks = Annotation.objects.filter(
+        annotation_status="accepted",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    accepted_objs_count = accepted_tasks.count()
+
+    superchecked_accepted_annos = Annotation.objects.filter(
+        parent_annotation_id__in=accepted_tasks,
+        annotation_status__in=[
+            "validated",
+            "validated_with_changes",
+        ],
+    )
+
+    superchecked_accepted_annos_count = superchecked_accepted_annos.count()
+
+    accepted_objs_only = accepted_objs_count - superchecked_accepted_annos_count
+
+    acceptedwt_minor_change_tasks = Annotation.objects.filter(
+        annotation_status="accepted_with_minor_changes",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    minor_changes = acceptedwt_minor_change_tasks.count()
+
+    superchecked_minor_annos = Annotation.objects.filter(
+        parent_annotation_id__in=acceptedwt_minor_change_tasks,
+        annotation_status__in=[
+            "validated",
+            "validated_with_changes",
+        ],
+    )
+
+    superchecked_minor_annos_count = superchecked_minor_annos.count()
+
+    minor_objs_only = minor_changes - superchecked_minor_annos_count
+
+    acceptedwt_major_change_tasks = Annotation.objects.filter(
+        annotation_status="accepted_with_major_changes",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    major_changes = acceptedwt_major_change_tasks.count()
+
+    superchecked_major_annos = Annotation.objects.filter(
+        parent_annotation_id__in=acceptedwt_major_change_tasks,
+        annotation_status__in=[
+            "validated",
+            "validated_with_changes",
+        ],
+    )
+
+    superchecked_major_annos_count = superchecked_major_annos.count()
+
+    major_objs_only = major_changes - superchecked_major_annos_count
+
+    labeled_tasks = Task.objects.filter(
+        project_id__in=proj_ids, review_user=userid, task_status="annotated"
+    )
+    labeled_tasks_count = labeled_tasks.count()
+
+    to_be_revised_tasks = Annotation.objects.filter(
+        annotation_status="to_be_revised",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    to_be_revised_tasks_count = to_be_revised_tasks.count()
+
+    skipped_tasks = Annotation.objects.filter(
+        annotation_status="skipped",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    skipped_tasks_count = skipped_tasks.count()
+
+    draft_tasks = Annotation.objects.filter(
+        annotation_status="draft",
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    draft_tasks_count = draft_tasks.count()
+
+    total_rev_annos = Annotation.objects.filter(
+        task__project_id__in=proj_ids,
+        task__review_user=userid,
+        annotation_type=REVIEWER_ANNOTATION,
+        updated_at__range=[start_date, end_date],
+    )
+
+    total_rev_sup_annos = Annotation.objects.filter(
+        parent_annotation__in=total_rev_annos
+    )
+
+    total_superchecked_annos = total_rev_sup_annos.filter(
+        task__task_status="super_checked"
+    )
+
+    total_rejection_loop_value_list = [
+        anno.task.revision_loop_count["super_check_count"]
+        for anno in total_rev_sup_annos
+    ]
+    if len(total_rejection_loop_value_list) > 0:
+        avg_rejection_loop_value = sum(total_rejection_loop_value_list) / len(
+            total_rejection_loop_value_list
+        )
+    else:
+        avg_rejection_loop_value = 0
+    tasks_rejected_max_times = 0
+    for anno in total_rev_sup_annos:
+        if (
+            anno.task.revision_loop_count["super_check_count"]
+            >= anno.task.project_id.revision_loop_count
+        ):
+            tasks_rejected_max_times += 1
+
+    if project_type != None:
+        project_type_lower = project_type.lower()
+        is_translation_project = True if "translation" in project_type_lower else False
+        total_rev_annos_accepted = total_rev_annos.filter(
+            annotation_status__in=[
+                "accepted",
+                "accepted_with_minor_changes",
+                "accepted_with_major_changes",
+            ]
+        )
+        total_audio_duration_list = []
+        total_raw_audio_duration_list = []
+        total_word_count_list = []
+        total_word_error_rate_ar_list = []
+        total_word_error_rate_rs_list = []
+        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
+            for anno in total_rev_annos_accepted:
+                total_word_count_list.append(anno.task.data["word_count"])
+        elif "OCRTranscription" in project_type:
+            for anno in total_rev_annos_accepted:
+                total_word_count_list.append(ocr_word_count(anno.result))
+        elif project_type in get_audio_project_types():
+            for anno in total_rev_annos_accepted:
+                try:
+                    total_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                    total_raw_audio_duration_list.append(
+                        anno.task.data["audio_duration"]
+                    )
+                    total_word_error_rate_ar_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
+                    )
+                except:
+                    pass
+            for anno in total_superchecked_annos:
+                try:
+                    total_word_error_rate_rs_list.append(
+                        calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            anno.result, anno.parent_annotation.result
+                        )
+                    )
+                except:
+                    pass
+
+        total_word_count = sum(total_word_count_list)
+        total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
+        total_raw_audio_duration = convert_seconds_to_hours(
+            sum(total_raw_audio_duration_list)
+        )
+        if len(total_word_error_rate_ar_list) > 0:
+            avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+                total_word_error_rate_ar_list
+            )
+        else:
+            avg_word_error_rate_ar = 0
+        if len(total_word_error_rate_rs_list) > 0:
+            avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
+                total_word_error_rate_rs_list
+            )
+        else:
+            avg_word_error_rate_rs = 0
+
+    if project_progress_stage == SUPERCHECK_STAGE:
+        annotations_of_superchecker_validated = Annotation.objects.filter(
+            task__project_id__in=proj_ids,
+            annotation_status="validated",
+            annotation_type=SUPER_CHECKER_ANNOTATION,
+            parent_annotation__updated_at__range=[start_date, end_date],
+        )
+        parent_anno_ids = [
+            ann.parent_annotation_id for ann in annotations_of_superchecker_validated
+        ]
+        accepted_validated_tasks = Annotation.objects.filter(
+            id__in=parent_anno_ids,
+            completed_by=userid,
+        )
+
+        annotations_of_superchecker_validated_with_changes = Annotation.objects.filter(
+            task__project_id__in=proj_ids,
+            annotation_status="validated_with_changes",
+            annotation_type=SUPER_CHECKER_ANNOTATION,
+            parent_annotation__updated_at__range=[start_date, end_date],
+        )
+        parent_anno_ids = [
+            ann.parent_annotation_id
+            for ann in annotations_of_superchecker_validated_with_changes
+        ]
+        accepted_validated_with_changes_tasks = Annotation.objects.filter(
+            id__in=parent_anno_ids,
+            completed_by=userid,
+        )
+
+        annotations_of_superchecker_rejected = Annotation.objects.filter(
+            task__project_id__in=proj_ids,
+            annotation_status="rejected",
+            annotation_type=SUPER_CHECKER_ANNOTATION,
+            parent_annotation__updated_at__range=[start_date, end_date],
+        )
+        parent_anno_ids = [
+            ann.parent_annotation_id for ann in annotations_of_superchecker_rejected
+        ]
+        accepted_rejected_tasks = Annotation.objects.filter(
+            id__in=parent_anno_ids, completed_by=userid, annotation_status="rejected"
+        )
+
+        result = {
+            "Reviewer Name": userName,
+            "Email": email,
+            "Participation Type": participation_type,
+            "User Role": role,
+            "Language": reviewer_languages,
+            "Assigned": total_task_count,
+            "Accepted": accepted_objs_only,
+            "Accepted With Minor Changes": minor_objs_only,
+            "Accepted With Major Changes": major_objs_only,
+            "Unreviewed": labeled_tasks_count,
+            "To Be Revised": to_be_revised_tasks_count,
+            "Skipped": skipped_tasks_count,
+            "Draft": draft_tasks_count,
+            "Validated": accepted_validated_tasks.count(),
+            "Validated With Changes": accepted_validated_with_changes_tasks.count(),
+            "Rejected": accepted_rejected_tasks.count(),
+            "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
+            "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+        }
+
+        if project_type != None:
+            if is_translation_project or project_type in [
+                "SemanticTextualSimilarity_Scale5",
+                "OCRTranscriptionEditing",
+                "OCRTranscription",
+            ]:
+                result["Total Word Count"] = total_word_count
+            elif project_type in get_audio_project_types():
+                result["Total Segments Duration"] = total_audio_duration
+                result["Total Raw Audio Duration"] = total_raw_audio_duration
+                result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
+                result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
+
+        return result
+
+    result = {
+        "Reviewer Name": userName,
+        "Email": email,
+        "Participation Type": participation_type,
+        "User Role": role,
+        "Language": reviewer_languages,
+        "Assigned": total_task_count,
+        "Accepted": accepted_objs_count,
+        "Accepted With Minor Changes": minor_changes,
+        "Accepted With Major Changes": major_changes,
+        "Unreviewed": labeled_tasks_count,
+        "To Be Revised": to_be_revised_tasks_count,
+        "Skipped": skipped_tasks_count,
+        "Draft": draft_tasks_count,
+        "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
+        "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+    }
+
+    if project_type != None:
+        if is_translation_project or project_type in [
+            "SemanticTextualSimilarity_Scale5",
+            "OCRTranscriptionEditing",
+            "OCRTranscription",
+        ]:
+            result["Total Word Count"] = total_word_count
+        elif project_type in get_audio_project_types():
+            result["Total Segments Duration"] = total_audio_duration
+            result["Total Raw Audio Duration"] = total_raw_audio_duration
+            result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
+            result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
+
+    return result
+
+
 def un_pack_annotation_tasks(
     proj_ids,
     each_annotation_user,
@@ -1049,12 +1643,128 @@ def send_user_analysis_reports_mail_ws(
     start_date,
     end_date,
     is_translation_project,
-    final_reports,
+    reports_type,
 ):
     ws = Workspace.objects.get(pk=pk)
     user = User.objects.get(id=user_id)
 
-    if not final_reports:
+    if reports_type == "review":
+        proj_objs = Project.objects.filter(workspace_id=pk)
+        if project_type != None:
+            proj_objs = proj_objs.filter(project_type=project_type)
+        if project_progress_stage == None:
+            review_projects = [
+                pro for pro in proj_objs if pro.project_stage > ANNOTATION_STAGE
+            ]
+        elif project_progress_stage in [REVIEW_STAGE, SUPERCHECK_STAGE]:
+            review_projects = [
+                pro for pro in proj_objs if pro.project_stage == project_progress_stage
+            ]
+
+        workspace_reviewer_list = []
+        review_projects_ids = []
+        for review_project in review_projects:
+            reviewer_names_list = review_project.annotation_reviewers.all()
+            reviewer_ids = [name.id for name in reviewer_names_list]
+            workspace_reviewer_list.extend(reviewer_ids)
+            review_projects_ids.append(review_project.id)
+
+        workspace_reviewer_list = list(set(workspace_reviewer_list))
+
+        if (
+            user.role == User.ORGANIZATION_OWNER
+            or user.role == User.WORKSPACE_MANAGER
+            or user.is_superuser
+        ):
+            for id in workspace_reviewer_list:
+                reviewer_projs = Project.objects.filter(
+                    workspace_id=pk,
+                    annotation_reviewers=id,
+                    id__in=review_projects_ids,
+                )
+                reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
+
+                result = get_review_reports(
+                    reviewer_projs_ids,
+                    id,
+                    start_date,
+                    end_date,
+                    project_progress_stage,
+                    project_type,
+                )
+                final_reports.append(result)
+        elif user_id in workspace_reviewer_list:
+            reviewer_projs = Project.objects.filter(
+                workspace_id=pk,
+                annotation_reviewers=user_id,
+                id__in=review_projects_ids,
+            )
+            reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
+
+            result = get_review_reports(
+                reviewer_projs_ids,
+                user_id,
+                start_date,
+                end_date,
+                project_progress_stage,
+                project_type,
+            )
+            final_reports.append(result)
+
+    elif reports_type == "supercheck":
+        proj_objs = Project.objects.filter(workspace_id=pk)
+        if project_type != None:
+            proj_objs = proj_objs.filter(project_type=project_type)
+        supercheck_projects = [
+            pro for pro in proj_objs if pro.project_stage > REVIEW_STAGE
+        ]
+
+        workspace_superchecker_list = []
+        supercheck_projects_ids = []
+        for supercheck_project in supercheck_projects:
+            superchecker_names_list = supercheck_project.review_supercheckers.all()
+            superchecker_ids = [name.id for name in superchecker_names_list]
+            workspace_superchecker_list.extend(superchecker_ids)
+            supercheck_projects_ids.append(supercheck_project.id)
+
+        workspace_superchecker_list = list(set(workspace_superchecker_list))
+        final_reports = []
+
+        if (
+            user.role == User.ORGANIZATION_OWNER
+            or user.role == User.WORKSPACE_MANAGER
+            or user.is_superuser
+        ):
+            for id in workspace_superchecker_list:
+                superchecker_projs = Project.objects.filter(
+                    workspace_id=pk,
+                    review_supercheckers=id,
+                    id__in=supercheck_projects_ids,
+                )
+                superchecker_projs_ids = [
+                    supercheck_proj.id for supercheck_proj in superchecker_projs
+                ]
+
+                result = get_supercheck_reports(
+                    superchecker_projs_ids, id, start_date, end_date, project_type
+                )
+                final_reports.append(result)
+        elif user_id in workspace_superchecker_list:
+            superchecker_projs = Project.objects.filter(
+                workspace_id=pk,
+                review_supercheckers=id,
+                id__in=supercheck_projects_ids,
+            )
+            superchecker_projs_ids = [
+                supercheck_proj.id for supercheck_proj in superchecker_projs
+            ]
+
+            result = get_supercheck_reports(
+                superchecker_projs_ids, user_id, start_date, end_date, project_type
+            )
+            final_reports.append(result)
+
+    else:
         try:
             ws_owner = ws.created_by.get_username()
         except:
@@ -1072,7 +1782,7 @@ def send_user_analysis_reports_mail_ws(
         users_id = [user.id for user in ws.members.all()]
 
         selected_language = "-"
-        final_result = []
+        final_reports = []
         for index, each_annotation_user in enumerate(users_id):
             name = user_name[index]
             email = user_mail[index]
@@ -1308,11 +2018,9 @@ def send_user_analysis_reports_mail_ws(
                 del result["Avg Segment Duration"]
                 del result["Average Segments Per Task"]
 
-            final_result.append(result)
-    else:
-        final_result = final_reports
+            final_reports.append(result)
 
-    df = pd.DataFrame.from_dict(final_result)
+    df = pd.DataFrame.from_dict(final_reports)
 
     content = df.to_csv(index=False)
     content_type = "text/csv"
