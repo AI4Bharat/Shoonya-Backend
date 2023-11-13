@@ -748,7 +748,6 @@ def schedule_project_reports_email(request):
     )
 
 
-
 @api_view(["POST"])
 def download_all_projects(request):
     (
