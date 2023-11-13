@@ -264,6 +264,12 @@ class Annotation(models.Model):
     def __str__(self):
         return str(self.id)
 
+    class Meta:
+        unique_together = (
+            "task",
+            "completed_by",
+        )
+
 
 class Prediction(models.Model):
     """ML predictions"""
