@@ -9,6 +9,7 @@ import csv
 import math
 
 from django.core.files import File
+from django.db import IntegrityError
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.http import HttpResponse
@@ -2141,7 +2142,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         task=task,
                         completed_by=cur_user,
                     )
-                    base_annotation_obj.save()
+                    try:
+                        base_annotation_obj.save()
+                    except IntegrityError as e:
+                        print(
+                            f"Task and completed_by fields are same while assigning new task "
+                            f"for project id-{project.id}, user-{cur_user.email}"
+                        )
             else:
                 cur_user_anno_count = Annotation_model.objects.filter(
                     task_id=task,
@@ -2415,7 +2422,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     parent_annotation=rec_ann[0],
                     annotation_type=REVIEWER_ANNOTATION,
                 )
-                base_annotation_obj.save()
+                try:
+                    base_annotation_obj.save()
+                except IntegrityError as e:
+                    print(
+                        f"Task and completed_by fields are same while assigning new review task "
+                        f"for project id-{project.id}, user-{cur_user.email}"
+                    )
             else:
                 task.review_user = reviewer_anno[0].completed_by
                 task.save()
@@ -2650,7 +2663,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     parent_annotation=rec_ann[0],
                     annotation_type=SUPER_CHECKER_ANNOTATION,
                 )
-                base_annotation_obj.save()
+                try:
+                    base_annotation_obj.save()
+                except IntegrityError as e:
+                    print(
+                        f"Task and completed_by fields are same while assigning super-check task for "
+                        f"project id-{project.id}, user-{cur_user.email}"
+                    )
             else:
                 task.super_check_user = superchecker_anno[0].completed_by
                 task.save()
