@@ -74,7 +74,7 @@ from .utils import (
 
 from workspaces.decorators import is_particular_workspace_manager
 from users.utils import generate_random_string
-from notifications.views import createNotification,viewNotifications
+from notifications.views import createNotification, viewNotifications
 import json
 
 # Create your views here.
@@ -4020,7 +4020,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer = ProjectUsersSerializer(project, many=False)
             # ret_dict = serializer.data
             annotators = serializer.data["annotators"]
-            reviewers=serializer.data["annotation_reviewers"]
+            reviewers = serializer.data["annotation_reviewers"]
             super_checkers = serializer.data["review_supercheckers"]
             if len(annotators) < project.required_annotators_per_task:
                 ret_dict = {
@@ -4054,7 +4054,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             super_checkers_ids = [s.get("id") for s in super_checkers]
             try:
                 project.save()
-                createNotification(title, notification_type, annotators_ids,reviewers_ids,super_checkers_ids)
+                createNotification(
+                    title,
+                    notification_type,
+                    annotators_ids,
+                    reviewers_ids,
+                    super_checkers_ids,
+                )
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:
