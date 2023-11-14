@@ -8,17 +8,16 @@ from django.db import models
 
 
 @shared_task
-def createNotificationHandler(title, notification_type, annotators_ids):
+def createNotificationHandler(title,notification_type, annotators_ids,reviewers_ids,super_checkers_ids):
     """this is called after project has published"""
     if notification_type == "publish_project":
-        createNotificationPublishProject(title, notification_type, annotators_ids)
+        createNotificationPublishProject(title, notification_type, annotators_ids,reviewers_ids,super_checkers_ids)
     elif notification_type == "task_update":
         pass
         # this will be called for task one, yet to create it when aggregation part is done
     else:
         print("Cannot create notifications")
-
-
+    
 @shared_task
 def deleteNotification(user):
     user_notifications_count = len(Notification.objects.filter(reciever_user_id=user))
@@ -33,9 +32,8 @@ def deleteNotification(user):
             if len(excess_notification.reciever_user_id.all()) == 0:
                 excess_notification.delete()
 
-
 @shared_task
-def createNotificationPublishProject(title, project_type, annotators_ids):
+def createNotificationPublishProject(title,project_type,annotators_ids,reviewers_ids,super_checkers_ids):
     new_notif = Notification(
         notification_type=project_type,
         title=title,
@@ -48,4 +46,16 @@ def createNotificationPublishProject(title, project_type, annotators_ids):
             new_notif.reciever_user_id.add(receiver_user)
         except Exception as e:
             return HttpResponse(f"Bad Request. User with ID: {a_id} does not exist.")
+    for r_id in reviewers_ids:
+        try:
+            receiver_user = User.objects.get(id=r_id)
+            new_notif.reciever_user_id.add(receiver_user)
+        except Exception as e:
+            return HttpResponse(f"Bad Request. User with ID: {r_id} does not exist.")
+    for s_id in super_checkers_ids:
+        try:
+            receiver_user = User.objects.get(id=s_id)
+            new_notif.reciever_user_id.add(receiver_user)
+        except Exception as e:
+            return HttpResponse(f"Bad Request. User with ID: {s_id} does not exist.")
     print(f"Notification successfully created- {title}")
