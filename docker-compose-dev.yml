@@ -96,6 +96,21 @@ services:
       - redis
       - web
 
+  #flower for monitoring the status of celery tasks
+  flower:
+    container_name: flower
+    image: server_image
+    env_file:
+      - backend/.env
+    working_dir: /home/backend
+    volumes:
+      - ./backend:/home/backend
+    ports:
+      - “5555:5555”
+    depends_on:
+      redis:
+        condition: service_started
+    command: python3 -m celery -A backend flower --loglevel=info
 
 volumes:
   nginx_conf:
