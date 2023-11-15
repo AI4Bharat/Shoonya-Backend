@@ -85,6 +85,7 @@ import json
 EMAIL_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
 PROJECT_IS_PUBLISHED_ERROR = {"message": "This project is already published!"}
+INCOMPLETE= "incomplete"
 
 
 def get_task_field(annotation_json, field):
@@ -4177,14 +4178,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.is_published = True
             project.published_at = datetime.now()
             # creating notifications
-            title = f"{project.id} - {project.title} has been published."
+            remaining_tasks =len(Task.objects.filter(project_id=project,task_status=INCOMPLETE))
+            title = f"{project.id} - {project.title} has been published. {remaining_tasks} are remaining tasks in this project."
             notification_type = "publish_project"
             annotators_ids = [a.get("id") for a in annotators]
             reviewers_ids = [r.get("id") for r in reviewers]
             super_checkers_ids = [s.get("id") for s in super_checkers]
+            project_workspace=project.workspace_id
+            project_workspace_managers=project_workspace.managers.all()
+            project_workspace_managers_ids=[p.id for p in project_workspace_managers]
             try:
                 project.save()
-                createNotification(title, notification_type, annotators_ids,reviewers_ids,super_checkers_ids)
+                createNotification(title, notification_type, annotators_ids,reviewers_ids,super_checkers_ids,project_workspace_managers_ids)
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:
