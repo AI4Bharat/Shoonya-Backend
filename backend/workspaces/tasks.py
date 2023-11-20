@@ -1647,6 +1647,7 @@ def send_user_analysis_reports_mail_ws(
 ):
     ws = Workspace.objects.get(pk=pk)
     user = User.objects.get(id=user_id)
+    final_reports = []
 
     if reports_type == "review":
         proj_objs = Project.objects.filter(workspace_id=pk)
@@ -1728,7 +1729,6 @@ def send_user_analysis_reports_mail_ws(
             supercheck_projects_ids.append(supercheck_project.id)
 
         workspace_superchecker_list = list(set(workspace_superchecker_list))
-        final_reports = []
 
         if (
             user.role == User.ORGANIZATION_OWNER
@@ -1782,7 +1782,6 @@ def send_user_analysis_reports_mail_ws(
         users_id = [user.id for user in ws.members.all()]
 
         selected_language = "-"
-        final_reports = []
         for index, each_annotation_user in enumerate(users_id):
             name = user_name[index]
             email = user_mail[index]
