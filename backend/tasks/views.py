@@ -2041,3 +2041,91 @@ def get_celery_tasks(request):
         return JsonResponse({"message": filtered_tasks["error"]}, status=503)
 
     return JsonResponse(filtered_tasks, safe=False)
+
+@api_view(["GET"])
+def delete_project_tasks(request, pk=None):
+    project = Project.objects.get(pk=pk)
+    try:
+        if not (
+                (
+                        request.user.role == User.ORGANIZATION_OWNER
+                        or request.user.is_superuser
+                )
+                and (request.user.organization == project.organization_id)
+        ):
+            return Response(
+                {
+                    "status": status.HTTP_403_FORBIDDEN,
+                    "message": "You are not authorized to access the endpoint.",
+                }
+            )
+
+        if "project_task_ids" in request.data:
+            project_task_ids = request.data.get("project_task_ids")
+            if len(project_task_ids) == 0:
+                return Response(
+                    {
+                        "status": status.HTTP_400_BAD_REQUEST,
+                        "message": "Please enter valid values",
+                    }
+                )
+        else:
+            project_task_start_id = request.data.get("project_task_start_id")
+            project_task_end_id = request.data.get("project_task_end_id")
+
+            if (
+                project_task_start_id == ""
+                or project_task_end_id == ""
+                or project_task_start_id == None
+                or project_task_end_id == None
+            ):
+                return Response(
+                    {
+                        "status": status.HTTP_400_BAD_REQUEST,
+                        "message": "Please enter valid values",
+                    }
+                )
+
+            project_task_ids = [
+                id for id in range(project_task_start_id, project_task_end_id + 1)
+            ]
+
+        project_tasks = Task.objects.filter(project_id=project).filter(
+            id__in=project_task_ids
+        )
+
+        related_annotation_task_ids = [
+            project_task.id for project_task in project_tasks
+        ]
+        related_annotations = Annotation.objects.filter(
+            task__id__in=related_annotation_task_ids
+        ).order_by("-id")
+
+        num_project_tasks = len(project_tasks)
+        num_related_annotations = len(related_annotations)
+
+        if num_project_tasks == 0:
+            return Response(
+                {
+                    "status": status.HTTP_200_OK,
+                    "message": "No rows to show",
+                }
+            )
+
+        # for related_annotation in related_annotations:
+        #     related_annotation.delete()
+        # project_tasks.delete()
+        # return Response(
+        #     {
+        #         "status": status.HTTP_200_OK,
+        #         "message": f"Deleted {num_project_tasks} project tasks and {num_related_annotations} related annotations successfully!",
+        #     }
+        # )
+
+    except Exception as error:
+        return Response(
+            {
+                "status": status.HTTP_400_BAD_REQUEST,
+                "message": str(error),
+            }
+        )
