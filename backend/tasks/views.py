@@ -14,7 +14,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 from drf_yasg.utils import swagger_auto_schema
-
+from shoonya_backend.pagination import CustomPagination
 
 from tasks.models import *
 from tasks.serializers import (
@@ -1027,50 +1027,72 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         project = Project.objects.get(pk=pk)
         try:
             if not (
-                    (request.user.role == User.ORGANIZATION_OWNER or request.user.is_superuser)
-                    and (request.user.organization == project.organization_id)
+                (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.is_superuser
+                )
+                and (request.user.organization == project.organization_id)
             ):
-                return JsonResponse({"message": "You are not authorized to access the endpoint."}, status=status.HTTP_403_FORBIDDEN)
-
-
+                return JsonResponse(
+                    {"message": "You are not authorized to access the endpoint."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             if "project_task_ids" in request.data:
                 project_task_ids = request.data.get("project_task_ids")
                 if len(project_task_ids) == 0:
-                    return JsonResponse({"message": "Please enter valid values"}, status=status.HTTP_400_BAD_REQUEST)
+                    return JsonResponse(
+                        {"message": "Please enter valid values"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             else:
                 project_task_start_id = request.data.get("project_task_start_id")
                 project_task_end_id = request.data.get("project_task_end_id")
-    
+
                 if (
                     project_task_start_id == ""
                     or project_task_end_id == ""
                     or project_task_start_id == None
                     or project_task_end_id == None
                 ):
-                    return JsonResponse({"message": "Please enter valid values"}, status=status.HTTP_400_BAD_REQUEST)
+                    return JsonResponse(
+                        {"message": "Please enter valid values"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-    
                 project_task_ids = [
                     id for id in range(project_task_start_id, project_task_end_id + 1)
                 ]
-    
-            project_tasks = Task.objects.filter(project_id=project).filter(
-                id__in=project_task_ids
+
+            project_tasks = (
+                Task.objects.filter(project_id=project)
+                .filter(id__in=project_task_ids)
+                .order_by("id")
             )
-    
+
+            # pagination
+            paginator = CustomPagination()
+            result_page = paginator.paginate_queryset(project_tasks, request)
+
             num_project_tasks = len(project_tasks)
 
-
             if num_project_tasks == 0:
-                return JsonResponse({"message": "No rows to show"}, status=status.HTTP_200_OK)
+                return JsonResponse(
+                    {"message": "No rows to show"}, status=status.HTTP_200_OK
+                )
             else:
-                serializer = TaskSerializer(project_tasks, many=True)
-                return JsonResponse({"message": "Project tasks retrieved successfully","data": serializer.data,},status=status.HTTP_200_OK,)
+                serializer = TaskSerializer(result_page, many=True)
+                return paginator.get_paginated_response(
+                    {
+                        "message": "Project tasks retrieved successfully",
+                        "data": serializer.data,
+                    }
+                )
 
         except Exception as error:
-            return JsonResponse({"message":str(error) }, status=status.HTTP_400_BAD_REQUEST)
-
+            return JsonResponse(
+                {"message": str(error)}, status=status.HTTP_400_BAD_REQUEST
+            )
 
     @swagger_auto_schema(
         method="post",
@@ -2125,5 +2147,3 @@ def get_celery_tasks(request):
         return JsonResponse({"message": filtered_tasks["error"]}, status=503)
 
     return JsonResponse(filtered_tasks, safe=False)
-
-
