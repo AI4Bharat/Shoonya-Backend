@@ -623,7 +623,7 @@ def schedule_asr_prediction_json_population(request):
     return Response(ret_dict, status=ret_status)
 
 
-@api_view(["GET"])
+@api_view(["POST"])
 def schedule_project_reports_email(request):
     (
         workspace_level_reports,
@@ -691,6 +691,10 @@ def schedule_project_reports_email(request):
             {"message": "Please send the project type"},
             status=status.HTTP_404_NOT_FOUND,
         )
+    try:
+        language = request.data.get("language")
+    except KeyError:
+        language = "NULL"
 
     schedule_mail_for_project_reports.delay(
         project_type,
@@ -704,6 +708,7 @@ def schedule_project_reports_email(request):
         wid,
         oid,
         did,
+        language,
     )
 
     return Response(
