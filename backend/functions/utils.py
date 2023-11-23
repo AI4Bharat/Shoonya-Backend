@@ -532,10 +532,9 @@ def get_batch_ocr_predictions_using_google(id, image_url):
                 }
 
                 ocr_prediction = ocr_format_conversion(ocr_prediction)
-                ocr_prediction_json = json.dumps(ocr_prediction, ensure_ascii=False)
-                ocr_predictions.append(ocr_prediction_json)
-
-    return ocr_predictions
+                ocr_predictions.append(ocr_prediction)
+    ocr_predictions_json = json.dumps(ocr_predictions, ensure_ascii=False)
+    return ocr_predictions_json
 
 
 # Function to get the bounding box for a feature
