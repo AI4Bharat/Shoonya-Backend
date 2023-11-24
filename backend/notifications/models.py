@@ -3,10 +3,10 @@ from users.models import User
 
 # Create your models here.
 PUBLISH_PROJECT = "publish_project"
-TASK_UPADTE='task_update'
+TASK_UPADTE='task_reject'
 NOTIF_TYPES = (
                 (PUBLISH_PROJECT, "Publish Project"),
-                (TASK_UPADTE, "Task Update"),
+                (TASK_UPADTE, "Task Reject"),
             )
 
 
@@ -20,5 +20,9 @@ class Notification(models.Model):
     on_click = models.URLField(blank=True,null=True)
     metadata_json = models.JSONField(blank=True,null=True)
 
+    class Meta:
+        ordering =('-created_at',)
+    
     def __str__(self) -> str:
         return f"{self.title} notification"
+    
