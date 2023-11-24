@@ -3,7 +3,7 @@
 from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
-import shoonya_backend.mixins
+import anudesh_backend.mixins
 
 
 class Migration(migrations.Migration):
@@ -73,6 +73,6 @@ class Migration(migrations.Migration):
             options={
                 "ordering": ["pk"],
             },
-            bases=(models.Model, shoonya_backend.mixins.DummyModelMixin),
+            bases=(models.Model, anudesh_backend.mixins.DummyModelMixin),
         ),
     ]

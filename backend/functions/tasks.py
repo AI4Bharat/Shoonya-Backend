@@ -16,7 +16,7 @@ from projects.utils import (
     get_not_null_audio_transcription_duration,
 )
 from projects.views import get_task_count_unassigned, ProjectViewSet
-from shoonya_backend import settings
+from anudesh_backend import settings
 from tasks.models import (
     Annotation,
     ANNOTATOR_ANNOTATION,
@@ -764,7 +764,7 @@ def schedule_mail_for_project_reports(
         + str(user.username)
         + f",\nYour project reports for the {type}"
         + f"{name}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
+        + " are ready.\n Thanks for contributing on Anudesh!"
         + "\nProject Type: "
         + f"{project_type}"
     )
@@ -1487,7 +1487,7 @@ def schedule_mail_to_download_all_projects(
             + str(user.username)
             + f",\nYou can download all the projects by clicking on- "
             + f"{url}"
-            + " This link is active only for 1 hour.\n Thanks for contributing on Shoonya!"
+            + " This link is active only for 1 hour.\n Thanks for contributing on Anudesh!"
         )
         email = EmailMessage(
             f"{user.username}" + "- Link to download all projects",

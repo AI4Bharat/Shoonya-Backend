@@ -485,7 +485,7 @@ def send_user_reports_mail_ws(
         + str(user.username)
         + ",\nYour user payment reports for the workspace "
         + f"{workspace.workspace_name}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
+        + " are ready.\n Thanks for contributing on Anudesh!"
         + "\nProject Type: "
         + f"{project_type}"
         + "\nParticipation Types: "
@@ -870,7 +870,7 @@ def send_project_analysis_reports_mail_ws(
         + str(user.username)
         + ",\nYour project analysis reports for the workspace "
         + f"{ws.workspace_name}"
-        + " are ready.\nThanks for contributing on Shoonya!"
+        + " are ready.\nThanks for contributing on Anudesh!"
         + "\nProject Type: "
         + f"{project_type}"
     )
@@ -2030,7 +2030,7 @@ def send_user_analysis_reports_mail_ws(
         + str(user.username)
         + ",\nYour user analysis reports for the workspace "
         + f"{ws.workspace_name}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
+        + " are ready.\n Thanks for contributing on Anudesh!"
         + "\nProject Type: "
         + f"{project_type}"
     )

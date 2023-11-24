@@ -841,7 +841,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             }
             if proj_type == "AcousticNormalisedTranscriptionEditing":
                 text_dict["from_name"] = "verbatim_transcribed_json"
-            id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+            id = f"anudesh_{idx}s{generate_random_string(13 - len(str(idx)))}"
             label_dict["id"] = id
             text_dict["id"] = id
             label_dict["type"] = "labels"
@@ -884,7 +884,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 if "image_rotation" in ocr_prediction_json
                 else 0
             )
-            custom_id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+            custom_id = f"anudesh_{idx}s{generate_random_string(13 - len(str(idx)))}"
             # creating values
             common_value = {
                 "x": val["x"],

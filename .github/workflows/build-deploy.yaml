@@ -12,7 +12,7 @@ jobs:
         username: ${{ secrets.DEV2_USERNAME }}
         password: ${{ secrets.DEV2_PASSWORD }}
         script: |
-          cd Shoonya-Backend
+          cd Anudesh-Backend
           git checkout develop2
           git pull
           newgrp docker

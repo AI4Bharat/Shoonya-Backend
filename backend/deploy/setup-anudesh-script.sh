@@ -2,8 +2,8 @@ os=$(uname)
 
 if [ "$os" = "Linux" ] || [ "$os" = "Darwin" ]; then
 
-git clone https://github.com/AI4Bharat/Shoonya-Backend.git
-cd Shoonya-Backend
+git clone https://github.com/AI4Bharat/Anudesh-Backend.git
+cd Anudesh-Backend
 git checkout dev
 git pull origin dev
 cp .env.example ./backend/.env

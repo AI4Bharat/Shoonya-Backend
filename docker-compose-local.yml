@@ -29,7 +29,7 @@ services:
     container_name: celery-default
     restart: always
     build: ./backend
-    command: celery -A shoonya_backend.celery worker -Q default --concurrency=2 --loglevel=info
+    command: celery -A anudesh_backend.celery worker -Q default --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
     depends_on:
@@ -42,7 +42,7 @@ services:
     container_name: celery-low-priority
     restart: always
     build: ./backend
-    command: celery -A shoonya_backend.celery worker -Q functions --concurrency=2 --loglevel=info
+    command: celery -A anudesh_backend.celery worker -Q functions --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
     depends_on:
@@ -53,7 +53,7 @@ services:
   # Celery beats - for scheduling daily e-mails
   celery-beat:
     build: ./backend
-    command: celery -A shoonya_backend.celery beat --loglevel=info
+    command: celery -A anudesh_backend.celery beat --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend
     depends_on:

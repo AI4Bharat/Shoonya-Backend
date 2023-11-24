@@ -171,7 +171,7 @@ def convert_prediction_json_to_annotation_result(
         }
         if is_acoustic:
             text_dict["from_name"] = "verbatim_transcribed_json"
-        id = f"shoonya_{index}s{idx}s{generate_random_string(13-len(str(idx)))}"
+        id = f"anudesh_{index}s{idx}s{generate_random_string(13-len(str(idx)))}"
         label_dict["id"] = id
         text_dict["id"] = id
         label_dict["type"] = "labels"
@@ -202,7 +202,7 @@ def convert_conversation_json_to_annotation_result(conversation_json, idx):
     result = []
     for i in range(len(conversation_json)):
         for j in range(len(conversation_json[i]["sentences"])):
-            id = f"shoonya_{idx}s{i}s{j}s{generate_random_string(15-len(str(i))-len(str(j)))}"
+            id = f"anudesh_{idx}s{i}s{j}s{generate_random_string(15-len(str(i))-len(str(j)))}"
             text_dict = {
                 "id": id,
                 "type": "textarea",
@@ -228,7 +228,7 @@ def draft_data_json_to_annotation_result(draft_data_json, project_type, pk=None)
     idx = 0
     for field, value in draft_data_json.items():
         try:
-            id = f"shoonya_{idx}g{generate_random_string(13-len(str(idx)))}"
+            id = f"anudesh_{idx}g{generate_random_string(13-len(str(idx)))}"
             field_dict = {
                 "id": id,
                 "origin": "manual",
