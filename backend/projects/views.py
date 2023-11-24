@@ -4189,7 +4189,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_workspace_managers_ids=[p.id for p in project_workspace_managers]
             try:
                 project.save()
-                createNotification(title, notification_type, annotators_ids,reviewers_ids,super_checkers_ids,project_workspace_managers_ids)
+                createNotification(request,title,project.id, notification_type, annotators_ids,reviewers_ids,super_checkers_ids,project_workspace_managers_ids)
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:
