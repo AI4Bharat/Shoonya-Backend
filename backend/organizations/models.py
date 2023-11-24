@@ -1,8 +1,8 @@
 import string
 from django.db import models, transaction
 from users.models import *
-from shoonya_backend.settings import AUTH_USER_MODEL
-from shoonya_backend.mixins import DummyModelMixin
+from anudesh_backend.settings import AUTH_USER_MODEL
+from anudesh_backend.mixins import DummyModelMixin
 import secrets
 from django.core.mail import send_mail
 import os
@@ -55,7 +55,7 @@ class Organization(models.Model):
         cls,
         created_by=None,
         title="Organization",
-        email_domain_name="organization@shoonya.org",
+        email_domain_name="organization@anudesh.org",
     ):
         with transaction.atomic():
             org = Organization.objects.create(
@@ -132,7 +132,7 @@ class Invite(models.Model):
                     invite.save()
                 send_mail(
                     "Invitation to join Organization",
-                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
+                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://anudesh.ai4bharat.org/#/invite/{invite.invite_code}",
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                 )
@@ -149,7 +149,7 @@ class Invite(models.Model):
                 invite = Invite.objects.get(user=user)
                 send_mail(
                     "Invitation to join Organization",
-                    f"Hello! You are invited to {invite.organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
+                    f"Hello! You are invited to {invite.organization.title}. Your Invite link is: https://anudesh.ai4bharat.org/#/invite/{invite.invite_code}",
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                 )

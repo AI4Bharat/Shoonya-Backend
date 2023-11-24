@@ -1,8 +1,8 @@
 from django.db import models
 from organizations.models import Organization
-from shoonya_backend.mixins import DummyModelMixin
+from anudesh_backend.mixins import DummyModelMixin
 
-from shoonya_backend import settings
+from anudesh_backend import settings
 
 # Create your models here.
 

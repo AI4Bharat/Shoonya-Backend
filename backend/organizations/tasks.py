@@ -487,7 +487,7 @@ def send_user_reports_mail_org(
         + str(user.username)
         + ",\nYour user payment reports for "
         + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
+        + " are ready.\n Thanks for contributing on Anudesh!"
         + "\nProject Type: "
         + f"{project_type}"
         + "\nParticipation Types: "
@@ -1195,7 +1195,7 @@ def send_project_analytics_mail_org(
         + str(user.username)
         + ",\nYour project analysis reports for "
         + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
+        + " are ready.\n Thanks for contributing on Anudesh!"
         + "\nProject Type: "
         + f"{project_type}"
     )
@@ -1401,7 +1401,7 @@ def send_user_analytics_mail_org(
         + str(user.username)
         + ",\nYour user analysis reports for "
         + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
+        + " are ready.\n Thanks for contributing on Anudesh!"
         + "\nProject Type: "
         + f"{project_type}"
     )

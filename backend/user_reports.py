@@ -1,7 +1,7 @@
 import os
 import django
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shoonya_backend.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "anudesh_backend.settings")
 django.setup()
 import schedule
 import requests
@@ -215,7 +215,7 @@ def calculate_reports():
             + str(user.username)
             + ",\n Your progress reports for "
             + f"{(datetime.now() - timedelta(days = 1) ):%d-%m-%Y}"
-            + " are ready.\n Thanks for contributing on Shoonya!"
+            + " are ready.\n Thanks for contributing on Anudesh!"
         )
 
         if (

@@ -4,11 +4,11 @@ import os
 
 from celery import Celery
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shoonya_backend.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "anudesh_backend.settings")
 
 # Define celery app and settings
 celery_app = Celery(
-    "shoonya_backend",
+    "anudesh_backend",
     result_backend="django-db",
     accept_content=["application/json"],
     result_serializer="json",
