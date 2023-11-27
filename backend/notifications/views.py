@@ -9,10 +9,9 @@ from notifications.tasks import createNotificationHandler
 
 # Create your views here.
 
-def createNotification(request,title,project_id, notification_type, annotators_ids=[],reviewers_ids=[],super_checkers_ids=[],project_workspace_managers_ids=[],dataset_members_ids=[]):
+def createNotification(request,title,project_id, notification_type, users_ids=[]):
     """calling shared task of notification creation from tasks"""
-    user_id=request.user.id
-    createNotificationHandler.delay(user_id,title,project_id, notification_type, annotators_ids,reviewers_ids,super_checkers_ids,project_workspace_managers_ids,dataset_members_ids)
+    createNotificationHandler(title,project_id, notification_type, users_ids)
 
 def viewNotifications(request):
     user=request.user
