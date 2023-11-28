@@ -291,6 +291,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         # Signing the payload with a secret key
         token = jwt.encode(payload, secret_key, algorithm="HS256")
+
         return token
 
 
