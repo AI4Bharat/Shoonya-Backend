@@ -1042,7 +1042,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 project_task_ids = request.data.get("project_task_ids")
                 if len(project_task_ids) == 0:
                     return JsonResponse(
-                        {"message": "Please enter valid values"},
+                        {"message": "No task Ids found in request"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             else:
@@ -1056,7 +1056,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     or project_task_end_id == None
                 ):
                     return JsonResponse(
-                        {"message": "Please enter valid values"},
+                        {"message": "Project task start id or end id not found."},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -1078,13 +1078,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             if num_project_tasks == 0:
                 return JsonResponse(
-                    {"message": "No rows to show"}, status=status.HTTP_200_OK
+                    {
+                        "message": "No rows to show corresponding to the entered task ids"
+                    },
+                    status=status.HTTP_200_OK,
                 )
             else:
                 serializer = TaskSerializer(result_page, many=True)
                 return paginator.get_paginated_response(
                     {
-                        "message": "Project tasks retrieved successfully",
+                        "message": "Project tasks retrieved successfully for valid task ids",
                         "data": serializer.data,
                     }
                 )
