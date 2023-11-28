@@ -381,7 +381,7 @@ class AuthViewSet(viewsets.ViewSet):
                 raise Exception("Insufficient details")
             user = User.objects.get(id=user_id)
             try:
-                secret_key = os.getenv("SECRET_KEY")
+                secret_key = os.getenv("SECRET_KEY_RESET_PASSWORD")
                 decodedToken = jwt.decode(received_token, secret_key, "HS256")
             except InvalidSignatureError:
                 raise Exception(
