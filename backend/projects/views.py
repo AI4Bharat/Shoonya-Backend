@@ -76,7 +76,7 @@ from .utils import (
 
 from workspaces.decorators import is_particular_workspace_manager
 from users.utils import generate_random_string
-from notifications.views import createNotification,viewNotifications
+from notifications.views import createNotification, viewNotifications
 import json
 
 # Create your views here.
@@ -85,6 +85,7 @@ import json
 EMAIL_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
 PROJECT_IS_PUBLISHED_ERROR = {"message": "This project is already published!"}
+INCOMPLETE = "incomplete"
 
 
 def get_task_field(annotation_json, field):
@@ -375,7 +376,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
             "Tasks Rejected Maximum Time": tasks_rejected_max_times,
         }
-        
+
         if is_translation_project or proj_type in [
             "SemanticTextualSimilarity_Scale5",
             "OCRTranscriptionEditing",
@@ -747,6 +748,7 @@ def get_project_export_status(pk):
         "Synchronously Completed. No Time.",
     )
 
+
 def get_task_creation_status(pk) -> str:
     """Function to return the status of the tasks of project that is queried.
     Args:
@@ -774,6 +776,7 @@ def get_task_creation_status(pk) -> str:
         task_creation_status = taskresult_queryset.first().as_dict()["status"]
         return task_creation_status_modified[task_creation_status]
     return ""
+
 
 def get_project_creation_status(pk) -> str:
     # sourcery skip: use-named-expression
@@ -4150,7 +4153,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             serializer = ProjectUsersSerializer(project, many=False)
             # ret_dict = serializer.data
             annotators = serializer.data["annotators"]
-            reviewers=serializer.data["annotation_reviewers"]
+            reviewers = serializer.data["annotation_reviewers"]
             super_checkers = serializer.data["review_supercheckers"]
             if len(annotators) < project.required_annotators_per_task:
                 ret_dict = {
@@ -4177,14 +4180,28 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.is_published = True
             project.published_at = datetime.now()
             # creating notifications
-            title = f"{project.id} - {project.title} has been published."
+            remaining_tasks = len(
+                Task.objects.filter(project_id=project, task_status=INCOMPLETE)
+            )
+            title = f"{project.id} - {project.title} has been published. {remaining_tasks} are remaining tasks in this project."
             notification_type = "publish_project"
             annotators_ids = [a.get("id") for a in annotators]
             reviewers_ids = [r.get("id") for r in reviewers]
             super_checkers_ids = [s.get("id") for s in super_checkers]
+            project_workspace = project.workspace_id
+            project_workspace_managers = project_workspace.managers.all()
+            project_workspace_managers_ids = [p.id for p in project_workspace_managers]
+            users_ids = set(
+                annotators_ids
+                + reviewers_ids
+                + super_checkers_ids
+                + project_workspace_managers_ids
+            )
             try:
                 project.save()
-                createNotification(title, notification_type, annotators_ids,reviewers_ids,super_checkers_ids)
+                createNotification(
+                    request, title, project.id, notification_type, list(users_ids)
+                )
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:
