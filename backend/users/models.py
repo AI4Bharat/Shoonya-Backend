@@ -287,7 +287,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     def generate_reset_token(self, user_id):
         # Setting token expiration time (2 hours)
         expiration_time = datetime.utcnow() + timedelta(hours=2)
-        secret_key = os.getenv("SECRET_KEY")
+        secret_key = os.getenv("SECRET_KEY_RESET_PASSWORD")
 
         # Creating the payload containing user ID and expiration time
         payload = {
@@ -297,6 +297,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
         # Signing the payload with a secret key
         token = jwt.encode(payload, secret_key, algorithm="HS256")
+
         return token
 
 

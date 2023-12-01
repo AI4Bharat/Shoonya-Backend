@@ -58,9 +58,12 @@ from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
+import logging
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -162,6 +165,11 @@ class InviteViewSet(viewsets.ViewSet):
         The invited user are again invited if they have not accepted the
         invitation previously.
         """
+        extra_data = {
+            "user_email": "temp_email",
+            "request_path": "/regenerate",
+        }
+        logger.warning("User inside re_invite API", extra=extra_data)
         all_emails = request.data.get("emails")
         distinct_emails = list(set(all_emails))
         existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
@@ -373,7 +381,7 @@ class AuthViewSet(viewsets.ViewSet):
                 raise Exception("Insufficient details")
             user = User.objects.get(id=user_id)
             try:
-                secret_key = os.getenv("SECRET_KEY")
+                secret_key = os.getenv("SECRET_KEY_RESET_PASSWORD")
                 decodedToken = jwt.decode(received_token, secret_key, "HS256")
             except InvalidSignatureError:
                 raise Exception(

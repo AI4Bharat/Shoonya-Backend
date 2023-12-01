@@ -219,9 +219,6 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 102400  # higher than the count of fields
 # # Get loglevel from env
 LOGLEVEL = os.getenv("LOG_LEVEL", "INFO")
 
-# Make a new directory for logs
-Path(BASE_DIR / "logs").mkdir(exist_ok=True)
-
 # Define the list of formatters
 formatters = {
     "console": {
@@ -230,7 +227,8 @@ formatters = {
         "style": "{",
     },
     "file": {
-        "format": "{levelname} ({asctime}) [{module}:{process}|{thread}] {message}",
+        "()": "shoonya_backend.logger.FileFormatter",
+        "format": "{levelname} ({asctime}) [{module}:{process}|{thread}] {message} [User: {user_email} | Path: {request_path}]",
         "style": "{",
     },
     "csvfile": {
@@ -250,19 +248,28 @@ handlers = {
 
 # If logging is enabled, add file handlers
 if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
+    # Make a new directory for logs
+    Path("/logs/logs_web").mkdir(exist_ok=True)
     handlers["file"] = {
         "level": "WARNING",
         "class": "logging.FileHandler",
-        "filename": os.path.join(BASE_DIR, "logs/default.log"),
+        "filename": "/logs/logs_web/default.log",
         "formatter": "file",
     }
 
     handlers["csvfile"] = {
         "level": "WARNING",
         "class": "logging.FileHandler",
-        "filename": os.path.join(BASE_DIR, "logs/logs.csv"),
+        "filename": "/logs/logs_web/logs.csv",
         "formatter": "csvfile",
     }
+
+#    handlers["logstash"] = {
+#        "level": "WARNING",
+#        "class": "logstash_formatter.LogstashFormatterTCP",
+#        "port": 9600,
+#        "version": 1,
+#    }
 
 # Setup the Cloud Logging Client
 # if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
@@ -290,7 +297,7 @@ LOGGING = {
         "django.server": {"propagate": True},
     },
 }
-CELERY_IMPORTS = ("users.tasks",)
+CELERY_IMPORTS = ("users.tasks", "shoonya_backend.tasks")
 
 # Celery settings
 CELERY_TIMEZONE = "Asia/Kolkata"
