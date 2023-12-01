@@ -34,3 +34,19 @@ class ConsoleFormatter(logging.Formatter):
 
         # Return the new formatted record
         return super().format(record)
+
+
+class FileFormatter(logging.Formatter):
+    """
+    Class to define a formatter to be used to format the file logs
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def format(self, record):
+        if not hasattr(record, "user_email"):
+            record.user_email = "dummy"
+        if not hasattr(record, "request_path"):
+            record.request_path = "dummy"
+        return super().format(record)
