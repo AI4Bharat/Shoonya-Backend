@@ -1050,6 +1050,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "Project ID": annotation.task.project_id.id,
                     "Task ID": annotation.task.id,
                     "Updated at": utc_to_ist(annotation.updated_at),
+                    "annotated_at": utc_to_ist(annotation.annotated_at)
+                    if annotation.annotated_at
+                    else None,
+                    "created_at": utc_to_ist(annotation.created_at)
+                    if annotation.created_at
+                    else None,
                 }
 
                 response.append(data)
