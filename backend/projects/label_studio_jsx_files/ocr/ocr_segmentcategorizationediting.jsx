@@ -25,33 +25,33 @@
 
   <Rectangle name="annotation_bboxes" toName="image_url" strokeWidth="3" className="ignore_assertion"/>
   
-  <Choices visibleWhen="region-selected" whenTagName="annotation_labels" whenLabelValue="title" name="title_opts" toName="image_url" className="ignore_assertion">
-  	<Choice value="h1" />
-    <Choice value="h2" />
-    <Choice value="h3" />
+  <Choices visibleWhen="region-selected" required="true" whenTagName="annotation_labels" whenLabelValue="title" name="title_opts" toName="image_url" className="ignore_assertion">
+  	<Choice value="h1" className="ignore_assertion"/>
+    <Choice value="h2" className="ignore_assertion"/>
+    <Choice value="h3" className="ignore_assertion"/>
   </Choices>
   
-  <Choices visibleWhen="region-selected" whenTagName="annotation_labels" whenLabelValue="text" name="text_opts" toName="image_url" className="ignore_assertion">
-  	<Choice value="paragraph" />
-    <Choice value="foreign-language-text" />
+  <Choices visibleWhen="region-selected" required="true" whenTagName="annotation_labels" whenLabelValue="text" name="text_opts" toName="image_url" className="ignore_assertion">
+  	<Choice value="paragraph" className="ignore_assertion"/>
+    <Choice value="foreign-language-text" className="ignore_assertion"/>
   </Choices>
   
-  <Choices visibleWhen="region-selected" whenTagName="annotation_labels" whenLabelValue="image" name="image_opts" toName="image_url" className="ignore_assertion">
-  	<Choice value="img" />
-    <Choice value="logo" />
-    <Choice value="formula" />
-    <Choice value="equation" />
-    <Choice value="bg-img" />
+  <Choices visibleWhen="region-selected" required="true" whenTagName="annotation_labels" whenLabelValue="image" name="image_opts" toName="image_url" className="ignore_assertion">
+  	<Choice value="img" className="ignore_assertion"/>
+    <Choice value="logo" className="ignore_assertion"/>
+    <Choice value="formula" className="ignore_assertion"/>
+    <Choice value="equation" className="ignore_assertion"/>
+    <Choice value="bg-img" className="ignore_assertion"/>
   </Choices>
   
-  <Choices visibleWhen="region-selected" whenTagName="annotation_labels" whenLabelValue="placeholder" name="placeholder_opts" toName="image_url" className="ignore_assertion">
-  	<Choice value="placeholder-txt" />
-    <Choice value="placeholder-img" />
+  <Choices visibleWhen="region-selected" required="true" whenTagName="annotation_labels" whenLabelValue="placeholder" name="placeholder_opts" toName="image_url" className="ignore_assertion">
+  	<Choice value="placeholder-txt" className="ignore_assertion"/>
+    <Choice value="placeholder-img" className="ignore_assertion"/>
   </Choices>
   
-  <Choices visibleWhen="region-selected" whenTagName="annotation_labels" whenLabelValue="caption" name="caption_opts" toName="image_url" className="ignore_assertion">
-  	<Choice value="fig-caption" />
-    <Choice value="table-caption" />
+  <Choices visibleWhen="region-selected" required="true" whenTagName="annotation_labels" whenLabelValue="caption" name="caption_opts" toName="image_url" className="ignore_assertion">
+  	<Choice value="fig-caption" className="ignore_assertion"/>
+    <Choice value="table-caption" className="ignore_assertion"/>
   </Choices>
     
 </View>
