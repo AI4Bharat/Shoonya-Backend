@@ -2219,7 +2219,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         if "annotation_status" in dict(request.query_params).keys():
             annotation_status = request.query_params["annotation_status"]
-            annotation_status = ast.literal_eval(annotation_status)
+            annotation_status = ast.literal_eval(annotation_status)[0].split(",")
         else:
             return Response(
                 {"message": "please provide the annotation_status to unassign tasks"},
