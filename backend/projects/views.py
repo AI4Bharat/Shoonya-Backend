@@ -76,7 +76,7 @@ from .utils import (
 
 from workspaces.decorators import is_particular_workspace_manager
 from users.utils import generate_random_string
-from notifications.views import createNotification, viewNotifications
+from notifications.views import createNotification
 import json
 
 # Create your views here.
@@ -4191,7 +4191,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_workspace = project.workspace_id
             project_workspace_managers = project_workspace.managers.all()
             project_workspace_managers_ids = [p.id for p in project_workspace_managers]
-            users_ids = set(
+            users_ids = (
                 annotators_ids
                 + reviewers_ids
                 + super_checkers_ids
@@ -4199,9 +4199,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
             try:
                 project.save()
-                createNotification(
-                    request, title, project.id, notification_type, list(users_ids)
-                )
+                createNotification(title, notification_type, list(set(users_ids)))
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:
