@@ -22,9 +22,7 @@ def delete_excess_Notification(user):
     return 0
 
 
-# ADD OPENAPI PARA
-@transaction.atomic
-# @shared_task
+@shared_task
 def create_notification_handler(title, notification_type, users_ids):
     if not notification_aggregated(title, notification_type, users_ids):
         new_notif = Notification(
@@ -32,17 +30,19 @@ def create_notification_handler(title, notification_type, users_ids):
             title=title,
             metadata_json="null",
         )
-        new_notif.save()
-        for u_id in users_ids:
-            try:
-                receiver_user = User.objects.get(id=u_id)
-                new_notif.reciever_user_id.add(receiver_user)
-                delete_excess_Notification(receiver_user)
-            except Exception as e:
-                print(NOTIFICATION_CREATION_FAILED)
+        try:
+            with transaction.atomic():
+                new_notif.save()
+                for u_id in users_ids:
+                    receiver_user = User.objects.get(id=u_id)
+                    new_notif.reciever_user_id.add(receiver_user)
+                    delete_excess_Notification(receiver_user)
+        except Exception as e:
+            print(NOTIFICATION_CREATION_FAILED)
         print(NOTIFICATION_CREATED)
     else:
         print(NOTIFICATION_CREATED)
+    return 0
 
 
 def notification_aggregated(title, notification_type, users_ids):

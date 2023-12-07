@@ -1,4 +1,7 @@
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
+from shoonya_backend.celery import celery_app
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -13,12 +16,16 @@ FETCH_NOTIFICATION_ERROR = {"message": "Cannot fetch notifications"}
 # ADD OPENAPI PARA
 def createNotification(title, notification_type, users_ids):
     """calling shared task of notification creation from tasks"""
-    # delay
-    create_notification_handler(title, notification_type, users_ids)
-    print(f"Creating notifications for title- {title}, users_ids- {users_ids}")
+    create_notification_handler.delay(title, notification_type, users_ids)
+    print(f"Creating notifications title- {title} for users_ids- {users_ids}")
     return 0
 
 
+@swagger_auto_schema(
+    method="get",
+    manual_parameters=[],
+    responses={200: "Notification fetched", 400: "Error while fetching notifications"},
+)
 @api_view(["GET"])
 def viewNotifications(request):
     try:
