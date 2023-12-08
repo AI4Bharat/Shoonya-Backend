@@ -211,14 +211,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         )
                         if (
                             ann_status[0] == "labeled"
-                            and "review_count" in request.query_params
-                            and int(request.query_params["review_count"]) <= 1
+                            and "rejected" in request.query_params
+                            and request.query_params["rejected"] == "True"
                         ):
                             tasks = Task.objects.filter(
                                 annotations__in=ann,
-                                revision_loop_count__review_count=int(
-                                    request.query_params["review_count"]
-                                ),
+                                revision_loop_count__review_count__gte=1,
                             )
                         else:
                             tasks = Task.objects.filter(annotations__in=ann)
@@ -273,14 +271,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
                 if (
                     ann_status[0] == "labeled"
-                    and "review_count" in request.query_params
-                    and int(request.query_params["review_count"]) <= 1
+                    and "rejected" in request.query_params
+                    and request.query_params["rejected"] == "True"
                 ):
                     tasks = Task.objects.filter(
                         annotations__in=ann,
-                        revision_loop_count__review_count=int(
-                            request.query_params["review_count"]
-                        ),
+                        revision_loop_count__review_count__gte=1,
                     )
                 else:
                     tasks = Task.objects.filter(annotations__in=ann)
@@ -377,14 +373,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 or "accepted_with_minor_changes" in rew_status
                                 or "accepted_with_major_changes" in rew_status
                             )
-                            and "super_check_count" in request.query_params
-                            and int(request.query_params["super_check_count"]) <= 1
+                            and "rejected" in request.query_params
+                            and request.query_params["rejected"] == "True"
                         ):
                             tasks = Task.objects.filter(
                                 annotations__in=ann,
-                                revision_loop_count__review_count=int(
-                                    request.query_params["super_check_count"]
-                                ),
+                                revision_loop_count__super_check_count__gte=1,
                             )
                         else:
                             tasks = Task.objects.filter(annotations__in=ann)
@@ -446,14 +440,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         or "accepted_with_minor_changes" in rew_status
                         or "accepted_with_major_changes" in rew_status
                     )
-                    and "super_check_count" in request.query_params
-                    and int(request.query_params["super_check_count"]) <= 1
+                    and "rejected" in request.query_params
+                    and request.query_params["rejected"] == "True"
                 ):
                     tasks = Task.objects.filter(
                         annotations__in=ann,
-                        revision_loop_count__review_count=int(
-                            request.query_params["super_check_count"]
-                        ),
+                        revision_loop_count__super_check_count__gte=1,
                     )
                 else:
                     tasks = Task.objects.filter(annotations__in=ann)
