@@ -214,8 +214,17 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_status__in=ann_status,
                             annotation_type=ANNOTATOR_ANNOTATION,
                         )
-
-                        tasks = Task.objects.filter(annotations__in=ann)
+                        if (
+                            ann_status[0] == "labeled"
+                            and "rejected" in request.query_params
+                            and request.query_params["rejected"] == "True"
+                        ):
+                            tasks = Task.objects.filter(
+                                annotations__in=ann,
+                                revision_loop_count__review_count__gte=1,
+                            )
+                        else:
+                            tasks = Task.objects.filter(annotations__in=ann)
                         tasks = tasks.distinct()
                         # Handle search query (if any)
                         if len(tasks):
@@ -265,8 +274,17 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     annotation_type=ANNOTATOR_ANNOTATION,
                     completed_by=user_id,
                 )
-
-                tasks = Task.objects.filter(annotations__in=ann)
+                if (
+                    ann_status[0] == "labeled"
+                    and "rejected" in request.query_params
+                    and request.query_params["rejected"] == "True"
+                ):
+                    tasks = Task.objects.filter(
+                        annotations__in=ann,
+                        revision_loop_count__review_count__gte=1,
+                    )
+                else:
+                    tasks = Task.objects.filter(annotations__in=ann)
                 tasks = tasks.distinct()
                 # Handle search query (if any)
                 if len(tasks):
@@ -354,7 +372,21 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_status__in=rew_status,
                             annotation_type=REVIEWER_ANNOTATION,
                         )
-                        tasks = Task.objects.filter(annotations__in=ann)
+                        if (
+                            (
+                                "accepted" in rew_status
+                                or "accepted_with_minor_changes" in rew_status
+                                or "accepted_with_major_changes" in rew_status
+                            )
+                            and "rejected" in request.query_params
+                            and request.query_params["rejected"] == "True"
+                        ):
+                            tasks = Task.objects.filter(
+                                annotations__in=ann,
+                                revision_loop_count__super_check_count__gte=1,
+                            )
+                        else:
+                            tasks = Task.objects.filter(annotations__in=ann)
                         tasks = tasks.distinct()
                         # Handle search query (if any)
                         if len(tasks):
@@ -407,7 +439,21 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     annotation_type=REVIEWER_ANNOTATION,
                     completed_by=user_id,
                 )
-                tasks = Task.objects.filter(annotations__in=ann)
+                if (
+                    (
+                        "accepted" in rew_status
+                        or "accepted_with_minor_changes" in rew_status
+                        or "accepted_with_major_changes" in rew_status
+                    )
+                    and "rejected" in request.query_params
+                    and request.query_params["rejected"] == "True"
+                ):
+                    tasks = Task.objects.filter(
+                        annotations__in=ann,
+                        revision_loop_count__super_check_count__gte=1,
+                    )
+                else:
+                    tasks = Task.objects.filter(annotations__in=ann)
                 tasks = tasks.distinct()
                 tasks = tasks.order_by("id")
                 # Handle search query (if any)
