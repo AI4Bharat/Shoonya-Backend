@@ -1086,6 +1086,30 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             else:
                 annotations = annotations.filter(annotation_type=ANNOTATOR_ANNOTATION)
 
+            project_id = request.data.get("Project ID")
+            task_id = request.data.get("Task ID")
+            updated_at = request.data.get("Updated at")
+            annotated_at = request.data.get("Annotated at")
+            created_at = request.data.get("Created at")
+
+            if project_id:
+                annotations = annotations.filter(task__project_id=project_id)
+
+            if task_id:
+                annotations = annotations.filter(task__id=task_id)
+
+            if updated_at:
+                date_obj = datetime.strptime(updated_at, "%d-%m-%Y")
+                annotations = annotations.filter(updated_at__date=date_obj.date())
+
+            if annotated_at:
+                date_obj = datetime.strptime(annotated_at, "%d-%m-%Y")
+                annotations = annotations.filter(annotated_at__date=date_obj.date())
+
+            if created_at:
+                date_obj = datetime.strptime(created_at, "%d-%m-%Y")
+                annotations = annotations.filter(created_at__date=date_obj.date())
+
             annotations = annotations.order_by("-updated_at")
             annotations = self.paginate_queryset(annotations)
 
@@ -1096,6 +1120,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "Project ID": annotation.task.project_id.id,
                     "Task ID": annotation.task.id,
                     "Updated at": utc_to_ist(annotation.updated_at),
+                    "Annotated at": utc_to_ist(annotation.annotated_at)
+                    if annotation.annotated_at
+                    else None,
+                    "Created at": utc_to_ist(annotation.created_at)
+                    if annotation.created_at
+                    else None,
                 }
 
                 response.append(data)
