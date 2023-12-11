@@ -1030,7 +1030,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
 
     @swagger_auto_schema(
-        method="post",
+        method="get",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
@@ -1065,7 +1065,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     )
     @action(
         detail=False,
-        methods=["POST"],
+        methods=["GET"],
         url_path="annotated_and_reviewed_tasks/get_users_recent_tasks",
         url_name="get_users_recent_tasks",
     )
@@ -1073,6 +1073,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         try:
             user_id = request.data.get("user_id")
             task_type = request.data.get("task_type", "annotation")
+
+            project_id = request.query_params.get("Project ID", "")
+            task_id = request.query_params.get("Task ID", "")
+            updated_at = request.query_params.get("Updated at", "")
+            annotated_at = request.query_params.get("Annotated at", "")
+            created_at = request.query_params.get("Created at", "")
 
             user = User.objects.get(pk=user_id)
 
@@ -1085,12 +1091,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
             else:
                 annotations = annotations.filter(annotation_type=ANNOTATOR_ANNOTATION)
-
-            project_id = request.data.get("Project ID")
-            task_id = request.data.get("Task ID")
-            updated_at = request.data.get("Updated at")
-            annotated_at = request.data.get("Annotated at")
-            created_at = request.data.get("Created at")
 
             if project_id:
                 annotations = annotations.filter(task__project_id=project_id)
