@@ -1071,16 +1071,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     )
     def get_users_recent_tasks(self, request):
         try:
-            user_id = request.data.get("user_id")
-            task_type = request.data.get("task_type", "annotation")
-
+            user = request.user
+            task_type = request.query_params.get("task_type", "annotation")
             project_id = request.query_params.get("Project ID", "")
             task_id = request.query_params.get("Task ID", "")
             updated_at = request.query_params.get("Updated at", "")
             annotated_at = request.query_params.get("Annotated at", "")
             created_at = request.query_params.get("Created at", "")
-
-            user = User.objects.get(pk=user_id)
 
             annotations = Annotation.objects.filter(completed_by=user)
             if task_type == "review":
