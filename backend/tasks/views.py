@@ -1090,22 +1090,37 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 annotations = annotations.filter(annotation_type=ANNOTATOR_ANNOTATION)
 
             if project_id:
-                annotations = annotations.filter(task__project_id=project_id)
+                try:
+                    annotations = annotations.filter(task__project_id=project_id)
+                except Exception as e:
+                    pass
 
             if task_id:
-                annotations = annotations.filter(task__id=task_id)
+                try:
+                    annotations = annotations.filter(task__id=task_id)
+                except Exception as e:
+                    pass
 
             if updated_at:
-                date_obj = datetime.strptime(updated_at, "%d-%m-%Y")
-                annotations = annotations.filter(updated_at__date=date_obj.date())
+                try:
+                    date_obj = datetime.strptime(updated_at, "%d-%m-%Y")
+                    annotations = annotations.filter(updated_at__date=date_obj.date())
+                except Exception as e:
+                    pass
 
             if annotated_at:
-                date_obj = datetime.strptime(annotated_at, "%d-%m-%Y")
-                annotations = annotations.filter(annotated_at__date=date_obj.date())
+                try:
+                    date_obj = datetime.strptime(annotated_at, "%d-%m-%Y")
+                    annotations = annotations.filter(annotated_at__date=date_obj.date())
+                except Exception as e:
+                    pass
 
             if created_at:
-                date_obj = datetime.strptime(created_at, "%d-%m-%Y")
-                annotations = annotations.filter(created_at__date=date_obj.date())
+                try:
+                    date_obj = datetime.strptime(created_at, "%d-%m-%Y")
+                    annotations = annotations.filter(created_at__date=date_obj.date())
+                except Exception as e:
+                    pass
 
             annotations = annotations.order_by("-updated_at")
             annotations = self.paginate_queryset(annotations)
