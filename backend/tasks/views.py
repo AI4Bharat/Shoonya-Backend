@@ -1071,16 +1071,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     )
     def get_users_recent_tasks(self, request):
         try:
-            user_id = request.data.get("user_id")
-            task_type = request.data.get("task_type", "annotation")
-
+            user = request.user
+            task_type = request.query_params.get("task_type", "annotation")
             project_id = request.query_params.get("Project ID", "")
             task_id = request.query_params.get("Task ID", "")
             updated_at = request.query_params.get("Updated at", "")
             annotated_at = request.query_params.get("Annotated at", "")
             created_at = request.query_params.get("Created at", "")
-
-            user = User.objects.get(pk=user_id)
 
             annotations = Annotation.objects.filter(completed_by=user)
             if task_type == "review":
@@ -1093,22 +1090,37 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 annotations = annotations.filter(annotation_type=ANNOTATOR_ANNOTATION)
 
             if project_id:
-                annotations = annotations.filter(task__project_id=project_id)
+                try:
+                    annotations = annotations.filter(task__project_id=project_id)
+                except Exception as e:
+                    pass
 
             if task_id:
-                annotations = annotations.filter(task__id=task_id)
+                try:
+                    annotations = annotations.filter(task__id=task_id)
+                except Exception as e:
+                    pass
 
             if updated_at:
-                date_obj = datetime.strptime(updated_at, "%d-%m-%Y")
-                annotations = annotations.filter(updated_at__date=date_obj.date())
+                try:
+                    date_obj = datetime.strptime(updated_at, "%d-%m-%Y")
+                    annotations = annotations.filter(updated_at__date=date_obj.date())
+                except Exception as e:
+                    pass
 
             if annotated_at:
-                date_obj = datetime.strptime(annotated_at, "%d-%m-%Y")
-                annotations = annotations.filter(annotated_at__date=date_obj.date())
+                try:
+                    date_obj = datetime.strptime(annotated_at, "%d-%m-%Y")
+                    annotations = annotations.filter(annotated_at__date=date_obj.date())
+                except Exception as e:
+                    pass
 
             if created_at:
-                date_obj = datetime.strptime(created_at, "%d-%m-%Y")
-                annotations = annotations.filter(created_at__date=date_obj.date())
+                try:
+                    date_obj = datetime.strptime(created_at, "%d-%m-%Y")
+                    annotations = annotations.filter(created_at__date=date_obj.date())
+                except Exception as e:
+                    pass
 
             annotations = annotations.order_by("-updated_at")
             annotations = self.paginate_queryset(annotations)
