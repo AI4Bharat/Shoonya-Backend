@@ -1071,7 +1071,12 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     )
     def get_users_recent_tasks(self, request):
         try:
-            user = request.user
+            try:
+                user_id = request.query_params.get("user_id")
+                user = User.objects.filter(id=user_id)[0]
+            except Exception as e:
+                user = request.user
+
             task_type = request.query_params.get("task_type", "annotation")
             project_id = request.query_params.get("search_Project ID", "")
             task_id = request.query_params.get("search_Task ID", "")
