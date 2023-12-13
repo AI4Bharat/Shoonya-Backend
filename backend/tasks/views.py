@@ -1030,7 +1030,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
 
     @swagger_auto_schema(
-        method="post",
+        method="get",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
@@ -1065,16 +1065,21 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     )
     @action(
         detail=False,
-        methods=["POST"],
+        methods=["GET"],
         url_path="annotated_and_reviewed_tasks/get_users_recent_tasks",
         url_name="get_users_recent_tasks",
     )
     def get_users_recent_tasks(self, request):
         try:
-            user_id = request.data.get("user_id")
-            task_type = request.data.get("task_type", "annotation")
+            user = request.user
+            task_type = request.query_params.get("task_type", "annotation")
+            project_id = request.query_params.get("search_Project ID", "")
+            task_id = request.query_params.get("search_Task ID", "")
+            updated_at = request.query_params.get("search_Updated at", "")
+            annotated_at = request.query_params.get("search_Annotated at", "")
+            created_at = request.query_params.get("search_Created at", "")
 
-            user = User.objects.get(pk=user_id)
+            error_list = []
 
             annotations = Annotation.objects.filter(completed_by=user)
             if task_type == "review":
@@ -1086,6 +1091,44 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             else:
                 annotations = annotations.filter(annotation_type=ANNOTATOR_ANNOTATION)
 
+            if project_id:
+                try:
+                    annotations = annotations.filter(task__project_id=project_id)
+                except Exception as e:
+                    error_list.append(f"Error filtering by Project ID")
+                    pass
+
+            if task_id:
+                try:
+                    annotations = annotations.filter(task__id=task_id)
+                except Exception as e:
+                    error_list.append(f"Error filtering by Task ID")
+                    pass
+
+            if updated_at:
+                try:
+                    date_obj = datetime.strptime(updated_at, "%d-%m-%Y")
+                    annotations = annotations.filter(updated_at__date=date_obj.date())
+                except Exception as e:
+                    error_list.append(f"Error filtering by updated at date")
+                    pass
+
+            if annotated_at:
+                try:
+                    date_obj = datetime.strptime(annotated_at, "%d-%m-%Y")
+                    annotations = annotations.filter(annotated_at__date=date_obj.date())
+                except Exception as e:
+                    error_list.append(f"Error filtering by annotated at date")
+                    pass
+
+            if created_at:
+                try:
+                    date_obj = datetime.strptime(created_at, "%d-%m-%Y")
+                    annotations = annotations.filter(created_at__date=date_obj.date())
+                except Exception as e:
+                    error_list.append(f"Error filtering by created at date")
+                    pass
+
             annotations = annotations.order_by("-updated_at")
             annotations = self.paginate_queryset(annotations)
 
@@ -1096,11 +1139,22 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "Project ID": annotation.task.project_id.id,
                     "Task ID": annotation.task.id,
                     "Updated at": utc_to_ist(annotation.updated_at),
+                    "Annotated at": utc_to_ist(annotation.annotated_at)
+                    if annotation.annotated_at
+                    else None,
+                    "Created at": utc_to_ist(annotation.created_at)
+                    if annotation.created_at
+                    else None,
                 }
 
                 response.append(data)
+            if len(error_list) == 0:
+                return self.get_paginated_response({"results": response})
+            else:
+                return self.get_paginated_response(
+                    {"results": response, "errors": error_list}
+                )
 
-            return self.get_paginated_response(response)
         except:
             return Response(
                 {
