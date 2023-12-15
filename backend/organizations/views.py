@@ -2209,7 +2209,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             if metainfo == "true" or metainfo == "True":
                 metainfo = True
 
-        if metainfo and "project_type_filter" in dict(request.query_params):
+        if "project_type_filter" in dict(request.query_params):
             project_types = [request.query_params["project_type_filter"]]
         else:
             project_types = [
