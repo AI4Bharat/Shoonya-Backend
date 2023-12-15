@@ -21,7 +21,7 @@ from django_celery_beat.models import PeriodicTask
 
 from organizations.models import Organization
 from workspaces.models import Workspace
-from shoonya_backend import settings
+from anudesh_backend import settings
 from dotenv import load_dotenv
 
 from .utils import hash_upload
@@ -311,7 +311,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         link = f"{prefix}/#/forget-password/confirm/{key}/{sent_token}"
         try:
             send_mail(
-                "Reset password link for shoonya",
+                "Reset password link for Anudesh",
                 f"Hello! Please click on the following link to reset your password - {link}",
                 settings.DEFAULT_FROM_EMAIL,
                 [email],
