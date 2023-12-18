@@ -103,6 +103,56 @@ class User(AbstractBaseUser, PermissionsMixin):
     profile_photo = models.CharField(
         verbose_name="profile_photo", max_length=256, blank=True
     )
+    gender_choices = (
+        ("M", "Male"),
+        ("F", "Female"),
+        ("O", "Other"),
+    )
+
+    gender = models.CharField(
+        verbose_name="gender",
+        choices=gender_choices,
+        max_length=1,
+        blank=True,
+    )
+    date_of_birth = models.DateField(
+        verbose_name="date_of_birth",
+        null=True,
+        blank=True,
+    )
+    address = models.TextField(
+        verbose_name="address",
+        blank=True,
+    )
+
+    city = models.CharField(
+        verbose_name="city",
+        max_length=255,
+        blank=True,
+    )
+
+    state = models.CharField(
+        verbose_name="state",
+        max_length=255,
+        blank=True,
+    )
+
+    pin_code = models.CharField(
+        verbose_name="Pin Code",
+        max_length=10,
+        blank=True,
+    )
+    GUEST_USER_CHOICES = [
+        (True, "Yes"),
+        (False, "No"),
+    ]
+
+    guest_user = models.BooleanField(
+        verbose_name="guest_user",
+        default=False,
+        choices=GUEST_USER_CHOICES,
+        help_text="Indicates whether the user is a guest user.",
+    )
 
     role = models.PositiveSmallIntegerField(
         choices=ROLE_CHOICES, blank=False, null=False, default=ANNOTATOR
@@ -261,7 +311,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         link = f"{prefix}/#/forget-password/confirm/{key}/{sent_token}"
         try:
             send_mail(
-                "Reset password link for anudesh",
+                "Reset password link for Anudesh",
                 f"Hello! Please click on the following link to reset your password - {link}",
                 settings.DEFAULT_FROM_EMAIL,
                 [email],
