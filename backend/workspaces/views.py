@@ -1446,7 +1446,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                 total_rev_duration_list.append(
                                     get_audio_transcription_duration(anno.result)
                                 )
-                                raw_audio_duration+=each_task.data['audio_duration']
+                                raw_audio_duration += each_task.data["audio_duration"]
                                 audio_segment_word_count_list.append(
                                     audio_word_count(anno.result)
                                 )
@@ -1485,7 +1485,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                 total_ann_duration_list.append(
                                     get_audio_transcription_duration(anno.result)
                                 )
-                                raw_audio_duration+=each_task.data['audio_duration']
+                                raw_audio_duration += each_task.data["audio_duration"]
                                 audio_segment_word_count_list.append(
                                     audio_word_count(anno.result)
                                 )
@@ -1503,12 +1503,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             "ann_raw_aud_duration": ann_raw_time,
                             "rew_raw_aud_duration": rev_raw_time,
                             "ann_audio_word_count": ann_audio_word_count,
-                            "rev_audio_word_count": rev_audio_word_count
+                            "rev_audio_word_count": rev_audio_word_count,
                         }
 
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                    ):
+                    elif project_type in get_translation_dataset_project_types():
                         total_rev_word_count_list = []
                         for reviewer_tas in reviewer_tasks:
                             try:
@@ -1533,10 +1531,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             "ann_cumulative_word_count": sum(total_ann_word_count_list),
                             "rew_cumulative_word_count": sum(total_rev_word_count_list),
                         }
-                    elif ("ConversationTranslation" in project_type
+                    elif (
+                        "ConversationTranslation" in project_type
                         or "ConversationTranslationEditing" in project_type
                         or "ContextualTranslationEditing" in project_type
-                        ):
+                    ):
                         total_rev_word_count_list = []
                         total_rev_sentance_count = 0
                         for reviewer_tas in reviewer_tasks:
@@ -1545,7 +1544,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     reviewer_tas.data["word_count"]
                                 )
                                 if "ContextualTranslationEditing" not in project_type:
-                                    total_rev_sentance_count+=reviewer_tas.data['sentence_count']
+                                    total_rev_sentance_count += reviewer_tas.data[
+                                        "sentence_count"
+                                    ]
                             except:
                                 pass
 
@@ -1558,22 +1559,32 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     annotation_tas.data["word_count"]
                                 )
                                 if "ContextualTranslationEditing" not in project_type:
-                                    total_ann_sentance_count+=annotation_tas.data['sentence_count']
+                                    total_ann_sentance_count += annotation_tas.data[
+                                        "sentence_count"
+                                    ]
                             except:
                                 pass
                         if "ContextualTranslationEditing" not in project_type:
                             result = {
                                 "language": lang,
-                                "ann_cumulative_word_count": sum(total_ann_word_count_list),
-                                "rew_cumulative_word_count": sum(total_rev_word_count_list),
-                                "total_rev_sentance_count" : total_rev_sentance_count,
-                                "total_ann_sentance_count" : total_ann_sentance_count
+                                "ann_cumulative_word_count": sum(
+                                    total_ann_word_count_list
+                                ),
+                                "rew_cumulative_word_count": sum(
+                                    total_rev_word_count_list
+                                ),
+                                "total_rev_sentance_count": total_rev_sentance_count,
+                                "total_ann_sentance_count": total_ann_sentance_count,
                             }
                         else:
                             result = {
                                 "language": lang,
-                                "ann_cumulative_word_count": sum(total_ann_word_count_list),
-                                "rew_cumulative_word_count": sum(total_rev_word_count_list),
+                                "ann_cumulative_word_count": sum(
+                                    total_ann_word_count_list
+                                ),
+                                "rew_cumulative_word_count": sum(
+                                    total_rev_word_count_list
+                                ),
                             }
 
                     elif "OCRTranscription" in project_type:
