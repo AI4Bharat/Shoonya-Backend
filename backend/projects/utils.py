@@ -170,6 +170,18 @@ def get_audio_segments_count(annotation_result):
 
     return count
 
+def audio_word_count(annotation_result):
+    word_count = 0
+
+    for result in annotation_result:
+        if result["type"] == "textarea":
+            try:
+                word_count += no_of_words(result["value"]["text"][0])
+            except:
+                pass
+
+    return word_count
+
 
 def calculate_word_error_rate_between_two_audio_transcription_annotation(
     annotation_result1, annotation_result2
@@ -207,6 +219,7 @@ def ocr_word_count(annotation_result):
         if result["type"] == "textarea":
             try:
                 word_count += no_of_words(result["value"]["text"][0])
+                print(result["value"]["text"][0],word_count)
             except:
                 pass
 
