@@ -85,6 +85,33 @@ ALLOWED_CELERY_TASKS = [
     "projects.tasks.export_project_in_place",
 ]
 
+LANGUAGE_CHOICES = [
+    ("English", "English"),
+    ("Assamese", "Assamese"),
+    ("Bengali", "Bengali"),
+    ("Bodo", "Bodo"),
+    ("Dogri", "Dogri"),
+    ("Gujarati", "Gujarati"),
+    ("Hindi", "Hindi"),
+    ("Kannada", "Kannada"),
+    ("Kashmiri", "Kashmiri"),
+    ("Konkani", "Konkani"),
+    ("Maithili", "Maithili"),
+    ("Malayalam", "Malayalam"),
+    ("Manipuri", "Manipuri"),
+    ("Marathi", "Marathi"),
+    ("Nepali", "Nepali"),
+    ("Odia", "Odia"),
+    ("Punjabi", "Punjabi"),
+    ("Sanskrit", "Sanskrit"),
+    ("Santali", "Santali"),
+    ("Sindhi", "Sindhi"),
+    ("Sinhala", "Sinhala"),
+    ("Tamil", "Tamil"),
+    ("Telugu", "Telugu"),
+    ("Urdu", "Urdu"),
+]
+
 
 class DatasetInstance(models.Model):
     """
@@ -607,3 +634,51 @@ D10 = TranslationPair
 #     sentence = models.TextField()
 #     gloss_sequence = models.TextField()
 #     duration = models.TimeField()
+
+
+class Instructions(DatasetBase):
+    id = models.AutoField(primary_key=True)
+    meta_info_model = models.CharField(
+        max_length=255, verbose_name="Meta Info Model", null=True, blank=True
+    )
+    meta_info_auto_generated = models.BooleanField(
+        verbose_name="Meta Info Auto Generated", null=True, blank=True
+    )
+    meta_info_intent = models.CharField(
+        max_length=255, verbose_name="Meta Info Intent", null=True, blank=True
+    )
+    meta_info_domain = models.CharField(
+        max_length=255, verbose_name="Meta Info Domain", null=True, blank=True
+    )
+    meta_info_structure = models.CharField(
+        max_length=255, verbose_name="Meta Info Structure", null=True, blank=True
+    )
+    meta_info_language = models.CharField(
+        max_length=20,
+        choices=LANGUAGE_CHOICES,
+        verbose_name="Meta Info Language",
+        null=True,
+        blank=True,
+    )
+    instruction = models.TextField(verbose_name="Instruction")
+    examples = models.TextField(verbose_name="Examples")
+    hint = models.TextField(verbose_name="Hint")
+
+    def __str__(self):
+        return f"{self.id} - {self.instruction}"
+
+
+class Interactions(DatasetBase):
+    id = models.AutoField(primary_key=True)
+    instruction_id = models.ForeignKey(
+        Instructions, on_delete=models.CASCADE, verbose_name="Instruction ID"
+    )
+    interactions_json = models.JSONField(verbose_name="Interactions JSON")
+    no_of_turns = models.IntegerField(verbose_name="Number of Turns")
+    language = models.CharField(max_length=20, verbose_name="Language")
+    model = models.CharField(max_length=255, verbose_name="Model")
+    datetime = models.DateTimeField(verbose_name="Datetime")
+    time_taken = models.FloatField(verbose_name="Time Taken")
+
+    def __str__(self):
+        return f"{self.id} - Interaction with Instruction {self.instruction_id_id}"
