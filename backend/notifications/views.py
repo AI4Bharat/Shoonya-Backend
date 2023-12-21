@@ -76,7 +76,7 @@ def mark_seen(request):
         notification = Notification.objects.filter(id__in=notif_id_arr)
     except Exception as e:
         return Response(NO_NOTIFICATION_ERROR, status=status.HTTP_400_BAD_REQUEST)
-    for idx in range(len(notif_id_arr)):
-        notification[idx].seen = True
-        notification[idx].save()
+    for notif in notification:
+        notif.seen = True
+        notif.save()
     return Response(NOTIFICATION_CHANGED_STATE, status=status.HTTP_200_OK)
