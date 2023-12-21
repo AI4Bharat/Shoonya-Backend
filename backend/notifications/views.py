@@ -31,6 +31,7 @@ def createNotification(title, notification_type, users_ids):
 )
 @api_view(["GET"])
 def viewNotifications(request):
+    user_notifications_queryset = []
     try:
         if "seen" in request.query_params:
             if request.query_params["seen"] == "False":
@@ -65,9 +66,17 @@ def viewNotifications(request):
 def mark_seen(request):
     try:
         notif_id = request.data.get("notif_id")
-    except Exception as e:
+        if not isinstance(notif_id, list):
+            notif_id_arr = [notif_id]
+        else:
+            notif_id_arr = notif_id
+    except KeyError:
         return Response(MISSING_REQUEST_PARAMETERS, status=status.HTTP_400_BAD_REQUEST)
-    notification = Notification.objects.filter(id=notif_id)
-    notification[0].seen = True
-    notification[0].save()
+    try:
+        notification = Notification.objects.filter(id__in=notif_id_arr)
+    except Exception as e:
+        return Response(NO_NOTIFICATION_ERROR, status=status.HTTP_400_BAD_REQUEST)
+    for idx in range(len(notif_id_arr)):
+        notification[idx].seen = True
+        notification[idx].save()
     return Response(NOTIFICATION_CHANGED_STATE, status=status.HTTP_200_OK)
