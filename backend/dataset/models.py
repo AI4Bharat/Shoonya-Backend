@@ -637,21 +637,44 @@ D10 = TranslationPair
 
 
 class Instructions(DatasetBase):
+    """
+    Subclass model for Instructions
+    """
+
     id = models.AutoField(primary_key=True)
     meta_info_model = models.CharField(
-        max_length=255, verbose_name="Meta Info Model", null=True, blank=True
+        max_length=255,
+        verbose_name="Meta Info Model",
+        null=True,
+        blank=True,
+        help_text="Model information for the instruction",
     )
     meta_info_auto_generated = models.BooleanField(
-        verbose_name="Meta Info Auto Generated", null=True, blank=True
+        verbose_name="Meta Info Auto Generated",
+        null=True,
+        blank=True,
+        help_text="Whether the instruction has been auto-generated",
     )
     meta_info_intent = models.CharField(
-        max_length=255, verbose_name="Meta Info Intent", null=True, blank=True
+        max_length=255,
+        verbose_name="Meta Info Intent",
+        null=True,
+        blank=True,
+        help_text="Intent information for the instruction",
     )
     meta_info_domain = models.CharField(
-        max_length=255, verbose_name="Meta Info Domain", null=True, blank=True
+        max_length=255,
+        verbose_name="Meta Info Domain",
+        null=True,
+        blank=True,
+        help_text="Domain information for the instruction",
     )
     meta_info_structure = models.CharField(
-        max_length=255, verbose_name="Meta Info Structure", null=True, blank=True
+        max_length=255,
+        verbose_name="Meta Info Structure",
+        null=True,
+        blank=True,
+        help_text="Structure information for the instruction",
     )
     meta_info_language = models.CharField(
         max_length=20,
@@ -659,6 +682,7 @@ class Instructions(DatasetBase):
         verbose_name="Meta Info Language",
         null=True,
         blank=True,
+        help_text="Language of the instruction",
     )
     instruction = models.TextField(verbose_name="Instruction")
     examples = models.TextField(verbose_name="Examples")
@@ -669,16 +693,36 @@ class Instructions(DatasetBase):
 
 
 class Interactions(DatasetBase):
+    """
+    Subclass model for Interactions
+    """
+
     id = models.AutoField(primary_key=True)
     instruction_id = models.ForeignKey(
-        Instructions, on_delete=models.CASCADE, verbose_name="Instruction ID"
+        Instructions,
+        on_delete=models.CASCADE,
+        verbose_name="Instruction ID",
+        help_text="ID of the related instruction",
     )
     interactions_json = models.JSONField(verbose_name="Interactions JSON")
-    no_of_turns = models.IntegerField(verbose_name="Number of Turns")
-    language = models.CharField(max_length=20, verbose_name="Language")
-    model = models.CharField(max_length=255, verbose_name="Model")
-    datetime = models.DateTimeField(verbose_name="Datetime")
-    time_taken = models.FloatField(verbose_name="Time Taken")
+    no_of_turns = models.IntegerField(
+        verbose_name="Number of Turns", help_text="Number of turns in the interaction"
+    )
+    language = models.CharField(
+        max_length=20,
+        choices=LANGUAGE_CHOICES,
+        verbose_name="Language",
+        help_text="Language of the interaction",
+    )
+    model = models.CharField(
+        max_length=255, verbose_name="Model", help_text="Model used for the interaction"
+    )
+    datetime = models.DateTimeField(
+        verbose_name="Datetime", help_text="Timestamp of the interaction"
+    )
+    time_taken = models.FloatField(
+        verbose_name="Time Taken", help_text="Time taken for the interaction"
+    )
 
     def __str__(self):
         return f"{self.id} - Interaction with Instruction {self.instruction_id_id}"
