@@ -1,3 +1,6 @@
+import json
+
+from django.db.models import Q
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
@@ -32,19 +35,25 @@ def createNotification(title, notification_type, users_ids):
 @api_view(["GET"])
 def viewNotifications(request):
     user_notifications_queryset = []
+    user = request.user
     try:
         if "seen" in request.query_params:
             if request.query_params["seen"] == "False":
-                user_notifications_queryset = Notification.objects.filter(
-                    reciever_user_id=request.user, seen=False
-                ).order_by("created_at")
+                user_notifications_queryset = (
+                    Notification.objects.filter(
+                        reciever_user_id=user.id,
+                    )
+                    .exclude(Q(seen_json__contains={str(user.id): True}))
+                    .order_by("created_at")
+                )
             elif request.query_params["seen"] == "True":
                 user_notifications_queryset = Notification.objects.filter(
-                    reciever_user_id=request.user, seen=True
+                    Q(reciever_user_id=user.id)
+                    & (Q(seen_json__contains={str(user.id): True}))
                 ).order_by("created_at")
         else:
             user_notifications_queryset = Notification.objects.filter(
-                reciever_user_id=request.user
+                reciever_user_id=user.id
             ).order_by("created_at")
     except Exception as e:
         return Response(FETCH_NOTIFICATION_ERROR, status=status.HTTP_400_BAD_REQUEST)
@@ -66,6 +75,7 @@ def viewNotifications(request):
 def mark_seen(request):
     try:
         notif_id = request.data.get("notif_id")
+        user = request.user
         if not isinstance(notif_id, list):
             notif_id_arr = [notif_id]
         else:
@@ -77,6 +87,8 @@ def mark_seen(request):
     except Exception as e:
         return Response(NO_NOTIFICATION_ERROR, status=status.HTTP_400_BAD_REQUEST)
     for notif in notification:
-        notif.seen = True
+        s_json = notif.seen_json or {}
+        s_json.update({str(user.id): True})
+        notif.seen_json = s_json
         notif.save()
     return Response(NOTIFICATION_CHANGED_STATE, status=status.HTTP_200_OK)

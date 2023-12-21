@@ -19,7 +19,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=200)
     on_click = models.URLField(blank=True, null=True)
     metadata_json = models.JSONField(blank=True, null=True)
-    seen = models.BooleanField(default=False)
+    seen_json = models.JSONField(blank=True, null=True)
 
     class Meta:
         ordering = ("-created_at",)
