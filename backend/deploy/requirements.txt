@@ -95,6 +95,7 @@ label-studio-tools==0.0.1
 launchdarkly-server-sdk==7.3.0
 Levenshtein==0.21.1
 lockfile==0.12.2
+logstash-formatter==0.5.17
 lxml==4.9.3
 MarkupPy==1.14
 MarkupSafe==2.1.3

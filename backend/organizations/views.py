@@ -2208,14 +2208,27 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             metainfo = request.query_params["metainfo"]
             if metainfo == "true" or metainfo == "True":
                 metainfo = True
-        project_types = [
-            "ContextualTranslationEditing",
-            "ContextualSentenceVerification",
-            "SemanticTextualSimilarity_Scale5",
-            "AudioTranscriptionEditing",
-            "AudioTranscription",
-            "AudioSegmentation",
-        ]
+
+        if "project_type_filter" in dict(request.query_params):
+            project_types = [request.query_params["project_type_filter"]]
+        else:
+            project_types = [
+                "AcousticNormalisedTranscriptionEditing",
+                "AudioSegmentation",
+                "AudioTranscription",
+                "AudioTranscriptionEditing",
+                "ContextualSentenceVerification",
+                "ContextualSentenceVerificationAndDomainClassification",
+                "ContextualTranslationEditing",
+                "ConversationTranslation",
+                "ConversationTranslationEditing",
+                "ConversationVerification",
+                "MonolingualTranslation",
+                "OCRTranscriptionEditing",
+                "SemanticTextualSimilarity_Scale5",
+                "SentenceSplitting",
+                "TranslationEditing",
+            ]
         if "project_type" in dict(request.query_params):
             project_type = request.query_params["project_type"]
             project_types = [project_type]

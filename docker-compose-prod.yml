@@ -96,7 +96,20 @@ services:
       - redis
       - web
 
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:7.14.0
+    hostname: shoonya_dev_logger
+    volumes:
+      - ./logstash_dev.conf:/usr/share/logstash/pipeline/logstash.conf
+      - logs_vol:/logs
+    extra_hosts:
+      - "elasticsearch:20.42.57.194"
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
+
 volumes:
+  logs_vol:
+    external: true
   nginx_conf:
     external: true
   letsencrypt_certs:
