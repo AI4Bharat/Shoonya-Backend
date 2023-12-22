@@ -4180,10 +4180,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.is_published = True
             project.published_at = datetime.now()
             # creating notifications
-            remaining_tasks = len(
-                Task.objects.filter(project_id=project, task_status=INCOMPLETE)
-            )
-            title = f"{project.id} - {project.title} has been published. {remaining_tasks} are remaining tasks in this project."
+            title = f"{project.id} - {project.title} has been published"
             notification_type = "publish_project"
             annotators_ids = [a.get("id") for a in annotators]
             reviewers_ids = [r.get("id") for r in reviewers]
