@@ -641,7 +641,6 @@ class Instructions(DatasetBase):
     Subclass model for Instructions
     """
 
-    id = models.AutoField(primary_key=True)
     meta_info_model = models.CharField(
         max_length=255,
         verbose_name="Meta Info Model",
@@ -697,7 +696,6 @@ class Interactions(DatasetBase):
     Subclass model for Interactions
     """
 
-    id = models.AutoField(primary_key=True)
     instruction_id = models.ForeignKey(
         Instructions,
         on_delete=models.CASCADE,
