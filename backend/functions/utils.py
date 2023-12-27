@@ -254,7 +254,7 @@ def get_batch_translations_using_indictransv2_nmt_api(
 
     try:
         response = requests.post(
-            "https://api.dhruva.ai4bharat.org/services/inference/translation?serviceId=ai4bharat/indictrans-v2-all-gpu--t4",
+            os.getenv("INDIC_TRANS_V2_URL"),
             json=json_data,
             headers={"authorization": os.getenv("INDIC_TRANS_V2_KEY")},
         )
