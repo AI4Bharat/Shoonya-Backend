@@ -1,11 +1,9 @@
 import json
-import re
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
 import pandas as pd
 import ast
-import csv
 import math
 
 from django.core.files import File
@@ -1859,66 +1857,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         # Read project details from api request
         project_type = request.data.get("project_type")
-        project_mode = request.data.get("project_mode")
+        filter_string = request.data.get("filter_string")
+        sampling_mode = request.data.get("sampling_mode")
+        sampling_parameters = request.data.get("sampling_parameters_json")
+        variable_parameters = request.data.get("variable_parameters")
         automatic_annotation_creation_mode = request.data.get(
             "automatic_annotation_creation_mode"
         )
 
-        if project_mode == Collection:
-            # Create project object
-            project_response = super().create(request, *args, **kwargs)
+        dataset_instance_ids = request.data.get("dataset_id")
+        if type(dataset_instance_ids) != list:
+            dataset_instance_ids = [dataset_instance_ids]
+        project_response = super().create(request, *args, **kwargs)
+        project_id = project_response.data["id"]
 
-            project_id = project_response.data["id"]
+        proj = Project.objects.get(id=project_id)
+        if proj.required_annotators_per_task > 1:
+            proj.project_stage = REVIEW_STAGE
+        proj.save()
 
-            proj = Project.objects.get(id=project_id)
-            if proj.required_annotators_per_task > 1:
-                proj.project_stage = REVIEW_STAGE
-                proj.save()
-
-        else:
-            # Collect the POST request parameters
-            dataset_instance_ids = request.data.get("dataset_id")
-            if type(dataset_instance_ids) != list:
-                dataset_instance_ids = [dataset_instance_ids]
-            filter_string = request.data.get("filter_string")
-            sampling_mode = request.data.get("sampling_mode")
-            sampling_parameters = request.data.get("sampling_parameters_json")
-            variable_parameters = request.data.get("variable_parameters")
-            acoustic_enabled_stage = request.data.get("acoustic_enabled_stage")
-
-            # Create project object
-            project_response = super().create(request, *args, **kwargs)
-            project_id = project_response.data["id"]
-
-            proj = Project.objects.get(id=project_id)
-            if automatic_annotation_creation_mode != None:
-                if proj.metadata_json == None:
-                    proj.metadata_json = {}
-                proj.metadata_json[
-                    "automatic_annotation_creation_mode"
-                ] = automatic_annotation_creation_mode
-            if proj.project_type == "AcousticNormalisedTranscriptionEditing":
-                if proj.metadata_json == None:
-                    proj.metadata_json = {}
-                proj.metadata_json["acoustic_enabled_stage"] = (
-                    acoustic_enabled_stage if acoustic_enabled_stage != None else 2
-                )
-            if proj.required_annotators_per_task > 1:
-                proj.project_stage = REVIEW_STAGE
-            proj.save()
-
-            # Function call to create the paramters for the sampling and filtering of sentences
-            create_parameters_for_task_creation.delay(
-                project_type=project_type,
-                dataset_instance_ids=dataset_instance_ids,
-                filter_string=filter_string,
-                sampling_mode=sampling_mode,
-                sampling_parameters=sampling_parameters,
-                variable_parameters=variable_parameters,
-                project_id=project_id,
-                automatic_annotation_creation_mode=automatic_annotation_creation_mode,
-            )
-        # Return the project response
+        create_parameters_for_task_creation.delay(
+            project_type=project_type,
+            dataset_instance_ids=dataset_instance_ids,
+            filter_string=filter_string,
+            sampling_mode=sampling_mode,
+            sampling_parameters=sampling_parameters,
+            project_id=project_id,
+        )
         return project_response
 
     @is_project_editor
