@@ -124,6 +124,7 @@ pycparser==2.21
 pydantic==1.8.2
 Pygments==2.16.1
 PyJWT==2.8.0
+Pyrebase4==4.7.1
 pyRFC3339==1.1
 pyrsistent==0.19.3
 python-crontab==3.0.0
