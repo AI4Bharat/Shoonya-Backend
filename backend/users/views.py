@@ -63,17 +63,18 @@ import pyrebase
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 load_dotenv()
 
-config={
-  "apiKey": os.getenv("API_KEY"),
-  "authDomain": os.getenv("AUTH_DOMAIN"),
-  "projectId": os.getenv("PROJECT_ID"),
-  "storageBucket": os.getenv("STORAGE_BUCKET"),
-  "messagingSenderId": os.getenv("MSG_SENDER_ID"),
-  "appId": os.getenv("APP_ID"),
-  "measurementId": os.getenv("MEASUREMENT_ID"),
-  "databaseURL":""
+config = {
+    "apiKey": os.getenv("API_KEY"),
+    "authDomain": os.getenv("AUTH_DOMAIN"),
+    "projectId": os.getenv("PROJECT_ID"),
+    "storageBucket": os.getenv("STORAGE_BUCKET"),
+    "messagingSenderId": os.getenv("MSG_SENDER_ID"),
+    "appId": os.getenv("APP_ID"),
+    "measurementId": os.getenv("MEASUREMENT_ID"),
+    "databaseURL": "",
 }
 firebase = pyrebase.initialize_app(config)
+
 
 class InviteViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
@@ -276,16 +277,22 @@ class InviteViewSet(viewsets.ViewSet):
 
         try:
             auth = firebase.auth()
-            auth.create_user_with_email_and_password(email, request.data.get("password"))
+            auth.create_user_with_email_and_password(
+                email, request.data.get("password")
+            )
             serialized = UserSignUpSerializer(user, request.data, partial=True)
         except:
-            return Response({"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response(
+                {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
         else:
-            return Response({"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class AuthViewSet(viewsets.ViewSet):
@@ -332,7 +339,7 @@ class AuthViewSet(viewsets.ViewSet):
             return Response(
                 {"message": "User is inactive."}, status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         # serializer = UserLoginSerializer(user, request.data)
         # serializer.is_valid(raise_exception=True)
 
@@ -341,7 +348,7 @@ class AuthViewSet(viewsets.ViewSet):
         #     return Response(
         #         {"message": "Incorrect Password."}, status=status.HTTP_400_BAD_REQUEST
         #     )
-        
+
         try:
             auth = firebase.auth()
             fire_user = auth.sign_in_with_email_and_password(email, password)
@@ -350,7 +357,8 @@ class AuthViewSet(viewsets.ViewSet):
             refresh_token = str(refresh)
         except:
             return Response(
-                {"message": "Authentication failed."}, status=status.HTTP_400_BAD_REQUEST
+                {"message": "Authentication failed."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         return Response(
@@ -358,7 +366,7 @@ class AuthViewSet(viewsets.ViewSet):
                 "message": "Logged in successfully.",
                 "refresh": refresh_token,
                 "access": access_token,
-                "fire_user": fire_user
+                "fire_user": fire_user,
             },
             status=status.HTTP_200_OK,
         )
