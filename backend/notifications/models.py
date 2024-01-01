@@ -2,11 +2,13 @@ from django.db import models
 from users.models import User
 
 # Create your models here.
-PUBLISH_PROJECT = "publish_project"
-TASK_UPADTE = "task_reject"
+
 NOTIF_TYPES = (
-    (PUBLISH_PROJECT, "Publish Project"),
-    (TASK_UPADTE, "Task Reject"),
+    ("publish_project", "Publish Project"),
+    ("task_reject", "Task Reject"),
+    ("new_member", "New Member added to the Project"),
+    ("remove_user", "Remove user from the Project"),
+    ("task_update", "Task Update"),
 )
 
 
