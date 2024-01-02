@@ -329,7 +329,7 @@ class AuthViewSet(viewsets.ViewSet):
                 )
             else:
                 user = User.objects.get(email=email)
-        except User.DoesNotExist:
+        except user.DoesNotExist:
             return Response(
                 {"message": "Incorrect email, User not found"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -367,6 +367,94 @@ class AuthViewSet(viewsets.ViewSet):
                 "refresh": refresh_token,
                 "access": access_token,
                 "fire_user": fire_user,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class CustomDataStructure:
+    def __init__(self):
+        self.data = {}
+
+    def set_data(self, key, value):
+        self.data[key] = value
+
+    def get(self, key):
+        return self.data.get(key)
+
+
+class GoogleLogin(viewsets.ViewSet):
+    @permission_classes([AllowAny])
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="google_login",
+        url_name="google_login",
+    )
+    def google_login(self, request, *args, **kwargs):
+        """
+        Google login functionality
+        """
+
+        try:
+            token = request.data.get("token")
+            if token == "":
+                raise ValueError
+        except ValueError:
+            return Response(
+                {"message": "Please Send a Token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            auth = firebase.auth()
+            fire_user = auth.get_account_info(token)
+            email = fire_user["users"][0]["email"]
+        except:
+            return Response(
+                {"message": "Authentication failed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(email=email)
+        except:
+            user = User(
+                username=str(email).split("@")[0],
+                email=email.lower(),
+                organization_id=1,
+                role=1,
+            )
+            # user.set_password("googleLogin"+generate_random_string(20))
+            user.set_password("googleLogin" + email)
+            users = []
+            users.append(user)
+            User.objects.bulk_create(users)
+            # req = CustomDataStructure()
+            # req.set_data("email", email)
+            # req.set_data("password", "googleLogin"+email)
+            # req.set_data("username", str(email).split('@')[0])
+            # serialized = UserSignUpSerializer(user, req, partial=True)
+            # if serialized.is_valid():
+            #     serialized.save()
+            user = User.objects.get(email=email)
+
+        try:
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+        except:
+            return Response(
+                {"message": "Token generation failed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": "Logged in successfully.",
+                "refresh": refresh_token,
+                "access": access_token,
+                "fire_user": fire_user["users"][0],
             },
             status=status.HTTP_200_OK,
         )
