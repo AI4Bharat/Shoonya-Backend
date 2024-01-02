@@ -73,8 +73,6 @@ config = {
     "measurementId": os.getenv("MEASUREMENT_ID"),
     "databaseURL": "",
 }
-firebase = pyrebase.initialize_app(config)
-
 
 class InviteViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
@@ -276,6 +274,7 @@ class InviteViewSet(viewsets.ViewSet):
             )
 
         try:
+            firebase = pyrebase.initialize_app(config)
             auth = firebase.auth()
             auth.create_user_with_email_and_password(
                 email, request.data.get("password")
@@ -329,7 +328,7 @@ class AuthViewSet(viewsets.ViewSet):
                 )
             else:
                 user = User.objects.get(email=email)
-        except user.DoesNotExist:
+        except User.DoesNotExist:
             return Response(
                 {"message": "Incorrect email, User not found"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -350,6 +349,7 @@ class AuthViewSet(viewsets.ViewSet):
         #     )
 
         try:
+            firebase = pyrebase.initialize_app(config)
             auth = firebase.auth()
             fire_user = auth.sign_in_with_email_and_password(email, password)
             refresh = RefreshToken.for_user(user)
@@ -365,23 +365,10 @@ class AuthViewSet(viewsets.ViewSet):
             {
                 "message": "Logged in successfully.",
                 "refresh": refresh_token,
-                "access": access_token,
-                "fire_user": fire_user,
+                "access": access_token
             },
             status=status.HTTP_200_OK,
         )
-
-
-class CustomDataStructure:
-    def __init__(self):
-        self.data = {}
-
-    def set_data(self, key, value):
-        self.data[key] = value
-
-    def get(self, key):
-        return self.data.get(key)
-
 
 class GoogleLogin(viewsets.ViewSet):
     @permission_classes([AllowAny])
@@ -407,6 +394,7 @@ class GoogleLogin(viewsets.ViewSet):
             )
 
         try:
+            firebase = pyrebase.initialize_app(config)
             auth = firebase.auth()
             fire_user = auth.get_account_info(token)
             email = fire_user["users"][0]["email"]
@@ -422,7 +410,6 @@ class GoogleLogin(viewsets.ViewSet):
             user = User(
                 username=str(email).split("@")[0],
                 email=email.lower(),
-                organization_id=1,
                 role=1,
             )
             # user.set_password("googleLogin"+generate_random_string(20))
@@ -430,13 +417,6 @@ class GoogleLogin(viewsets.ViewSet):
             users = []
             users.append(user)
             User.objects.bulk_create(users)
-            # req = CustomDataStructure()
-            # req.set_data("email", email)
-            # req.set_data("password", "googleLogin"+email)
-            # req.set_data("username", str(email).split('@')[0])
-            # serialized = UserSignUpSerializer(user, req, partial=True)
-            # if serialized.is_valid():
-            #     serialized.save()
             user = User.objects.get(email=email)
 
         try:
@@ -453,8 +433,7 @@ class GoogleLogin(viewsets.ViewSet):
             {
                 "message": "Logged in successfully.",
                 "refresh": refresh_token,
-                "access": access_token,
-                "fire_user": fire_user["users"][0],
+                "access": access_token
             },
             status=status.HTTP_200_OK,
         )
