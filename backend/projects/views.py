@@ -1961,7 +1961,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             super_checkers = serializer.data["review_supercheckers"]
 
             # creating notifications
-            title = f"{project.title}:{project.id} has been updated"
+            title = f"{project.title}:{project.id} Project has been updated"
             notification_type = "project_update"
             annotators_ids = [a.get("id") for a in annotators]
             reviewers_ids = [r.get("id") for r in reviewers]
@@ -3421,9 +3421,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotators = serializer.data["annotators"]
                 reviewers = serializer.data["annotation_reviewers"]
                 super_checkers = serializer.data["review_supercheckers"]
-                title = (
-                    f"New annotators have been added to {project.title}:{project.id}"
-                )
+                title = f"{project.title}:{project.id} New annotators have been added to the project"
                 notification_type = "add_member"
                 annotators_ids = [a.get("id") for a in annotators]
                 reviewers_ids = [r.get("id") for r in reviewers]
@@ -3501,7 +3499,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotators = serializer.data["annotators"]
                 reviewers = serializer.data["annotation_reviewers"]
                 super_checkers = serializer.data["review_supercheckers"]
-                title = f"New reviewers have been added to {project.title}:{project.id}"
+                title = f"{project.title}:{project.id} New reviewers have been added to project"
                 notification_type = "add_member"
                 annotators_ids = [a.get("id") for a in annotators]
                 reviewers_ids = [r.get("id") for r in reviewers]
@@ -3577,7 +3575,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotators = serializer.data["annotators"]
                 reviewers = serializer.data["annotation_reviewers"]
                 super_checkers = serializer.data["review_supercheckers"]
-                title = f"New super checkers have been added to {project.title}:{project.id}"
+                title = f"{project.title}:{project.id} New super checkers have been added to project"
                 notification_type = "add_member"
                 annotators_ids = [a.get("id") for a in annotators]
                 reviewers_ids = [r.get("id") for r in reviewers]
@@ -4286,7 +4284,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.published_at = datetime.now()
 
             # creating notifications
-            title = f"{project.id} - {project.title} has been published"
+            title = f"{project.id}:{project.title} Project has been published"
             notification_type = "publish_project"
             annotators_ids = [a.get("id") for a in annotators]
             reviewers_ids = [r.get("id") for r in reviewers]
