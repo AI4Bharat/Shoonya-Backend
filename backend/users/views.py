@@ -74,6 +74,7 @@ config = {
     "databaseURL": "",
 }
 
+
 class InviteViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @permission_classes((IsAuthenticated,))
@@ -365,10 +366,11 @@ class AuthViewSet(viewsets.ViewSet):
             {
                 "message": "Logged in successfully.",
                 "refresh": refresh_token,
-                "access": access_token
+                "access": access_token,
             },
             status=status.HTTP_200_OK,
         )
+
 
 class GoogleLogin(viewsets.ViewSet):
     @permission_classes([AllowAny])
@@ -433,7 +435,7 @@ class GoogleLogin(viewsets.ViewSet):
             {
                 "message": "Logged in successfully.",
                 "refresh": refresh_token,
-                "access": access_token
+                "access": access_token,
             },
             status=status.HTTP_200_OK,
         )
