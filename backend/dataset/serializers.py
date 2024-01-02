@@ -102,6 +102,33 @@ class SpeechConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = SpeechConversation
         fields = "__all__"
+    
+class PromptBaseSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Prompt Base
+    """
+
+    class Meta:
+        model = PromptBase
+        fields = "__all__"
+
+class PromptAnswerSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Prompt Answer
+    """
+
+    class Meta:
+        model = PromptAnswer
+        fields = "__all__"
+
+class PromptAnswerEvaluationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Prompt Answer Evaluation
+    """
+
+    class Meta:
+        model = PromptAnswerEvaluation
+        fields = "__all__"
 
 
 # Define a mapping between dataset instance type and serializer
@@ -112,6 +139,9 @@ SERIALIZER_MAP = {
     "BlockText": BlockTextSerializer,
     "Conversation": ConversationSerializer,
     "SpeechConversation": SpeechConversationSerializer,
+    "PromptBase": PromptBaseSerializer,
+    "PromptAnswer": PromptAnswerSerializer,
+    "PromptAnswerEvaluation": PromptAnswerEvaluationSerializer,
 }
 
 # class CollectionDatasetSerializer(serializers.ModelSerializer):

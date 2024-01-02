@@ -1883,6 +1883,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             sampling_mode=sampling_mode,
             sampling_parameters=sampling_parameters,
             project_id=project_id,
+            variable_parameters=variable_parameters,
+            automatic_annotation_creation_mode=automatic_annotation_creation_mode,
         )
         return project_response
 

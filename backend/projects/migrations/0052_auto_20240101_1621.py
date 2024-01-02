@@ -4,19 +4,22 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('projects', '0051_alter_project_project_type'),
+        ("projects", "0051_alter_project_project_type"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='project',
-            name='project_mode',
+            model_name="project",
+            name="project_mode",
         ),
         migrations.AlterField(
-            model_name='project',
-            name='project_type',
-            field=models.CharField(choices=[('ModelOutputEvaluation', 'ModelOutputEvaluation')], help_text='Project Type indicating the annotation task', max_length=100),
+            model_name="project",
+            name="project_type",
+            field=models.CharField(
+                choices=[("ModelOutputEvaluation", "ModelOutputEvaluation")],
+                help_text="Project Type indicating the annotation task",
+                max_length=100,
+            ),
         ),
     ]

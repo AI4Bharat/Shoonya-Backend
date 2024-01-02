@@ -38,6 +38,15 @@ class ConversationAdmin(ImportExportActionModelAdmin):
 class SpeechConversationAdmin(ImportExportActionModelAdmin):
     resource_class = SpeechConversationResource
 
+class PromptBaseAdmin(ImportExportActionModelAdmin):
+    resource_class = PromptBaseResource
+
+class PromptAnswerAdmin(ImportExportActionModelAdmin):
+    resource_class = PromptAnswerResource
+
+class PromptAnswerEvaluationAdmin(ImportExportActionModelAdmin):
+    resource_class = PromptAnswerEvaluationResource
+
 
 admin.site.register(SentenceText, SentenceTextAdmin)
 admin.site.register(TranslationPair, TranslationPairAdmin)
@@ -45,3 +54,6 @@ admin.site.register(OCRDocument, OCRDocumentAdmin)
 admin.site.register(BlockText, BlockTextAdmin)
 admin.site.register(Conversation, ConversationAdmin)
 admin.site.register(SpeechConversation, SpeechConversationAdmin)
+admin.site.register(PromptBase, PromptBaseAdmin)
+admin.site.register(PromptAnswer, PromptAnswerAdmin)
+admin.site.register(PromptAnswerEvaluation, PromptAnswerEvaluationAdmin)

@@ -229,8 +229,6 @@ class ProjectRegistry:
                         output_dataset["fields"]["copy_from_input"].values()
                     )
                 if "variable_parameters" in output_dataset["fields"]:
-                    ui_input_fields += output_dataset["fields"][
-                        "variable_parameters"
-                    ]
+                    ui_input_fields += output_dataset["fields"]["variable_parameters"]
 
         return True

@@ -15,6 +15,9 @@ DATASET_TYPE_CHOICES = [
     ("BlockText", "BlockText"),
     ("Conversation", "Conversation"),
     ("SpeechConversation", "SpeechConversation"),
+    ("PromptBase", "PromptBase"),
+    ("PromptAnswer", "PromptAnswer"),
+    ("PromptAnswerEvaluation", "PromptAnswerEvaluation"),
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
@@ -113,6 +116,8 @@ LANGUAGE_CHOICES = [
 ]
 
 LLM_CHOICES = (("GPT3.5", "GPT3.5"), ("GPT4", "GPT4"), ("LLAMA2", "LLAMA2"))
+
+
 class DatasetInstance(models.Model):
     """
     Dataset Instance Model
@@ -725,10 +730,12 @@ class Interactions(DatasetBase):
     def __str__(self):
         return f"{self.id} - Interaction with Instruction {self.instruction_id_id}"
 
+
 class PromptBase(DatasetBase):
     """
     Dataset for storing prompt data
     """
+
     prompt = models.TextField(
         verbose_name="prompt",
         null=True,
@@ -745,10 +752,12 @@ class PromptBase(DatasetBase):
     def __str__(self):
         return str(self.id)
 
+
 class PromptAnswer(DatasetBase):
     """
     Dataset for storing prompt response data
     """
+
     prompt = models.TextField(
         verbose_name="prompt",
         null=True,
@@ -765,7 +774,7 @@ class PromptAnswer(DatasetBase):
         verbose_name="model",
         max_length=16,
         help_text=("Model of the response"),
-        choices=LLM_CHOICES
+        choices=LLM_CHOICES,
     )
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
@@ -773,11 +782,13 @@ class PromptAnswer(DatasetBase):
 
     def __str__(self):
         return str(self.id)
-    
+
+
 class PromptAnswerEvaluation(DatasetBase):
     """
     Dataset for storing prompt response evaluation data
     """
+
     model_output_id = models.ForeignKey(
         PromptAnswer, on_delete=models.CASCADE, null=True, blank=True
     )
