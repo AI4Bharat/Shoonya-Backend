@@ -6,9 +6,10 @@ from users.models import User
 NOTIF_TYPES = (
     ("publish_project", "Publish Project"),
     ("task_reject", "Task Reject"),
-    ("new_member", "New Member added to the Project"),
-    ("remove_user", "Remove user from the Project"),
+    ("add_member", "New Member added to the Project"),
+    ("remove_member", "Remove user from the Project"),
     ("task_update", "Task Update"),
+    ("project_update", "Project Update"),
 )
 
 
