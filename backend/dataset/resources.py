@@ -101,6 +101,7 @@ class SpeechConversationResource(ModelResource, ResourceMixin):
         skip_diff = True
         force_init_instance = True
 
+
 class PromptBaseResource(ModelResource, ResourceMixin):
     """
     Import/Export Resource for PromptBase
@@ -113,6 +114,7 @@ class PromptBaseResource(ModelResource, ResourceMixin):
         clean_model_instances = True
         skip_diff = True
         force_init_instance = True
+
 
 class PromptAnswerResource(ModelResource, ResourceMixin):
     """
@@ -127,6 +129,7 @@ class PromptAnswerResource(ModelResource, ResourceMixin):
         skip_diff = True
         force_init_instance = True
 
+
 class PromptAnswerEvaluationResource(ModelResource, ResourceMixin):
     """
     Import/Export Resource for PromptAnswerEvaluation
@@ -139,6 +142,7 @@ class PromptAnswerEvaluationResource(ModelResource, ResourceMixin):
         clean_model_instances = True
         skip_diff = True
         force_init_instance = True
+
 
 # Define a mapping between dataset instance type and resource
 RESOURCE_MAP = {

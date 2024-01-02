@@ -38,11 +38,14 @@ class ConversationAdmin(ImportExportActionModelAdmin):
 class SpeechConversationAdmin(ImportExportActionModelAdmin):
     resource_class = SpeechConversationResource
 
+
 class PromptBaseAdmin(ImportExportActionModelAdmin):
     resource_class = PromptBaseResource
 
+
 class PromptAnswerAdmin(ImportExportActionModelAdmin):
     resource_class = PromptAnswerResource
+
 
 class PromptAnswerEvaluationAdmin(ImportExportActionModelAdmin):
     resource_class = PromptAnswerEvaluationResource

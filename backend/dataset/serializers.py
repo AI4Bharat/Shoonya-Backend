@@ -102,7 +102,8 @@ class SpeechConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = SpeechConversation
         fields = "__all__"
-    
+
+
 class PromptBaseSerializer(serializers.ModelSerializer):
     """
     Serializer for Prompt Base
@@ -112,6 +113,7 @@ class PromptBaseSerializer(serializers.ModelSerializer):
         model = PromptBase
         fields = "__all__"
 
+
 class PromptAnswerSerializer(serializers.ModelSerializer):
     """
     Serializer for Prompt Answer
@@ -120,6 +122,7 @@ class PromptAnswerSerializer(serializers.ModelSerializer):
     class Meta:
         model = PromptAnswer
         fields = "__all__"
+
 
 class PromptAnswerEvaluationSerializer(serializers.ModelSerializer):
     """
