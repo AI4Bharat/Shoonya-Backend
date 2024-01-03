@@ -1,7 +1,6 @@
 from projects.registry_helper import ProjectRegistry
 from dataset import models as dataset_models
 from users.utils import generate_random_string
-from dataset.models import SpeechConversation
 
 ANNOTATION_REGISTRY_DICT = {
     "MonolingualTranslation": {

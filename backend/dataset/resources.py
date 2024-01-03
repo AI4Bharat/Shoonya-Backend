@@ -102,6 +102,48 @@ class SpeechConversationResource(ModelResource, ResourceMixin):
         force_init_instance = True
 
 
+class PromptBaseResource(ModelResource, ResourceMixin):
+    """
+    Import/Export Resource for PromptBase
+    """
+
+    class Meta:
+        import_id_fields = ("id",)
+        exclude = ("datasetbase_ptr",)
+        model = PromptBase
+        clean_model_instances = True
+        skip_diff = True
+        force_init_instance = True
+
+
+class PromptAnswerResource(ModelResource, ResourceMixin):
+    """
+    Import/Export Resource for PromptAnswer
+    """
+
+    class Meta:
+        import_id_fields = ("id",)
+        exclude = ("datasetbase_ptr",)
+        model = PromptAnswer
+        clean_model_instances = True
+        skip_diff = True
+        force_init_instance = True
+
+
+class PromptAnswerEvaluationResource(ModelResource, ResourceMixin):
+    """
+    Import/Export Resource for PromptAnswerEvaluation
+    """
+
+    class Meta:
+        import_id_fields = ("id",)
+        exclude = ("datasetbase_ptr",)
+        model = PromptAnswerEvaluation
+        clean_model_instances = True
+        skip_diff = True
+        force_init_instance = True
+
+
 # Define a mapping between dataset instance type and resource
 RESOURCE_MAP = {
     "TranslationPair": TranslationPairResource,
@@ -110,4 +152,7 @@ RESOURCE_MAP = {
     "BlockText": BlockTextResource,
     "Conversation": ConversationResource,
     "SpeechConversation": SpeechConversationResource,
+    "PromptBase": PromptBaseResource,
+    "PromptAnswer": PromptAnswerResource,
+    "PromptAnswerEvaluation": PromptAnswerEvaluationResource,
 }

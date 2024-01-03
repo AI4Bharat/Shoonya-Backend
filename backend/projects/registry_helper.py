@@ -46,14 +46,6 @@ class ProjectRegistry:
                     project_key not in self.project_types
                 ), f"Project-type: `{project_key}` seems to be defined more than once"
 
-                # Cache additional details
-                if project_type["project_mode"] == "Annotation":
-                    label_studio_jsx_path = os.path.join(
-                        LABEL_STUDIO_JSX_PATH, project_type["label_studio_jsx_file"]
-                    )
-                    with open(label_studio_jsx_path) as f:
-                        project_type["label_studio_jsx_payload"] = f.read()
-
                 project_type["domain"] = domain_name
 
                 self.project_types[project_key] = project_type
@@ -174,34 +166,30 @@ class ProjectRegistry:
 
         for domain in self.data.keys():
             for project_key, project_type in self.data[domain]["project_types"].items():
-                assert project_type["project_mode"] in {"Collection", "Annotation"}
+                assert (
+                    project_type["input_dataset"]["class"] in model_list
+                ), f'Input Dataset "{project_type["input_dataset"]["class"]}" does not exist.'
+                assert (
+                    project_type["output_dataset"]["class"] in model_list
+                ), f'Output Dataset "{project_type["output_dataset"]["class"]}" does not exist.'
 
-                # Check if dataset classes are valid
-                if project_type["project_mode"] == "Annotation":
+                # Get all members inside the respective classes
+                input_model_fields = dir(
+                    getattr(models, project_type["input_dataset"]["class"])
+                )
+
+                # Check if input fields are present in the input dataset type
+                input_dataset = project_type["input_dataset"]
+                for field in input_dataset["fields"]:
                     assert (
-                        project_type["input_dataset"]["class"] in model_list
-                    ), f'Input Dataset "{project_type["input_dataset"]["class"]}" does not exist.'
+                        field in input_model_fields
+                    ), f'Field "{field}" not present in Input Dataset "{input_dataset["class"]}"'
+
+                # Check if prediction key is correctly mapped
+                if "prediction" in input_dataset:
                     assert (
-                        project_type["output_dataset"]["class"] in model_list
-                    ), f'Output Dataset "{project_type["output_dataset"]["class"]}" does not exist.'
-
-                    # Get all members inside the respective classes
-                    input_model_fields = dir(
-                        getattr(models, project_type["input_dataset"]["class"])
-                    )
-
-                    # Check if input fields are present in the input dataset type
-                    input_dataset = project_type["input_dataset"]
-                    for field in input_dataset["fields"]:
-                        assert (
-                            field in input_model_fields
-                        ), f'Field "{field}" not present in Input Dataset "{input_dataset["class"]}"'
-
-                    # Check if prediction key is correctly mapped
-                    if "prediction" in input_dataset:
-                        assert (
-                            input_dataset["prediction"] in input_model_fields
-                        ), f'Field "{input_dataset["prediction"]}" not present in Input Dataset "{input_dataset["class"]}"'
+                        input_dataset["prediction"] in input_model_fields
+                    ), f'Field "{input_dataset["prediction"]}" not present in Input Dataset "{input_dataset["class"]}"'
 
                 output_model_fields = dir(
                     getattr(models, project_type["output_dataset"]["class"])
@@ -232,24 +220,15 @@ class ProjectRegistry:
                             output_field in output_model_fields
                         ), f'copy_from_input field "{output_field}" not present in Output Dataset "{output_dataset["class"]}"'
 
-                if project_type["project_mode"] == "Annotation":
-                    # Check if the designed frontend UI is proper
-                    ui_input_fields = []
-                    if output_dataset["save_type"] == "in_place":
-                        ui_input_fields = input_dataset["fields"]
-                    elif output_dataset["save_type"] == "new_record":
-                        ui_input_fields = list(
-                            output_dataset["fields"]["copy_from_input"].values()
-                        )
-                    if "variable_parameters" in output_dataset["fields"]:
-                        ui_input_fields += output_dataset["fields"][
-                            "variable_parameters"
-                        ]
-
-                    self.check_jsx_file_integrity(
-                        project_type["label_studio_jsx_file"],
-                        input_fields=ui_input_fields,
-                        output_fields=output_dataset["fields"]["annotations"],
+                # Check if the designed frontend UI is proper
+                ui_input_fields = []
+                if output_dataset["save_type"] == "in_place":
+                    ui_input_fields = input_dataset["fields"]
+                elif output_dataset["save_type"] == "new_record":
+                    ui_input_fields = list(
+                        output_dataset["fields"]["copy_from_input"].values()
                     )
+                if "variable_parameters" in output_dataset["fields"]:
+                    ui_input_fields += output_dataset["fields"]["variable_parameters"]
 
         return True
