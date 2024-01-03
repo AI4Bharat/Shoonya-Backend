@@ -6,6 +6,7 @@ from .views import (
     UserViewSet,
     AnalyticsViewSet,
     AuthViewSet,
+    GoogleLogin,
 )
 
 
@@ -23,6 +24,11 @@ router.register(r"auth", AuthViewSet, basename="Authanalytics")
 urlpatterns = [
     path("", include(router.urls)),
     path("auth/jwt/create", AuthViewSet.as_view({"post": "login"}), name="login"),
+    path(
+        "auth/googleLogin",
+        GoogleLogin.as_view({"post": "google_login"}),
+        name="google_login",
+    ),
     path(
         "auth/reset_password",
         AuthViewSet.as_view({"post": "reset_password"}),

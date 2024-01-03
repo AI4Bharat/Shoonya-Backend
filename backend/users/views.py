@@ -58,9 +58,21 @@ from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
+import pyrebase
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 load_dotenv()
+
+config = {
+    "apiKey": os.getenv("API_KEY"),
+    "authDomain": os.getenv("AUTH_DOMAIN"),
+    "projectId": os.getenv("PROJECT_ID"),
+    "storageBucket": os.getenv("STORAGE_BUCKET"),
+    "messagingSenderId": os.getenv("MSG_SENDER_ID"),
+    "appId": os.getenv("APP_ID"),
+    "measurementId": os.getenv("MEASUREMENT_ID"),
+    "databaseURL": "",
+}
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -262,10 +274,25 @@ class InviteViewSet(viewsets.ViewSet):
                 {"message": "Invite not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        serialized = UserSignUpSerializer(user, request.data, partial=True)
+        try:
+            firebase = pyrebase.initialize_app(config)
+            auth = firebase.auth()
+            auth.create_user_with_email_and_password(
+                email, request.data.get("password")
+            )
+            serialized = UserSignUpSerializer(user, request.data, partial=True)
+        except:
+            return Response(
+                {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class AuthViewSet(viewsets.ViewSet):
@@ -308,23 +335,101 @@ class AuthViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        serializer = UserLoginSerializer(user, request.data)
-        serializer.is_valid(raise_exception=True)
-
-        response = serializer.validate_login(serializer.validated_data)
-        if response != "Correct password":
-            return Response(
-                {"message": "Incorrect Password."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
         if not user.is_active:
             return Response(
                 {"message": "User is inactive."}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-        refresh_token = str(refresh)
+        # serializer = UserLoginSerializer(user, request.data)
+        # serializer.is_valid(raise_exception=True)
+
+        # response = serializer.validate_login(serializer.validated_data)
+        # if response != "Correct password":
+        #     return Response(
+        #         {"message": "Incorrect Password."}, status=status.HTTP_400_BAD_REQUEST
+        #     )
+
+        try:
+            firebase = pyrebase.initialize_app(config)
+            auth = firebase.auth()
+            fire_user = auth.sign_in_with_email_and_password(email, password)
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+        except:
+            return Response(
+                {"message": "Authentication failed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message": "Logged in successfully.",
+                "refresh": refresh_token,
+                "access": access_token,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class GoogleLogin(viewsets.ViewSet):
+    @permission_classes([AllowAny])
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="google_login",
+        url_name="google_login",
+    )
+    def google_login(self, request, *args, **kwargs):
+        """
+        Google login functionality
+        """
+
+        try:
+            token = request.data.get("token")
+            if token == "":
+                raise ValueError
+        except ValueError:
+            return Response(
+                {"message": "Please Send a Token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            firebase = pyrebase.initialize_app(config)
+            auth = firebase.auth()
+            fire_user = auth.get_account_info(token)
+            email = fire_user["users"][0]["email"]
+        except:
+            return Response(
+                {"message": "Authentication failed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(email=email)
+        except:
+            user = User(
+                username=str(email).split("@")[0],
+                email=email.lower(),
+                role=1,
+            )
+            # user.set_password("googleLogin"+generate_random_string(20))
+            user.set_password("googleLogin" + email)
+            users = []
+            users.append(user)
+            User.objects.bulk_create(users)
+            user = User.objects.get(email=email)
+
+        try:
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+        except:
+            return Response(
+                {"message": "Token generation failed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(
             {
