@@ -1462,32 +1462,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.save()
 
             # Creating Notification
-            try:
-                serializer = ProjectUsersSerializer(project, many=False)
-                annotators = serializer.data["annotators"]
-                reviewers = serializer.data["annotation_reviewers"]
-                super_checkers = serializer.data["review_supercheckers"]
-                title = f"{project.title}:{project.id} Some annotators have been removed from this project"
-                notification_type = "remove_member"
-                annotators_ids = [a.get("id") for a in annotators]
-                reviewers_ids = [r.get("id") for r in reviewers]
-                super_checkers_ids = [s.get("id") for s in super_checkers]
-                project_workspace = project.workspace_id
-                project_workspace_managers = project_workspace.managers.all()
-                project_workspace_managers_ids = [
-                    p.id for p in project_workspace_managers
-                ]
-                removed_ids = ids
-                users_ids = (
-                    annotators_ids
-                    + reviewers_ids
-                    + super_checkers_ids
-                    + project_workspace_managers_ids
-                    + removed_ids
-                )
-                createNotification(title, notification_type, list(set(users_ids)))
-            except Exception as e:
-                print("Error while creating notification")
+            title = f"{project.title}:{project.id} Some annotators have been removed from this project"
+            notification_type = "remove_member"
+            create_project_notifications(project, title, notification_type, ids)
 
             return Response(
                 {"message": "User removed from project"},
@@ -1567,32 +1544,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.save()
 
             # Creating Notification
-            try:
-                serializer = ProjectUsersSerializer(project, many=False)
-                annotators = serializer.data["annotators"]
-                reviewers = serializer.data["annotation_reviewers"]
-                super_checkers = serializer.data["review_supercheckers"]
-                title = f"{project.title}:{project.id} Some reviewers have been removed from this project"
-                notification_type = "remove_member"
-                annotators_ids = [a.get("id") for a in annotators]
-                reviewers_ids = [r.get("id") for r in reviewers]
-                super_checkers_ids = [s.get("id") for s in super_checkers]
-                project_workspace = project.workspace_id
-                project_workspace_managers = project_workspace.managers.all()
-                project_workspace_managers_ids = [
-                    p.id for p in project_workspace_managers
-                ]
-                removed_ids = ids
-                users_ids = (
-                    annotators_ids
-                    + reviewers_ids
-                    + super_checkers_ids
-                    + project_workspace_managers_ids
-                    + removed_ids
-                )
-                createNotification(title, notification_type, list(set(users_ids)))
-            except Exception as e:
-                print("Error while creating notification")
+            title = f"{project.title}:{project.id} Some reviewers have been removed from this project"
+            notification_type = "remove_member"
+            create_project_notifications(project, title, notification_type, ids)
+
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
             )
@@ -1660,32 +1615,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     project.frozen_users.add(user)
                 project.save()
             # Creating Notification
-            try:
-                serializer = ProjectUsersSerializer(project, many=False)
-                annotators = serializer.data["annotators"]
-                reviewers = serializer.data["annotation_reviewers"]
-                super_checkers = serializer.data["review_supercheckers"]
-                title = f"{project.title}:{project.id} Some supercheckers have been removed from this project"
-                notification_type = "remove_member"
-                annotators_ids = [a.get("id") for a in annotators]
-                reviewers_ids = [r.get("id") for r in reviewers]
-                super_checkers_ids = [s.get("id") for s in super_checkers]
-                project_workspace = project.workspace_id
-                project_workspace_managers = project_workspace.managers.all()
-                project_workspace_managers_ids = [
-                    p.id for p in project_workspace_managers
-                ]
-                removed_ids = ids
-                users_ids = (
-                    annotators_ids
-                    + reviewers_ids
-                    + super_checkers_ids
-                    + project_workspace_managers_ids
-                    + removed_ids
-                )
-                createNotification(title, notification_type, list(set(users_ids)))
-            except Exception as e:
-                print("Error while creating notification")
+            title = f"{project.title}:{project.id} Some supercheckers have been removed from this project"
+            notification_type = "remove_member"
+            create_project_notifications(project, title, notification_type, ids)
+
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
             )
@@ -2037,31 +1970,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Update project details
         """
-        try:
-            project = Project.objects.get(pk=pk)
-            serializer = ProjectUsersSerializer(project, many=False)
-            annotators = serializer.data["annotators"]
-            reviewers = serializer.data["annotation_reviewers"]
-            super_checkers = serializer.data["review_supercheckers"]
-
-            # creating notifications
-            title = f"{project.title}:{project.id} Project has been updated"
-            notification_type = "project_update"
-            annotators_ids = [a.get("id") for a in annotators]
-            reviewers_ids = [r.get("id") for r in reviewers]
-            super_checkers_ids = [s.get("id") for s in super_checkers]
-            project_workspace = project.workspace_id
-            project_workspace_managers = project_workspace.managers.all()
-            project_workspace_managers_ids = [p.id for p in project_workspace_managers]
-            users_ids = (
-                annotators_ids
-                + reviewers_ids
-                + super_checkers_ids
-                + project_workspace_managers_ids
-            )
-            createNotification(title, notification_type, list(set(users_ids)))
-        except Exception as e:
-            print("Error while creating a notification")
+        # creating notifications
+        project = Project.objects.get(pk=pk)
+        title = f"{project.title}:{project.id} Project has been updated"
+        notification_type = "project_update"
+        create_project_notifications(project, title, notification_type, [])
         return super().update(request, *args, **kwargs)
 
     @is_project_editor
@@ -3500,30 +3413,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.save()
 
             # Creating Notification
-            try:
-                serializer = ProjectUsersSerializer(project, many=False)
-                annotators = serializer.data["annotators"]
-                reviewers = serializer.data["annotation_reviewers"]
-                super_checkers = serializer.data["review_supercheckers"]
-                title = f"{project.title}:{project.id} New annotators have been added to the project"
-                notification_type = "add_member"
-                annotators_ids = [a.get("id") for a in annotators]
-                reviewers_ids = [r.get("id") for r in reviewers]
-                super_checkers_ids = [s.get("id") for s in super_checkers]
-                project_workspace = project.workspace_id
-                project_workspace_managers = project_workspace.managers.all()
-                project_workspace_managers_ids = [
-                    p.id for p in project_workspace_managers
-                ]
-                users_ids = (
-                    annotators_ids
-                    + reviewers_ids
-                    + super_checkers_ids
-                    + project_workspace_managers_ids
-                )
-                createNotification(title, notification_type, list(set(users_ids)))
-            except Exception as e:
-                print("Error while creating notification")
+            title = f"{project.title}:{project.id} New annotators have been added to the project"
+            notification_type = "add_member"
+            create_project_notifications(project, title, notification_type, [])
 
             return Response(
                 {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
@@ -3578,30 +3470,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.save()
 
             # Creating Notification
-            try:
-                serializer = ProjectUsersSerializer(project, many=False)
-                annotators = serializer.data["annotators"]
-                reviewers = serializer.data["annotation_reviewers"]
-                super_checkers = serializer.data["review_supercheckers"]
-                title = f"{project.title}:{project.id} New reviewers have been added to project"
-                notification_type = "add_member"
-                annotators_ids = [a.get("id") for a in annotators]
-                reviewers_ids = [r.get("id") for r in reviewers]
-                super_checkers_ids = [s.get("id") for s in super_checkers]
-                project_workspace = project.workspace_id
-                project_workspace_managers = project_workspace.managers.all()
-                project_workspace_managers_ids = [
-                    p.id for p in project_workspace_managers
-                ]
-                users_ids = (
-                    annotators_ids
-                    + reviewers_ids
-                    + super_checkers_ids
-                    + project_workspace_managers_ids
-                )
-                createNotification(title, notification_type, list(set(users_ids)))
-            except Exception as e:
-                print("Error while creating notification")
+            title = (
+                f"{project.title}:{project.id} New reviewers have been added to project"
+            )
+            notification_type = "add_member"
+            create_project_notifications(project, title, notification_type, [])
 
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
@@ -3654,30 +3527,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.save()
 
             # Creating Notification
-            try:
-                serializer = ProjectUsersSerializer(project, many=False)
-                annotators = serializer.data["annotators"]
-                reviewers = serializer.data["annotation_reviewers"]
-                super_checkers = serializer.data["review_supercheckers"]
-                title = f"{project.title}:{project.id} New super checkers have been added to project"
-                notification_type = "add_member"
-                annotators_ids = [a.get("id") for a in annotators]
-                reviewers_ids = [r.get("id") for r in reviewers]
-                super_checkers_ids = [s.get("id") for s in super_checkers]
-                project_workspace = project.workspace_id
-                project_workspace_managers = project_workspace.managers.all()
-                project_workspace_managers_ids = [
-                    p.id for p in project_workspace_managers
-                ]
-                users_ids = (
-                    annotators_ids
-                    + reviewers_ids
-                    + super_checkers_ids
-                    + project_workspace_managers_ids
-                )
-                createNotification(title, notification_type, list(set(users_ids)))
-            except Exception as e:
-                print("Error while creating notification")
+            title = f"{project.title}:{project.id} New super checkers have been added to project"
+            notification_type = "add_member"
+            create_project_notifications(project, title, notification_type, [])
 
             return Response(
                 {"message": "SuperCheckers added"}, status=status.HTTP_200_OK
@@ -4507,3 +4359,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "language field of task data succesfully updated!"},
             status=status.HTTP_200_OK,
         )
+
+
+def create_project_notifications(project, title, notification_type, removed_ids):
+    try:
+        serializer = ProjectUsersSerializer(project, many=False)
+        annotators = serializer.data["annotators"]
+        reviewers = serializer.data["annotation_reviewers"]
+        super_checkers = serializer.data["review_supercheckers"]
+        annotators_ids = [a.get("id") for a in annotators]
+        reviewers_ids = [r.get("id") for r in reviewers]
+        super_checkers_ids = [s.get("id") for s in super_checkers]
+        project_workspace = project.workspace_id
+        project_workspace_managers = project_workspace.managers.all()
+        project_workspace_managers_ids = [p.id for p in project_workspace_managers]
+        users_ids = (
+            annotators_ids
+            + reviewers_ids
+            + super_checkers_ids
+            + project_workspace_managers_ids
+            + removed_ids
+        )
+        createNotification(title, notification_type, list(set(users_ids)))
+    except Exception as e:
+        print(f"Error while creating notification for Project_id- {project.id}")
