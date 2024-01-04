@@ -18,6 +18,8 @@ DATASET_TYPE_CHOICES = [
     ("PromptBase", "PromptBase"),
     ("PromptAnswer", "PromptAnswer"),
     ("PromptAnswerEvaluation", "PromptAnswerEvaluation"),
+    ("Interaction", "Interaction"),
+    ("Instruction", "Instruction"),
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
@@ -641,7 +643,7 @@ D10 = TranslationPair
 #     duration = models.TimeField()
 
 
-class Instructions(DatasetBase):
+class Instruction(DatasetBase):
     """
     Subclass model for Instructions
     """
@@ -688,7 +690,7 @@ class Instructions(DatasetBase):
         blank=True,
         help_text="Language of the instruction",
     )
-    instruction = models.TextField(verbose_name="Instruction")
+    instruction_data = models.TextField(verbose_name="Instruction_data")
     examples = models.TextField(verbose_name="Examples")
     hint = models.TextField(verbose_name="Hint")
 
@@ -696,13 +698,13 @@ class Instructions(DatasetBase):
         return f"{self.id} - {self.instruction}"
 
 
-class Interactions(DatasetBase):
+class Interaction(DatasetBase):
     """
     Subclass model for Interactions
     """
 
     instruction_id = models.ForeignKey(
-        Instructions,
+        Instruction,
         on_delete=models.CASCADE,
         verbose_name="Instruction ID",
         help_text="ID of the related instruction",
@@ -743,7 +745,7 @@ class PromptBase(DatasetBase):
         help_text=("Prompt of the conversation"),
     )
     instruction_id = models.ForeignKey(
-        Instructions, on_delete=models.CASCADE, null=True, blank=True
+        Instruction, on_delete=models.CASCADE, null=True, blank=True
     )
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15

@@ -51,6 +51,16 @@ class PromptAnswerEvaluationAdmin(ImportExportActionModelAdmin):
     resource_class = PromptAnswerEvaluationResource
 
 
+# Custom admin class for Instructions model
+class InstructionsAdmin(ImportExportActionModelAdmin):
+    resource_class = InstructionsResource
+
+
+# Custom admin class for Interactions model
+class InteractionsAdmin(ImportExportActionModelAdmin):
+    resource_class = InteractionsResource
+
+
 admin.site.register(SentenceText, SentenceTextAdmin)
 admin.site.register(TranslationPair, TranslationPairAdmin)
 admin.site.register(OCRDocument, OCRDocumentAdmin)
@@ -60,3 +70,5 @@ admin.site.register(SpeechConversation, SpeechConversationAdmin)
 admin.site.register(PromptBase, PromptBaseAdmin)
 admin.site.register(PromptAnswer, PromptAnswerAdmin)
 admin.site.register(PromptAnswerEvaluation, PromptAnswerEvaluationAdmin)
+admin.site.register(Instruction, InstructionsAdmin)
+admin.site.register(Interaction, InteractionsAdmin)
