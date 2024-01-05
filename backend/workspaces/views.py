@@ -1679,22 +1679,20 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         rew_raw_aud_dur += convert_hours_to_seconds(
                             dat["rew_raw_aud_duration"]
                         )
-                        ann_audio_word_cnt+=ann_audio_word_count,
-                        rev_audio_word_cnt+=rev_audio_word_count,
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                    ):
+                        ann_audio_word_cnt += dat["ann_audio_word_count"]
+                        rev_audio_word_cnt += dat["rev_audio_word_count"]
+                    elif project_type in get_translation_dataset_project_types():
                         ann_word_count += dat["ann_cumulative_word_count"]
                         rew_word_count += dat["rew_cumulative_word_count"]
-                    
+
                     elif (
                         "ConversationTranslation" in project_type
                         or "ConversationTranslationEditing" in project_type
                         or "ContextualTranslationEditing" in project_type
                     ):
                         if "ContextualTranslationEditing" not in project_type:
-                            ann_sentance_count+= dat["total_ann_sentance_count"]
-                            rev_sentance_count+= dat["total_rev_sentance_count"]
+                            ann_sentance_count += dat["total_ann_sentance_count"]
+                            rev_sentance_count += dat["total_rev_sentance_count"]
                             ann_word_count += dat["ann_cumulative_word_count"]
                             rew_word_count += dat["rew_cumulative_word_count"]
                         else:
@@ -1728,9 +1726,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             "rev_audio_word_count": rev_audio_word_cnt,
                         }
 
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                    ):
+                    elif project_type in get_translation_dataset_project_types():
                         other_language = {
                             "language": "Others",
                             "ann_cumulative_word_count": ann_word_count,
@@ -1746,8 +1742,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                 "language": "Others",
                                 "ann_cumulative_word_count": ann_word_count,
                                 "rew_cumulative_word_count": rew_word_count,
-                                "total_ann_sentance_count" : ann_sentance_count,
-                                "total_rev_sentance_count" : rev_sentance_count
+                                "total_ann_sentance_count": ann_sentance_count,
+                                "total_rev_sentance_count": rev_sentance_count,
                             }
                         else:
                             other_language = {
