@@ -105,9 +105,13 @@ def is_org_owner(f):
     def wrapper(self, request, pk, *args, **kwargs):
         project = Project.objects.get(pk=pk)
         if (
-            request.user.role == User.ORGANIZATION_OWNER
-            and request.user.organization == project.organization_id
-        ) or request.user.role == User.ADMIN:
+            (
+                request.user.role == User.ORGANIZATION_OWNER
+                and request.user.organization == project.organization_id
+            )
+            or request.user.role == User.ADMIN
+            or request.user.is_superuser
+        ):
             return f(self, request, pk, *args, **kwargs)
         return Response(PERMISSION_ERROR, status=status.HTTP_403_FORBIDDEN)
 
