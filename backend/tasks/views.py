@@ -210,8 +210,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_type=ANNOTATOR_ANNOTATION,
                         )
                         if (
-                            ann_status[0] == "labeled"
-                            and "rejected" in request.query_params
+                            "rejected" in request.query_params
                             and request.query_params["rejected"] == "True"
                         ):
                             tasks = Task.objects.filter(
@@ -270,8 +269,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     completed_by=user_id,
                 )
                 if (
-                    ann_status[0] == "labeled"
-                    and "rejected" in request.query_params
+                    "rejected" in request.query_params
                     and request.query_params["rejected"] == "True"
                 ):
                     tasks = Task.objects.filter(
@@ -368,12 +366,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_type=REVIEWER_ANNOTATION,
                         )
                         if (
-                            (
-                                "accepted" in rew_status
-                                or "accepted_with_minor_changes" in rew_status
-                                or "accepted_with_major_changes" in rew_status
-                            )
-                            and "rejected" in request.query_params
+                            "rejected" in request.query_params
                             and request.query_params["rejected"] == "True"
                         ):
                             tasks = Task.objects.filter(
@@ -435,12 +428,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     completed_by=user_id,
                 )
                 if (
-                    (
-                        "accepted" in rew_status
-                        or "accepted_with_minor_changes" in rew_status
-                        or "accepted_with_major_changes" in rew_status
-                    )
-                    and "rejected" in request.query_params
+                    "rejected" in request.query_params
                     and request.query_params["rejected"] == "True"
                 ):
                     tasks = Task.objects.filter(
