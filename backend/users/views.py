@@ -50,6 +50,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     ocr_word_count,
 )
+from utils.date_time_conversions import ist_to_utc
 from datetime import datetime
 import calendar
 from django.conf import settings
@@ -851,6 +852,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
         start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M")
         end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M")
+
+        start_date = ist_to_utc(start_date, "%Y-%m-%d %H:%M")
+        end_date = ist_to_utc(end_date, "%Y-%m-%d %H:%M")
 
         if start_date > end_date:
             return Response(
