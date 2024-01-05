@@ -853,9 +853,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
         start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M")
         end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M")
 
-        start_date = ist_to_utc(start_date, "%Y-%m-%d %H:%M")
-        end_date = ist_to_utc(end_date, "%Y-%m-%d %H:%M")
-
         if start_date > end_date:
             return Response(
                 {"message": "'To' Date should be after 'From' Date"},
