@@ -2500,6 +2500,12 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             rew_word_count = 0
             ann_aud_dur = 0
             rew_aud_dur = 0
+            ann_raw_aud_dur = 0
+            rew_raw_aud_dur = 0
+            ann_audio_word_cnt = 0
+            rev_audio_word_cnt = 0
+            ann_sentance_count = 0
+            rev_sentance_count = 0
             for dat in other_lang:
                 if metainfo != True:
                     ann_task_count += dat["ann_cumulative_tasks_count"]
@@ -2512,12 +2518,32 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         rew_aud_dur += convert_hours_to_seconds(
                             dat["rew_cumulative_aud_duration"]
                         )
+                        ann_raw_aud_dur += convert_hours_to_seconds(
+                            dat["ann_raw_aud_duration"]
+                        )
+                        rew_raw_aud_dur += convert_hours_to_seconds(
+                            dat["rew_raw_aud_duration"]
+                        )
+                        ann_audio_word_cnt+=ann_audio_word_count,
+                        rev_audio_word_cnt+=rev_audio_word_count,
                     elif (
                         project_type in get_translation_dataset_project_types()
-                        or "ConversationTranslation" in project_type
                     ):
                         ann_word_count += dat["ann_cumulative_word_count"]
                         rew_word_count += dat["rew_cumulative_word_count"]
+                    elif (
+                        "ConversationTranslation" in project_type
+                        or "ConversationTranslationEditing" in project_type
+                        or "ContextualTranslationEditing" in project_type
+                    ):
+                        if "ContextualTranslationEditing" not in project_type:
+                            ann_sentance_count+= dat["total_ann_sentance_count"]
+                            rev_sentance_count+= dat["total_rev_sentance_count"]
+                            ann_word_count += dat["ann_cumulative_word_count"]
+                            rew_word_count += dat["rew_cumulative_word_count"]
+                        else:
+                            ann_word_count += dat["ann_cumulative_word_count"]
+                            rew_word_count += dat["rew_cumulative_word_count"]
 
             if len(other_lang) > 0:
                 if metainfo != True:
@@ -2536,17 +2562,43 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                             "rew_cumulative_aud_duration": convert_seconds_to_hours(
                                 rew_aud_dur
                             ),
+                            "ann_raw_aud_duration": convert_seconds_to_hours(
+                                ann_raw_aud_dur
+                            ),
+                            "rew_raw_aud_duration": convert_seconds_to_hours(
+                                rew_raw_aud_dur
+                            ),
+                            "ann_audio_word_count": ann_audio_word_cnt,
+                            "rev_audio_word_count": rev_audio_word_cnt,
                         }
 
                     elif (
                         project_type in get_translation_dataset_project_types()
-                        or "ConversationTranslation" in project_type
                     ):
                         other_language = {
                             "language": "Others",
                             "ann_cumulative_word_count": ann_word_count,
                             "rew_cumulative_word_count": rew_word_count,
                         }
+                    elif (
+                        "ConversationTranslation" in project_type
+                        or "ConversationTranslationEditing" in project_type
+                        or "ContextualTranslationEditing" in project_type
+                    ):
+                        if "ContextualTranslationEditing" not in project_type:
+                            other_language = {
+                                "language": "Others",
+                                "ann_cumulative_word_count": ann_word_count,
+                                "rew_cumulative_word_count": rew_word_count,
+                                "total_ann_sentance_count" : ann_sentance_count,
+                                "total_rev_sentance_count" : rev_sentance_count
+                            }
+                        else:
+                            other_language = {
+                                "language": "Others",
+                                "ann_cumulative_word_count": ann_word_count,
+                                "rew_cumulative_word_count": rew_word_count,
+                            }
 
                 general_lang.append(other_language)
             try:
