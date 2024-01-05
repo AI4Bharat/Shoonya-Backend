@@ -62,6 +62,7 @@ from .decorators import (
     is_project_editor,
     project_is_archived,
     project_is_published,
+    is_org_owner,
 )
 from .utils import (
     is_valid_date,
@@ -74,7 +75,6 @@ from .utils import (
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 
-from workspaces.decorators import is_particular_workspace_manager
 from users.utils import generate_random_string
 from notifications.views import createNotification
 import json
@@ -1992,7 +1992,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     # TODO : add exceptions
     @action(detail=True, methods=["POST", "GET"], name="Archive Project")
-    @is_project_editor
+    @is_org_owner
     def archive(self, request, pk=None, *args, **kwargs):
         """
         Archive a published project
@@ -3775,7 +3775,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
-    @is_project_editor
+    @is_org_owner
     def pull_new_items(self, request, pk=None, *args, **kwargs):
         """
         Pull New Data Items to the Project
@@ -3843,7 +3843,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(ret_dict, status=ret_status)
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
-    @is_project_editor
+    @is_org_owner
     def download(self, request, pk=None, *args, **kwargs):
         """
         Download a project
@@ -4066,7 +4066,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["POST", "GET"], name="Export Project")
     @project_is_archived
-    @is_project_editor
+    @is_org_owner
     def project_export(self, request, pk=None, *args, **kwargs):
         """
         Export a project

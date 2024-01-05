@@ -1,6 +1,4 @@
 from datetime import timezone
-from locale import normalize
-from urllib.parse import unquote
 import ast
 
 from rest_framework import viewsets
@@ -11,7 +9,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 
-
+from projects.decorators import is_org_owner
 from tasks.models import *
 from tasks.serializers import (
     TaskSerializer,
@@ -197,6 +195,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             if exist_req_user:
                 user_id = int(req_user)
+            from projects.utils import get_audio_project_types
 
             if "annotation_status" in dict(request.query_params):
                 ann_status = request.query_params["annotation_status"]
@@ -244,6 +243,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["annotation_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
+                            if proj_objs[0].project_type in get_audio_project_types():
+                                data = tas["data"]
+                                del data["audio_url"]
+                                tas["data"] = data
                             ordered_tasks.append(tas)
                         if page_number is not None:
                             page_object = Paginator(ordered_tasks, records)
@@ -333,6 +336,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         except:
                             tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
+                    if proj_objs[0].project_type in get_audio_project_types():
+                        data = tas["data"]
+                        del data["audio_url"]
+                        tas["data"] = data
                     ordered_tasks.append(tas)
 
                 if page_number is not None:
@@ -400,6 +407,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["review_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
+                            if proj_objs[0].project_type in get_audio_project_types():
+                                data = tas["data"]
+                                del data["audio_url"]
+                                tas["data"] = data
                             ordered_tasks.append(tas)
 
                         if page_number is not None:
@@ -507,6 +518,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["review_status"] = task_obj["annotation_status"]
                     tas["user_mail"] = task_obj["user_mail"]
                     tas["annotator_mail"] = task_obj["parent_annotator_mail"]
+                    if proj_objs[0].project_type in get_audio_project_types():
+                        data = tas["data"]
+                        del data["audio_url"]
+                        tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if rew_status[0] in [
                             "draft",
@@ -605,6 +620,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["supercheck_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
+                            if proj_objs[0].project_type in get_audio_project_types():
+                                data = tas["data"]
+                                del data["audio_url"]
+                                tas["data"] = data
                             ordered_tasks.append(tas)
 
                         if page_number is not None:
@@ -682,6 +701,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["user_mail"] = task_obj["user_mail"]
                     tas["reviewer_mail"] = task_obj["reviewer_mail"]
                     tas["annotator_mail"] = task_obj["annotator_mail"]
+                    if proj_objs[0].project_type in get_audio_project_types():
+                        data = tas["data"]
+                        del data["audio_url"]
+                        tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if supercheck_status[0] in [
                             "draft",
@@ -930,6 +953,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         url_path="delete_project_tasks",
         url_name="delete_project_tasks",
     )
+    @is_org_owner
     def delete_project_tasks(self, request, pk=None):
         project = Project.objects.get(pk=pk)
         try:
