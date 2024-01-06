@@ -2524,8 +2524,8 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         rew_raw_aud_dur += convert_hours_to_seconds(
                             dat["rew_raw_aud_duration"]
                         )
-                        ann_word_count += dat["ann_cumulative_word_count"]
-                        rew_word_count += dat["rew_cumulative_word_count"]
+                        ann_audio_word_cnt += dat["ann_audio_word_count"]
+                        rev_audio_word_cnt += dat["rev_audio_word_count"]
                     elif project_type in get_translation_dataset_project_types():
                         ann_word_count += dat["ann_cumulative_word_count"]
                         rew_word_count += dat["rew_cumulative_word_count"]
