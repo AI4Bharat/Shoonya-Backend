@@ -1,27 +1,12 @@
 import os
-
 import numpy as np
 import json
 import ast
 import openai
 import requests
 
-from dataset.models import Instruction
-
-
-def get_response_from_gpt(prompt):
-    openai.api_key = os.getenv("LLM_CHECKS_OPENAI_API_KEY")
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=1,
-        max_tokens=256,
-        top_p=1,
-        frequency_penalty=0,
-        presence_penalty=0,
-    )
-
-    return response["choices"][0]["message"]["content"]
+from dataset.models import Interaction
+from tasks.models import Annotation
 
 
 def get_response_for_domain_and_intent(prompt):
@@ -157,69 +142,9 @@ def evaluate_prompt_alignment(prompt, target_domain, target_intent):
     return intent, domain, resp_dict["reason"]
 
 
-def prompt_check(prompt, user_language, instruction_id):
-    """
-    Check the validity of a given prompt based on language, intent, and domain specifications.
-
-    Parameters:
-    - prompt (str): The user's text input to be verified.
-    - user_language (str): The expected language of the user.
-    - instruction_id (int or str): The identifier for retrieving prompt specifications from a database.
-
-    Returns:
-    - int: A status code indicating the result of the check. If the prompt passes all checks, None is implicitly returned.
-    """
-
-    # Get the instruction dict from instruction database
-    result = Instruction.objects.filter(id=instruction_id)[0]
-    if len(result) == 0:
-        return False
-
-    intent = result.meta_info_intent
-    domain = result.meta_info_domain
-    lang_type = result.meta_info_language
-
-    # Get language information from the prompt
-    lang_check = prompt_lang_check(user_language, prompt, lang_type)
-
-    # If prompt doesnt follow the language then store in failed prompts database
-    if not lang_check:  # store_failed_prompt_in_db(instruction_id, prompt, "1")
-        pass
-    intent_check, domain_check, reason = evaluate_prompt_alignment(
-        prompt, domain, intent
-    )
-    print(f"intent :{intent_check}, domain {domain_check}")
-
-    if (
-        not intent_check and not domain_check
-    ):  # store_failed_prompt_in_db(instruction_id, prompt, reason)
-        pass
-    if not intent_check:  # store_failed_prompt_in_db(instruction_id, prompt, reason)
-        pass
-    if not domain_check:  # store_failed_prompt_in_db(instruction_id, prompt, reason)
-        pass
-    # If doesnt fail any checks then its a valid prompt, then save it in db
-    return True
-
-
-if __name__ == "__main__":
-    prompts = three_word_sentences = [
-        "The sun is shining",
-        "Birds are chirping happily",
-        "Life is full of surprises",
-        "Time flies when busy",
-        "Love conquers all obstacles",
-        "Never give up easily",
-        "Dreams become reality eventually",
-        "Hard work pays off",
-        "Learning is a journey",
-        "Success requires consistent effort",
-    ]
-
-    for prompt in prompts:
-        prompt = prompt.lower()
-        print(f"User prompt : {prompt}")
-        user_language = "hin"
-        instruction_id = 10000032
-        k = prompt_check(prompt, user_language, instruction_id)
-        print(f"prompt check {k}\n")
+def duplicate_check(annotation, prompt):
+    existingData = json.loads(annotation.result)
+    if prompt in existingData:
+        return False, "Duplicate prompt"
+    else:
+        return True, "Original prompt"

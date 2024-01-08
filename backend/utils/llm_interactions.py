@@ -45,12 +45,12 @@ import openai
 import requests
 
 
-def process_history_gpt(history):
+def process_history(history):
     messages = []
     for turn in history:
-        user_side = {"role": "user", "content": turn[0]}
+        user_side = {"role": "user", "content": turn["prompt"]}
         messages.append(user_side)
-        system_side = {"role": "assistant", "content": turn[1]}
+        system_side = {"role": "assistant", "content": turn["output"]}
         messages.append(system_side)
     return messages
 
@@ -62,7 +62,7 @@ def get_gpt4_output(prompt, history):
     openai.api_key = os.getenv("LLM_INTERACTIONS_OPENAI_API_KEY")
     engine = "prompt-chat-gpt4"
 
-    messages = process_history_gpt(history)
+    messages = process_history(history)
     messages.append({"role": "user", "content": prompt})
     response = openai.ChatCompletion.create(
         engine=engine,
@@ -85,7 +85,7 @@ def get_gpt3_output(prompt, history):
     openai.api_key = os.getenv("LLM_INTERACTIONS_OPENAI_API_KEY")
     engine = "prompt-chat-gpt35"
 
-    messages = process_history_gpt(history)
+    messages = process_history(history)
     messages.append({"role": "user", "content": prompt})
     response = openai.ChatCompletion.create(
         engine=engine,
@@ -101,30 +101,12 @@ def get_gpt3_output(prompt, history):
     return response["choices"][0]["message"]["content"].strip()
 
 
-def get_model_output(prompt, history, model="gpt3.5"):
-    # Assume that translation happens outside (and the prompt is already translated)
-    out = ""
-    if model == "gpt3.5":
-        out = get_gpt3_output(prompt, history)
-    elif model == "gpt4":
-        out = get_gpt4_output(prompt, history)
-    return out
-
-
-def process_chat_history(conv_history):
-    final_conversation_list = []
-    for tup in conv_history:
-        final_conversation_list.append({"role": "user", "content": tup[0]})
-        final_conversation_list.append({"role": "assistant", "content": tup[1]})
-    return final_conversation_list
-
-
-def call_llama2(system_prompt, conv_history, user_prompt):
+def get_llama2_output(system_prompt, conv_history, user_prompt):
     api_base = os.getenv("LLM_INTERACTION_LLAMA2_API_BASE")
     token = os.getenv("LLM_INTERACTION_LLAMA2_API_TOKEN")
     url = f"{api_base}/chat/completions"
 
-    history = process_chat_history(conv_history)
+    history = process_history(conv_history)
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_prompt})
@@ -138,5 +120,16 @@ def call_llama2(system_prompt, conv_history, user_prompt):
     }
     s = requests.Session()
     result = s.post(url, headers={"Authorization": f"Bearer {token}"}, json=body)
-    print(result.json())
     return result.json()["choices"][0]["message"]["content"].strip()
+
+
+def get_model_output(prompt, history, model="gpt3.5"):
+    # Assume that translation happens outside (and the prompt is already translated)
+    out = ""
+    if model == "gpt3.5":
+        out = get_gpt3_output(prompt, history)
+    elif model == "gpt4":
+        out = get_gpt4_output(prompt, history)
+    elif model == "llama2":
+        out = get_llama2_output("", history, prompt)
+    return out
