@@ -117,7 +117,6 @@ OCR:
             - ocr_transcribed_json
     OCRSegmentCategorization:
       project_mode: "Annotation"
-      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
       input_dataset:
         class: OCRDocument
         fields:
@@ -131,10 +130,9 @@ OCR:
         save_type: in_place
         fields:
           annotations:
-            - ocr_transcribed_json
+            - ocr_segment_category_json
     OCRSegmentCategorizationEditing:
       project_mode: "Annotation"
-      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
       input_dataset:
         class: OCRDocument
         fields:
@@ -149,7 +147,7 @@ OCR:
         save_type: in_place
         fields:
           annotations:
-            - ocr_transcribed_json
+            - ocr_segment_category_json
 Monolingual:
   description: "Monolingual Data Collection"
   project_types:
