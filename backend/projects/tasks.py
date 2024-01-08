@@ -578,24 +578,6 @@ def export_project_in_place(
                     setattr(data_item, field, ta_ocr_transcribed_json)
                 elif field == "ocr_segment_category_json":
                     ta_ocr_transcribed_json = []
-                    for d in ta:
-                        try:
-                            l = str(d["value"]["labels"][0])
-                            if "/" in l:
-                                temp = {
-                                    "value": {
-                                        "choices": [l.split("/")[1]],
-                                        "when_label_value": l.split("/")[0],
-                                    },
-                                    "id": d["id"],
-                                    "from_name": l.split("/")[0] + "_opts",
-                                    "to_name": "image_url",
-                                    "type": "choices",
-                                }
-                                ta.append(temp)
-                                d["value"]["labels"][0] = l.split("/")[0]
-                        except:
-                            1 == 1
                     for idx in range(len(json.loads(ta["annotation_bboxes"]))):
                         ta_ocr_transcribed_json.append(
                             json.loads(ta["annotation_labels"])[idx]
