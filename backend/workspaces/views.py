@@ -1629,8 +1629,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                         result = {
                             "language": lang,
-                            "ann_cumulative_aud_duration": total_anno_word_count,
-                            "rew_cumulative_aud_duration": total_rev_word_count,
+                            "ann_cumulative_tasks_count": total_anno_word_count,
+                            "rew_cumulative_tasks_count": total_rev_word_count,
                         }
 
                 else:
@@ -1698,6 +1698,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         else:
                             ann_word_count += dat["ann_cumulative_word_count"]
                             rew_word_count += dat["rew_cumulative_word_count"]
+                    elif "OCRTranscription" in project_type:
+                        ann_word_count += dat["ann_cumulative_tasks_count"]
+                        rew_word_count += dat["rew_cumulative_tasks_count"]
 
             if len(other_lang) > 0:
                 if metainfo != True:
@@ -1751,6 +1754,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                 "ann_cumulative_word_count": ann_word_count,
                                 "rew_cumulative_word_count": rew_word_count,
                             }
+                    elif "OCRTranscription" in project_type:
+                        other_language = {
+                            "language": "Others",
+                            "ann_cumulative_word_count": ann_word_count,
+                            "rew_cumulative_word_count": rew_word_count,
+                        }
 
                 general_lang.append(other_language)
             try:
@@ -1766,6 +1775,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     project_type in get_translation_dataset_project_types()
                     or "ConversationTranslation" in project_type
                 )
+                or "OCRTranscription" in project_type
             ):
                 pass
             else:
