@@ -891,7 +891,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
-    elif proj_type == "OCRTranscriptionEditing":
+    elif proj_type == "OCRTranscriptionEditing" or proj_type == "OCRSegmentCategorizationEditing":
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = (
             json.loads(data_item.ocr_prediction_json)
