@@ -1629,8 +1629,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                         result = {
                             "language": lang,
-                            "ann_cumulative_tasks_count": total_anno_word_count,
-                            "rew_cumulative_tasks_count": total_rev_word_count,
+                            "ann_ocr_cumulative_tasks_count": total_anno_word_count,
+                            "rew_ocr_cumulative_tasks_count": total_rev_word_count,
                         }
 
                 else:
@@ -1757,8 +1757,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     elif "OCRTranscription" in project_type:
                         other_language = {
                             "language": "Others",
-                            "ann_cumulative_word_count": ann_word_count,
-                            "rew_cumulative_word_count": rew_word_count,
+                            "ann_ocr_cumulative_word_count": ann_word_count,
+                            "rew_ocr_cumulative_word_count": rew_word_count,
                         }
 
                 general_lang.append(other_language)
