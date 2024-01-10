@@ -4037,13 +4037,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             "OCRSegmentCategorization",
                         ]:
                             task["data"][
-                                "ocr_seg_cat_json"
+                                "ocr_transcribed_json"
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result, None, dataset_type
                             )
                         else:
                             task["data"][
-                                "ocr_seg_cat_json"
+                                "ocr_transcribed_json"
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result, None, dataset_type
                             )
