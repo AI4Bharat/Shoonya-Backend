@@ -114,33 +114,47 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=gender_choices,
         max_length=1,
         blank=True,
+        help_text="User enters the Gender (Male/Female/Other)",
     )
-    date_of_birth = models.DateField(
-        verbose_name="date_of_birth",
-        null=True,
-        blank=True,
-    )
+
     address = models.TextField(
         verbose_name="address",
         blank=True,
+        help_text="User enters the street name and house number",
     )
 
     city = models.CharField(
         verbose_name="city",
         max_length=255,
         blank=True,
+        help_text="Indicates the city in which user resides",
     )
 
     state = models.CharField(
         verbose_name="state",
         max_length=255,
         blank=True,
+        help_text="Indicates the state in which user resides",
     )
 
     pin_code = models.CharField(
         verbose_name="Pin Code",
         max_length=10,
         blank=True,
+        help_text="Indicates the pincode of user",
+    )
+    age = models.CharField(
+        verbose_name="age",
+        max_length=3,
+        blank=True,
+        help_text="Indicates the age of user",
+    )
+
+    qualification = models.TextField(
+        verbose_name="qualification",
+        max_length=255,
+        blank=True,
+        help_text="Indicates the qualification /designation of user",
     )
     GUEST_USER_CHOICES = [
         (True, "Yes"),
@@ -193,6 +207,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=True,
         null=True,
         default=list,
+        help_text=(
+            "Indicates the language of the user"
+        ),
     )
     # languages = models.ManyToManyField(Language, related_name="user_languages", blank=True, help_text=("Languages known by the user."))
 
