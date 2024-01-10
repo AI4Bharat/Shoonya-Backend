@@ -130,7 +130,7 @@ OCR:
         save_type: in_place
         fields:
           annotations:
-            - ocr_seg_cat_json
+            - ocr_transcribed_json
     OCRSegmentCategorizationEditing:
       project_mode: "Annotation"
       input_dataset:
@@ -147,7 +147,7 @@ OCR:
         save_type: in_place
         fields:
           annotations:
-            - ocr_seg_cat_json
+            - ocr_transcribed_json
 Monolingual:
   description: "Monolingual Data Collection"
   project_types:
