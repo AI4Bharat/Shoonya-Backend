@@ -49,6 +49,12 @@ class Workspace(models.Model, DummyModelMixin):
 
     created_at = models.DateTimeField(verbose_name="created_at", auto_now_add=True)
 
+    guest_workspace = models.BooleanField(
+        verbose_name="guest_workspace",
+        default=False,
+        help_text=("Indicates if the workspace is for guest users."),
+    )
+
     public_analytics = models.BooleanField(
         verbose_name="public_analytics",
         default=True,
