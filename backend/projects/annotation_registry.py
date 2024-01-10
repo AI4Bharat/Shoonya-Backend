@@ -131,7 +131,7 @@ ANNOTATION_REGISTRY_DICT = {
         },
     },
     "OCRSegmentCategorization": {
-        "ocr_seg_cat_json": {
+        "ocr_transcribed_json": {
             "to_name": "image_url",
             "from_name": [
                 "annotation_bboxes",
@@ -142,7 +142,7 @@ ANNOTATION_REGISTRY_DICT = {
         },
     },
     "OCRSegmentCategorizationEditing": {
-        "ocr_seg_cat_json": {
+        "ocr_transcribed_json": {
             "to_name": "image_url",
             "from_name": [
                 "annotation_bboxes",
