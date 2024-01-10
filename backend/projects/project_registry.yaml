@@ -117,6 +117,7 @@ OCR:
             - ocr_transcribed_json
     OCRSegmentCategorization:
       project_mode: "Annotation"
+      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
       input_dataset:
         class: OCRDocument
         fields:
@@ -133,6 +134,7 @@ OCR:
             - ocr_transcribed_json
     OCRSegmentCategorizationEditing:
       project_mode: "Annotation"
+      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
       input_dataset:
         class: OCRDocument
         fields:
