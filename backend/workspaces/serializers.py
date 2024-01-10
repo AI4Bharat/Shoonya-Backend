@@ -11,6 +11,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
     created_by = UserProfileSerializer(read_only=True)
     users = UserProfileSerializer(read_only=True, many=True)
     frozen_users = UserProfileSerializer(read_only=True, many=True)
+    guest_workspace_display = serializers.SerializerMethodField()
 
     class Meta:
         model = Workspace
@@ -23,9 +24,18 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "created_by",
             "id",
             "created_at",
+            "guest_workspace_display",
             "frozen_users",
             "public_analytics",
         ]
+
+    """Return 'Yes' if guest_workspace is True, otherwise 'No'."""
+
+    def get_guest_workspace_display(self, obj):
+        if obj.guest_workspace:
+            return "Yes"
+        else:
+            return "No"
 
 
 class WorkspaceManagerSerializer(serializers.ModelSerializer):

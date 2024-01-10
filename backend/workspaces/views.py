@@ -198,6 +198,54 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    def list_guest_workspaces(self, request):
+        try:
+            # Filter workspaces where guest_workspace is True
+            guest_workspaces = Workspace.objects.filter(guest_workspace=True)
+            serializer = WorkspaceSerializer(guest_workspaces, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"message": "Error fetching guest workspaces."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    def enter_workspace(self, request, pk=None):
+        try:
+            # guest user added as a member and an annotator to all projects in a workspace
+            workspace = Workspace.objects.get(pk=pk)
+            if not workspace.guest_workspace:
+                return Response(
+                    {"message": "This is not a guest workspace."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if not request.user.guest_user:
+                return Response(
+                    {"message": "Only guest users can enter this workspace."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            workspace.members.add(request.user)
+            workspace.save()
+
+            projects = Project.objects.filter(workspace=workspace)
+            for project in projects:
+                project.annotators.add(request.user)
+                project.save()
+
+            return Response(
+                {
+                    "message": "User added to the workspace and projects as an annotator."
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Workspace.DoesNotExist:
+            return Response(
+                {"message": "Workspace not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
 
 class WorkspaceCustomViewSet(viewsets.ViewSet):
     @swagger_auto_schema(responses={200: UserProfileSerializer})
