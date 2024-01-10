@@ -1699,8 +1699,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             ann_word_count += dat["ann_cumulative_word_count"]
                             rew_word_count += dat["rew_cumulative_word_count"]
                     elif "OCRTranscription" in project_type:
-                        ann_word_count += dat["ann_cumulative_tasks_count"]
-                        rew_word_count += dat["rew_cumulative_tasks_count"]
+                        ann_word_count += dat["ann_ocr_cumulative_tasks_count"]
+                        rew_word_count += dat["rew_ocr_cumulative_tasks_count"]
 
             if len(other_lang) > 0:
                 if metainfo != True:
