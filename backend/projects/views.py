@@ -1083,6 +1083,11 @@ def convert_annotation_result_to_formatted_json(
                 continue
             formatted_result_dict = rectangle_dict["value"]
             try:
+                labels_split = []
+                if labels_dict["value"]["labels"].find("/"):
+                    labels_split = labels_dict["value"]["labels"].split("/")
+                if labels_split:
+                    labels_dict["value"]["labels"] = labels_split
                 formatted_result_dict["labels"] = labels_dict["value"]["labels"]
                 text_dict_json = json.loads(text_dict)
                 formatted_result_dict["text"] = (
@@ -4024,6 +4029,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         else:
                             task["data"][
                                 "ocr_prediction_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, None, dataset_type
+                            )
+                        if project_type in [
+                            "OCRSegmentCategorizationEditing",
+                            "OCRSegmentCategorization",
+                        ]:
+                            task["data"][
+                                "ocr_seg_cat_json"
+                            ] = convert_annotation_result_to_formatted_json(
+                                annotation_result, None, dataset_type
+                            )
+                        else:
+                            task["data"][
+                                "ocr_seg_cat_json"
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result, None, dataset_type
                             )
