@@ -44,6 +44,8 @@ Chat:
         class: Interaction
         save_type: new_record
         fields:
+          copy_from_input:
+            id: instruction_id
           annotations:
             - interactions_json
             - no_of_turns

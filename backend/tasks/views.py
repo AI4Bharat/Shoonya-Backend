@@ -1344,12 +1344,11 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        if len(request.data["result"]) > 0:
-                            annotation_obj.result = get_llm_output(
-                                request.data["result"],
-                                annotation_obj.task,
-                                annotation_obj,
-                            )
+                        annotation_obj.result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                        )
                     else:
                         annotation_obj.result = request.data["result"]
                 if "annotation_notes" in dict(request.data):
@@ -1407,12 +1406,11 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if len(request.data["result"]) > 0:
-                        request.data["result"] = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                        )
+                    request.data["result"] = get_llm_output(
+                        request.data["result"],
+                        annotation_obj.task,
+                        annotation_obj,
+                    )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -1473,12 +1471,11 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        if len(request.data["result"]) > 0:
-                            annotation_obj.result = get_llm_output(
-                                request.data["result"],
-                                annotation_obj.task,
-                                annotation_obj,
-                            )
+                        annotation_obj.result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                        )
                     else:
                         annotation_obj.result = request.data["result"]
                 if "review_notes" in dict(request.data):
@@ -1575,12 +1572,11 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if len(request.data["result"]) > 0:
-                        request.data["result"] = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                        )
+                    request.data["result"] = get_llm_output(
+                        request.data["result"],
+                        annotation_obj.task,
+                        annotation_obj,
+                    )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -1668,12 +1664,11 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        if len(request.data["result"]) > 0:
-                            annotation_obj.result = get_llm_output(
-                                request.data["result"],
-                                annotation_obj.task,
-                                annotation_obj,
-                            )
+                        annotation_obj.result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                        )
                     else:
                         annotation_obj.result = request.data["result"]
                 if "supercheck_notes" in dict(request.data):
@@ -1761,12 +1756,11 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if len(request.data["result"]) > 0:
-                        request.data["result"] = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                        )
+                    request.data["result"] = get_llm_output(
+                        request.data["result"],
+                        annotation_obj.task,
+                        annotation_obj,
+                    )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -2080,26 +2074,28 @@ class SentenceOperationViewSet(viewsets.ViewSet):
             )
 
 
-def get_llm_output(prompt, task, annotation):
-    ##############
-    user_language = "hin"
+def get_llm_output(prompt, task, annotation, complete_checking):
     # CHECKS
     intent = task["data"]["meta_info_intent"]
     domain = task["data"]["meta_info_domain"]
     lang_type = task["data"]["meta_info_language"]
-    if intent and domain:
-        intent_check, domain_check, reason = evaluate_prompt_alignment(
-            prompt, domain, intent
-        )
-    if user_language and lang_type:
-        lang_check = prompt_lang_check(user_language, prompt, lang_type)
-    dup_check, message = duplicate_check(annotation, prompt)
+    ann_result = json.loads(annotation.result)
+    if len(ann_result) == 0 and complete_checking:
+        if intent and domain:
+            intent_check, domain_check, reason = evaluate_prompt_alignment(
+                prompt, domain, intent
+            )
+    if lang_type:
+        lang_check = prompt_lang_check(prompt, lang_type)
+    if len(ann_result) >= 0:
+        dup_check, message = duplicate_check(ann_result, prompt)
 
     # GET MODEL OUTPUT
-    ##############
-    history = json.loads(annotation.result)
+    history = ann_result
     model = task["data"]["meta_info_model"]
     output = get_model_output(prompt, history, model)
-    existing_result = json.loads(annotation.result)
-    existing_result.append({"prompt": prompt, "output": output})
-    return existing_result
+    get_model_output(
+        "You are a very kind and helpful assistant!", prompt, history, model
+    )
+    ann_result.append({"prompt": prompt, "output": output})
+    return ann_result

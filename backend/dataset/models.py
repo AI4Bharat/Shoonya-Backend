@@ -117,6 +117,13 @@ LANGUAGE_CHOICES = [
     ("Urdu", "Urdu"),
 ]
 
+LANGUAGE_CHOICES_INSTRUCTIONS = (
+    ("1", "English(Any script)"),
+    ("2", "Indic(Indic script)"),
+    ("3", "Indic(Latin script)"),
+    ("4", "Indic/English(Latin script)"),
+)
+
 LLM_CHOICES = (("GPT3.5", "GPT3.5"), ("GPT4", "GPT4"), ("LLAMA2", "LLAMA2"))
 
 
@@ -684,7 +691,7 @@ class Instruction(DatasetBase):
     )
     meta_info_language = models.CharField(
         max_length=20,
-        choices=LANGUAGE_CHOICES,
+        choices=LANGUAGE_CHOICES_INSTRUCTIONS,
         verbose_name="Meta Info Language",
         null=True,
         blank=True,
@@ -695,7 +702,7 @@ class Instruction(DatasetBase):
     hint = models.TextField(verbose_name="Hint")
 
     def __str__(self):
-        return f"{self.id} - {self.instruction}"
+        return f"{self.id} - {self.instruction_data}"
 
 
 class Interaction(DatasetBase):

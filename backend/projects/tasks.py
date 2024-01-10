@@ -190,7 +190,8 @@ def create_tasks_from_dataitems(items, project):
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
 
         # Remove data id because it's not needed in task.data
-        del item["id"]
+        if "id" in item:
+            del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
         """
         if is_translation_project or dataset_type1 == "TranslationPair":

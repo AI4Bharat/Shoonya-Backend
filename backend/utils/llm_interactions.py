@@ -55,15 +55,18 @@ def process_history(history):
     return messages
 
 
-def get_gpt4_output(prompt, history):
+def get_gpt4_output(system_prompt, user_prompt, history):
     openai.api_type = os.getenv("LLM_INTERACTIONS_OPENAI_API_TYPE")
     openai.api_base = os.getenv("LLM_INTERACTIONS_OPENAI_API_BASE")
     openai.api_version = os.getenv("LLM_INTERACTIONS_OPENAI_API_VERSION")
     openai.api_key = os.getenv("LLM_INTERACTIONS_OPENAI_API_KEY")
     engine = "prompt-chat-gpt4"
 
-    messages = process_history(history)
-    messages.append({"role": "user", "content": prompt})
+    history = process_history(history)
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_prompt})
+
     response = openai.ChatCompletion.create(
         engine=engine,
         messages=messages,
@@ -78,15 +81,18 @@ def get_gpt4_output(prompt, history):
     return response["choices"][0]["message"]["content"].strip()
 
 
-def get_gpt3_output(prompt, history):
+def get_gpt3_output(system_prompt, user_prompt, history):
     openai.api_type = os.getenv("LLM_INTERACTIONS_OPENAI_API_TYPE")
     openai.api_base = os.getenv("LLM_INTERACTIONS_OPENAI_API_BASE")
     openai.api_version = os.getenv("LLM_INTERACTIONS_OPENAI_API_VERSION")
     openai.api_key = os.getenv("LLM_INTERACTIONS_OPENAI_API_KEY")
     engine = "prompt-chat-gpt35"
 
-    messages = process_history(history)
-    messages.append({"role": "user", "content": prompt})
+    history = process_history(history)
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_prompt})
+
     response = openai.ChatCompletion.create(
         engine=engine,
         messages=messages,
@@ -123,13 +129,13 @@ def get_llama2_output(system_prompt, conv_history, user_prompt):
     return result.json()["choices"][0]["message"]["content"].strip()
 
 
-def get_model_output(prompt, history, model="gpt3.5"):
+def get_model_output(system_prompt, user_prompt, history, model="gpt3.5"):
     # Assume that translation happens outside (and the prompt is already translated)
     out = ""
     if model == "gpt3.5":
-        out = get_gpt3_output(prompt, history)
+        out = get_gpt3_output(system_prompt, user_prompt, history)
     elif model == "gpt4":
-        out = get_gpt4_output(prompt, history)
+        out = get_gpt4_output(system_prompt, user_prompt, history)
     elif model == "llama2":
-        out = get_llama2_output("", history, prompt)
+        out = get_llama2_output(system_prompt, history, user_prompt)
     return out

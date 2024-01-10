@@ -71,7 +71,7 @@ def get_lid(text):
     return languages[1]
 
 
-def prompt_lang_check(user_lang, prompt, lang_type):
+def prompt_lang_check(prompt, lang_type):
     """
     Checks if the given prompt matches the specified language and script criteria.
 
@@ -142,9 +142,8 @@ def evaluate_prompt_alignment(prompt, target_domain, target_intent):
     return intent, domain, resp_dict["reason"]
 
 
-def duplicate_check(annotation, prompt):
-    existingData = json.loads(annotation.result)
-    if prompt in existingData:
-        return False, "Duplicate prompt"
-    else:
-        return True, "Original prompt"
+def duplicate_check(ann_result, prompt):
+    for r in ann_result:
+        if r["prompt"] == prompt:
+            return False
+    return True
