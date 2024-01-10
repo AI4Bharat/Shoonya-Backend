@@ -207,9 +207,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=True,
         null=True,
         default=list,
-        help_text=(
-            "Indicates the language of the user"
-        ),
+        help_text=("Indicates the language of the user"),
     )
     # languages = models.ManyToManyField(Language, related_name="user_languages", blank=True, help_text=("Languages known by the user."))
 
