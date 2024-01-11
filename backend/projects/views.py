@@ -3926,6 +3926,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ).metadata_json
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
+                if proj_objs[0].project_type in get_audio_project_types():
+                    data = tas["data"]
+                    del data["audio_url"]
+                    tas["data"] = data                
                 tasks_list.append(OrderedDict(task_dict))
 
             dataset_type = project.dataset_id.all()[0].dataset_type
