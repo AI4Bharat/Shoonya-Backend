@@ -252,7 +252,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             elif proj_objs[0].project_type in get_ocr_project_types():
                                 data = tas["data"]
                                 if "image_url" in tas["data"]:
-                                    del data["audio_url"]
+                                    del data["image_url"]
                                 tas["data"] = data
                             ordered_tasks.append(tas)
                         if page_number is not None:
@@ -351,7 +351,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     elif proj_objs[0].project_type in get_ocr_project_types():
                         data = tas["data"]
                         if "image_url" in tas["data"]:
-                            del data["audio_url"]
+                            del data["image_url"]
                         tas["data"] = data
                     ordered_tasks.append(tas)
 
@@ -428,7 +428,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             elif proj_objs[0].project_type in get_ocr_project_types():
                                 data = tas["data"]
                                 if "image_url" in tas["data"]:
-                                    del data["audio_url"]
+                                    del data["image_url"]
                                 tas["data"] = data
                             ordered_tasks.append(tas)
 
@@ -545,7 +545,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     elif proj_objs[0].project_type in get_ocr_project_types():
                         data = tas["data"]
                         if "image_url" in tas["data"]:
-                            del data["audio_url"]
+                            del data["image_url"]
                         tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if rew_status[0] in [
@@ -653,7 +653,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             elif proj_objs[0].project_type in get_ocr_project_types():
                                 data = tas["data"]
                                 if "image_url" in tas["data"]:
-                                    del data["audio_url"]
+                                    del data["image_url"]
                                 tas["data"] = data
                             ordered_tasks.append(tas)
 
@@ -740,7 +740,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     elif proj_objs[0].project_type in get_ocr_project_types():
                         data = tas["data"]
                         if "image_url" in tas["data"]:
-                            del data["audio_url"]
+                            del data["image_url"]
                         tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if supercheck_status[0] in [
