@@ -3927,9 +3927,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
                 if project_type in get_audio_project_types():
-                    data = tas["data"]
+                    data = task_dict["data"]
                     del data["audio_url"]
-                    tas["data"] = data                
+                    task_dict["data"] = data                
                 tasks_list.append(OrderedDict(task_dict))
 
             dataset_type = project.dataset_id.all()[0].dataset_type
