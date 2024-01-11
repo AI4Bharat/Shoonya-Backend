@@ -3,7 +3,6 @@ from dateutil.parser import parse as date_parse
 import re
 import nltk
 from tasks.models import Annotation
-from tasks.views import SentenceOperationViewSet
 import datetime
 import yaml
 from yaml.loader import SafeLoader
@@ -105,6 +104,8 @@ def conversation_sentence_count(conversations: list) -> int:
 
 
 def minor_major_accepted_task(annotation_objs):
+    from tasks.views import SentenceOperationViewSet
+
     sentence_operation = SentenceOperationViewSet()
 
     minor, major = [], []
