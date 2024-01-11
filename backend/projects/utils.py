@@ -22,6 +22,14 @@ def get_audio_project_types():
     return audio_project_types
 
 
+def get_ocr_project_types():
+    with open("projects/project_registry.yaml") as f:
+        project_registry_details = yaml.load(f, Loader=SafeLoader)
+
+    audio_project_types = project_registry_details["OCR"]["project_types"].keys()
+    return audio_project_types
+
+
 def get_translation_dataset_project_types():
     with open("projects/project_registry.yaml") as f:
         project_registry_details = yaml.load(f, Loader=SafeLoader)
