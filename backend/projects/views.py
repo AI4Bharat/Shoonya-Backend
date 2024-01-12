@@ -11,6 +11,8 @@ from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
+
+import notifications
 from .utils import ocr_word_count
 from django.http import HttpResponse
 from rest_framework import status, viewsets
@@ -77,6 +79,7 @@ from .utils import (
 
 from users.utils import generate_random_string
 from notifications.views import createNotification
+from notifications.utils import get_userids_from_project_id
 import json
 
 # Create your views here.
@@ -1974,7 +1977,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = Project.objects.get(pk=pk)
         title = f"{project.title}:{project.id} Project has been updated"
         notification_type = "project_update"
-        create_project_notifications(project, title, notification_type, [])
+        notification_ids = get_userids_from_project_id(project_id=pk, annotators_bool=True, reviewers_bool=True, super_checkers_bool=True, project_manager_bool=True)
+        createNotification(title,notification_type,notification_ids)
         return super().update(request, *args, **kwargs)
 
     @is_project_editor
