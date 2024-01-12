@@ -1467,7 +1467,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} Some annotators have been removed from this project"
             notification_type = "remove_member"
-            create_project_notifications(project, title, notification_type, ids)
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
 
             return Response(
                 {"message": "User removed from project"},
@@ -1549,7 +1558,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} Some reviewers have been removed from this project"
             notification_type = "remove_member"
-            create_project_notifications(project, title, notification_type, ids)
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
 
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
@@ -1620,7 +1638,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} Some supercheckers have been removed from this project"
             notification_type = "remove_member"
-            create_project_notifications(project, title, notification_type, ids)
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
 
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
