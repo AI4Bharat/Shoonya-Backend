@@ -1977,8 +1977,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = Project.objects.get(pk=pk)
         title = f"{project.title}:{project.id} Project has been updated"
         notification_type = "project_update"
-        notification_ids = get_userids_from_project_id(project_id=pk, annotators_bool=True, reviewers_bool=True, super_checkers_bool=True, project_manager_bool=True)
-        createNotification(title,notification_type,notification_ids)
+        notification_ids = get_userids_from_project_id(
+            project_id=pk,
+            annotators_bool=True,
+            reviewers_bool=True,
+            super_checkers_bool=True,
+            project_manager_bool=True,
+        )
+        createNotification(title, notification_type, notification_ids)
         return super().update(request, *args, **kwargs)
 
     @is_project_editor
@@ -3419,7 +3425,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} New annotators have been added to the project"
             notification_type = "add_member"
-            create_project_notifications(project, title, notification_type, [])
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
 
             return Response(
                 {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
@@ -3478,7 +3492,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 f"{project.title}:{project.id} New reviewers have been added to project"
             )
             notification_type = "add_member"
-            create_project_notifications(project, title, notification_type, [])
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
 
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
@@ -3533,7 +3555,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} New super checkers have been added to project"
             notification_type = "add_member"
-            create_project_notifications(project, title, notification_type, [])
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
 
             return Response(
                 {"message": "SuperCheckers added"}, status=status.HTTP_200_OK
@@ -4363,4 +4393,3 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "language field of task data succesfully updated!"},
             status=status.HTTP_200_OK,
         )
-
