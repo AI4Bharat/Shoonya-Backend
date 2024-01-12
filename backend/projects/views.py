@@ -4364,26 +4364,3 @@ class ProjectViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-
-def create_project_notifications(project, title, notification_type, removed_ids):
-    try:
-        serializer = ProjectUsersSerializer(project, many=False)
-        annotators = serializer.data["annotators"]
-        reviewers = serializer.data["annotation_reviewers"]
-        super_checkers = serializer.data["review_supercheckers"]
-        annotators_ids = [a.get("id") for a in annotators]
-        reviewers_ids = [r.get("id") for r in reviewers]
-        super_checkers_ids = [s.get("id") for s in super_checkers]
-        project_workspace = project.workspace_id
-        project_workspace_managers = project_workspace.managers.all()
-        project_workspace_managers_ids = [p.id for p in project_workspace_managers]
-        users_ids = (
-            annotators_ids
-            + reviewers_ids
-            + super_checkers_ids
-            + project_workspace_managers_ids
-            + removed_ids
-        )
-        createNotification(title, notification_type, list(set(users_ids)))
-    except Exception as e:
-        print(f"Error while creating notification for Project_id- {project.id}")
