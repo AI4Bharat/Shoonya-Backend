@@ -4280,24 +4280,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.is_published = True
             project.published_at = datetime.now()
 
-            # creating notifications
-            title = f"{project.id}:{project.title} Project has been published"
-            notification_type = "publish_project"
-            annotators_ids = [a.get("id") for a in annotators]
-            reviewers_ids = [r.get("id") for r in reviewers]
-            super_checkers_ids = [s.get("id") for s in super_checkers]
-            project_workspace = project.workspace_id
-            project_workspace_managers = project_workspace.managers.all()
-            project_workspace_managers_ids = [p.id for p in project_workspace_managers]
-            users_ids = (
-                annotators_ids
-                + reviewers_ids
-                + super_checkers_ids
-                + project_workspace_managers_ids
-            )
             try:
                 project.save()
-                createNotification(title, notification_type, list(set(users_ids)))
+                # Creating Notification
+                title = f"{project.id}:{project.title} Project has been published"
+                notification_type = "publish_project"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                createNotification(title, notification_type, notification_ids)
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:
