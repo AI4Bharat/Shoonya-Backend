@@ -10,11 +10,11 @@ The returned list does not contain any duplicates
 
 def get_userids_from_project_id(
     project_id,
-    annotators_bool = False,
-    reviewers_bool = False,
-    super_checkers_bool = False,
-    project_manager_bool = False,
-    frozen_users_bool = False,
+    annotators_bool=False,
+    reviewers_bool=False,
+    super_checkers_bool=False,
+    project_manager_bool=False,
+    frozen_users_bool=False,
 ):
     try:
         project = Project.objects.get(pk=project_id)
