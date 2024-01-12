@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 
 from projects.decorators import is_org_owner
+from projects.utils import get_ocr_project_types
 from tasks.models import *
 from tasks.serializers import (
     TaskSerializer,
@@ -245,7 +246,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas["user_mail"] = task_obj["user_mail"]
                             if proj_objs[0].project_type in get_audio_project_types():
                                 data = tas["data"]
-                                del data["audio_url"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
                                 tas["data"] = data
                             ordered_tasks.append(tas)
                         if page_number is not None:
@@ -338,7 +345,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         del tas["data"]["machine_translation"]
                     if proj_objs[0].project_type in get_audio_project_types():
                         data = tas["data"]
-                        del data["audio_url"]
+                        if "audio_url" in tas["data"]:
+                            del data["audio_url"]
+                        tas["data"] = data
+                    elif proj_objs[0].project_type in get_ocr_project_types():
+                        data = tas["data"]
+                        if "image_url" in tas["data"]:
+                            del data["image_url"]
                         tas["data"] = data
                     ordered_tasks.append(tas)
 
@@ -409,7 +422,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas["user_mail"] = task_obj["user_mail"]
                             if proj_objs[0].project_type in get_audio_project_types():
                                 data = tas["data"]
-                                del data["audio_url"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
                                 tas["data"] = data
                             ordered_tasks.append(tas)
 
@@ -520,7 +539,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["annotator_mail"] = task_obj["parent_annotator_mail"]
                     if proj_objs[0].project_type in get_audio_project_types():
                         data = tas["data"]
-                        del data["audio_url"]
+                        if "audio_url" in tas["data"]:
+                            del data["audio_url"]
+                        tas["data"] = data
+                    elif proj_objs[0].project_type in get_ocr_project_types():
+                        data = tas["data"]
+                        if "image_url" in tas["data"]:
+                            del data["image_url"]
                         tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if rew_status[0] in [
@@ -622,7 +647,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas["user_mail"] = task_obj["user_mail"]
                             if proj_objs[0].project_type in get_audio_project_types():
                                 data = tas["data"]
-                                del data["audio_url"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
                                 tas["data"] = data
                             ordered_tasks.append(tas)
 
@@ -703,7 +734,13 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["annotator_mail"] = task_obj["annotator_mail"]
                     if proj_objs[0].project_type in get_audio_project_types():
                         data = tas["data"]
-                        del data["audio_url"]
+                        if "audio_url" in tas["data"]:
+                            del data["audio_url"]
+                        tas["data"] = data
+                    elif proj_objs[0].project_type in get_ocr_project_types():
+                        data = tas["data"]
+                        if "image_url" in tas["data"]:
+                            del data["image_url"]
                         tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if supercheck_status[0] in [

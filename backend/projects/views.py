@@ -1046,7 +1046,11 @@ def convert_annotation_result_to_formatted_json(
 
                 if is_acoustic:
                     acoustic_formatted_result_dict = deepcopy(formatted_result_dict)
-                    acoustic_dict_json = json.loads(acoustic_text_dict)
+                    acoustic_dict_json = (
+                        json.loads(acoustic_text_dict)
+                        if isinstance(acoustic_text_dict, str)
+                        else acoustic_text_dict
+                    )
                     acoustic_formatted_result_dict["text"] = (
                         acoustic_dict_json["value"]["text"][0]
                         if acoustic_dict_json
@@ -3987,6 +3991,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ).metadata_json
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
+
+                if project_type in get_audio_project_types():
+                    data = task_dict["data"]
+                    del data["audio_url"]
+                    task_dict["data"] = data
                 tasks_list.append(OrderedDict(task_dict))
 
             dataset_type = project.dataset_id.all()[0].dataset_type
@@ -4085,6 +4094,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result, None, dataset_type
                             )
+                        if "data" in task and "image_url" in task["data"]:
+                            del task["data"]["image_url"]
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET

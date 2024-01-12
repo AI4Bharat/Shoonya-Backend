@@ -3,7 +3,6 @@ from dateutil.parser import parse as date_parse
 import re
 import nltk
 from tasks.models import Annotation
-from tasks.views import SentenceOperationViewSet
 import datetime
 import yaml
 from yaml.loader import SafeLoader
@@ -19,6 +18,14 @@ def get_audio_project_types():
         project_registry_details = yaml.load(f, Loader=SafeLoader)
 
     audio_project_types = project_registry_details["Audio"]["project_types"].keys()
+    return audio_project_types
+
+
+def get_ocr_project_types():
+    with open("projects/project_registry.yaml") as f:
+        project_registry_details = yaml.load(f, Loader=SafeLoader)
+
+    audio_project_types = project_registry_details["OCR"]["project_types"].keys()
     return audio_project_types
 
 
@@ -97,6 +104,8 @@ def conversation_sentence_count(conversations: list) -> int:
 
 
 def minor_major_accepted_task(annotation_objs):
+    from tasks.views import SentenceOperationViewSet
+
     sentence_operation = SentenceOperationViewSet()
 
     minor, major = [], []
