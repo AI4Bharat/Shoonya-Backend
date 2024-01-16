@@ -567,7 +567,7 @@ def export_project_in_place(
                         if (
                             len(json.loads(ta["annotation_bboxes"])) > 1
                             and type(json.loads(ta["annotation_transcripts"])) == list
-                        ):      
+                        ):
                             try:
                                 ta_ocr_transcribed_json[-1]["text"] = json.loads(
                                     ta["annotation_transcripts"]
