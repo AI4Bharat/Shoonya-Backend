@@ -42,6 +42,7 @@ services:
     volumes:
       - ./backend/:/usr/src/backend/
       - static_volume:/usr/src/backend/static
+      - logs_vol:/logs
     ports:
       - 8000:8000
     depends_on:
@@ -59,6 +60,7 @@ services:
     command: celery -A shoonya_backend.celery worker -Q default --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
     depends_on:
       - redis
       - web 
@@ -71,6 +73,7 @@ services:
     command: celery -A shoonya_backend.celery worker -Q functions --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
     depends_on:
       - redis
       - web
@@ -81,6 +84,7 @@ services:
     command: celery -A shoonya_backend.celery beat --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend
+      - logs_vol:/logs
     depends_on:
       - redis
       - web
@@ -92,11 +96,25 @@ services:
     command: celery -A shoonya_backend.celery worker -Q reports --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
     depends_on:
       - redis
       - web
 
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:7.14.0
+    hostname: shoonya_dev_logger
+    volumes:
+      - ./logstash_prod.conf:/usr/share/logstash/pipeline/logstash.conf
+      - logs_vol:/logs
+    extra_hosts:
+      - "elasticsearch:20.42.57.194"
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
+
 volumes:
+  logs_vol:
+    external: true
   nginx_conf:
     external: true
   letsencrypt_certs:

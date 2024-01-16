@@ -1,6 +1,4 @@
 from datetime import timezone
-from locale import normalize
-from urllib.parse import unquote
 import ast
 import requests
 from django.http import JsonResponse
@@ -15,7 +13,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 from drf_yasg.utils import swagger_auto_schema
 from shoonya_backend.pagination import CustomPagination
-
+from projects.decorators import is_org_owner
+from projects.utils import get_ocr_project_types
 from tasks.models import *
 from tasks.serializers import (
     TaskSerializer,
@@ -202,6 +201,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             if exist_req_user:
                 user_id = int(req_user)
+            from projects.utils import get_audio_project_types
 
             if "annotation_status" in dict(request.query_params):
                 ann_status = request.query_params["annotation_status"]
@@ -215,8 +215,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_type=ANNOTATOR_ANNOTATION,
                         )
                         if (
-                            ann_status[0] == "labeled"
-                            and "rejected" in request.query_params
+                            "rejected" in request.query_params
                             and request.query_params["rejected"] == "True"
                         ):
                             tasks = Task.objects.filter(
@@ -250,6 +249,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["annotation_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
+                            if proj_objs[0].project_type in get_audio_project_types():
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                             ordered_tasks.append(tas)
                         if page_number is not None:
                             page_object = Paginator(ordered_tasks, records)
@@ -275,8 +284,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     completed_by=user_id,
                 )
                 if (
-                    ann_status[0] == "labeled"
-                    and "rejected" in request.query_params
+                    "rejected" in request.query_params
                     and request.query_params["rejected"] == "True"
                 ):
                     tasks = Task.objects.filter(
@@ -340,6 +348,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         except:
                             tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
+                    if proj_objs[0].project_type in get_audio_project_types():
+                        data = tas["data"]
+                        if "audio_url" in tas["data"]:
+                            del data["audio_url"]
+                        tas["data"] = data
+                    elif proj_objs[0].project_type in get_ocr_project_types():
+                        data = tas["data"]
+                        if "image_url" in tas["data"]:
+                            del data["image_url"]
+                        tas["data"] = data
                     ordered_tasks.append(tas)
 
                 if page_number is not None:
@@ -373,12 +391,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_type=REVIEWER_ANNOTATION,
                         )
                         if (
-                            (
-                                "accepted" in rew_status
-                                or "accepted_with_minor_changes" in rew_status
-                                or "accepted_with_major_changes" in rew_status
-                            )
-                            and "rejected" in request.query_params
+                            "rejected" in request.query_params
                             and request.query_params["rejected"] == "True"
                         ):
                             tasks = Task.objects.filter(
@@ -412,6 +425,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["review_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
+                            if proj_objs[0].project_type in get_audio_project_types():
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                             ordered_tasks.append(tas)
 
                         if page_number is not None:
@@ -440,12 +463,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     completed_by=user_id,
                 )
                 if (
-                    (
-                        "accepted" in rew_status
-                        or "accepted_with_minor_changes" in rew_status
-                        or "accepted_with_major_changes" in rew_status
-                    )
-                    and "rejected" in request.query_params
+                    "rejected" in request.query_params
                     and request.query_params["rejected"] == "True"
                 ):
                     tasks = Task.objects.filter(
@@ -524,6 +542,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["review_status"] = task_obj["annotation_status"]
                     tas["user_mail"] = task_obj["user_mail"]
                     tas["annotator_mail"] = task_obj["parent_annotator_mail"]
+                    if proj_objs[0].project_type in get_audio_project_types():
+                        data = tas["data"]
+                        if "audio_url" in tas["data"]:
+                            del data["audio_url"]
+                        tas["data"] = data
+                    elif proj_objs[0].project_type in get_ocr_project_types():
+                        data = tas["data"]
+                        if "image_url" in tas["data"]:
+                            del data["image_url"]
+                        tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if rew_status[0] in [
                             "draft",
@@ -622,6 +650,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["supercheck_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
+                            if proj_objs[0].project_type in get_audio_project_types():
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                             ordered_tasks.append(tas)
 
                         if page_number is not None:
@@ -699,6 +737,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["user_mail"] = task_obj["user_mail"]
                     tas["reviewer_mail"] = task_obj["reviewer_mail"]
                     tas["annotator_mail"] = task_obj["annotator_mail"]
+                    if proj_objs[0].project_type in get_audio_project_types():
+                        data = tas["data"]
+                        if "audio_url" in tas["data"]:
+                            del data["audio_url"]
+                        tas["data"] = data
+                    elif proj_objs[0].project_type in get_ocr_project_types():
+                        data = tas["data"]
+                        if "image_url" in tas["data"]:
+                            del data["image_url"]
+                        tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if supercheck_status[0] in [
                             "draft",
@@ -947,6 +995,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         url_path="delete_project_tasks",
         url_name="delete_project_tasks",
     )
+    @is_org_owner
     def delete_project_tasks(self, request, pk=None):
         project = Project.objects.get(pk=pk)
         try:
@@ -1154,6 +1203,69 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             required=["user_id"],
         ),
         manual_parameters=[
+            openapi.Parameter(
+                "user_id",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the user id for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "task_type",
+                openapi.IN_QUERY,
+                description=(
+                    "A string refering to the task type for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_STRING,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Project ID",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the project id for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Task ID",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the task id for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Updated at",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the updated at time for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Annotated at",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the annotated at time for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Created at",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the created at time for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
             openapi.Parameter(
                 "page",
                 openapi.IN_QUERY,
