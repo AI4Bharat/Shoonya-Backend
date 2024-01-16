@@ -559,11 +559,22 @@ def export_project_in_place(
                 elif field == "ocr_transcribed_json":
                     ta_ocr_transcribed_json = []
                     for idx in range(len(json.loads(ta["annotation_bboxes"]))):
-                        ta_ocr_transcribed_json.append(
-                            json.loads(ta["annotation_labels"])[idx]
-                        )
+                        if ta["annotation_labels"] is not None and isinstance(
+                            json.loads(ta["annotation_labels"]), list
+                        ):
+                            ta_ocr_transcribed_json.append(
+                                json.loads(ta["annotation_labels"])[idx]
+                            )
+                        else:
+                            ta_ocr_transcribed_json.append(
+                                json.loads(ta["annotation_bboxes"])[idx]
+                            )
                         # QUICKFIX for adjusting tasks_annotations
-                        ta["annotation_transcripts"] = ta["ocr_transcribed_json"]
+                        ta["annotation_transcripts"] = (
+                            ta["ocr_transcribed_json"]
+                            if "ocr_transcribed_json" in ta
+                            else []
+                        )
                         if (
                             len(json.loads(ta["annotation_bboxes"])) > 1
                             and type(json.loads(ta["annotation_transcripts"])) == list
