@@ -567,30 +567,20 @@ def export_project_in_place(
                         if (
                             len(json.loads(ta["annotation_bboxes"])) > 1
                             and type(json.loads(ta["annotation_transcripts"])) == list
-                        ):
-                            ta_ocr_transcribed_json[-1]["text"] = json.loads(
-                                ta["annotation_transcripts"]
-                            )[idx]
+                        ):      
+                            try:
+                                ta_ocr_transcribed_json[-1]["text"] = json.loads(
+                                    ta["annotation_transcripts"]
+                                )[idx]
+                            except:
+                                ta_ocr_transcribed_json[-1]["text"] = ""
                         else:
-                            ta_ocr_transcribed_json[-1]["text"] = ta[
-                                "annotation_transcripts"
-                            ]
-                    setattr(data_item, field, ta_ocr_transcribed_json)
-                elif field == "ocr_transcribed_json":
-                    ta_ocr_transcribed_json = []
-                    for idx in range(len(json.loads(ta["annotation_bboxes"]))):
-                        ta_ocr_transcribed_json.append(
-                            json.loads(ta["annotation_labels"])[idx]
-                        )
-                        # QUICKFIX for adjusting tasks_annotations
-                        ta["annotation_transcripts"] = ta["ocr_transcribed_json"]
-                        if (
-                            len(json.loads(ta["annotation_bboxes"])) > 1
-                            and type(json.loads(ta["annotation_transcripts"])) == list
-                        ):
-                            ta_ocr_transcribed_json[-1]["text"] = ""
-                        else:
-                            ta_ocr_transcribed_json[-1]["text"] = ""
+                            try:
+                                ta_ocr_transcribed_json[-1]["text"] = ta[
+                                    "annotation_transcripts"
+                                ]
+                            except:
+                                ta_ocr_transcribed_json[-1]["text"] = ""
                     setattr(data_item, field, ta_ocr_transcribed_json)
                 else:
                     setattr(data_item, field, ta[field])
