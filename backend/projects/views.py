@@ -4041,21 +4041,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result, None, dataset_type
                             )
-                        if project_type in [
-                            "OCRSegmentCategorizationEditing",
-                            "OCRSegmentCategorization",
-                        ]:
-                            task["data"][
-                                "ocr_transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
-                            )
-                        else:
-                            task["data"][
-                                "ocr_transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
-                            )
                         if "data" in task and "image_url" in task["data"]:
                             del task["data"]["image_url"]
             download_resources = True
