@@ -3,6 +3,7 @@ from datetime import timezone
 import ast
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import StreamingHttpResponse, FileResponse
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
@@ -1405,10 +1406,22 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
         except Exception as e:
             return Response(
-                {"message": f"Audio url for task with id - {taskid} does not exist"},
-                status=status.HTTP_204_NO_CONTENT,
+                {"message": "Connection to minio failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        return eos_client.get_object("asr-transcription", audio_url).data
+        try:
+            audio_data = eos_client.get_object("asr-transcription", audio_url).data
+        except Exception as e:
+            return Response(
+                {"message": f"Could not fetch audio file"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        response = StreamingHttpResponse(iter(audio_data), content_type="audio/wav")
+        response["Content-Disposition"] = 'attachment; filename="audio.wav"'
+
+        # response = FileResponse(audio_data, content_type="application/octet-stream")
+        # response['Content-Disposition'] = 'attachment; filename="audio.wav"'
+        return response
 
 
 class AnnotationViewSet(
