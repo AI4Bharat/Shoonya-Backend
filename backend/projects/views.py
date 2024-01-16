@@ -4029,6 +4029,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         if project_type in [
                             "OCRTranscriptionEditing",
                             "OCRTranscription",
+                            "OCRSegmentCategorizationEditing",
+                            "OCRSegmentCategorization"
                         ]:
                             task["data"][
                                 "ocr_transcribed_json"
