@@ -1,6 +1,10 @@
+import base64
+import os
 from datetime import timezone
 import ast
 
+from django.core.exceptions import ObjectDoesNotExist
+from django.http import StreamingHttpResponse, FileResponse
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
@@ -1348,6 +1352,75 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 {"message": "Invalid parameters in request body!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+    @swagger_auto_schema(
+        method="get",
+        responses={
+            200: "Audio file fetched successfully",
+            204: "No audio_url present",
+            400: "Invalid parameters in the request body!",
+            500: "Connection to Minio Failed",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="get_audio_file",
+        url_name="get_audio_file",
+    )
+    def get_audio_file(self, request):
+        audio_url, taskid = "", ""
+        if "audio_url" in request.query_params:
+            audio_url = request.query_params.get("audio_url")
+        elif "task_id" in request.query_params:
+            taskid = request.query_params.get("task_id")
+        else:
+            return Response(
+                {"message": "Please send a task id or audio url"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if taskid:
+            try:
+                task = Task.objects.filter(id=taskid)[0]
+            except ObjectDoesNotExist as e:
+                return Response(
+                    {"message": f"Task with id {taskid} does not exist: {e}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                audio_url = task.data["audio_url"]
+            except KeyError as e:
+                return Response(
+                    {
+                        "message": f"Audio url for task with id - {taskid} does not exist"
+                    },
+                    status=status.HTTP_204_NO_CONTENT,
+                )
+        from minio import Minio
+
+        try:
+            eos_client = Minio(
+                endpoint=os.getenv("MINIO_ENDPOINT"),
+                access_key=os.getenv("MINIO_ACCESS_KEY"),
+                secret_key=os.getenv("MINIO_SECRET_KEY"),
+                secure=True,
+            )
+        except Exception as e:
+            return Response(
+                {"message": "Connection to minio failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        try:
+            encoded_audio_data = base64.b64encode(
+                eos_client.get_object("asr-transcription", audio_url).data
+            ).decode("utf-8")
+        except Exception as e:
+            return Response(
+                {"message": f"Could not fetch audio file"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(data=encoded_audio_data, status=status.HTTP_200_OK)
 
 
 class AnnotationViewSet(
