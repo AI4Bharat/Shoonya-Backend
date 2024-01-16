@@ -1,3 +1,4 @@
+import base64
 import os
 from datetime import timezone
 import ast
@@ -1410,18 +1411,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
         try:
-            audio_data = eos_client.get_object("asr-transcription", audio_url).data
+            encoded_audio_data = base64.b64encode(
+                eos_client.get_object("asr-transcription", audio_url).data
+            ).decode("utf-8")
         except Exception as e:
             return Response(
                 {"message": f"Could not fetch audio file"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        response = StreamingHttpResponse(iter(audio_data), content_type="audio/wav")
-        response["Content-Disposition"] = 'attachment; filename="audio.wav"'
 
-        # response = FileResponse(audio_data, content_type="application/octet-stream")
-        # response['Content-Disposition'] = 'attachment; filename="audio.wav"'
-        return response
+        return Response(data=encoded_audio_data, status=status.HTTP_200_OK)
 
 
 class AnnotationViewSet(
