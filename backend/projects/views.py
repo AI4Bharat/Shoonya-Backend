@@ -4030,7 +4030,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             "OCRTranscriptionEditing",
                             "OCRTranscription",
                             "OCRSegmentCategorizationEditing",
-                            "OCRSegmentCategorization"
+                            "OCRSegmentCategorization",
                         ]:
                             task["data"][
                                 "ocr_transcribed_json"
