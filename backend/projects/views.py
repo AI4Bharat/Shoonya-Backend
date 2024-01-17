@@ -891,7 +891,10 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
-    elif proj_type == "OCRTranscriptionEditing":
+    elif (
+        proj_type == "OCRTranscriptionEditing"
+        or proj_type == "OCRSegmentCategorizationEditing"
+    ):
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = (
             json.loads(data_item.ocr_prediction_json)
@@ -1084,6 +1087,11 @@ def convert_annotation_result_to_formatted_json(
                 continue
             formatted_result_dict = rectangle_dict["value"]
             try:
+                labels_split = []
+                if labels_dict["value"]["labels"].find("/"):
+                    labels_split = labels_dict["value"]["labels"].split("/")
+                if labels_split:
+                    labels_dict["value"]["labels"] = labels_split
                 formatted_result_dict["labels"] = labels_dict["value"]["labels"]
                 text_dict_json = json.loads(text_dict)
                 formatted_result_dict["text"] = (
@@ -4021,6 +4029,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         if project_type in [
                             "OCRTranscriptionEditing",
                             "OCRTranscription",
+                            "OCRSegmentCategorizationEditing",
+                            "OCRSegmentCategorization",
                         ]:
                             task["data"][
                                 "ocr_transcribed_json"
