@@ -770,6 +770,13 @@ def schedule_mail_for_project_reports(
             + f"{project_type}"
             + "\n Thanks for contributing on Shoonya!"
         )
+        email = EmailMessage(
+            f"{name}-" + " Project Reports",
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            attachments=[(filename, content, content_type)],
+        )
     else:
         message = (
             "Dear "
@@ -779,14 +786,13 @@ def schedule_mail_for_project_reports(
             + f"{project_type}"
             + "\n Thanks for contributing on Shoonya!"
         )
+        email = EmailMessage(
+            f"Project Reports",
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+        )
 
-    email = EmailMessage(
-        f"{name}" + " Payment Reports",
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        attachments=[(filename, content, content_type)],
-    )
     try:
         email.send()
         extra_data = {
