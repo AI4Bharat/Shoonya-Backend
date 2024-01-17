@@ -1414,6 +1414,16 @@ class DatasetTypeView(APIView):
         return Response(dict, status=status.HTTP_200_OK)
 
 
+class InstructionsViewSet(viewsets.ModelViewSet):
+    queryset = Instruction.objects.all()
+    serializer_class = InstructionsSerializer
+
+
+class InteractionsViewSet(viewsets.ModelViewSet):
+    queryset = Interaction.objects.all()
+    serializer_class = InteractionsSerializer
+
+
 # class SentenceTextViewSet(viewsets.ModelViewSet):
 #     queryset = SentenceText.objects.all()
 #     serializer_class = SentenceTextSerializer

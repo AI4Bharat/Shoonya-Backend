@@ -18,6 +18,8 @@ DATASET_TYPE_CHOICES = [
     ("PromptBase", "PromptBase"),
     ("PromptAnswer", "PromptAnswer"),
     ("PromptAnswerEvaluation", "PromptAnswerEvaluation"),
+    ("Interaction", "Interaction"),
+    ("Instruction", "Instruction"),
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
@@ -114,6 +116,13 @@ LANGUAGE_CHOICES = [
     ("Telugu", "Telugu"),
     ("Urdu", "Urdu"),
 ]
+
+LANGUAGE_CHOICES_INSTRUCTIONS = (
+    ("1", "English(Any script)"),
+    ("2", "Indic(Indic script)"),
+    ("3", "Indic(Latin script)"),
+    ("4", "Indic/English(Latin script)"),
+)
 
 LLM_CHOICES = (("GPT3.5", "GPT3.5"), ("GPT4", "GPT4"), ("LLAMA2", "LLAMA2"))
 
@@ -641,7 +650,7 @@ D10 = TranslationPair
 #     duration = models.TimeField()
 
 
-class Instructions(DatasetBase):
+class Instruction(DatasetBase):
     """
     Subclass model for Instructions
     """
@@ -682,27 +691,27 @@ class Instructions(DatasetBase):
     )
     meta_info_language = models.CharField(
         max_length=20,
-        choices=LANGUAGE_CHOICES,
+        choices=LANGUAGE_CHOICES_INSTRUCTIONS,
         verbose_name="Meta Info Language",
         null=True,
         blank=True,
         help_text="Language of the instruction",
     )
-    instruction = models.TextField(verbose_name="Instruction")
+    instruction_data = models.TextField(verbose_name="Instruction_data")
     examples = models.TextField(verbose_name="Examples")
     hint = models.TextField(verbose_name="Hint")
 
     def __str__(self):
-        return f"{self.id} - {self.instruction}"
+        return f"{self.id} - {self.instruction_data}"
 
 
-class Interactions(DatasetBase):
+class Interaction(DatasetBase):
     """
     Subclass model for Interactions
     """
 
     instruction_id = models.ForeignKey(
-        Instructions,
+        Instruction,
         on_delete=models.CASCADE,
         verbose_name="Instruction ID",
         help_text="ID of the related instruction",
@@ -743,7 +752,7 @@ class PromptBase(DatasetBase):
         help_text=("Prompt of the conversation"),
     )
     instruction_id = models.ForeignKey(
-        Instructions, on_delete=models.CASCADE, null=True, blank=True
+        Instruction, on_delete=models.CASCADE, null=True, blank=True
     )
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
