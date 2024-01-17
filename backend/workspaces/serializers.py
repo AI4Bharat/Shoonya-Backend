@@ -94,3 +94,4 @@ class WorkspacePasswordSerializer(
         if new_password:
             instance.set_password(new_password)
             instance.save()
+        return instance
