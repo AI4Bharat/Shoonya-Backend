@@ -53,6 +53,10 @@ from django.http import QueryDict
 from rest_framework.request import Request
 import os
 import tempfile
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 ## CELERY SHARED TASKS
@@ -731,53 +735,86 @@ def schedule_mail_for_project_reports(
         did,
         language,
     )
-    if len(proj_objs) == 0:
-        print("No projects found")
-        return 0
     user = User.objects.get(id=user_id)
-    result = get_stats(
-        proj_objs, anno_stats, meta_stats, complete_stats, project_type, user
-    )
-    df = pd.DataFrame.from_dict(result)
-    transposed_df = df.transpose()
-    content = transposed_df.to_csv(index=True)
-    content_type = "text/csv"
+    if len(proj_objs) != 0:
+        result = get_stats(
+            proj_objs, anno_stats, meta_stats, complete_stats, project_type, user
+        )
+        df = pd.DataFrame.from_dict(result)
+        transposed_df = df.transpose()
+        content = transposed_df.to_csv(index=True)
+        content_type = "text/csv"
 
-    if workspace_level_reports:
-        workspace = Workspace.objects.filter(id=wid)
-        name = workspace[0].workspace_name
-        type = "workspace"
-        filename = f"{name}_user_analytics.csv"
-    elif dataset_level_reports:
-        dataset = DatasetInstance.objects.filter(instance_id=did)
-        name = dataset[0].instance_name
-        type = "dataset"
-        filename = f"{name}_user_analytics.csv"
+        if workspace_level_reports:
+            workspace = Workspace.objects.filter(id=wid)
+            name = workspace[0].workspace_name
+            type = "workspace"
+            filename = f"{name}_user_analytics.csv"
+        elif dataset_level_reports:
+            dataset = DatasetInstance.objects.filter(instance_id=did)
+            name = dataset[0].instance_name
+            type = "dataset"
+            filename = f"{name}_user_analytics.csv"
+        else:
+            organization = Organization.objects.filter(id=oid)
+            name = organization[0].title
+            type = "organization"
+            filename = f"{name}_user_analytics.csv"
+        message = (
+            "Dear "
+            + str(user.username)
+            + f",\nYour project reports for the {type}"
+            + f"{name}"
+            + " are ready."
+            + "\nProject Type: "
+            + f"{project_type}"
+            + "\n Thanks for contributing on Shoonya!"
+        )
+        email = EmailMessage(
+            f"{name}-" + " Project Reports",
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            attachments=[(filename, content, content_type)],
+        )
     else:
-        organization = Organization.objects.filter(id=oid)
-        name = organization[0].title
-        type = "organization"
-        filename = f"{name}_user_analytics.csv"
+        message = (
+            "Dear "
+            + str(user.username)
+            + f",\nYour project reports could not be fetched because there are no projects found from the given data."
+            + "\nProject Type: "
+            + f"{project_type}"
+            + "\n Thanks for contributing on Shoonya!"
+        )
+        email = EmailMessage(
+            f"Project Reports",
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+        )
 
-    message = (
-        "Dear "
-        + str(user.username)
-        + f",\nYour project reports for the {type}"
-        + f"{name}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
-    )
-
-    email = EmailMessage(
-        f"{name}" + " Payment Reports",
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        attachments=[(filename, content, content_type)],
-    )
     try:
         email.send()
+        extra_data = {
+            "user_email": user.email,
+            "request_path": "/schedule_project_reports_email",
+        }
+        ids = (
+            "workspace_id-" + str(wid)
+            if workspace_level_reports
+            else (
+                "organization_id-" + str(oid)
+                if organization_level_reports
+                else ("dataset_id-" + str(did) if dataset_level_reports else None)
+            )
+        )
+
+        message = (
+            f"Project reports sent successfully for {ids}"
+            if len(proj_objs) != 0
+            else f"No projects found but email was sent for {ids}"
+        )
+        logger.info(message, extra=extra_data)
     except Exception as e:
         print(f"An error occurred while sending email: {e}")
     print(f"Email sent successfully - {user_id}")
