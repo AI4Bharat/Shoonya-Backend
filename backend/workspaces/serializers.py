@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from .models import *
 from users.models import User
-from users.serializers import UserProfileSerializer
+from users.serializers import UserProfileSerializer, ChangePasswordSerializer
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
@@ -24,8 +24,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "created_by",
             "id",
             "created_at",
-            "guest_workspace",
-            "get_guest_workspace_display",
+            "guest_workspace_display",
             "frozen_users",
             "public_analytics",
         ]
@@ -85,11 +84,9 @@ class WorkspacePasswordSerializer(
         )
         in_guest_workspace = self.instance.guest_workspace if self.instance else False
 
-        try:
+        if is_guest_user and in_guest_workspace:
             self.match_old_password(self.context.get("request").user, data)
             self.validation_checks(self.context.get("request").user, data)
-        except ValidationError as e:
-            raise serializers.ValidationError(detail=e.detail)
         return data
 
     def update(self, instance, validated_data):
@@ -97,4 +94,3 @@ class WorkspacePasswordSerializer(
         if new_password:
             instance.set_password(new_password)
             instance.save()
-        return instance
