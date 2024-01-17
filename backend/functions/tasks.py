@@ -28,7 +28,7 @@ from tasks.models import (
     ANNOTATED,
 )
 from tasks.views import SentenceOperationViewSet
-from users.models import User
+from users.models import User, LANG_CHOICES
 from django.core.mail import EmailMessage
 
 from utils.blob_functions import (
@@ -1208,7 +1208,8 @@ def get_proj_objs(
 ):
     if workspace_level_reports:
         if project_type:
-            if language != "NULL":
+            LANG_CHOICES_DICT = dict(LANG_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     workspace_id=wid,
                     project_type=project_type,
@@ -1222,7 +1223,8 @@ def get_proj_objs(
             proj_objs = Project.objects.filter(workspace_id=wid)
     elif organization_level_reports:
         if project_type:
-            if language != "NULL":
+            LANG_CHOICES_DICT = dict(LANG_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     organization_id=oid,
                     project_type=project_type,
@@ -1236,7 +1238,8 @@ def get_proj_objs(
             proj_objs = Project.objects.filter(organization_id=oid)
     elif dataset_level_reports:
         if project_type:
-            if language != "NULL":
+            LANG_CHOICES_DICT = dict(LANG_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     dataset_id=did,
                     project_type=project_type,
