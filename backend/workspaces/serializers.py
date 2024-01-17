@@ -24,7 +24,8 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             "created_by",
             "id",
             "created_at",
-            "guest_workspace_display",
+            "guest_workspace",
+            "get_guest_workspace_display",
             "frozen_users",
             "public_analytics",
         ]
@@ -67,3 +68,33 @@ class WorkspaceNameSerializer(serializers.ModelSerializer):
     class Meta:
         model = Workspace
         fields = ["id", "workspace_name"]
+
+
+class WorkspacePasswordSerializer(
+    serializers.ModelSerializer, ChangePasswordSerializer
+):
+    class Meta:
+        model = Workspace
+        fields = ["password"]
+
+    def validate(self, data):
+        is_guest_user = (
+            self.context.get("request").user.guest_user
+            if self.context.get("request").user
+            else False
+        )
+        in_guest_workspace = self.instance.guest_workspace if self.instance else False
+
+        try:
+            self.match_old_password(self.context.get("request").user, data)
+            self.validation_checks(self.context.get("request").user, data)
+        except ValidationError as e:
+            raise serializers.ValidationError(detail=e.detail)
+        return data
+
+    def update(self, instance, validated_data):
+        new_password = validated_data.get("password")
+        if new_password:
+            instance.set_password(new_password)
+            instance.save()
+        return instance
