@@ -1972,7 +1972,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         total_word_count = 0
                         annotations = Annotation.objects.filter(
                             task_id__in=labeled_count_tasks_ids,
-                            annotation_type=ANNOTATOR_ANNOTATION,
                             updated_at__gte=periodical_list[period],
                             updated_at__lt=periodical_list[period + 1],
                         )
