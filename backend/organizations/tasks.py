@@ -742,7 +742,7 @@ def get_translation_quality_reports(
     ]
     reviewed_annotations_of_user = Annotation.objects.filter(
         id__in=parent_anno_ids_of_reviewed,
-        annotation_type=REVIEWER_ANNOTATION,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
 
@@ -759,7 +759,7 @@ def get_translation_quality_reports(
     parent_anno_ids_of_accepted = [ann.parent_annotation_id for ann in accepted_tasks]
     accepted_annotations_of_user = Annotation.objects.filter(
         id__in=parent_anno_ids_of_accepted,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
 
@@ -785,7 +785,7 @@ def get_translation_quality_reports(
     ]
     minor_changes_annotations_of_user = Annotation.objects.filter(
         id__in=parent_annotation_minor_changes,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
     minor_changes_count = minor_changes_annotations_of_user.count()
@@ -803,7 +803,7 @@ def get_translation_quality_reports(
     ]
     major_changes_annotations_of_user = Annotation.objects.filter(
         id__in=parent_annotation_major_changes,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
     major_changes_count = major_changes_annotations_of_user.count()
