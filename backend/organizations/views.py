@@ -94,7 +94,7 @@ def get_reviewd_tasks(
     annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
-        annotation_type=REVIEWER_ANNOTATION,
+        parent_annotation_id__isnull=parent_annotation_bool,
         updated_at__range=[start_date, end_date],
     )
 
