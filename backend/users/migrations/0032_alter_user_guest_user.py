@@ -4,15 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('users', '0031_auto_20231227_1055'),
+        ("users", "0031_auto_20231227_1055"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='user',
-            name='guest_user',
-            field=models.BooleanField(choices=[(True, 'Yes'), (False, 'No')], default=True, help_text='Indicates whether the user is a guest user.', verbose_name='guest_user'),
+            model_name="user",
+            name="guest_user",
+            field=models.BooleanField(
+                choices=[(True, "Yes"), (False, "No")],
+                default=True,
+                help_text="Indicates whether the user is a guest user.",
+                verbose_name="guest_user",
+            ),
         ),
     ]
