@@ -1179,6 +1179,7 @@ def get_review_reports(
 
     superchecked_accepted_annos = Annotation.objects.filter(
         parent_annotation_id__in=accepted_tasks,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
         annotation_status__in=[
             "validated",
             "validated_with_changes",
@@ -1201,6 +1202,7 @@ def get_review_reports(
 
     superchecked_minor_annos = Annotation.objects.filter(
         parent_annotation_id__in=acceptedwt_minor_change_tasks,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
         annotation_status__in=[
             "validated",
             "validated_with_changes",
@@ -1223,6 +1225,7 @@ def get_review_reports(
 
     superchecked_major_annos = Annotation.objects.filter(
         parent_annotation_id__in=acceptedwt_major_change_tasks,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
         annotation_status__in=[
             "validated",
             "validated_with_changes",
@@ -1276,7 +1279,8 @@ def get_review_reports(
     )
 
     total_rev_sup_annos = Annotation.objects.filter(
-        parent_annotation__in=total_rev_annos
+        parent_annotation__in=total_rev_annos,
+        annotation_type=SUPER_CHECKER_ANNOTATION,
     )
 
     total_superchecked_annos = total_rev_sup_annos.filter(
@@ -1378,6 +1382,7 @@ def get_review_reports(
         ]
         accepted_validated_tasks = Annotation.objects.filter(
             id__in=parent_anno_ids,
+            annotation_type=REVIEWER_ANNOTATION,
             completed_by=userid,
         )
 
@@ -1393,6 +1398,7 @@ def get_review_reports(
         ]
         accepted_validated_with_changes_tasks = Annotation.objects.filter(
             id__in=parent_anno_ids,
+            annotation_type=REVIEWER_ANNOTATION,
             completed_by=userid,
         )
 
@@ -1406,7 +1412,10 @@ def get_review_reports(
             ann.parent_annotation_id for ann in annotations_of_superchecker_rejected
         ]
         accepted_rejected_tasks = Annotation.objects.filter(
-            id__in=parent_anno_ids, completed_by=userid, annotation_status="rejected"
+            id__in=parent_anno_ids,
+            completed_by=userid,
+            annotation_type=REVIEWER_ANNOTATION,
+            annotation_status="rejected"
         )
 
         result = {
@@ -1498,6 +1507,7 @@ def un_pack_annotation_tasks(
     ]
     accepted = Annotation.objects.filter(
         id__in=parent_anno_ids,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=each_annotation_user,
     )
 
@@ -1512,6 +1522,7 @@ def un_pack_annotation_tasks(
     ]
     to_be_revised = Annotation.objects.filter(
         id__in=parent_anno_ids_of_to_be_revised,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=each_annotation_user,
     )
 
@@ -1529,6 +1540,7 @@ def un_pack_annotation_tasks(
     ]
     accepted_wt_minor_changes = Annotation.objects.filter(
         id__in=parent_anno_ids_of_minor,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=each_annotation_user,
     )
 
@@ -1546,6 +1558,7 @@ def un_pack_annotation_tasks(
     ]
     accepted_wt_major_changes = Annotation.objects.filter(
         id__in=parent_anno_ids_of_major,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=each_annotation_user,
     )
 
@@ -1561,7 +1574,10 @@ def un_pack_annotation_tasks(
     labeled_annotation_ids = [ann.id for ann in labeled_annotations]
 
     reviewed_ann = (
-        Annotation.objects.filter(parent_annotation_id__in=labeled_annotation_ids)
+        Annotation.objects.filter(
+            parent_annotation_id__in=labeled_annotation_ids,
+            annotation_type=REVIEWER_ANNOTATION,
+        )
         .exclude(annotation_status__in=["skipped", "draft"])
         .count()
     )
