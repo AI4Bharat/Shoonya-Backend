@@ -54,7 +54,7 @@ def notification_aggregated(title, notification_type, users_ids):
         existing_notif_receivers = en.reciever_user_id.all()
         existing_notif_receivers_ids = [e.id for e in existing_notif_receivers]
         if users_ids == sorted(existing_notif_receivers_ids):
-            existing_notif.created_at = datetime.now()
-            existing_notif.save()
+            en.created_at = datetime.now()
+            en.save()
             return True
     return False
