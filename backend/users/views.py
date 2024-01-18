@@ -370,7 +370,7 @@ class AuthViewSet(viewsets.ViewSet):
             },
             status=status.HTTP_200_OK,
         )
-    
+
     @permission_classes([AllowAny])
     @action(
         detail=True,
@@ -402,9 +402,7 @@ class AuthViewSet(viewsets.ViewSet):
             )
         except Exception as error:
             return Response(
-                {
-                    "message": "Error: "+error
-                },
+                {"message": "Error: " + error},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
