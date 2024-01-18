@@ -63,7 +63,6 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-
 ## CELERY SHARED TASKS
 @shared_task(bind=True)
 def sentence_text_translate_and_save_translation_pairs(
