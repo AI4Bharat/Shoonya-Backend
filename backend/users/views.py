@@ -370,6 +370,43 @@ class AuthViewSet(viewsets.ViewSet):
             },
             status=status.HTTP_200_OK,
         )
+    
+    @permission_classes([AllowAny])
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="reset_password",
+        url_name="reset_password",
+    )
+    def reset_password(self, request, *args, **kwargs):
+        """
+        User change password functionality
+        """
+        try:
+            email = request.data.get("email")
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "Incorrect email, User not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        firebase = pyrebase.initialize_app(config)
+        auth = firebase.auth()
+        try:
+            auth.send_password_reset_email(email)
+            return Response(
+                {
+                    "message": "Please check your registered email and click on the link to reset your password.",
+                },
+                status=status.HTTP_200_OK,
+            )
+        except Exception as error:
+            return Response(
+                {
+                    "message": "Error: "+error
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class GoogleLogin(viewsets.ViewSet):
@@ -437,70 +474,6 @@ class GoogleLogin(viewsets.ViewSet):
             },
             status=status.HTTP_200_OK,
         )
-
-    @permission_classes([AllowAny])
-    @swagger_auto_schema(request_body=ChangePasswordWithoutOldPassword)
-    @action(
-        detail=True,
-        methods=["post"],
-        url_path="reset_password",
-        url_name="reset_password",
-    )
-    def reset_password(self, request, *args, **kwargs):
-        """
-        User change password functionality
-        """
-        if not request.data.get("new_password"):
-            try:
-                email = request.data.get("email")
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                return Response(
-                    {"message": "Incorrect email, User not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-            key = user.id
-            user.send_mail_to_change_password(email, key)
-            return Response(
-                {
-                    "message": "Please check your registered email and click on the link to reset your password.",
-                },
-                status=status.HTTP_200_OK,
-            )
-        else:
-            try:
-                received_token = request.data.get("token")
-                user_id = request.data.get("uid")
-                new_password = request.data.get("new_password")
-            except KeyError:
-                raise Exception("Insufficient details")
-            user = User.objects.get(id=user_id)
-            try:
-                secret_key = os.getenv("SECRET_KEY")
-                decodedToken = jwt.decode(received_token, secret_key, "HS256")
-            except InvalidSignatureError:
-                raise Exception(
-                    "The password reset link has expired. Please request a new link."
-                )
-            except DecodeError:
-                raise Exception(
-                    "Invalid token. Please make sure the token is correct and try again."
-                )
-
-            serializer = ChangePasswordWithoutOldPassword(user, request.data)
-            serializer.is_valid(raise_exception=True)
-
-            validation_response = serializer.validation_checks(
-                user, request.data
-            )  # checks for min_length, whether password is similar to user details etc.
-            if validation_response != "Validation successful":
-                return Response(
-                    {"message": validation_response},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            user = serializer.save(user, request.data)
-            return Response({"message": "Password changed."}, status=status.HTTP_200_OK)
 
 
 class UserViewSet(viewsets.ViewSet):
