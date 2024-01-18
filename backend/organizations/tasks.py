@@ -1072,7 +1072,8 @@ def send_project_analytics_mail_org(
                 for each_task in labeled_tasks:
                     try:
                         annotate_annotation = Annotation.objects.filter(
-                            task=each_task, annotation_type=ANNOTATOR_ANNOTATION,
+                            task=each_task,
+                            annotation_type=ANNOTATOR_ANNOTATION,
                         )[0]
                         total_duration_annotated_count_list.append(
                             get_audio_transcription_duration(annotate_annotation.result)
@@ -1083,7 +1084,8 @@ def send_project_analytics_mail_org(
                 for each_task in reviewed_tasks:
                     try:
                         review_annotation = Annotation.objects.filter(
-                            task=each_task, annotation_type=REVIEWER_ANNOTATION,
+                            task=each_task,
+                            annotation_type=REVIEWER_ANNOTATION,
                         )[0]
                         total_duration_reviewed_count_list.append(
                             get_audio_transcription_duration(review_annotation.result)

@@ -1415,7 +1415,7 @@ def get_review_reports(
             id__in=parent_anno_ids,
             completed_by=userid,
             annotation_type=REVIEWER_ANNOTATION,
-            annotation_status="rejected"
+            annotation_status="rejected",
         )
 
         result = {
