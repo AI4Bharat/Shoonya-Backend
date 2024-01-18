@@ -352,7 +352,7 @@ class AuthViewSet(viewsets.ViewSet):
         try:
             firebase = pyrebase.initialize_app(config)
             auth = firebase.auth()
-            fire_user = auth.sign_in_with_email_and_password(email, password)
+            auth.sign_in_with_email_and_password(email, password)
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)
@@ -414,8 +414,6 @@ class GoogleLogin(viewsets.ViewSet):
                 email=email.lower(),
                 role=1,
             )
-            # user.set_password("googleLogin"+generate_random_string(20))
-            user.set_password("googleLogin" + email)
             users = []
             users.append(user)
             User.objects.bulk_create(users)

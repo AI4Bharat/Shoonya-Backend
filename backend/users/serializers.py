@@ -19,12 +19,12 @@ class UserLoginSerializer(serializers.Serializer):
 class UserSignUpSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["username", "password", "email"]
+        fields = ["username", "email"]
 
     def update(self, instance, validated_data):
         instance.username = validated_data.get("username")
         instance.has_accepted_invite = True
-        instance.set_password(validated_data.get("password"))
+        instance.guest_user = False
         instance.save()
         return instance
 
