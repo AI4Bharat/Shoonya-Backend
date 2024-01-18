@@ -39,9 +39,36 @@ class SpeechConversationAdmin(ImportExportActionModelAdmin):
     resource_class = SpeechConversationResource
 
 
+class PromptBaseAdmin(ImportExportActionModelAdmin):
+    resource_class = PromptBaseResource
+
+
+class PromptAnswerAdmin(ImportExportActionModelAdmin):
+    resource_class = PromptAnswerResource
+
+
+class PromptAnswerEvaluationAdmin(ImportExportActionModelAdmin):
+    resource_class = PromptAnswerEvaluationResource
+
+
+# Custom admin class for Instructions model
+class InstructionsAdmin(ImportExportActionModelAdmin):
+    resource_class = InstructionsResource
+
+
+# Custom admin class for Interactions model
+class InteractionsAdmin(ImportExportActionModelAdmin):
+    resource_class = InteractionsResource
+
+
 admin.site.register(SentenceText, SentenceTextAdmin)
 admin.site.register(TranslationPair, TranslationPairAdmin)
 admin.site.register(OCRDocument, OCRDocumentAdmin)
 admin.site.register(BlockText, BlockTextAdmin)
 admin.site.register(Conversation, ConversationAdmin)
 admin.site.register(SpeechConversation, SpeechConversationAdmin)
+admin.site.register(PromptBase, PromptBaseAdmin)
+admin.site.register(PromptAnswer, PromptAnswerAdmin)
+admin.site.register(PromptAnswerEvaluation, PromptAnswerEvaluationAdmin)
+admin.site.register(Instruction, InstructionsAdmin)
+admin.site.register(Interaction, InteractionsAdmin)

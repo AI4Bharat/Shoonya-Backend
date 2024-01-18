@@ -15,6 +15,11 @@ DATASET_TYPE_CHOICES = [
     ("BlockText", "BlockText"),
     ("Conversation", "Conversation"),
     ("SpeechConversation", "SpeechConversation"),
+    ("PromptBase", "PromptBase"),
+    ("PromptAnswer", "PromptAnswer"),
+    ("PromptAnswerEvaluation", "PromptAnswerEvaluation"),
+    ("Interaction", "Interaction"),
+    ("Instruction", "Instruction"),
 ]
 
 GENDER_CHOICES = (("M", "Male"), ("F", "Female"), ("O", "Others"))
@@ -111,6 +116,15 @@ LANGUAGE_CHOICES = [
     ("Telugu", "Telugu"),
     ("Urdu", "Urdu"),
 ]
+
+LANGUAGE_CHOICES_INSTRUCTIONS = (
+    ("1", "English(Any script)"),
+    ("2", "Indic(Indic script)"),
+    ("3", "Indic(Latin script)"),
+    ("4", "Indic/English(Latin script)"),
+)
+
+LLM_CHOICES = (("GPT3.5", "GPT3.5"), ("GPT4", "GPT4"), ("LLAMA2", "LLAMA2"))
 
 
 class DatasetInstance(models.Model):
@@ -636,7 +650,7 @@ D10 = TranslationPair
 #     duration = models.TimeField()
 
 
-class Instructions(DatasetBase):
+class Instruction(DatasetBase):
     """
     Subclass model for Instructions
     """
@@ -677,27 +691,27 @@ class Instructions(DatasetBase):
     )
     meta_info_language = models.CharField(
         max_length=20,
-        choices=LANGUAGE_CHOICES,
+        choices=LANGUAGE_CHOICES_INSTRUCTIONS,
         verbose_name="Meta Info Language",
         null=True,
         blank=True,
         help_text="Language of the instruction",
     )
-    instruction = models.TextField(verbose_name="Instruction")
+    instruction_data = models.TextField(verbose_name="Instruction_data")
     examples = models.TextField(verbose_name="Examples")
     hint = models.TextField(verbose_name="Hint")
 
     def __str__(self):
-        return f"{self.id} - {self.instruction}"
+        return f"{self.id} - {self.instruction_data}"
 
 
-class Interactions(DatasetBase):
+class Interaction(DatasetBase):
     """
     Subclass model for Interactions
     """
 
     instruction_id = models.ForeignKey(
-        Instructions,
+        Instruction,
         on_delete=models.CASCADE,
         verbose_name="Instruction ID",
         help_text="ID of the related instruction",
@@ -724,3 +738,93 @@ class Interactions(DatasetBase):
 
     def __str__(self):
         return f"{self.id} - Interaction with Instruction {self.instruction_id_id}"
+
+
+class PromptBase(DatasetBase):
+    """
+    Dataset for storing prompt data
+    """
+
+    prompt = models.TextField(
+        verbose_name="prompt",
+        null=True,
+        blank=True,
+        help_text=("Prompt of the conversation"),
+    )
+    instruction_id = models.ForeignKey(
+        Instruction, on_delete=models.CASCADE, null=True, blank=True
+    )
+    language = models.CharField(
+        verbose_name="language", choices=LANG_CHOICES, max_length=15
+    )
+
+    def __str__(self):
+        return str(self.id)
+
+
+class PromptAnswer(DatasetBase):
+    """
+    Dataset for storing prompt response data
+    """
+
+    prompt = models.TextField(
+        verbose_name="prompt",
+        null=True,
+        blank=True,
+        help_text=("Prompt of the conversation"),
+    )
+    output = models.TextField(
+        verbose_name="response",
+        null=True,
+        blank=True,
+        help_text=("Response of the conversation"),
+    )
+    model = models.CharField(
+        verbose_name="model",
+        max_length=16,
+        help_text=("Model of the response"),
+        choices=LLM_CHOICES,
+    )
+    language = models.CharField(
+        verbose_name="language", choices=LANG_CHOICES, max_length=15
+    )
+
+    def __str__(self):
+        return str(self.id)
+
+
+class PromptAnswerEvaluation(DatasetBase):
+    """
+    Dataset for storing prompt response evaluation data
+    """
+
+    model_output_id = models.ForeignKey(
+        PromptAnswer, on_delete=models.CASCADE, null=True, blank=True
+    )
+    output_likert_score = models.IntegerField(
+        verbose_name="prompt_response_rating",
+        null=True,
+        blank=True,
+        help_text=("Rating of the prompt response"),
+    )
+    form_output_json = models.JSONField(
+        verbose_name="form_output",
+        null=True,
+        blank=True,
+        help_text=("Form output of the prompt response (JSON)"),
+    )
+    datetime = models.DateTimeField(
+        verbose_name="datetime",
+        null=True,
+        blank=True,
+        help_text=("Date and time of the prompt response"),
+    )
+    time_taken = models.FloatField(
+        verbose_name="time_taken",
+        null=True,
+        blank=True,
+        help_text=("Time taken to complete the prompt response"),
+    )
+
+    def __str__(self):
+        return str(self.id)

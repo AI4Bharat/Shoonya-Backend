@@ -31,11 +31,6 @@ SAMPLING_MODE_CHOICES = (
 PROJECT_TYPE_LIST = list(ProjectRegistry.get_instance().project_types.keys())
 PROJECT_TYPE_CHOICES = tuple(zip(PROJECT_TYPE_LIST, PROJECT_TYPE_LIST))
 
-Collection = "Collection"
-Annotation = "Annotation"
-
-PROJECT_MODE_CHOICES = ((Collection, "Collection"), (Annotation, "Annotation"))
-
 ANNOTATION_STAGE = 1
 REVIEW_STAGE = 2
 SUPERCHECK_STAGE = 3
@@ -205,12 +200,6 @@ class Project(models.Model):
         choices=PROJECT_TYPE_CHOICES,
         max_length=100,
         help_text=("Project Type indicating the annotation task"),
-    )
-
-    project_mode = models.CharField(
-        choices=PROJECT_MODE_CHOICES,
-        max_length=100,
-        help_text=("Mode of the Project - Annotation or Collection"),
     )
 
     variable_parameters = models.JSONField(

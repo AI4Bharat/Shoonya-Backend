@@ -1,358 +1,54 @@
-Translation:
-  description: "Translating sentences from source to target language"
+ModelOutputEvaluation:
+  description: "Model Output Evaluation"
   project_types:
-    MonolingualTranslation:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "translation/monolingual_translation.jsx"
+    ModelOutputEvaluation:
       input_dataset:
-        class: SentenceText
+        class: PromptAnswer
         fields:
+          - id
+          - prompt
+          - output
+          - model
           - language
-          - text
-        display_fields:
-          - text
-      output_dataset: 
-        class: TranslationPair
+      output_dataset:
+        class: PromptAnswerEvaluation
         save_type: new_record
         fields:
-          variable_parameters:
-            - output_language
           copy_from_input:
-            language: input_language
-            text: input_text
+            id: model_output_id
           annotations:
-            - output_text
-    TranslationEditing:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "translation/translation_editing.jsx"
-      input_dataset:
-        class: TranslationPair
-        fields:
-          - input_language
-          - input_text
-          - output_language
-          - machine_translation
-        display_fields:
-          - input_text
-          - machine_translation
-      output_dataset: 
-        class: TranslationPair
-        save_type: in_place
-        fields:
-          annotations:
-            - output_text
-    SemanticTextualSimilarity_Scale5:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "translation/semantic_textual_similarity_scale5.jsx"
-      input_dataset:
-        class: TranslationPair
-        fields:
-          - input_language
-          - input_text
-          - output_language
-          - output_text
-        display_fields:
-          - input_text
-          - output_text
-      output_dataset: 
-        class: TranslationPair
-        save_type: in_place
-        fields:
-          annotations: 
-            - rating
-    ContextualTranslationEditing:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "translation/contextual_translation_editing.jsx"
-      input_dataset:
-        class: TranslationPair
-        fields:
-          - input_language
-          - input_text
-          - output_language
-          - machine_translation
-          - context
-        display_fields:
-          - input_text
-          - machine_translation
-      output_dataset: 
-        class: TranslationPair
-        save_type: in_place
-        fields:
-          annotations:
-            - output_text
-OCR:
-  description: "Performing OCR on images"
+            - form_output_json
+            - output_likert_score
+            - time_taken
+Chat:
+  description: "Instruction Driven Chat"
   project_types:
-    OCRTranscription:
+    InstructionDrivenChat:
       project_mode: "Annotation"
-      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
       input_dataset:
-        class: OCRDocument
+        class: Instruction
         fields:
-          - image_url
+          - id
+          - meta_info_model
+          - meta_info_intent
+          - meta_info_domain
+          - meta_info_language
+          - instruction_data
+          - examples
+          - hint
         display_fields:
-          - image_url
-        prediction: ocr_prediction_json
-      output_dataset: 
-        class: OCRDocument
-        save_type: in_place
-        fields:
-          annotations:
-            - ocr_transcribed_json
-    OCRTranscriptionEditing:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
-      input_dataset:
-        class: OCRDocument
-        fields:
-          - image_url
-        display_fields:
-          - image_url
-        prediction: ocr_prediction_json
+          - instruction
+          - examples
+          - hint
       output_dataset:
-        class: OCRDocument
-        save_type: in_place
-        fields:
-          annotations:
-            - ocr_transcribed_json
-Monolingual:
-  description: "Monolingual Data Collection"
-  project_types:
-    MonolingualCollection:
-      project_mode: "Collection"
-      output_dataset:
-        class: BlockText
+        class: Interaction
         save_type: new_record
         fields:
-          annotations:
-            - domain
-            - text
-          variable_parameters:
-            - language
-    SentenceSplitting:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "monolingual/sentence_splitting.jsx"
-      input_dataset:
-        class: BlockText
-        fields:
-          - text
-          - language
-        display_fields:
-          - text
-        prediction: splitted_text_prediction
-      output_dataset:
-        class: BlockText
-        save_type: in_place
-        fields:
-          annotations:
-            - splitted_text
-    ContextualSentenceVerification:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "monolingual/contextual_sentence_verification.jsx"
-      input_dataset:
-        class: SentenceText
-        fields:
-          - text
-          - context
-          - language
-        display_fields:
-          - text
-      output_dataset:
-        class: SentenceText
-        save_type: in_place
-        fields:
-          annotations:
-            - corrected_text
-            - quality_status
-    ContextualSentenceVerificationAndDomainClassification: 
-      project_mode: "Annotation" 
-      label_studio_jsx_file: "monolingual/contextual_sentence_verification_and_domain_classifcation.jsx" 
-      input_dataset: 
-        class: SentenceText 
-        fields: 
-          - text 
-          - context 
-          - language 
-        display_fields: 
-          - text 
-      output_dataset: 
-        class: SentenceText 
-        save_type: in_place 
-        fields: 
-          annotations: 
-            - corrected_text 
-            - quality_status 
-            - domain 
-Conversation:
-  description: "Translation of Conversation data"
-  project_types:
-    ConversationTranslation:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "conversation/conversation_translation.jsx"
-      input_dataset:
-        class: Conversation
-        fields:
-          - domain
-          - topic
-          - scenario
-          - prompt
-          - speaker_count
-          - speakers_json
-          - conversation_json
-          - machine_translated_conversation_json
-      output_dataset:
-        class: Conversation
-        save_type: new_record
-        fields:
-          variable_parameters:
-            - language
           copy_from_input:
-            domain: domain
-            topic: topic
-            scenario: scenario
-            prompt: prompt
-            speaker_count: speaker_count
-            speakers_json: speakers_json
-            machine_translated_conversation_json: machine_translated_conversation_json
+            id: instruction_id
           annotations:
-            - conversation_json  
-    ConversationTranslationEditing:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "conversation/conversation_translation.jsx"
-      input_dataset:
-        class: Conversation
-        parent_class: Conversation
-        fields:
-          - domain
-          - topic
-          - scenario
-          - prompt
-          - speaker_count
-          - speakers_json
-          - machine_translated_conversation_json  
-          - parent_data
-        display_fields:
-          - domain
-          - topic
-          - scenario
-          - prompt
-        copy_from_parent: 
-          conversation_json: source_conversation_json          
-      output_dataset:
-        class: Conversation
-        save_type: in_place
-        fields:
-          variable_parameters:
+            - interactions_json
+            - no_of_turns
             - language
-          annotations:
-            - conversation_json
-    ConversationVerification:
-      project_mode: "Annotation"
-      label_studio_jsx_file: "conversation/conversation_verification.jsx"
-      input_dataset:
-        class: Conversation
-        fields:
-          - domain 
-          - topic 
-          - scenario 
-          - prompt 
-          - speaker_count 
-          - speakers_json 
-          - unverified_conversation_json 
-      output_dataset: 
-        class: Conversation 
-        save_type: in_place 
-        fields: 
-          annotations: 
-            - conversation_quality_status
-            - conversation_json 
-Audio: 
-  description: "Projects related to audio-processing" 
-  project_types: 
-    AudioTranscription: 
-      project_mode: "Annotation" 
-      label_studio_jsx_file: "audio/audio_transcription.jsx" 
-      input_dataset: 
-        class: SpeechConversation 
-        fields: 
-          - audio_url 
-          - reference_raw_transcript 
-          - audio_duration 
-          - scenario 
-          - domain 
-          - speakers_json
-        display_fields: 
-          - scenario 
-          - audio_url 
-        prediction: machine_transcribed_json 
-      output_dataset:  
-        class: SpeechConversation 
-        save_type: in_place 
-        fields: 
-          annotations: 
-            - transcribed_json
-    AudioSegmentation:
-      project_mode: "Annotation" 
-      label_studio_jsx_file: "audio/audio_segmentation.jsx" 
-      input_dataset: 
-        class: SpeechConversation 
-        fields: 
-          - audio_url  
-          - audio_duration 
-          - scenario 
-          - domain 
-          - speakers_json
-        display_fields: 
-          - scenario 
-          - audio_url 
-        prediction: machine_transcribed_json 
-      output_dataset:  
-        class: SpeechConversation 
-        save_type: in_place 
-        fields: 
-          annotations: 
-            - prediction_json
-    AudioTranscriptionEditing: 
-      project_mode: "Annotation" 
-      label_studio_jsx_file: "audio/audio_transcription.jsx" 
-      input_dataset: 
-        class: SpeechConversation 
-        fields: 
-          - audio_url 
-          - reference_raw_transcript 
-          - audio_duration 
-          - scenario 
-          - domain 
-          - speakers_json
-        display_fields: 
-          - scenario 
-          - audio_url 
-        prediction: machine_transcribed_json 
-      output_dataset:  
-        class: SpeechConversation 
-        save_type: in_place 
-        fields: 
-          annotations: 
-            - transcribed_json
-    AcousticNormalisedTranscriptionEditing: 
-      project_mode: "Annotation" 
-      label_studio_jsx_file: "audio/acoustic_transcription.jsx" 
-      input_dataset: 
-        class: SpeechConversation 
-        fields: 
-          - audio_url 
-          - reference_raw_transcript 
-          - audio_duration 
-          - scenario 
-          - domain 
-          - speakers_json
-        display_fields: 
-          - scenario 
-          - audio_url 
-        prediction: machine_transcribed_json 
-      output_dataset:  
-        class: SpeechConversation 
-        save_type: in_place 
-        fields: 
-          annotations: 
-            - transcribed_json
+            - model
+            - time_taken

@@ -190,8 +190,10 @@ def create_tasks_from_dataitems(items, project):
         data = dataset_models.DatasetBase.objects.get(pk=data_id)
 
         # Remove data id because it's not needed in task.data
-        del item["id"]
+        if "id" in item:
+            del item["id"]
         task = Task(data=item, project_id=project, input_data=data)
+        """
         if is_translation_project or dataset_type1 == "TranslationPair":
             if is_conversation_project:
                 field_name = (
@@ -211,6 +213,7 @@ def create_tasks_from_dataitems(items, project):
                 field_name = "speaker_" + str(indx) + "_details"
                 task.data[field_name] = stringify_json(task.data["speakers_json"][indx])
                 indx += 1
+        """
         tasks.append(task)
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
@@ -358,15 +361,7 @@ def create_parameters_for_task_creation(
     # Load the project object using the project id
     project = Project.objects.get(pk=project_id)
 
-    # Set the labelstudio label config
-    registry_helper = ProjectRegistry.get_instance()
-    label_config = registry_helper.get_label_studio_jsx_payload(project_type)
-
-    project.label_config = label_config
-    project.save()
-
-    # Create Tasks from Parameters
-    tasks = create_tasks_from_dataitems(sampled_items, project)
+    create_tasks_from_dataitems(sampled_items, project)
 
 
 @shared_task
@@ -646,94 +641,46 @@ def export_project_new_record(
         # Rename keys to match label studio converter
         # task_dict['id'] = task_dict['task_id']
         # del task_dict['task_id']
-        if project.project_mode == Annotation:
-            if task.correct_annotation is not None:
-                annotated_tasks.append(task)
-                annotation_dict = model_to_dict(task.correct_annotation)
-                # annotation_dict['result'] = annotation_dict['result_json']
-                # del annotation_dict['result_json']
-                task_dict["annotations"] = [OrderedDict(annotation_dict)]
-        elif project.project_mode == Collection:
-            annotated_tasks.append(task)
+        annotated_tasks.append(task)
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
-    if project.project_mode == Collection:
-        for tl, task in zip(tasks_list, annotated_tasks):
-            if task.output_data is not None:
-                data_item = dataset_model.objects.get(id__exact=task.output_data.id)
-            else:
-                data_item = dataset_model()
-                data_item.instance_id = export_dataset_instance
-            for field in annotation_fields:
-                setattr(data_item, field, tl["data"][field])
-            for field in task_annotation_fields:
-                setattr(data_item, field, tl["data"][field])
-            data_item.save()
-            task.output_data = data_item
-            task.save()
-    elif project.project_mode == Annotation:
-        download_resources = True
-        # export_stream, content_type, filename = DataExport.generate_export_file(
-        #     project, tasks_list, 'CSV', download_resources, request.GET
-        # )
-        if dataset_model == getattr(dataset_models, "Conversation"):
-            for task in tasks_list:
-                if task["output_data"] is not None:
-                    data_item = dataset_model.objects.get(id__exact=task["output_data"])
-                else:
-                    data_item = dataset_model()
-                    data_item.instance_id = export_dataset_instance
-                    data_item.parent_data = dataset_model.objects.get(
-                        id__exact=task["input_data"]
-                    )
-                for field in annotation_fields:
-                    if field == "conversation_json":
-                        conversation_json = dataset_model.objects.get(
-                            id__exact=task["input_data"]
-                        ).conversation_json
-                        for idx1 in range(len(conversation_json)):
-                            for idx2 in range(
-                                len(conversation_json[idx1]["sentences"])
-                            ):
-                                conversation_json[idx1]["sentences"][idx2] = ""
-                        for result in task["annotations"][0]["result"]:
-                            to_name_list = result["to_name"].split("_")
-                            idx1 = int(to_name_list[1])
-                            idx2 = int(to_name_list[2])
-                            conversation_json[idx1]["sentences"][idx2] = ".".join(
-                                map(str, result["value"]["text"])
-                            )
-                        setattr(data_item, field, conversation_json)
-
-                for field in task_annotation_fields:
-                    setattr(data_item, field, task["data"][field])
-
-                task_instance = Task.objects.get(id=task["id"])
-                data_item.save()
-                task_instance.output_data = data_item
-                task_instance.save()
-
+    for tl, task in zip(tasks_list, annotated_tasks):
+        if task.output_data is not None:
+            data_item = dataset_model.objects.get(id__exact=task.output_data.id)
         else:
-            tasks_df = DataExport.export_csv_file(
-                project, tasks_list, download_resources, get_request_data
-            )
-            tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
-            for ta, task in zip(tasks_annotations, annotated_tasks):
-                # data_item = dataset_model.objects.get(id__exact=task.id.id)
-                if task.output_data is not None:
-                    data_item = dataset_model.objects.get(id__exact=task.output_data.id)
-                else:
-                    data_item = dataset_model()
-                    data_item.instance_id = export_dataset_instance
-                    data_item.parent_data = task.input_data
-                for field in annotation_fields:
-                    setattr(data_item, field, ta[field])
-                for field in task_annotation_fields:
-                    setattr(data_item, field, ta[field])
-                data_item.save()
-                task.output_data = data_item
-                task.save()
+            data_item = dataset_model()
+            data_item.instance_id = export_dataset_instance
+        for field in annotation_fields:
+            setattr(data_item, field, tl["data"][field])
+        for field in task_annotation_fields:
+            setattr(data_item, field, tl["data"][field])
+        data_item.save()
+        task.output_data = data_item
+        task.save()
+
+    """
+    download_resources = True
+    tasks_df = DataExport.export_csv_file(
+        project, tasks_list, download_resources, get_request_data
+    )
+    tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
+    for ta, task in zip(tasks_annotations, annotated_tasks):
+        # data_item = dataset_model.objects.get(id__exact=task.id.id)
+        if task.output_data is not None:
+            data_item = dataset_model.objects.get(id__exact=task.output_data.id)
+        else:
+            data_item = dataset_model()
+            data_item.instance_id = export_dataset_instance
+            data_item.parent_data = task.input_data
+        for field in annotation_fields:
+            setattr(data_item, field, ta[field])
+        for field in task_annotation_fields:
+            setattr(data_item, field, ta[field])
+        data_item.save()
+        task.output_data = data_item
+        task.save()
+    """
     tasks.update(task_status=EXPORTED)
 
 
