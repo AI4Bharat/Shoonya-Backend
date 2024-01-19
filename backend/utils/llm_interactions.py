@@ -1,9 +1,9 @@
 import os
 
 # https://pypi.org/project/openai/
-import openai
-from django.http import JsonResponse
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+# import openai
+# from django.http import JsonResponse
+# from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
 
 # def generate_response_from_gpt(gpt_prompt):
