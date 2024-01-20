@@ -120,7 +120,7 @@ services:
     volumes:
       - ./backend:/home/backend
     ports:
-      - “5555:5555”
+      - "5555:5555"
     depends_on:
       redis:
         condition: service_started
