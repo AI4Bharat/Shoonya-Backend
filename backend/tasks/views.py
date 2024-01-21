@@ -1092,7 +1092,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
 
     @swagger_auto_schema(
-        method="get",
+        method="post",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
@@ -1201,7 +1201,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
 
     @swagger_auto_schema(
-        method="post",
+        method="get",
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
