@@ -76,7 +76,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
-        parent_annotation_id=None,
+        annotation_type=ANNOTATOR_ANNOTATION,
         updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
@@ -154,6 +154,7 @@ def get_translation_quality_reports(
     ]
     reviewed_annotations_of_user = Annotation.objects.filter(
         id__in=parent_anno_ids_of_reviewed,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
 
@@ -170,6 +171,7 @@ def get_translation_quality_reports(
     parent_anno_ids_of_accepted = [ann.parent_annotation_id for ann in accepted_tasks]
     accepted_annotations_of_user = Annotation.objects.filter(
         id__in=parent_anno_ids_of_accepted,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
 
@@ -195,6 +197,7 @@ def get_translation_quality_reports(
     ]
     minor_changes_annotations_of_user = Annotation.objects.filter(
         id__in=parent_annotation_minor_changes,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
     minor_changes_count = minor_changes_annotations_of_user.count()
@@ -212,6 +215,7 @@ def get_translation_quality_reports(
     ]
     major_changes_annotations_of_user = Annotation.objects.filter(
         id__in=parent_annotation_major_changes,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
     major_changes_count = major_changes_annotations_of_user.count()
@@ -228,7 +232,10 @@ def get_translation_quality_reports(
     total_lead_time = []
     for annot in accepted_with_changes_tasks:
         annotator_obj = annot
-        reviewer_obj = Annotation.objects.filter(parent_annotation_id=annot.id)
+        reviewer_obj = Annotation.objects.filter(
+            parent_annotation_id=annot.id,
+            annotation_type=REVIEWER_ANNOTATION,
+        )
 
         str1 = annotator_obj.result[0]["value"]["text"]
         str2 = reviewer_obj[0].result[0]["value"]["text"]
@@ -1143,7 +1150,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         for each_task in labeled_tasks:
                             try:
                                 annotate_annotation = Annotation.objects.filter(
-                                    task=each_task, parent_annotation_id__isnull=True
+                                    task=each_task,
+                                    annotation_type=ANNOTATOR_ANNOTATION,
                                 )[0]
                                 total_duration_annotated_count_list.append(
                                     get_audio_transcription_duration(
@@ -1156,7 +1164,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         for each_task in reviewed_tasks:
                             try:
                                 review_annotation = Annotation.objects.filter(
-                                    task=each_task, parent_annotation_id__isnull=False
+                                    task=each_task,
+                                    annotation_type=REVIEWER_ANNOTATION,
                                 )[0]
                                 total_duration_reviewed_count_list.append(
                                     get_audio_transcription_duration(
@@ -1328,17 +1337,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     ],
                 )
                 tasks_count = tasks.count()
-
-                # Annotation.objects.filter(
-                #     task__project_id__in=proj_lang_filter,
-                #     task__project_id__tgt_language=lang,
-                #     annotation_status__in=[
-                #         "accepted",
-                #         "accepted_with_minor_changes",
-                #         "accepted_with_major_changes",
-                #     ],
-                #     parent_annotation_id__isnull=False,
-                # ).count()
 
             elif supercheck_reports == True:
                 tasks = Task.objects.filter(
@@ -2302,7 +2300,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         rev_raw_time = convert_seconds_to_hours(raw_audio_duration)
                         rev_audio_word_count = sum(audio_segment_word_count_list)
 
-                        # annotation audio duration calclation
+                        # annotation audio duration calculation
 
                         total_ann_duration_list = []
                         raw_audio_duration = 0

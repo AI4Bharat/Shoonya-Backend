@@ -1457,7 +1457,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         rev_raw_time = convert_seconds_to_hours(raw_audio_duration)
                         rev_audio_word_count = sum(audio_segment_word_count_list)
 
-                        # annotation audio duration calclation
+                        # annotation audio duration calculation
 
                         total_ann_duration_list = []
                         raw_audio_duration = 0
