@@ -265,7 +265,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 total_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
-    elif proj_type == "OCRTranscriptionEditing" or proj_type =="OCRSegmentCategorizationEditing":
+    elif (
+        proj_type == "OCRTranscriptionEditing"
+        or proj_type == "OCRSegmentCategorizationEditing"
+    ):
         for anno in total_rev_annos_accepted:
             total_word_count_list.append(ocr_word_count(anno.result))
     elif proj_type in get_audio_project_types():
@@ -2180,7 +2183,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AcousticNormalisedTranscriptionEditing",
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
-                "OCRSegmentCategorizationEditing"
+                "OCRSegmentCategorizationEditing",
             ]:
                 try:
                     result = convert_prediction_json_to_annotation_result(
@@ -3167,7 +3170,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
-            elif "OCRTranscription" in project_type or "OCRSegmentCategorization" in project_type:
+            elif (
+                "OCRTranscription" in project_type
+                or "OCRSegmentCategorization" in project_type
+            ):
                 total_word_count = 0
                 for each_anno in labeled_annotations:
                     total_word_count += ocr_word_count(each_anno.result)
