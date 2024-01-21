@@ -436,7 +436,7 @@ class GoogleLogin(viewsets.ViewSet):
             fire_user = auth.get_account_info(token)
             email = fire_user["users"][0]["email"]
             photoUrl = fire_user["users"][0]["photoUrl"]
-            name = str(fire_user["users"][0]["displayName"]).rsplit(' ',1)
+            name = str(fire_user["users"][0]["displayName"]).rsplit(" ", 1)
             fName = name[0]
             lName = name[1]
         except:
