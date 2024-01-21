@@ -11,6 +11,8 @@ from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
+
+import notifications
 from .utils import ocr_word_count
 from django.http import HttpResponse
 from rest_framework import status, viewsets
@@ -77,6 +79,7 @@ from .utils import (
 
 from users.utils import generate_random_string
 from notifications.views import createNotification
+from notifications.utils import get_userids_from_project_id
 import json
 
 # Create your views here.
@@ -891,7 +894,10 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
-    elif proj_type == "OCRTranscriptionEditing":
+    elif (
+        proj_type == "OCRTranscriptionEditing"
+        or proj_type == "OCRSegmentCategorizationEditing"
+    ):
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = (
             json.loads(data_item.ocr_prediction_json)
@@ -1084,6 +1090,11 @@ def convert_annotation_result_to_formatted_json(
                 continue
             formatted_result_dict = rectangle_dict["value"]
             try:
+                labels_split = []
+                if labels_dict["value"]["labels"].find("/"):
+                    labels_split = labels_dict["value"]["labels"].split("/")
+                if labels_split:
+                    labels_dict["value"]["labels"] = labels_split
                 formatted_result_dict["labels"] = labels_dict["value"]["labels"]
                 text_dict_json = json.loads(text_dict)
                 formatted_result_dict["text"] = (
@@ -1468,7 +1479,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} Some annotators have been removed from this project"
             notification_type = "remove_member"
-            create_project_notifications(project, title, notification_type, ids)
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
 
             return Response(
                 {"message": "User removed from project"},
@@ -1550,7 +1570,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} Some reviewers have been removed from this project"
             notification_type = "remove_member"
-            create_project_notifications(project, title, notification_type, ids)
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
 
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
@@ -1621,7 +1650,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} Some supercheckers have been removed from this project"
             notification_type = "remove_member"
-            create_project_notifications(project, title, notification_type, ids)
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
 
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
@@ -1978,7 +2016,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = Project.objects.get(pk=pk)
         title = f"{project.title}:{project.id} Project has been updated"
         notification_type = "project_update"
-        create_project_notifications(project, title, notification_type, [])
+        notification_ids = get_userids_from_project_id(
+            project_id=pk,
+            annotators_bool=True,
+            reviewers_bool=True,
+            super_checkers_bool=True,
+            project_manager_bool=True,
+        )
+        createNotification(title, notification_type, notification_ids)
         return super().update(request, *args, **kwargs)
 
     @is_project_editor
@@ -3419,7 +3464,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} New annotators have been added to the project"
             notification_type = "add_member"
-            create_project_notifications(project, title, notification_type, [])
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
 
             return Response(
                 {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
@@ -3478,7 +3531,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 f"{project.title}:{project.id} New reviewers have been added to project"
             )
             notification_type = "add_member"
-            create_project_notifications(project, title, notification_type, [])
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
 
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
@@ -3533,7 +3594,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # Creating Notification
             title = f"{project.title}:{project.id} New super checkers have been added to project"
             notification_type = "add_member"
-            create_project_notifications(project, title, notification_type, [])
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
 
             return Response(
                 {"message": "SuperCheckers added"}, status=status.HTTP_200_OK
@@ -4021,6 +4090,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         if project_type in [
                             "OCRTranscriptionEditing",
                             "OCRTranscription",
+                            "OCRSegmentCategorizationEditing",
+                            "OCRSegmentCategorization",
                         ]:
                             task["data"][
                                 "ocr_transcribed_json"
@@ -4230,24 +4301,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.is_published = True
             project.published_at = datetime.now()
 
-            # creating notifications
-            title = f"{project.id}:{project.title} Project has been published"
-            notification_type = "publish_project"
-            annotators_ids = [a.get("id") for a in annotators]
-            reviewers_ids = [r.get("id") for r in reviewers]
-            super_checkers_ids = [s.get("id") for s in super_checkers]
-            project_workspace = project.workspace_id
-            project_workspace_managers = project_workspace.managers.all()
-            project_workspace_managers_ids = [p.id for p in project_workspace_managers]
-            users_ids = (
-                annotators_ids
-                + reviewers_ids
-                + super_checkers_ids
-                + project_workspace_managers_ids
-            )
             try:
                 project.save()
-                createNotification(title, notification_type, list(set(users_ids)))
+                # Creating Notification
+                title = f"{project.id}:{project.title} Project has been published"
+                notification_type = "publish_project"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                createNotification(title, notification_type, notification_ids)
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:
@@ -4370,27 +4436,3 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "language field of task data succesfully updated!"},
             status=status.HTTP_200_OK,
         )
-
-
-def create_project_notifications(project, title, notification_type, removed_ids):
-    try:
-        serializer = ProjectUsersSerializer(project, many=False)
-        annotators = serializer.data["annotators"]
-        reviewers = serializer.data["annotation_reviewers"]
-        super_checkers = serializer.data["review_supercheckers"]
-        annotators_ids = [a.get("id") for a in annotators]
-        reviewers_ids = [r.get("id") for r in reviewers]
-        super_checkers_ids = [s.get("id") for s in super_checkers]
-        project_workspace = project.workspace_id
-        project_workspace_managers = project_workspace.managers.all()
-        project_workspace_managers_ids = [p.id for p in project_workspace_managers]
-        users_ids = (
-            annotators_ids
-            + reviewers_ids
-            + super_checkers_ids
-            + project_workspace_managers_ids
-            + removed_ids
-        )
-        createNotification(title, notification_type, list(set(users_ids)))
-    except Exception as e:
-        print(f"Error while creating notification for Project_id- {project.id}")

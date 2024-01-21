@@ -115,6 +115,41 @@ OCR:
         fields:
           annotations:
             - ocr_transcribed_json
+    OCRSegmentCategorization:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
+      input_dataset:
+        class: OCRDocument
+        fields:
+          - language
+          - image_url
+        display_fields:
+          - language
+          - image_url
+      output_dataset: 
+        class: OCRDocument
+        save_type: in_place
+        fields:
+          annotations:
+            - ocr_transcribed_json
+    OCRSegmentCategorizationEditing:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
+      input_dataset:
+        class: OCRDocument
+        fields:
+          - language
+          - image_url
+        display_fields:
+          - language
+          - image_url
+        prediction: ocr_prediction_json
+      output_dataset:
+        class: OCRDocument
+        save_type: in_place
+        fields:
+          annotations:
+            - ocr_transcribed_json
 Monolingual:
   description: "Monolingual Data Collection"
   project_types:
