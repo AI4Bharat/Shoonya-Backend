@@ -435,6 +435,10 @@ class GoogleLogin(viewsets.ViewSet):
             auth = firebase.auth()
             fire_user = auth.get_account_info(token)
             email = fire_user["users"][0]["email"]
+            photoUrl = fire_user["users"][0]["photoUrl"]
+            name = str(fire_user["users"][0]["displayName"]).rsplit(' ',1)
+            fName = name[0]
+            lName = name[1]
         except:
             return Response(
                 {"message": "Authentication failed."},
@@ -448,6 +452,9 @@ class GoogleLogin(viewsets.ViewSet):
                 username=str(email).split("@")[0],
                 email=email.lower(),
                 role=1,
+                first_name=fName,
+                last_name=lName,
+                profile_photo=photoUrl,
             )
             users = []
             users.append(user)
