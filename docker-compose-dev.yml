@@ -124,7 +124,7 @@ services:
     depends_on:
       redis:
         condition: service_started
-    command: python3 -m celery -A backend flower --loglevel=info  
+    command: celery -A celery flower --conf=./backend/shoonya_backend/flowerconfig.py 
 
 volumes:
   logs_vol:
