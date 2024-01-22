@@ -20,3 +20,35 @@ ModelOutputEvaluation:
             - form_output_json
             - output_likert_score
             - time_taken
+Chat:
+  description: "Instruction Driven Chat"
+  project_types:
+    InstructionDrivenChat:
+      project_mode: "Annotation"
+      input_dataset:
+        class: Instruction
+        fields:
+          - id
+          - meta_info_model
+          - meta_info_intent
+          - meta_info_domain
+          - meta_info_language
+          - instruction_data
+          - examples
+          - hint
+        display_fields:
+          - instruction
+          - examples
+          - hint
+      output_dataset:
+        class: Interaction
+        save_type: new_record
+        fields:
+          copy_from_input:
+            id: instruction_id
+          annotations:
+            - interactions_json
+            - no_of_turns
+            - language
+            - model
+            - time_taken

@@ -163,7 +163,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     guest_user = models.BooleanField(
         verbose_name="guest_user",
-        default=False,
+        default=True,
         choices=GUEST_USER_CHOICES,
         help_text="Indicates whether the user is a guest user.",
     )
@@ -320,28 +320,28 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_admin(self):
         return self.role == User.ADMIN
 
-    def send_mail_to_change_password(self, email, key):
-        sent_token = self.generate_reset_token(key)
-        prefix = os.getenv("FRONTEND_URL_FOR_RESET_PASSWORD")
-        link = f"{prefix}/#/forget-password/confirm/{key}/{sent_token}"
-        try:
-            send_mail(
-                "Reset password link for Anudesh",
-                f"Hello! Please click on the following link to reset your password - {link}",
-                settings.DEFAULT_FROM_EMAIL,
-                [email],
-            )
-        except SMTPAuthenticationError:
-            raise Exception(
-                "Failed to authenticate with the SMTP server. Check your email settings."
-            )
-        except (
-            SMTPException,
-            socket.gaierror,
-            SMTPRecipientsRefused,
-            SMTPServerDisconnected,
-        ) as e:
-            raise Exception("Failed to send the email. Please try again later.")
+    # def send_mail_to_change_password(self, email, key):
+    #     sent_token = self.generate_reset_token(key)
+    #     prefix = os.getenv("FRONTEND_URL_FOR_RESET_PASSWORD")
+    #     link = f"{prefix}/#/forget-password/confirm/{key}/{sent_token}"
+    #     try:
+    #         send_mail(
+    #             "Reset password link for Anudesh",
+    #             f"Hello! Please click on the following link to reset your password - {link}",
+    #             settings.DEFAULT_FROM_EMAIL,
+    #             [email],
+    #         )
+    #     except SMTPAuthenticationError:
+    #         raise Exception(
+    #             "Failed to authenticate with the SMTP server. Check your email settings."
+    #         )
+    #     except (
+    #         SMTPException,
+    #         socket.gaierror,
+    #         SMTPRecipientsRefused,
+    #         SMTPServerDisconnected,
+    #     ) as e:
+    #         raise Exception("Failed to send the email. Please try again later.")
 
     def generate_reset_token(self, user_id):
         # Setting token expiration time (2 hours)

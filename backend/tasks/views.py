@@ -26,6 +26,12 @@ from users.utils import generate_random_string
 from utils.convert_result_to_chitralekha_format import (
     convert_result_to_chitralekha_format,
 )
+from utils.llm_checks import (
+    evaluate_prompt_alignment,
+    prompt_lang_check,
+    duplicate_check,
+)
+from utils.llm_interactions import get_model_output
 
 from utils.search import process_search_query
 
@@ -1334,7 +1340,17 @@ class AnnotationViewSet(
                         == 1,
                     )
                 else:
-                    annotation_obj.result = request.data["result"]
+                    if (
+                        annotation_obj.task.project_id.project_type
+                        == "InstructionDrivenChat"
+                    ):
+                        annotation_obj.result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                        )
+                    else:
+                        annotation_obj.result = request.data["result"]
                 if "annotation_notes" in dict(request.data):
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
@@ -1385,6 +1401,15 @@ class AnnotationViewSet(
                             "acoustic_enabled_stage"
                         ]
                         == 1,
+                    )
+                if (
+                    annotation_obj.task.project_id.project_type
+                    == "InstructionDrivenChat"
+                ):
+                    request.data["result"] = get_llm_output(
+                        request.data["result"],
+                        annotation_obj.task,
+                        annotation_obj,
                     )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
@@ -1442,7 +1467,17 @@ class AnnotationViewSet(
                         <= 2,
                     )
                 else:
-                    annotation_obj.result = request.data["result"]
+                    if (
+                        annotation_obj.task.project_id.project_type
+                        == "InstructionDrivenChat"
+                    ):
+                        annotation_obj.result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                        )
+                    else:
+                        annotation_obj.result = request.data["result"]
                 if "review_notes" in dict(request.data):
                     annotation_obj.review_notes = request.data["review_notes"]
                     update_fields_list.append("review_notes")
@@ -1533,6 +1568,15 @@ class AnnotationViewSet(
                         ]
                         <= 2,
                     )
+                if (
+                    annotation_obj.task.project_id.project_type
+                    == "InstructionDrivenChat"
+                ):
+                    request.data["result"] = get_llm_output(
+                        request.data["result"],
+                        annotation_obj.task,
+                        annotation_obj,
+                    )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -1616,7 +1660,17 @@ class AnnotationViewSet(
                         <= 3,
                     )
                 else:
-                    annotation_obj.result = request.data["result"]
+                    if (
+                        annotation_obj.task.project_id.project_type
+                        == "InstructionDrivenChat"
+                    ):
+                        annotation_obj.result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                        )
+                    else:
+                        annotation_obj.result = request.data["result"]
                 if "supercheck_notes" in dict(request.data):
                     annotation_obj.supercheck_notes = request.data["supercheck_notes"]
                     update_fields_list.append("supercheck_notes")
@@ -1697,6 +1751,15 @@ class AnnotationViewSet(
                             "acoustic_enabled_stage"
                         ]
                         <= 3,
+                    )
+                if (
+                    annotation_obj.task.project_id.project_type
+                    == "InstructionDrivenChat"
+                ):
+                    request.data["result"] = get_llm_output(
+                        request.data["result"],
+                        annotation_obj.task,
+                        annotation_obj,
                     )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
@@ -2009,3 +2072,30 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 {"message": "Invalid parameters in request body!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+def get_llm_output(prompt, task, annotation, complete_checking):
+    # CHECKS
+    intent = task["data"]["meta_info_intent"]
+    domain = task["data"]["meta_info_domain"]
+    lang_type = task["data"]["meta_info_language"]
+    ann_result = json.loads(annotation.result)
+    if len(ann_result) == 0 and complete_checking:
+        if intent and domain:
+            intent_check, domain_check, reason = evaluate_prompt_alignment(
+                prompt, domain, intent
+            )
+    if lang_type:
+        lang_check = prompt_lang_check(prompt, lang_type)
+    if len(ann_result) >= 0:
+        dup_check, message = duplicate_check(ann_result, prompt)
+
+    # GET MODEL OUTPUT
+    history = ann_result
+    model = task["data"]["meta_info_model"]
+    output = get_model_output(prompt, history, model)
+    get_model_output(
+        "You are a very kind and helpful assistant!", prompt, history, model
+    )
+    ann_result.append({"prompt": prompt, "output": output})
+    return ann_result

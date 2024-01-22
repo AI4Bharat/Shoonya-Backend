@@ -7,6 +7,8 @@ router = routers.DefaultRouter()
 
 router.register(r"instances", DatasetInstanceViewSet)
 router.register(r"dataitems", DatasetItemsViewSet)
+router.register(r"instructions", InstructionsViewSet, basename="instructions")
+router.register(r"interactions", InteractionsViewSet, basename="interactions")
 # router.register(r"sentences", SentenceTextViewSet)
 # router.register(r"collection", CollectionDatasetViewSet)
 # router.register(r"speechcol",SpeechCollectionViewset)

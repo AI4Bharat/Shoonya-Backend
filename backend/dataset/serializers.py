@@ -134,6 +134,18 @@ class PromptAnswerEvaluationSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class InstructionsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Instruction
+        fields = "__all__"
+
+
+class InteractionsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Interaction
+        fields = "__all__"
+
+
 # Define a mapping between dataset instance type and serializer
 SERIALIZER_MAP = {
     "SentenceText": SentenceTextSerializer,
@@ -145,6 +157,8 @@ SERIALIZER_MAP = {
     "PromptBase": PromptBaseSerializer,
     "PromptAnswer": PromptAnswerSerializer,
     "PromptAnswerEvaluation": PromptAnswerEvaluationSerializer,
+    "Instruction": InstructionsSerializer,
+    "Interaction": InteractionsSerializer,
 }
 
 # class CollectionDatasetSerializer(serializers.ModelSerializer):

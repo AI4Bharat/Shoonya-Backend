@@ -973,7 +973,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         workspace_reviewer_list.extend(reviewer_ids)
 
                     workspace_reviewer_list = list(set(workspace_reviewer_list))
-                    if user_id not in workspace_superchecker_list:
+                    if user_id not in workspace_reviewer_list:
                         final_response = {
                             "message": "You do not have enough permissions to access this view!"
                         }
