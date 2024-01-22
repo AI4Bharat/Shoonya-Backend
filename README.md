@@ -1,4 +1,4 @@
-# Shoonya Backend
+# Anudesh Backend
 
 Repository for Shoonya's backend.
 
