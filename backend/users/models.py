@@ -95,6 +95,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     username = models.CharField(verbose_name="username", max_length=265)
+    password = models.CharField(
+        verbose_name="password",
+        max_length=128,
+        blank=True,
+        default=os.getenv("DEFAULT_PASSWORD"),
+    )
     email = models.EmailField(verbose_name="email_address", unique=True, blank=False)
 
     first_name = models.CharField(verbose_name="first_name", max_length=265, blank=True)
