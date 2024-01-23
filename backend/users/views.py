@@ -456,6 +456,7 @@ class GoogleLogin(viewsets.ViewSet):
                 last_name=lName,
                 profile_photo=photoUrl,
             )
+            user.set_password("")
             users = []
             users.append(user)
             User.objects.bulk_create(users)
