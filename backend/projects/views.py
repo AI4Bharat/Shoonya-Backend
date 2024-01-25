@@ -4115,8 +4115,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result, None, dataset_type
                             )
-                        if "data" in task and "image_url" in task["data"]:
-                            del task["data"]["image_url"]
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
