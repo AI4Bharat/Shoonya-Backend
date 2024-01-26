@@ -1,5 +1,4 @@
 import datetime
-import time
 import zipfile
 import threading
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -54,9 +53,6 @@ from django.http import QueryDict
 from rest_framework.request import Request
 import os
 import tempfile
-
-from functions.locks import Lock
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -739,13 +735,6 @@ def schedule_mail_for_project_reports(
         did,
         language,
     )
-
-    if len(proj_objs) == 0:
-        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
-        celery_lock.releaseLock()
-        print("No projects found")
-        return 0
-
     user = User.objects.get(id=user_id)
     if len(proj_objs) != 0:
         result = get_stats(
@@ -805,11 +794,7 @@ def schedule_mail_for_project_reports(
         )
 
     try:
-        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
         email.send()
-
-        celery_lock.releaseLock()
-
         extra_data = {
             "user_email": user.email,
             "request_path": "/schedule_project_reports_email",
@@ -830,7 +815,6 @@ def schedule_mail_for_project_reports(
             else f"No projects found but email was sent for {ids}"
         )
         logger.info(message, extra=extra_data)
-
     except Exception as e:
         print(f"An error occurred while sending email: {e}")
     print(f"Email sent successfully - {user_id}")

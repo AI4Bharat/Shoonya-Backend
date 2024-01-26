@@ -6,8 +6,6 @@ from azure.core.exceptions import AzureError, ResourceNotFoundError
 # functions to extract account_key, account_name, endpoint_suffix from azure_connection_string
 def extract_account_key(connection_string):
     pattern = r"AccountKey=([^;]+);"
-    # If connection_string is not already a string, attempt to convert it to one
-    connection_string = str(connection_string)
     match = re.search(pattern, connection_string)
     if match:
         return match.group(1)
@@ -17,8 +15,6 @@ def extract_account_key(connection_string):
 
 def extract_account_name(connection_string):
     pattern = r"AccountName=([^;]+)"
-    # If connection_string is not already a string, attempt to convert it to one
-    connection_string = str(connection_string)
     match = re.search(pattern, connection_string)
     if match:
         return match.group(1)
@@ -28,8 +24,6 @@ def extract_account_name(connection_string):
 
 def extract_endpoint_suffix(connection_string):
     pattern = r"EndpointSuffix=([^;]+)"
-    # If connection_string is not already a string, attempt to convert it to one
-    connection_string = str(connection_string)
     match = re.search(pattern, connection_string)
     if match:
         return match.group(1)

@@ -42,7 +42,6 @@ urlpatterns = [
     path("session/", include("rest_framework.urls")),
     path("organizations/", include("organizations.urls")),
     path("workspaces/", include("workspaces.urls")),
-    path("tasks/", include("tasks.urls")),
     path("notifications/", include("notifications.urls")),
     # path("/", include("tasks.urls")),
     path("projects/", include("projects.urls")),

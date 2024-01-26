@@ -3,24 +3,16 @@ import os
 from datetime import timezone
 import ast
 
-import requests
-from django.http import JsonResponse
-from requests.exceptions import RequestException
-from dotenv import load_dotenv
-
-
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import StreamingHttpResponse, FileResponse
-
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
-from drf_yasg.utils import swagger_auto_schema
-from shoonya_backend.pagination import CustomPagination
+
 from projects.decorators import is_org_owner
 from projects.utils import get_ocr_project_types
 from tasks.models import *
@@ -30,7 +22,6 @@ from tasks.serializers import (
     PredictionSerializer,
     TaskAnnotationSerializer,
 )
-from tasks.utils import query_flower
 
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
@@ -1092,124 +1083,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
 
     @swagger_auto_schema(
-        method="post",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "project_task_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
-                "project_task_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
-                "project_task_ids": openapi.Schema(
-                    type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(type=openapi.TYPE_INTEGER),
-                ),
-            },
-            description="Either pass the project_task_start_id and project_task_end_id or the project_task_ids in request body",
-        ),
-        manual_parameters=[
-            openapi.Parameter(
-                "id",
-                openapi.IN_PATH,
-                description=("A unique integer identifying the project"),
-                type=openapi.TYPE_INTEGER,
-                required=True,
-            )
-        ],
-        responses={
-            200: "returned successfully! or No rows to show",
-            403: "Not authorized!",
-            400: "Invalid parameters in the request body!",
-        },
-    )
-    @action(
-        detail=True,
-        methods=["POST"],
-        url_path="get_all_tasks_for_confirmation_before_deletion",
-        url_name="get_all_tasks_for_confirmation_before_deletion",
-    )
-    def get_all_tasks_for_confirmation_before_deletion(self, request, pk=None):
-        project = Project.objects.get(pk=pk)
-        try:
-            if not (
-                (
-                    request.user.role == User.ORGANIZATION_OWNER
-                    or request.user.is_superuser
-                )
-                and (request.user.organization == project.organization_id)
-            ):
-                return JsonResponse(
-                    {"message": "You are not authorized to access the endpoint."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-            if "project_task_ids" in request.data:
-                project_task_ids = request.data.get("project_task_ids")
-                if len(project_task_ids) == 0:
-                    return JsonResponse(
-                        {"message": "No task Ids found in request"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            else:
-                project_task_start_id = request.data.get("project_task_start_id")
-                project_task_end_id = request.data.get("project_task_end_id")
-
-                if (
-                    project_task_start_id == ""
-                    or project_task_end_id == ""
-                    or project_task_start_id == None
-                    or project_task_end_id == None
-                ):
-                    return JsonResponse(
-                        {"message": "Project task start id or end id not found."},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                project_task_ids = [
-                    id for id in range(project_task_start_id, project_task_end_id + 1)
-                ]
-
-            project_tasks = (
-                Task.objects.filter(project_id=project)
-                .filter(id__in=project_task_ids)
-                .order_by("id")
-            )
-
-            # pagination
-            paginator = CustomPagination()
-            result_page = paginator.paginate_queryset(project_tasks, request)
-
-            num_project_tasks = len(project_tasks)
-
-            if num_project_tasks == 0:
-                return JsonResponse(
-                    {
-                        "message": "No rows to show corresponding to the entered task ids"
-                    },
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                serializer = TaskSerializer(result_page, many=True)
-                return paginator.get_paginated_response(
-                    {
-                        "message": "Project tasks retrieved successfully for valid task ids",
-                        "data": serializer.data,
-                    }
-                )
-
-        except Exception as error:
-            return JsonResponse(
-                {"message": str(error)}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-    @swagger_auto_schema(
         method="get",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
-                "task_type": openapi.Schema(type=openapi.TYPE_STRING),
-            },
-            required=["user_id"],
-        ),
         manual_parameters=[
             openapi.Parameter(
                 "user_id",
@@ -2417,30 +2291,3 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 {"message": "Invalid parameters in request body!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-
-@swagger_auto_schema(
-    method="get",
-    operation_description="Get a list of Celery tasks with an optional filter by task state. use State = 'FAILURE' for retrieving failed tasks, State = 'SUCCESS' for retrieving successful tasks, State = 'STARTED' for retrieving active tasks and State = None for all retrieving tasks",
-    responses={
-        200: "Success",
-        400: "Bad Request",
-    },
-    manual_parameters=[
-        openapi.Parameter(
-            name="state",
-            in_=openapi.IN_QUERY,
-            type=openapi.TYPE_STRING,
-            description="Filter tasks by state",
-            required=False,
-        ),
-    ],
-)
-@api_view(["GET"])
-def get_celery_tasks(request):
-    filters = request.data
-    filtered_tasks = query_flower(filters)
-    if "error" in filtered_tasks:
-        return JsonResponse({"message": filtered_tasks["error"]}, status=503)
-
-    return JsonResponse(filtered_tasks, safe=False)
