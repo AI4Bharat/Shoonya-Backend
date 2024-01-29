@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from users.views import AnalyticsViewSet
 from django.db.models import Q
 import pandas as pd
-from django.core.mail import send_mail
+from azure_email import send_mail
 from django.conf import settings
 from pretty_html_table import build_table
 import numpy as np

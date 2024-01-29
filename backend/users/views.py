@@ -53,7 +53,7 @@ from projects.utils import (
 from datetime import datetime
 import calendar
 from django.conf import settings
-from django.core.mail import send_mail
+from azure_email import send_mail
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken

@@ -4,7 +4,7 @@ from users.models import *
 from shoonya_backend.settings import AUTH_USER_MODEL
 from shoonya_backend.mixins import DummyModelMixin
 import secrets
-from django.core.mail import send_mail
+from azure_email import send_mail
 import os
 from dotenv import load_dotenv
 

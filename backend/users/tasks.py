@@ -1,6 +1,6 @@
 from celery import shared_task
 from django.conf import settings
-from django.core.mail import send_mail
+from azure_email import send_mail
 from celery.schedules import crontab
 from shoonya_backend.celery import celery_app
 from user_reports import calculate_reports
