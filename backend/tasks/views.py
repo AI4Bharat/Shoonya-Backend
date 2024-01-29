@@ -1202,14 +1202,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
     @swagger_auto_schema(
         method="get",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
-                "task_type": openapi.Schema(type=openapi.TYPE_STRING),
-            },
-            required=["user_id"],
-        ),
         manual_parameters=[
             openapi.Parameter(
                 "user_id",
