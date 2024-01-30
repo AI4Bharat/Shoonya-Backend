@@ -60,10 +60,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import logging
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 load_dotenv()
-
-logger = logging.getLogger(__name__)
 
 
 class InviteViewSet(viewsets.ViewSet):
@@ -165,11 +166,6 @@ class InviteViewSet(viewsets.ViewSet):
         The invited user are again invited if they have not accepted the
         invitation previously.
         """
-        extra_data = {
-            "user_email": "temp_email",
-            "request_path": "/regenerate",
-        }
-        logger.warning("User inside re_invite API", extra=extra_data)
         all_emails = request.data.get("emails")
         distinct_emails = list(set(all_emails))
         existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
@@ -209,8 +205,12 @@ class InviteViewSet(viewsets.ViewSet):
             )
         if present_user_emails:
             message_for_present_users = f"{','.join(present_user_emails)} re-invited"
-
+        extra_data = {
+            "user_email": request.user.email,
+            "request_path": "/regenerate",
+        }
         if absent_user_emails and present_user_emails:
+            logger.info("Re_invite sent successfully", extra=extra_data)
             return Response(
                 {
                     "message": message_for_absent_users
@@ -222,6 +222,7 @@ class InviteViewSet(viewsets.ViewSet):
                 status=status.HTTP_201_CREATED,
             )
         elif absent_user_emails:
+            logger.info("Re_invite was not sent", extra=extra_data)
             return Response(
                 {
                     "message": message_for_absent_users
@@ -231,6 +232,7 @@ class InviteViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         elif present_user_emails:
+            logger.info("Re_invite sent successfully", extra=extra_data)
             return Response(
                 {
                     "message": message_for_present_users
@@ -240,6 +242,7 @@ class InviteViewSet(viewsets.ViewSet):
                 status=status.HTTP_201_CREATED,
             )
         else:
+            logger.info("Re_invite sent successfully", extra=extra_data)
             return Response(
                 {"message": message_for_already_invited}, status=status.HTTP_201_CREATED
             )

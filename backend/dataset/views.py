@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from organizations.decorators import (
     is_particular_organization_owner,
+    is_organization_owner,
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -201,6 +202,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return DatasetInstanceUploadSerializer
         return DatasetInstanceSerializer
 
+    @is_organization_owner
     def retrieve(self, request, pk, *args, **kwargs):
         """Retrieves a DatasetInstance given its ID"""
 
@@ -295,6 +297,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @is_organization_owner
     @action(methods=["GET"], detail=True, name="Download Dataset in CSV format")
     def download(self, request, pk):
         """
@@ -321,6 +324,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             exported_items, status=status.HTTP_200_OK, content_type=content_type
         )
 
+    @is_organization_owner
     @action(methods=["POST"], detail=True, name="Upload Dataset File")
     def upload(self, request, pk):
         """
@@ -389,6 +393,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @is_organization_owner
     @action(methods=["GET"], detail=True, name="List all Projects using Dataset")
     def projects(self, request, pk):
         """
@@ -618,7 +623,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             500: "Server error occured",
         },
     )
-    @is_particular_organization_owner
+    @is_organization_owner
     @action(
         detail=True,
         methods=["POST"],
@@ -700,7 +705,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         url_path="removemanagers",
         url_name="remove_managers",
     )
-    @is_particular_organization_owner
+    @is_organization_owner
     def remove_managers(self, request, pk=None):
         if "ids" in dict(request.data):
             ids = request.data.get("ids", "")
@@ -759,6 +764,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     def accepted_filetypes(self, request):
         return Response(DatasetInstanceViewSet.ACCEPTED_FILETYPES)
 
+    @is_organization_owner
     @swagger_auto_schema(
         method="get",
         manual_parameters=[
@@ -1171,6 +1177,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         DatasetInstancePermission,
     )
 
+    @is_organization_owner
     def list(self, request):
         dataset_instances = DatasetInstance.objects.filter(
             instance_id__in=self.queryset.distinct("instance_id").values_list(
@@ -1179,6 +1186,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         ).values("instance_id", "dataset_type")
         return Response(data=dataset_instances, status=status.HTTP_200_OK)
 
+    @is_organization_owner
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
         try:
@@ -1258,6 +1266,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     # return Response(filtered_data)
 
+    @is_organization_owner
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(

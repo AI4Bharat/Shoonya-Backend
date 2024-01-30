@@ -43,6 +43,7 @@ from projects.utils import (
     get_translation_dataset_project_types,
     convert_hours_to_seconds,
     get_audio_transcription_duration,
+    audio_word_count,
     get_audio_segments_count,
 )
 from .tasks import (
@@ -75,7 +76,7 @@ def get_annotated_tasks(proj_ids, annotator, status_list, start_date, end_date):
     annotated_task_ids = list(annotated_tasks_objs.values_list("id", flat=True))
     annotated_labeled_tasks = Annotation.objects.filter(
         task_id__in=annotated_task_ids,
-        parent_annotation_id=None,
+        annotation_type=ANNOTATOR_ANNOTATION,
         updated_at__range=[start_date, end_date],
         completed_by=annotator,
     )
@@ -153,6 +154,7 @@ def get_translation_quality_reports(
     ]
     reviewed_annotations_of_user = Annotation.objects.filter(
         id__in=parent_anno_ids_of_reviewed,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
 
@@ -169,6 +171,7 @@ def get_translation_quality_reports(
     parent_anno_ids_of_accepted = [ann.parent_annotation_id for ann in accepted_tasks]
     accepted_annotations_of_user = Annotation.objects.filter(
         id__in=parent_anno_ids_of_accepted,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
 
@@ -194,6 +197,7 @@ def get_translation_quality_reports(
     ]
     minor_changes_annotations_of_user = Annotation.objects.filter(
         id__in=parent_annotation_minor_changes,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
     minor_changes_count = minor_changes_annotations_of_user.count()
@@ -211,6 +215,7 @@ def get_translation_quality_reports(
     ]
     major_changes_annotations_of_user = Annotation.objects.filter(
         id__in=parent_annotation_major_changes,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
     major_changes_count = major_changes_annotations_of_user.count()
@@ -227,7 +232,10 @@ def get_translation_quality_reports(
     total_lead_time = []
     for annot in accepted_with_changes_tasks:
         annotator_obj = annot
-        reviewer_obj = Annotation.objects.filter(parent_annotation_id=annot.id)
+        reviewer_obj = Annotation.objects.filter(
+            parent_annotation_id=annot.id,
+            annotation_type=REVIEWER_ANNOTATION,
+        )
 
         str1 = annotator_obj.result[0]["value"]["text"]
         str2 = reviewer_obj[0].result[0]["value"]["text"]
@@ -1142,7 +1150,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         for each_task in labeled_tasks:
                             try:
                                 annotate_annotation = Annotation.objects.filter(
-                                    task=each_task, parent_annotation_id__isnull=True
+                                    task=each_task,
+                                    annotation_type=ANNOTATOR_ANNOTATION,
                                 )[0]
                                 total_duration_annotated_count_list.append(
                                     get_audio_transcription_duration(
@@ -1155,7 +1164,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         for each_task in reviewed_tasks:
                             try:
                                 review_annotation = Annotation.objects.filter(
-                                    task=each_task, parent_annotation_id__isnull=False
+                                    task=each_task,
+                                    annotation_type=REVIEWER_ANNOTATION,
                                 )[0]
                                 total_duration_reviewed_count_list.append(
                                     get_audio_transcription_duration(
@@ -1327,17 +1337,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     ],
                 )
                 tasks_count = tasks.count()
-
-                # Annotation.objects.filter(
-                #     task__project_id__in=proj_lang_filter,
-                #     task__project_id__tgt_language=lang,
-                #     annotation_status__in=[
-                #         "accepted",
-                #         "accepted_with_minor_changes",
-                #         "accepted_with_major_changes",
-                #     ],
-                #     parent_annotation_id__isnull=False,
-                # ).count()
 
             elif supercheck_reports == True:
                 tasks = Task.objects.filter(
@@ -2270,6 +2269,8 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     if project_type in get_audio_project_types():
                         # review audio duration calclation
                         total_rev_duration_list = []
+                        raw_audio_duration = 0
+                        audio_segment_word_count_list = []
 
                         for each_task in reviewer_tasks:
                             try:
@@ -2288,14 +2289,22 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                                 total_rev_duration_list.append(
                                     get_audio_transcription_duration(anno.result)
                                 )
+                                raw_audio_duration += each_task.data["audio_duration"]
+                                audio_segment_word_count_list.append(
+                                    audio_word_count(anno.result)
+                                )
                             except:
                                 pass
                         rev_total_duration = sum(total_rev_duration_list)
                         rev_total_time = convert_seconds_to_hours(rev_total_duration)
+                        rev_raw_time = convert_seconds_to_hours(raw_audio_duration)
+                        rev_audio_word_count = sum(audio_segment_word_count_list)
 
-                        # annotation audio duration calclation
+                        # annotation audio duration calculation
 
                         total_ann_duration_list = []
+                        raw_audio_duration = 0
+                        audio_segment_word_count_list = []
 
                         for each_task in annotation_tasks:
                             try:
@@ -2319,21 +2328,28 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                                 total_ann_duration_list.append(
                                     get_audio_transcription_duration(anno.result)
                                 )
+                                raw_audio_duration += each_task.data["audio_duration"]
+                                audio_segment_word_count_list.append(
+                                    audio_word_count(anno.result)
+                                )
                             except:
                                 pass
                         ann_total_duration = sum(total_ann_duration_list)
                         ann_total_time = convert_seconds_to_hours(ann_total_duration)
+                        ann_raw_time = convert_seconds_to_hours(raw_audio_duration)
+                        ann_audio_word_count = sum(audio_segment_word_count_list)
 
                         result = {
                             "language": lang,
                             "ann_cumulative_aud_duration": ann_total_time,
                             "rew_cumulative_aud_duration": rev_total_time,
+                            "ann_raw_aud_duration": ann_raw_time,
+                            "rew_raw_aud_duration": rev_raw_time,
+                            "ann_audio_word_count": ann_audio_word_count,
+                            "rev_audio_word_count": rev_audio_word_count,
                         }
 
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                        or "ConversationTranslation" in project_type
-                    ):
+                    elif project_type in get_translation_dataset_project_types():
                         total_rev_word_count_list = []
                         for reviewer_tas in reviewer_tasks:
                             try:
@@ -2358,6 +2374,62 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                             "ann_cumulative_word_count": sum(total_ann_word_count_list),
                             "rew_cumulative_word_count": sum(total_rev_word_count_list),
                         }
+                    elif (
+                        "ConversationTranslation" in project_type
+                        or "ConversationTranslationEditing" in project_type
+                        or "ContextualTranslationEditing" in project_type
+                    ):
+                        total_rev_word_count_list = []
+                        total_rev_sentance_count = 0
+                        for reviewer_tas in reviewer_tasks:
+                            try:
+                                total_rev_word_count_list.append(
+                                    reviewer_tas.data["word_count"]
+                                )
+                                if "ContextualTranslationEditing" not in project_type:
+                                    total_rev_sentance_count += reviewer_tas.data[
+                                        "sentence_count"
+                                    ]
+                            except:
+                                pass
+
+                        total_ann_word_count_list = []
+                        total_ann_sentance_count = 0
+
+                        for annotation_tas in annotation_tasks:
+                            try:
+                                total_ann_word_count_list.append(
+                                    annotation_tas.data["word_count"]
+                                )
+                                if "ContextualTranslationEditing" not in project_type:
+                                    total_ann_sentance_count += annotation_tas.data[
+                                        "sentence_count"
+                                    ]
+                            except:
+                                pass
+                        if "ContextualTranslationEditing" not in project_type:
+                            result = {
+                                "language": lang,
+                                "ann_cumulative_word_count": sum(
+                                    total_ann_word_count_list
+                                ),
+                                "rew_cumulative_word_count": sum(
+                                    total_rev_word_count_list
+                                ),
+                                "total_rev_sentance_count": total_rev_sentance_count,
+                                "total_ann_sentance_count": total_ann_sentance_count,
+                            }
+                        else:
+                            result = {
+                                "language": lang,
+                                "ann_cumulative_word_count": sum(
+                                    total_ann_word_count_list
+                                ),
+                                "rew_cumulative_word_count": sum(
+                                    total_rev_word_count_list
+                                ),
+                            }
+
                     elif "OCRTranscription" in project_type:
                         total_rev_word_count = 0
 
@@ -2400,8 +2472,8 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
                         result = {
                             "language": lang,
-                            "ann_cumulative_aud_duration": total_anno_word_count,
-                            "rew_cumulative_aud_duration": total_rev_word_count,
+                            "ann_ocr_cumulative_tasks_count": total_anno_word_count,
+                            "rew_ocr_cumulative_tasks_count": total_rev_word_count,
                         }
 
                 else:
@@ -2426,6 +2498,12 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             rew_word_count = 0
             ann_aud_dur = 0
             rew_aud_dur = 0
+            ann_raw_aud_dur = 0
+            rew_raw_aud_dur = 0
+            ann_audio_word_cnt = 0
+            rev_audio_word_cnt = 0
+            ann_sentance_count = 0
+            rev_sentance_count = 0
             for dat in other_lang:
                 if metainfo != True:
                     ann_task_count += dat["ann_cumulative_tasks_count"]
@@ -2438,12 +2516,33 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         rew_aud_dur += convert_hours_to_seconds(
                             dat["rew_cumulative_aud_duration"]
                         )
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                        or "ConversationTranslation" in project_type
-                    ):
+                        ann_raw_aud_dur += convert_hours_to_seconds(
+                            dat["ann_raw_aud_duration"]
+                        )
+                        rew_raw_aud_dur += convert_hours_to_seconds(
+                            dat["rew_raw_aud_duration"]
+                        )
+                        ann_audio_word_cnt += dat["ann_audio_word_count"]
+                        rev_audio_word_cnt += dat["rev_audio_word_count"]
+                    elif project_type in get_translation_dataset_project_types():
                         ann_word_count += dat["ann_cumulative_word_count"]
                         rew_word_count += dat["rew_cumulative_word_count"]
+                    elif (
+                        "ConversationTranslation" in project_type
+                        or "ConversationTranslationEditing" in project_type
+                        or "ContextualTranslationEditing" in project_type
+                    ):
+                        if "ContextualTranslationEditing" not in project_type:
+                            ann_sentance_count += dat["total_ann_sentance_count"]
+                            rev_sentance_count += dat["total_rev_sentance_count"]
+                            ann_word_count += dat["ann_cumulative_word_count"]
+                            rew_word_count += dat["rew_cumulative_word_count"]
+                        else:
+                            ann_word_count += dat["ann_cumulative_word_count"]
+                            rew_word_count += dat["rew_cumulative_word_count"]
+                    elif "OCRTranscription" in project_type:
+                        ann_word_count += dat["ann_ocr_cumulative_tasks_count"]
+                        rew_word_count += dat["rew_ocr_cumulative_tasks_count"]
 
             if len(other_lang) > 0:
                 if metainfo != True:
@@ -2462,16 +2561,46 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                             "rew_cumulative_aud_duration": convert_seconds_to_hours(
                                 rew_aud_dur
                             ),
+                            "ann_raw_aud_duration": convert_seconds_to_hours(
+                                ann_raw_aud_dur
+                            ),
+                            "rew_raw_aud_duration": convert_seconds_to_hours(
+                                rew_raw_aud_dur
+                            ),
+                            "ann_audio_word_count": ann_audio_word_cnt,
+                            "rev_audio_word_count": rev_audio_word_cnt,
                         }
 
-                    elif (
-                        project_type in get_translation_dataset_project_types()
-                        or "ConversationTranslation" in project_type
-                    ):
+                    elif project_type in get_translation_dataset_project_types():
                         other_language = {
                             "language": "Others",
                             "ann_cumulative_word_count": ann_word_count,
                             "rew_cumulative_word_count": rew_word_count,
+                        }
+                    elif (
+                        "ConversationTranslation" in project_type
+                        or "ConversationTranslationEditing" in project_type
+                        or "ContextualTranslationEditing" in project_type
+                    ):
+                        if "ContextualTranslationEditing" not in project_type:
+                            other_language = {
+                                "language": "Others",
+                                "ann_cumulative_word_count": ann_word_count,
+                                "rew_cumulative_word_count": rew_word_count,
+                                "total_ann_sentance_count": ann_sentance_count,
+                                "total_rev_sentance_count": rev_sentance_count,
+                            }
+                        else:
+                            other_language = {
+                                "language": "Others",
+                                "ann_cumulative_word_count": ann_word_count,
+                                "rew_cumulative_word_count": rew_word_count,
+                            }
+                    elif "OCRTranscription" in project_type:
+                        other_language = {
+                            "language": "Others",
+                            "ann_ocr_cumulative_word_count": ann_word_count,
+                            "rew_ocr_cumulative_word_count": rew_word_count,
                         }
 
                 general_lang.append(other_language)
@@ -2488,6 +2617,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     project_type in get_translation_dataset_project_types()
                     or "ConversationTranslation" in project_type
                 )
+                or "OCRTranscription" in project_type
             ):
                 pass
             else:
