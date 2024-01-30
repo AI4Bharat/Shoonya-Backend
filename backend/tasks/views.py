@@ -257,16 +257,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["annotation_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
-                            if proj_objs[0].project_type in get_audio_project_types():
-                                data = tas["data"]
-                                if "audio_url" in tas["data"]:
-                                    del data["audio_url"]
-                                tas["data"] = data
-                            elif proj_objs[0].project_type in get_ocr_project_types():
-                                data = tas["data"]
-                                if "image_url" in tas["data"]:
-                                    del data["image_url"]
-                                tas["data"] = data
                             ordered_tasks.append(tas)
                         if page_number is not None:
                             page_object = Paginator(ordered_tasks, records)
@@ -274,6 +264,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
+                                if proj_objs[0].project_type in get_audio_project_types():
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "audio_url" in tas["data"]:
+                                            del data["audio_url"]
+                                        tas["data"] = data
+                                elif proj_objs[0].project_type in get_ocr_project_types():
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "image_url" in tas["data"]:
+                                            del data["image_url"]
+                                        tas["data"] = data
                                 final_dict["result"] = ordered_tasks
                                 return Response(final_dict)
                             except:
@@ -356,16 +358,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         except:
                             tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
-                    if proj_objs[0].project_type in get_audio_project_types():
-                        data = tas["data"]
-                        if "audio_url" in tas["data"]:
-                            del data["audio_url"]
-                        tas["data"] = data
-                    elif proj_objs[0].project_type in get_ocr_project_types():
-                        data = tas["data"]
-                        if "image_url" in tas["data"]:
-                            del data["image_url"]
-                        tas["data"] = data
                     ordered_tasks.append(tas)
 
                 if page_number is not None:
@@ -375,6 +367,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -433,16 +437,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["review_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
-                            if proj_objs[0].project_type in get_audio_project_types():
-                                data = tas["data"]
-                                if "audio_url" in tas["data"]:
-                                    del data["audio_url"]
-                                tas["data"] = data
-                            elif proj_objs[0].project_type in get_ocr_project_types():
-                                data = tas["data"]
-                                if "image_url" in tas["data"]:
-                                    del data["image_url"]
-                                tas["data"] = data
                             ordered_tasks.append(tas)
 
                         if page_number is not None:
@@ -452,6 +446,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
+                                if proj_objs[0].project_type in get_audio_project_types():
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "audio_url" in tas["data"]:
+                                            del data["audio_url"]
+                                        tas["data"] = data
+                                elif proj_objs[0].project_type in get_ocr_project_types():
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "image_url" in tas["data"]:
+                                            del data["image_url"]
+                                        tas["data"] = data
                                 final_dict["result"] = ordered_tasks
                                 return Response(final_dict)
                             except:
@@ -550,16 +556,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["review_status"] = task_obj["annotation_status"]
                     tas["user_mail"] = task_obj["user_mail"]
                     tas["annotator_mail"] = task_obj["parent_annotator_mail"]
-                    if proj_objs[0].project_type in get_audio_project_types():
-                        data = tas["data"]
-                        if "audio_url" in tas["data"]:
-                            del data["audio_url"]
-                        tas["data"] = data
-                    elif proj_objs[0].project_type in get_ocr_project_types():
-                        data = tas["data"]
-                        if "image_url" in tas["data"]:
-                            del data["image_url"]
-                        tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if rew_status[0] in [
                             "draft",
@@ -610,6 +606,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -658,16 +666,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             tas = tas.values()[0]
                             tas["supercheck_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
-                            if proj_objs[0].project_type in get_audio_project_types():
-                                data = tas["data"]
-                                if "audio_url" in tas["data"]:
-                                    del data["audio_url"]
-                                tas["data"] = data
-                            elif proj_objs[0].project_type in get_ocr_project_types():
-                                data = tas["data"]
-                                if "image_url" in tas["data"]:
-                                    del data["image_url"]
-                                tas["data"] = data
                             ordered_tasks.append(tas)
 
                         if page_number is not None:
@@ -677,6 +675,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
+                                if proj_objs[0].project_type in get_audio_project_types():
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "audio_url" in tas["data"]:
+                                            del data["audio_url"]
+                                        tas["data"] = data
+                                elif proj_objs[0].project_type in get_ocr_project_types():
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "image_url" in tas["data"]:
+                                            del data["image_url"]
+                                        tas["data"] = data
                                 final_dict["result"] = ordered_tasks
                                 return Response(final_dict)
                             except:
@@ -745,16 +755,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     tas["user_mail"] = task_obj["user_mail"]
                     tas["reviewer_mail"] = task_obj["reviewer_mail"]
                     tas["annotator_mail"] = task_obj["annotator_mail"]
-                    if proj_objs[0].project_type in get_audio_project_types():
-                        data = tas["data"]
-                        if "audio_url" in tas["data"]:
-                            del data["audio_url"]
-                        tas["data"] = data
-                    elif proj_objs[0].project_type in get_ocr_project_types():
-                        data = tas["data"]
-                        if "image_url" in tas["data"]:
-                            del data["image_url"]
-                        tas["data"] = data
                     if proj_type == "ContextualTranslationEditing":
                         if supercheck_status[0] in [
                             "draft",
@@ -783,6 +783,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -828,6 +840,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             final_dict["total_count"] = len(ordered_tasks)
                             page_items = page_object.page(page_number)
                             ordered_tasks = page_items.object_list
+                            if proj_objs[0].project_type in get_audio_project_types():
+                                for tas in ordered_tasks:
+                                    data = tas["data"]
+                                    if "audio_url" in tas["data"]:
+                                        del data["audio_url"]
+                                    tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                for tas in ordered_tasks:
+                                    data = tas["data"]
+                                    if "image_url" in tas["data"]:
+                                        del data["image_url"]
+                                    tas["data"] = data
                             final_dict["result"] = ordered_tasks
                             return Response(final_dict)
                         except:
@@ -867,6 +891,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -903,6 +939,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -940,6 +988,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
