@@ -192,7 +192,8 @@ EMAIL_PORT = 465
 EMAIL_HOST_USER = os.getenv("SMTP_USERNAME")
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
+DEFAULT_FROM_EMAIL = os.getenv("SENDER_ADDRESS")
+
 
 DOMAIN = "shoonya.ai4bharat.org"
 SITE_NAME = "shoonya.ai4bharat.org"
