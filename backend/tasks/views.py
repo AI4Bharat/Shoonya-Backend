@@ -2,6 +2,7 @@ import base64
 import os
 from datetime import timezone
 import ast
+import time
 
 import requests
 from django.http import JsonResponse
@@ -168,6 +169,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
+        start_time = time.time()
         user_id = request.user.id
         user = request.user
         page_number = None
@@ -211,49 +213,72 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 user_id = int(req_user)
             from projects.utils import get_audio_project_types
 
+            print(f"Time taken for start 216: {time.time()-start_time} seconds")
             if "annotation_status" in dict(request.query_params):
                 ann_status = request.query_params["annotation_status"]
                 ann_status = ast.literal_eval(ann_status)
 
                 if view == "managerial_view":
                     if not ("req_user" in dict(request.query_params)):
+                        print(f"Time taken till a: {time.time()-start_time} seconds")
                         ann = Annotation.objects.filter(
                             task__project_id_id=proj_id,
                             annotation_status__in=ann_status,
                             annotation_type=ANNOTATOR_ANNOTATION,
                         )
+                        print(f"Time taken till b: {time.time()-start_time} seconds")
                         if (
                             "rejected" in request.query_params
                             and request.query_params["rejected"] == "True"
                         ):
+                            print(
+                                f"Time taken till c: {time.time()-start_time} seconds"
+                            )
                             tasks = Task.objects.filter(
                                 annotations__in=ann,
                                 revision_loop_count__review_count__gte=1,
                             )
+                            print(
+                                f"Time taken till d: {time.time()-start_time} seconds"
+                            )
                         else:
+                            print(
+                                f"Time taken till e: {time.time()-start_time} seconds"
+                            )
                             tasks = Task.objects.filter(annotations__in=ann)
+                            print(
+                                f"Time taken till f: {time.time()-start_time} seconds"
+                            )
                         tasks = tasks.distinct()
                         # Handle search query (if any)
+                        print(f"Time taken till g: {time.time()-start_time} seconds")
                         if len(tasks):
                             tasks = tasks.filter(
                                 **process_search_query(
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
+                        print(f"Time taken till h: {time.time()-start_time} seconds")
                         ann_filter1 = ann.filter(task__in=tasks).order_by("id")
+                        print(f"Time taken till i: {time.time()-start_time} seconds")
 
-                        task_objs = []
+                        task_dict = {}
+                        task_ids = []
+                        print(f"Time taken till j: {time.time()-start_time} seconds")
                         for an in ann_filter1:
                             task_obj = {}
-                            task_obj["id"] = an.task_id
                             task_obj["annotation_status"] = an.annotation_status
                             task_obj["user_mail"] = an.completed_by.email
-                            task_objs.append(task_obj)
-                        task_objs.sort(key=lambda x: x["id"])
+                            task_dict[an.task_id] = task_obj
+                            task_ids.append(an.task_id)
+                        print(f"Time taken till k: {time.time()-start_time} seconds")
+                        task_ids.sort()
+                        print(f"Time taken till l: {time.time()-start_time} seconds")
                         final_dict = {}
                         ordered_tasks = []
-                        for task_obj in task_objs:
-                            tas = Task.objects.filter(id=task_obj["id"])
+                        print(f"Time taken till m: {time.time()-start_time} seconds")
+                        for task_id in task_ids:
+                            tas = Task.objects.filter(id=task_id)
                             tas = tas.values()[0]
                             tas["annotation_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
@@ -262,11 +287,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 if "audio_url" in tas["data"]:
                                     del data["audio_url"]
                                 tas["data"] = data
-                            elif proj_objs[0].project_type in get_ocr_project_types():
-                                data = tas["data"]
-                                if "image_url" in tas["data"]:
-                                    del data["image_url"]
-                                tas["data"] = data
+
                             ordered_tasks.append(tas)
                         if page_number is not None:
                             page_object = Paginator(ordered_tasks, records)
@@ -274,9 +295,15 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
+                                print(
+                                    f"Time taken till n: {time.time()-start_time} seconds"
+                                )
                                 final_dict["result"] = ordered_tasks
                                 return Response(final_dict)
                             except:
+                                print(
+                                    f"Time taken till 287: {time.time()-start_time} seconds"
+                                )
                                 return Response(
                                     {"message": "page not available"},
                                     status=status.HTTP_400_BAD_REQUEST,
@@ -284,6 +311,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                         final_dict["total_count"] = len(ordered_tasks)
                         final_dict["result"] = ordered_tasks
+                        print(f"Time taken till 297: {time.time()-start_time} seconds")
                         return Response(final_dict)
                 ann = Annotation.objects.filter(
                     task__project_id_id=proj_id,
@@ -376,8 +404,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
                         final_dict["result"] = ordered_tasks
+                        print(f"Time taken till 389: {time.time()-start_time} seconds")
                         return Response(final_dict)
                     except:
+                        print(f"Time taken till 392: {time.time()-start_time} seconds")
                         return Response(
                             {"message": "page not available"},
                             status=status.HTTP_400_BAD_REQUEST,
@@ -385,6 +415,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                 final_dict["total_count"] = len(ordered_tasks)
                 final_dict["result"] = ordered_tasks
+                print(f"Time taken till 400: {time.time()-start_time} seconds")
                 return Response(final_dict)
 
             if "review_status" in dict(request.query_params):
@@ -453,8 +484,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
                                 final_dict["result"] = ordered_tasks
+                                print(
+                                    f"Time taken till 469: {time.time()-start_time} seconds"
+                                )
                                 return Response(final_dict)
                             except:
+                                print(
+                                    f"Time taken till 475: {time.time()-start_time} seconds"
+                                )
                                 return Response(
                                     {"message": "page not available"},
                                     status=status.HTTP_400_BAD_REQUEST,
@@ -462,6 +499,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                         final_dict["total_count"] = len(ordered_tasks)
                         final_dict["result"] = ordered_tasks
+                        print(f"Time taken till 484: {time.time()-start_time} seconds")
                         return Response(final_dict)
 
                 ann = Annotation.objects.filter(
@@ -620,6 +658,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                 final_dict["total_count"] = len(ordered_tasks)
                 final_dict["result"] = ordered_tasks
+                print(f"Time taken till 643: {time.time()-start_time} seconds")
                 return Response(final_dict)
 
             if "supercheck_status" in dict(request.query_params):
@@ -678,8 +717,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
                                 final_dict["result"] = ordered_tasks
+                                print(
+                                    f"Time taken till 702: {time.time()-start_time} seconds"
+                                )
                                 return Response(final_dict)
                             except:
+                                print(
+                                    f"Time taken till 708: {time.time()-start_time} seconds"
+                                )
                                 return Response(
                                     {"message": "page not available"},
                                     status=status.HTTP_400_BAD_REQUEST,
@@ -687,6 +732,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                         final_dict["total_count"] = len(ordered_tasks)
                         final_dict["result"] = ordered_tasks
+                        print(f"Time taken till 717: {time.time()-start_time} seconds")
                         return Response(final_dict)
 
                 ann = Annotation.objects.filter(
@@ -784,8 +830,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
                         final_dict["result"] = ordered_tasks
+                        print(f"Time taken till 815: {time.time()-start_time} seconds")
                         return Response(final_dict)
                     except:
+                        print(f"Time taken till 818: {time.time()-start_time} seconds")
                         return Response(
                             {"message": "page not available"},
                             status=status.HTTP_400_BAD_REQUEST,
@@ -793,6 +841,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                 final_dict["total_count"] = len(ordered_tasks)
                 final_dict["result"] = ordered_tasks
+                print(f"Time taken till 826: {time.time()-start_time} seconds")
                 return Response(final_dict)
 
             tas_status = ["incomplete"]
@@ -829,8 +878,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             page_items = page_object.page(page_number)
                             ordered_tasks = page_items.object_list
                             final_dict["result"] = ordered_tasks
+                            print(
+                                f"Time taken till 864: {time.time()-start_time} seconds"
+                            )
                             return Response(final_dict)
                         except:
+                            print(
+                                f"Time taken till 869: {time.time()-start_time} seconds"
+                            )
                             return Response(
                                 {"message": "page not available"},
                                 status=status.HTTP_400_BAD_REQUEST,
@@ -838,6 +893,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                     final_dict["total_count"] = len(ordered_tasks)
                     final_dict["result"] = ordered_tasks
+                    print(f"Time taken till 878: {time.time()-start_time} seconds")
                     return Response(final_dict)
             proj_annotators_ids = [an.id for an in proj_annotators]
             proj_reviewers_ids = [an.id for an in proj_reviewers]
@@ -868,8 +924,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
                         final_dict["result"] = ordered_tasks
+                        print(f"Time taken till 909: {time.time()-start_time} seconds")
                         return Response(final_dict)
                     except:
+                        print(f"Time taken till 912: {time.time()-start_time} seconds")
                         return Response(
                             {"message": "page not available"},
                             status=status.HTTP_400_BAD_REQUEST,
@@ -877,6 +935,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                 final_dict["total_count"] = len(ordered_tasks)
                 final_dict["result"] = ordered_tasks
+                print(f"Time taken till 920: {time.time()-start_time} seconds")
                 return Response(final_dict)
 
             if user_id in proj_reviewers_ids:
@@ -904,8 +963,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
                         final_dict["result"] = ordered_tasks
+                        print(f"Time taken till 948: {time.time()-start_time} seconds")
                         return Response(final_dict)
                     except:
+                        print(f"Time taken till 951: {time.time()-start_time} seconds")
                         return Response(
                             {"message": "page not available"},
                             status=status.HTTP_400_BAD_REQUEST,
@@ -913,6 +974,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                 final_dict["total_count"] = len(ordered_tasks)
                 final_dict["result"] = ordered_tasks
+                print(f"Time taken till 959: {time.time()-start_time} seconds")
                 return Response(final_dict)
 
             if user_id in proj_superchecker_ids:
@@ -941,8 +1003,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
                         final_dict["result"] = ordered_tasks
+                        print(f"Time taken till 988: {time.time()-start_time} seconds")
                         return Response(final_dict)
                     except:
+                        print(f"Time taken till 991: {time.time()-start_time} seconds")
                         return Response(
                             {"message": "page not available"},
                             status=status.HTTP_400_BAD_REQUEST,
@@ -950,13 +1014,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
                 final_dict["total_count"] = len(ordered_tasks)
                 final_dict["result"] = ordered_tasks
+                print(f"Time taken till 999: {time.time()-start_time} seconds")
                 return Response(final_dict)
 
+            print(f"Time taken till 1002: {time.time()-start_time} seconds")
             return Response(
                 {"message": " this user not part of this project"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         else:
+            print(f"Time taken till 1008: {time.time()-start_time} seconds")
             return Response(
                 {"message": "please provide project_id as a query_params "},
                 status=status.HTTP_400_BAD_REQUEST,
