@@ -215,7 +215,7 @@ def calculate_reports():
             + str(user.username)
             + ",\n Your progress reports for "
             + f"{(datetime.now() - timedelta(days = 1) ):%d-%m-%Y}"
-            + " are ready.\n Thanks for contributing on Shoonya!"
+            + f" are ready.\n Thanks for contributing on {os.getenv('APP_NAME')}!"
         )
 
         if (

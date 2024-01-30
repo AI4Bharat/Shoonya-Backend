@@ -38,9 +38,9 @@ if DEBUG:
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
 else:
     ALLOWED_HOSTS = [
-        "shoonya.ai4bharat.org",
+        os.getenv("DOMAIN"),
         "0.0.0.0",
-        "backend.shoonya.ai4bharat.org",
+        os.getenv("ALLOWED_HOSTS"),
     ]
 
 # Application definition
@@ -195,8 +195,8 @@ EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv("SENDER_ADDRESS")
 
 
-DOMAIN = "shoonya.ai4bharat.org"
-SITE_NAME = "shoonya.ai4bharat.org"
+DOMAIN = os.getenv("DOMAIN")
+SITE_NAME = os.getenv("DOMAIN")
 
 DJOSER = {
     "PASSWORD_RESET_CONFIRM_URL": "#/forget-password/confirm/{uid}/{token}",

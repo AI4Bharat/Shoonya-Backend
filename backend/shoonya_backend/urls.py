@@ -24,9 +24,9 @@ class BothHttpAndHttpsSchemaGenerator(OpenAPISchemaGenerator):
 
 SchemaView = get_schema_view(
     openapi.Info(
-        title="Shoonya API Docs",
+        title= os.getenv("APP_NAME") +"API Docs",
         default_version="v1",
-        description="API documentation for Shoonya Platform.",
+        description=f"API documentation for {os.getenv('APP_NAME')}Platform.",
         terms_of_service="https://www.google.com/policies/terms/",
         contact=openapi.Contact(email="contact@snippets.local"),
         license=openapi.License(name="BSD License"),

@@ -7,5 +7,5 @@ from user_reports import calculate_reports
 
 
 @shared_task(name="send_mail_task")
-def send_mail_task():
+def send_mail():
     calculate_reports()

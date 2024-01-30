@@ -55,7 +55,7 @@ class Organization(models.Model):
         cls,
         created_by=None,
         title="Organization",
-        email_domain_name="organization@shoonya.org",
+        email_domain_name="organization@"+{os.getenv('APP_NAME')}+".org",
     ):
         with transaction.atomic():
             org = Organization.objects.create(
@@ -132,7 +132,7 @@ class Invite(models.Model):
                     invite.save()
                 send_mail(
                     "Invitation to join Organization",
-                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
+                    f"Hello! You are invited to {organization.title}. Your Invite link is: {os.getenv('FRONTEND_URL')}/#/invite/{invite.invite_code}",
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                 )
@@ -149,7 +149,7 @@ class Invite(models.Model):
                 invite = Invite.objects.get(user=user)
                 send_mail(
                     "Invitation to join Organization",
-                    f"Hello! You are invited to {invite.organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
+                    f"Hello! You are invited to {invite.organization.title}. Your Invite link is: {os.getenv('FRONTEND_URL')}/#/invite/{invite.invite_code}",
                     settings.DEFAULT_FROM_EMAIL,
                     [user.email],
                 )
