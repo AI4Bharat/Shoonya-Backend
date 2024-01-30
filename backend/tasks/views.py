@@ -264,13 +264,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
-                                if proj_objs[0].project_type in get_audio_project_types():
+                                if (
+                                    proj_objs[0].project_type
+                                    in get_audio_project_types()
+                                ):
                                     for tas in ordered_tasks:
                                         data = tas["data"]
                                         if "audio_url" in tas["data"]:
                                             del data["audio_url"]
                                         tas["data"] = data
-                                elif proj_objs[0].project_type in get_ocr_project_types():
+                                elif (
+                                    proj_objs[0].project_type in get_ocr_project_types()
+                                ):
                                     for tas in ordered_tasks:
                                         data = tas["data"]
                                         if "image_url" in tas["data"]:
@@ -446,13 +451,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
-                                if proj_objs[0].project_type in get_audio_project_types():
+                                if (
+                                    proj_objs[0].project_type
+                                    in get_audio_project_types()
+                                ):
                                     for tas in ordered_tasks:
                                         data = tas["data"]
                                         if "audio_url" in tas["data"]:
                                             del data["audio_url"]
                                         tas["data"] = data
-                                elif proj_objs[0].project_type in get_ocr_project_types():
+                                elif (
+                                    proj_objs[0].project_type in get_ocr_project_types()
+                                ):
                                     for tas in ordered_tasks:
                                         data = tas["data"]
                                         if "image_url" in tas["data"]:
@@ -675,13 +685,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
-                                if proj_objs[0].project_type in get_audio_project_types():
+                                if (
+                                    proj_objs[0].project_type
+                                    in get_audio_project_types()
+                                ):
                                     for tas in ordered_tasks:
                                         data = tas["data"]
                                         if "audio_url" in tas["data"]:
                                             del data["audio_url"]
                                         tas["data"] = data
-                                elif proj_objs[0].project_type in get_ocr_project_types():
+                                elif (
+                                    proj_objs[0].project_type in get_ocr_project_types()
+                                ):
                                     for tas in ordered_tasks:
                                         data = tas["data"]
                                         if "image_url" in tas["data"]:
