@@ -291,6 +291,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 tas["data"] = data
 
                             ordered_tasks.append(tas)
+                        print(f"Time taken till mn: {time.time()-start_time} seconds")
                         if page_number is not None:
                             page_object = Paginator(ordered_tasks, records)
                             try:
