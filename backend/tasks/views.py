@@ -266,10 +266,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         task_ids = []
                         print(f"Time taken till j: {time.time()-start_time} seconds")
                         for an in ann_filter1:
-                            task_obj = {}
-                            task_obj["annotation_status"] = an.annotation_status
-                            task_obj["user_mail"] = an.completed_by.email
-                            task_dict[an.task_id] = task_obj
+                            task_dict[an.task_id] = (an.annotation_status, an.completed_by.email)
                             task_ids.append(an.task_id)
                         print(f"Time taken till k: {time.time()-start_time} seconds")
                         task_ids.sort()
@@ -280,12 +277,17 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         for task_id in task_ids:
                             tas = Task.objects.filter(id=task_id)
                             tas = tas.values()[0]
-                            tas["annotation_status"] = task_obj["annotation_status"]
-                            tas["user_mail"] = task_obj["user_mail"]
+                            tas["annotation_status"] = task_dict[task_id][0]
+                            tas["user_mail"] = task_dict[task_id][1]
                             if proj_objs[0].project_type in get_audio_project_types():
                                 data = tas["data"]
                                 if "audio_url" in tas["data"]:
                                     del data["audio_url"]
+                                tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
                                 tas["data"] = data
 
                             ordered_tasks.append(tas)
