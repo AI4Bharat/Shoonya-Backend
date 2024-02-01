@@ -55,7 +55,7 @@ from rest_framework.request import Request
 import os
 import tempfile
 
-from functions.locks import Lock
+from shoonya_backend.locks import Lock
 
 import logging
 

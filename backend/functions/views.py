@@ -1,7 +1,5 @@
 import ast
-import json
-from urllib import request
-from functions.locks import Lock
+from shoonya_backend.locks import Lock
 from dataset import models as dataset_models
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
