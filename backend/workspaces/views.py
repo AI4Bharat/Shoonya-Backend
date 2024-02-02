@@ -147,6 +147,12 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 {"message": "Not authorized!"}, status=status.HTTP_403_FORBIDDEN
             )
 
+    @action(
+        detail=False,
+        methods=["GET"],
+        name="list_guest_workspaces",
+        url_name="list_guest_workspaces",
+    )
     def list_guest_workspaces(self, request):
         try:
             # Filter workspaces where guest_workspace is True
@@ -159,6 +165,12 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    # @action(
+    #     detail=True,
+    #     methods=["PUT"],
+    #     name="update_password",
+    #     url_path="update_password",
+    # )
     def update_workspace_password(self, request, pk=None, *args, **kwargs):
         try:
             w_id = request.get("id")
@@ -184,6 +196,12 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
+    # @action(
+    #     detail=True,
+    #     methods=["POST"],
+    #     name="enter_workspace",
+    #     url_name="enter_workspace",
+    # )
     def enter_workspace(self, request, pk=None):
         try:
             # guest user added as a member and an annotator to all projects in a workspace
