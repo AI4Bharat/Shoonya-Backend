@@ -268,7 +268,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 total_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
-    elif proj_type == "OCRTranscriptionEditing":
+    elif (
+        proj_type == "OCRTranscriptionEditing"
+        or proj_type == "OCRSegmentCategorizationEditing"
+    ):
         for anno in total_rev_annos_accepted:
             total_word_count_list.append(ocr_word_count(anno.result))
     elif proj_type in get_audio_project_types():
@@ -384,6 +387,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "SemanticTextualSimilarity_Scale5",
             "OCRTranscriptionEditing",
             "OCRTranscription",
+            "OCRSegmentCategorization",
+            "OCRSegmentCategorizationEditing",
         ]:
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
@@ -547,7 +552,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
                 rejected_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
-    elif "OCRTranscription" in proj_type:
+    elif "OCRTranscription" in proj_type or "OCRSegmentCategorization" in proj_type:
         for anno in validated_objs:
             validated_word_count_list.append(ocr_word_count(anno.result))
         for anno in validated_with_changes_objs:
@@ -630,6 +635,8 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "SemanticTextualSimilarity_Scale5",
         "OCRTranscriptionEditing",
         "OCRTranscription",
+        "OCRSegmentCategorization",
+        "OCRSegmentCategorizationEditing",
     ]:
         result["Validated Word Count"] = validated_word_count
         result["Validated With Changes Word Count"] = validated_with_changes_word_count
@@ -2213,6 +2220,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AcousticNormalisedTranscriptionEditing",
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
+                "OCRSegmentCategorizationEditing",
             ]:
                 try:
                     result = convert_prediction_json_to_annotation_result(
@@ -3199,7 +3207,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
-            elif "OCRTranscription" in project_type:
+            elif (
+                "OCRTranscription" in project_type
+                or "OCRSegmentCategorization" in project_type
+            ):
                 total_word_count = 0
                 for each_anno in labeled_annotations:
                     total_word_count += ocr_word_count(each_anno.result)
@@ -4104,8 +4115,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result, None, dataset_type
                             )
-                        if "data" in task and "image_url" in task["data"]:
-                            del task["data"]["image_url"]
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
