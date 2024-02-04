@@ -695,7 +695,7 @@ def schedule_project_reports_email(request):
         language = request.data.get("language")
     except KeyError:
         language = "NULL"
-        
+
     # name of the task is the same as the name of the celery function
     celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
     if celery_lock.lockStatus() == 0:
@@ -726,6 +726,7 @@ def schedule_project_reports_email(request):
             },
             status=status.HTTP_200_OK,
         )
+
 
 @api_view(["POST"])
 def download_all_projects(request):
