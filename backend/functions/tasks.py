@@ -270,6 +270,7 @@ def sentence_text_translate_and_save_translation_pairs(
 def conversation_data_machine_translation(
     self,
     languages,
+    user_id,
     input_dataset_instance_id,
     output_dataset_instance_id,
     batch_size,
@@ -311,7 +312,8 @@ def conversation_data_machine_translation(
                 "No sentences to upload.",
             },
         )
-
+        celery_lock = Lock(user_id, "conversation_data_machine_translation")
+        celery_lock.releaseLock()
         raise Exception("The conversation data is empty.")
 
     # Iterate through the languages
@@ -357,7 +359,8 @@ def conversation_data_machine_translation(
                             "API Error",
                         },
                     )
-
+                    celery_lock = Lock(user_id, "conversation_data_machine_translation")
+                    celery_lock.releaseLock()
                     raise Exception(translations_output["output"])
 
             # Translate the scenario and prompt
@@ -378,7 +381,8 @@ def conversation_data_machine_translation(
                         "API Error",
                     },
                 )
-
+                celery_lock = Lock(user_id, "conversation_data_machine_translation")
+                celery_lock.releaseLock()
                 raise Exception(translations_output["output"])
             else:
                 translated_prompt_and_scenario = translations_output["output"]
@@ -402,7 +406,8 @@ def conversation_data_machine_translation(
 
         # Save the Conversation objects in bulk
         multi_inheritance_table_bulk_insert(all_translated_conversation_objects)
-
+    celery_lock = Lock(user_id, "conversation_data_machine_translation")
+    celery_lock.releaseLock()
     return f"{len(all_translated_conversation_objects)} conversation dataitems created for each of languages: {str(languages)}"
 
 

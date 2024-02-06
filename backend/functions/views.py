@@ -454,17 +454,34 @@ def schedule_conversation_translation_job(request):
         )
 
     # Call the function to save the TranslationPair dataset
-    conversation_data_machine_translation.delay(
-        languages=languages,
-        input_dataset_instance_id=input_dataset_instance_id,
-        output_dataset_instance_id=output_dataset_instance_id,
-        batch_size=batch_size,
-        api_type=api_type,
-        checks_for_particular_languages=checks_for_particular_languages,
-    )
-    ret_dict = {"message": "Translating Conversation Dataitems"}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "conversation_data_machine_translation")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+
+        conversation_data_machine_translation.delay(
+            languages=languages,
+            user_id=uid,
+            input_dataset_instance_id=input_dataset_instance_id,
+            output_dataset_instance_id=output_dataset_instance_id,
+            batch_size=batch_size,
+            api_type=api_type,
+            checks_for_particular_languages=checks_for_particular_languages,
+        )
+        ret_dict = {"message": "Translating Conversation Dataitems"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
+
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @swagger_auto_schema(
