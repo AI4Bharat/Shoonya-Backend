@@ -823,10 +823,7 @@ def schedule_mail_for_project_reports(
         )
 
     try:
-        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
         email.send()
-
-        celery_lock.releaseLock()
 
         extra_data = {
             "user_email": user.email,
@@ -850,7 +847,11 @@ def schedule_mail_for_project_reports(
         logger.info(message, extra=extra_data)
 
     except Exception as e:
+        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+        celery_lock.releaseLock()
         print(f"An error occurred while sending email: {e}")
+    celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+    celery_lock.releaseLock()
     print(f"Email sent successfully - {user_id}")
 
 
