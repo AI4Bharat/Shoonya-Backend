@@ -29,6 +29,8 @@ from .utils import (
     check_if_particular_organization_owner,
     check_translation_function_inputs,
 )
+from dotenv import load_dotenv
+import os
 
 
 @api_view(["POST"])
@@ -697,7 +699,8 @@ def schedule_project_reports_email(request):
     # name of the task is the same as the name of the celery function
     celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
     if celery_lock.lockStatus() == 0:
-        celery_lock.setLock(50)
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
 
         schedule_mail_for_project_reports.delay(
             project_type,
