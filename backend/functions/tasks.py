@@ -416,7 +416,7 @@ def conversation_data_machine_translation(
 
 @shared_task(bind=True)
 def generate_ocr_prediction_json(
-    self, dataset_instance_id, api_type, automate_missing_data_items
+    self, dataset_instance_id, user_id, api_type, automate_missing_data_items
 ):
     """Function to generate OCR prediction data and to save to the same data item.
     Args:
@@ -472,6 +472,8 @@ def generate_ocr_prediction_json(
 
     # Check if the dataframe is empty
     if ocr_data_items_df.shape[0] == 0:
+        celery_lock = Lock(user_id, "generate_ocr_prediction_json")
+        celery_lock.releaseLock()
         raise Exception("The OCR data is empty.")
 
     required_columns = {
@@ -492,6 +494,8 @@ def generate_ocr_prediction_json(
     }
     if not required_columns.issubset(ocr_data_items_df.columns):
         missing_columns = required_columns - set(ocr_data_items_df.columns)
+        celery_lock = Lock(user_id, "generate_ocr_prediction_json")
+        celery_lock.releaseLock()
         raise ValueError(
             f"The following required columns are missing: {missing_columns}"
         )
@@ -552,6 +556,8 @@ def generate_ocr_prediction_json(
             print(
                 f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
             )
+    celery_lock = Lock(user_id, "generate_ocr_prediction_json")
+    celery_lock.releaseLock()
     return f"{success_count} out of {total_count} populated"
 
 
