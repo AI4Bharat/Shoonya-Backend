@@ -1544,9 +1544,13 @@ def schedule_mail_to_download_all_projects(
     )
     if len(proj_objs) == 0 and workspace_level_projects:
         print(f"No projects found for workspace id- {wid}")
+        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+        celery_lock.releaseLock()
         return 0
     elif len(proj_objs) == 0 and dataset_level_projects:
         print(f"No projects found for dataset id- {did}")
+        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+        celery_lock.releaseLock()
         return 0
     user = User.objects.get(id=user_id)
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -1591,8 +1595,12 @@ def schedule_mail_to_download_all_projects(
             print(f"An error occurred while sending email: {e}")
             return 0
         download_lock.release()
+        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+        celery_lock.releaseLock()
         print(f"Email sent successfully - {user_id}")
     else:
+        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+        celery_lock.releaseLock()
         download_lock.release()
         print(url)
 

@@ -851,12 +851,25 @@ def download_all_projects(request):
         }
         return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
 
-    schedule_mail_to_download_all_projects.delay(
-        workspace_level_projects, dataset_level_projects, wid, did, user_id
-    )
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
 
-    return Response(
-        {"message": "You will receive an email with the download link shortly"},
-        status=status.HTTP_200_OK,
-    )
-    pass
+        schedule_mail_to_download_all_projects.delay(
+            workspace_level_projects, dataset_level_projects, wid, did, user_id
+        )
+
+        return Response(
+            {"message": "You will receive an email with the download link shortly"},
+            status=status.HTTP_200_OK,
+        )
+        pass
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
