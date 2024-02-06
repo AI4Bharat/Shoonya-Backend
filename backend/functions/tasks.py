@@ -202,7 +202,10 @@ def sentence_text_translate_and_save_translation_pairs(
                         "API Error",
                     },
                 )
-
+                celery_lock = Lock(
+                    user_id, "sentence_text_translate_and_save_translation_pairs"
+                )
+                celery_lock.releaseLock()
                 raise Exception(
                     translations_output["output"]
                 )  # sourcery skip: raise-specific-error
