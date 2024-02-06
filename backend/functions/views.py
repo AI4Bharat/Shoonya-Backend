@@ -302,19 +302,35 @@ def schedule_sentence_text_translate_job(request):
     batch_size = TRANSLATOR_BATCH_SIZES.get(api_type, 75)
 
     # Call the function to save the TranslationPair dataset
-    sentence_text_translate_and_save_translation_pairs.delay(
-        languages=languages,
-        input_dataset_instance_id=input_dataset_instance_id,
-        output_dataset_instance_id=output_dataset_instance_id,
-        batch_size=batch_size,
-        api_type=api_type,
-        checks_for_particular_languages=checks_for_particular_languages,
-        automate_missing_data_items=automate_missing_data_items,
-    )
 
-    ret_dict = {"message": "Creating translation pairs from the input dataset."}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "sentence_text_translate_and_save_translation_pairs")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+
+        sentence_text_translate_and_save_translation_pairs.delay(
+            languages=languages,
+            user_id=uid,
+            input_dataset_instance_id=input_dataset_instance_id,
+            output_dataset_instance_id=output_dataset_instance_id,
+            batch_size=batch_size,
+            api_type=api_type,
+            checks_for_particular_languages=checks_for_particular_languages,
+            automate_missing_data_items=automate_missing_data_items,
+        )
+
+        ret_dict = {"message": "Creating translation pairs from the input dataset."}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["GET"])

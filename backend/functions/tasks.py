@@ -67,6 +67,7 @@ logging.basicConfig(level=logging.INFO)
 @shared_task(bind=True)
 def sentence_text_translate_and_save_translation_pairs(
     self,
+    user_id,
     languages,
     input_dataset_instance_id,
     output_dataset_instance_id,
@@ -140,7 +141,10 @@ def sentence_text_translate_and_save_translation_pairs(
                 "No sentences to upload.",
             },
         )
-
+        celery_lock = Lock(
+            user_id, "sentence_text_translate_and_save_translation_pairs"
+        )
+        celery_lock.releaseLock()
         raise Exception("No clean sentences found. Perform project export first.")
 
     # Get the output dataset instance
@@ -215,6 +219,10 @@ def sentence_text_translate_and_save_translation_pairs(
                         "Error: Number of translated sentences does not match with the number of input sentences.",
                     },
                 )
+                celery_lock = Lock(
+                    user_id, "sentence_text_translate_and_save_translation_pairs"
+                )
+                celery_lock.releaseLock()
                 raise Exception(
                     "The number of translated sentences does not match the number of input sentences."
                 )
@@ -253,6 +261,8 @@ def sentence_text_translate_and_save_translation_pairs(
             multi_inheritance_table_bulk_insert(translation_pair_objects)
             translated_sentences_count += len(translation_pair_objects)
 
+    celery_lock = Lock(user_id, "sentence_text_translate_and_save_translation_pairs")
+    celery_lock.releaseLock()
     return f"{translated_sentences_count} translation pairs created for languages: {str(languages)}"
 
 
