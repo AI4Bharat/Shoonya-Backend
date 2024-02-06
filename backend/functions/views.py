@@ -674,16 +674,32 @@ def schedule_asr_prediction_json_population(request):
         automate_missing_data_items = True
 
     # Calling a function asynchronously to create ocr predictions.
-    generate_asr_prediction_json.delay(  # add delay
-        dataset_instance_id=dataset_instance_id,
-        api_type=api_type,
-        automate_missing_data_items=automate_missing_data_items,
-    )
 
-    # Returning response
-    ret_dict = {"message": "Generating ASR Predictions"}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "generate_asr_prediction_json")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+
+        generate_asr_prediction_json.delay(  # add delay
+            dataset_instance_id=dataset_instance_id,
+            user_id=uid,
+            api_type=api_type,
+            automate_missing_data_items=automate_missing_data_items,
+        )
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
+
+        # Returning response
+        ret_dict = {"message": "Generating ASR Predictions"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
 
 
 @api_view(["POST"])
