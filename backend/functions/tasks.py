@@ -708,10 +708,12 @@ def generate_asr_prediction_json(
 
 
 @shared_task(bind=True)
-def populate_draft_data_json(self, pk, fields_list):
+def populate_draft_data_json(self, pk, user_id, fields_list):
     try:
         dataset_instance = DatasetInstance.objects.get(pk=pk)
     except Exception as error:
+        celery_lock = Lock(user_id, "populate_draft_data_json")
+        celery_lock.releaseLock()
         return error
     dataset_type = dataset_instance.dataset_type
     dataset_model = apps.get_model("dataset", dataset_type)
@@ -731,7 +733,8 @@ def populate_draft_data_json(self, pk, fields_list):
             dataset_item.draft_data_json = new_draft_data_json
             dataset_item.save()
             cnt += 1
-
+    celery_lock = Lock(user_id, "populate_draft_data_json")
+    celery_lock.releaseLock()
     return f"successfully populated {cnt} dataset items with draft_data_json"
 
 

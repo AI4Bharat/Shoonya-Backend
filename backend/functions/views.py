@@ -610,11 +610,25 @@ def schedule_draft_data_json_population(request):
     fields_list = fields_list.split(",")
     pk = request.data["dataset_instance_id"]
 
-    populate_draft_data_json.delay(pk, fields_list)
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "populate_draft_data_json")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+        populate_draft_data_json.delay(pk, uid, fields_list)
 
-    ret_dict = {"message": "draft_data_json population started"}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+        ret_dict = {"message": "draft_data_json population started"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
+
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["POST"])
