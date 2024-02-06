@@ -697,14 +697,15 @@ def schedule_project_reports_email(request):
         language = "NULL"
 
     # name of the task is the same as the name of the celery function
-    celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+    uid = request.user.id
+    celery_lock = Lock(uid, "schedule_mail_for_project_reports")
     if celery_lock.lockStatus() == 0:
         celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
         celery_lock.setLock(celery_lock_timeout)
 
         schedule_mail_for_project_reports.delay(
             project_type,
-            user_id,
+            uid,
             anno_stats,
             meta_stats,
             complete_stats,
