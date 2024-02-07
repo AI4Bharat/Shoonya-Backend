@@ -19,6 +19,7 @@ from tasks.serializers import (
     PredictionSerializer,
     TaskAnnotationSerializer,
 )
+from tasks.utils import compute_meta_stats_for_instruction_driven_chat
 
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
@@ -1325,9 +1326,9 @@ class AnnotationViewSet(
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
             # need to add few filters here
-
+            is_IDC, output_result = False, ""
             if auto_save:
-                update_fields_list = ["result", "lead_time", "updated_at"]
+                update_fields_list = ["result", "lead_time", "updated_at", "meta_stats"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
@@ -1344,11 +1345,22 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        annotation_obj.result = get_llm_output(
+                        output_result = get_llm_output(
                             request.data["result"],
                             annotation_obj.task,
                             annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
                         )
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {"prompt": request.data["result"], "output": output_result}
+                        )
+                        annotation_obj.meta_stats = (
+                            compute_meta_stats_for_instruction_driven_chat(
+                                annotation_obj.result
+                            )
+                        )
+                        is_IDC = True
                     else:
                         annotation_obj.result = request.data["result"]
                 if "annotation_notes" in dict(request.data):
@@ -1359,6 +1371,8 @@ class AnnotationViewSet(
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
+                if is_IDC:
+                    annotation_response.data["output"] = output_result
                 response_message = "Success"
             else:
                 if "annotation_status" in dict(request.data) and request.data[
@@ -1406,12 +1420,26 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    request.data["result"] = get_llm_output(
+                    output_result = get_llm_output(
                         request.data["result"],
                         annotation_obj.task,
                         annotation_obj,
+                        annotation_obj.task.project_id.metadata_json,
+                    )
+                    # store the result of all checks as well
+                    annotation_obj.result.append(
+                        {"prompt": request.data["result"], "output": output_result}
+                    )
+                    is_IDC = True
+                    request.data["result"] = annotation_obj.result
+                    request.data[
+                        "meta_stats"
+                    ] = compute_meta_stats_for_instruction_driven_chat(
+                        annotation_obj.result
                     )
                 annotation_response = super().partial_update(request)
+                if is_IDC:
+                    annotation_response.data["output"] = output_result
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
                 task = annotation.task
@@ -1452,7 +1480,7 @@ class AnnotationViewSet(
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
-
+            is_IDC, output_result = False, ""
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
@@ -1471,11 +1499,17 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        annotation_obj.result = get_llm_output(
+                        output_result = get_llm_output(
                             request.data["result"],
                             annotation_obj.task,
                             annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
                         )
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {"prompt": request.data["result"], "output": output_result}
+                        )
+                        is_IDC = True
                     else:
                         annotation_obj.result = request.data["result"]
                 if "review_notes" in dict(request.data):
@@ -1486,6 +1520,8 @@ class AnnotationViewSet(
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
+                if is_IDC:
+                    annotation_response.data["output"] = output_result
                 response_message = "Success"
 
             else:
@@ -1572,12 +1608,21 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    request.data["result"] = get_llm_output(
+                    output_result = get_llm_output(
                         request.data["result"],
                         annotation_obj.task,
                         annotation_obj,
+                        annotation_obj.task.project_id.metadata_json,
                     )
+                    # store the result of all checks as well
+                    annotation_obj.result.append(
+                        {"prompt": request.data["result"], "output": output_result}
+                    )
+                    is_IDC = True
+                    request.data["result"] = annotation_obj.result
                 annotation_response = super().partial_update(request)
+                if is_IDC:
+                    annotation_response.data["output"] = output_result
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
                 task = annotation.task
@@ -1645,7 +1690,7 @@ class AnnotationViewSet(
                 ret_dict = {"message": "You are trying to impersonate another user :("}
                 ret_status = status.HTTP_403_FORBIDDEN
                 return Response(ret_dict, status=ret_status)
-
+            is_IDC, output_result = False, ""
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
@@ -1664,11 +1709,17 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        annotation_obj.result = get_llm_output(
+                        output_result = get_llm_output(
                             request.data["result"],
                             annotation_obj.task,
                             annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
                         )
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {"prompt": request.data["result"], "output": output_result}
+                        )
+                        is_IDC = True
                     else:
                         annotation_obj.result = request.data["result"]
                 if "supercheck_notes" in dict(request.data):
@@ -1679,6 +1730,8 @@ class AnnotationViewSet(
                 annotation_response = Response(
                     AnnotationSerializer(annotation_obj).data
                 )
+                if is_IDC:
+                    annotation_response.data["output"] = output_result
                 response_message = "Success"
 
             else:
@@ -1756,12 +1809,21 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    request.data["result"] = get_llm_output(
+                    output_result = get_llm_output(
                         request.data["result"],
                         annotation_obj.task,
                         annotation_obj,
+                        annotation_obj.task.project_id.metadata_json,
                     )
+                    # store the result of all checks as well
+                    annotation_obj.result.append(
+                        {"prompt": request.data["result"], "output": output_result}
+                    )
+                    is_IDC = True
+                    request.data["result"] = annotation_obj.result
                 annotation_response = super().partial_update(request)
+                if is_IDC:
+                    annotation_response.data["output"] = output_result
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
 
@@ -2074,28 +2136,51 @@ class SentenceOperationViewSet(viewsets.ViewSet):
             )
 
 
-def get_llm_output(prompt, task, annotation, complete_checking):
+def get_llm_output(prompt, task, annotation, project_metadata_json):
     # CHECKS
-    intent = task["data"]["meta_info_intent"]
-    domain = task["data"]["meta_info_domain"]
-    lang_type = task["data"]["meta_info_language"]
-    ann_result = json.loads(annotation.result)
-    if len(ann_result) == 0 and complete_checking:
-        if intent and domain:
-            intent_check, domain_check, reason = evaluate_prompt_alignment(
-                prompt, domain, intent
-            )
-    if lang_type:
-        lang_check = prompt_lang_check(prompt, lang_type)
-    if len(ann_result) >= 0:
-        dup_check, message = duplicate_check(ann_result, prompt)
+    intent = task.data["meta_info_intent"]
+    domain = task.data["meta_info_domain"]
+    lang_type = task.data["meta_info_language"]
+    ann_result = (
+        json.loads(annotation.result)
+        if isinstance(annotation.result, str)
+        else annotation.result
+    )
+    project_metadata = (
+        json.loads(project_metadata_json)
+        if isinstance(project_metadata_json, str)
+        else project_metadata_json
+    )
+    intentDomain_test, lang_test, duplicate_test = False, False, False
+    if project_metadata:
+        if (
+            "intentDomain_test" in project_metadata
+            and project_metadata["intentDomain_test"] == "True"
+        ):
+            intentDomain_test = True
+        if (
+            "lang_check" in project_metadata
+            and project_metadata["lang_check"] == "True"
+        ):
+            lang_test = True
+        if (
+            "duplicate_check" in project_metadata
+            and project_metadata["duplicate_check"] == "True"
+        ):
+            duplicate_test = True
+
+    if len(ann_result) == 0 and intentDomain_test and intent and domain:
+        intent_check, domain_check, reason = evaluate_prompt_alignment(
+            prompt, domain, intent
+        )
+    # if lang_type and lang_test:
+    #     lang_check = prompt_lang_check(prompt, lang_type)
+    if len(ann_result) > 0 and duplicate_test:
+        dup_check = duplicate_check(ann_result, prompt)
 
     # GET MODEL OUTPUT
     history = ann_result
-    model = task["data"]["meta_info_model"]
-    output = get_model_output(prompt, history, model)
-    get_model_output(
+    model = task.data["meta_info_model"]
+    return get_model_output(
         "You are a very kind and helpful assistant!", prompt, history, model
     )
-    ann_result.append({"prompt": prompt, "output": output})
-    return ann_result

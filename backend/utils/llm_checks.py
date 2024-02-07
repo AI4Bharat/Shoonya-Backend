@@ -4,19 +4,25 @@ import json
 import ast
 import openai
 import requests
+from pydantic import BaseModel, Field
 
 from dataset.models import Interaction
 from tasks.models import Annotation
 
 
 def get_response_for_domain_and_intent(prompt):
-    openai.api_key = os.getenv("LLM_CHECKS_OPENAI_API_KEY")
+    openai.api_type = os.getenv("LLM_INTERACTIONS_OPENAI_API_TYPE")
+    openai.api_base = os.getenv("LLM_INTERACTIONS_OPENAI_API_BASE")
+    openai.api_version = os.getenv("LLM_INTERACTIONS_OPENAI_API_VERSION")
+    openai.api_key = os.getenv("LLM_INTERACTIONS_OPENAI_API_KEY")
+    engine = "prompt-chat-gpt35"
+
+    openai.api_key = os.getenv("OPENAI_API_KEY")
     response = openai.ChatCompletion.create(
-        engine="prompt-chat-gpt35",
+        engine=engine,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.1,
         max_tokens=256,
-        # top_p=1,
         frequency_penalty=0,
         presence_penalty=0,
     )
@@ -87,45 +93,69 @@ def prompt_lang_check(prompt, lang_type):
     # get detected language and script from IndicLID
 
     detected_language, detected_script = get_lid(prompt)
-
+    flag_lan, flag_scr = True, True
+    temp_lang, temp_scr = "", ""
     # Type 1 : Prompts in English
-
     if lang_type == 1:
         # Detected language must be english
         if detected_language != "eng":
-            return False
+            flag_lan = False
+        temp_lang = "English language"
 
     # Type 2 : Prompts in Indic Language and indic scripts
     elif lang_type == 2:
         # Detected language must match the user entered language
         if detected_language == "eng":
-            return False
-
+            flag_lan = False
         # Detected script must be Indic script
         if detected_script == "Latn":
-            return False
+            flag_scr = False
+        temp_lang = "Indic language"
+        temp_scr = "Indic script"
 
     # Type 3 : Prompts in Indic Language and latin script (transliterated)
     elif lang_type == 3:
         # Detected language must match the user entered language
         if detected_language == "eng":
-            return False
-
+            flag_lan = False
         # Detected script must be Latin script
         if detected_script != "Latn":
-            return False
+            flag_scr = False
+        temp_lang = "Indic language"
+        temp_scr = "Latin script"
 
     # Type 4 : Prompts must be english-indic code mixed in latin script
     elif lang_type == 4:
         # Detected language should be indic or english
         if detected_language == "other":
-            return False
-
+            flag_lan = False
         # Detected script must be latin
         if detected_script != "Latn":
-            return False
+            flag_scr = False
+        temp_lang = "English-Indic mixed language"
+        temp_scr = "Latin script"
+    else:
+        return False, "lang_type is inappropriate"
 
+    if not flag_lan and not flag_scr:
+        if len(temp_scr) == 0:
+            return False, f"Prompts must be in {temp_lang}"
+        return False, f"Prompts must be in {temp_lang} and {temp_scr}"
+    elif not flag_lan:
+        return False, f"Prompts must be in {temp_lang}"
+    elif not flag_scr:
+        return False, f"Prompts must be in {temp_scr}"
     return True
+
+
+class Response(BaseModel):
+    intent_score: float = Field(
+        default=None, description="Score indicating alignment with the target intent"
+    )
+    domain_score: float = Field(
+        default=None, description="Score indicating alignment with the target domain"
+    )
+    reason: str = Field(default=None, description="Explanation for the scores")
 
 
 def evaluate_prompt_alignment(prompt, target_domain, target_intent):
@@ -135,11 +165,28 @@ def evaluate_prompt_alignment(prompt, target_domain, target_intent):
     Be very lenient in checking. Output a json string with the keys- intent_score, domain_score, reason
     Output: """
     resp_dict = ast.literal_eval(get_response_for_domain_and_intent(context))
+    response = Response(**resp_dict)
+    intent_present = response.intent_score is not None
+    domain_present = response.domain_score is not None
 
-    intent = True if resp_dict["intent_score"] or target_intent is None >= 3 else False
-    domain = True if resp_dict["domain_score"] or target_domain is None >= 3 else False
+    if intent_present and domain_present:
+        intent = response.intent_score >= 3
+        domain = response.domain_score >= 3
+        reason = response.reason
+    elif not intent_present and not domain_present:
+        intent = False
+        domain = False
+        reason = "Both intent_score and domain_score are not accessible from LLM"
+    elif not intent_present:
+        intent = False
+        domain = response.domain_score >= 3
+        reason = "Unable to fetch intent_score"
+    else:  # domain not present
+        intent = response.intent_score >= 3
+        domain = False
+        reason = "Unable to fetch domain_score"
 
-    return intent, domain, resp_dict["reason"]
+    return intent, domain, reason
 
 
 def duplicate_check(ann_result, prompt):

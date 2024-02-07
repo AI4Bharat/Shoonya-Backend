@@ -1,3 +1,6 @@
+import json
+
+
 def compute_meta_stats_for_instruction_driven_chat(conversation_history):
     """
     Calculate meta stats for instruction-driven chat.
@@ -8,6 +11,11 @@ def compute_meta_stats_for_instruction_driven_chat(conversation_history):
     Returns:
         dict: Meta statistics JSON with 'prompts_word_count' and 'number_of_turns'.
     """
+    conversation_history = (
+        json.loads(conversation_history)
+        if isinstance(conversation_history, str)
+        else conversation_history
+    )
     number_of_words = sum(
         len(entry["prompt"].split()) for entry in conversation_history
     )
