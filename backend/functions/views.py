@@ -1,7 +1,7 @@
 import ast
 import json
 from urllib import request
-
+from functions.locks import Lock
 from dataset import models as dataset_models
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -696,25 +696,36 @@ def schedule_project_reports_email(request):
     except KeyError:
         language = "NULL"
 
-    schedule_mail_for_project_reports.delay(
-        project_type,
-        user_id,
-        anno_stats,
-        meta_stats,
-        complete_stats,
-        workspace_level_reports,
-        organization_level_reports,
-        dataset_level_reports,
-        wid,
-        oid,
-        did,
-        language,
-    )
+    # name of the task is the same as the name of the celery function
+    celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+    if celery_lock.lockStatus() == 0:
+        celery_lock.setLock(50)
 
-    return Response(
-        {"message": "You will receive an email with the reports shortly"},
-        status=status.HTTP_200_OK,
-    )
+        schedule_mail_for_project_reports.delay(
+            project_type,
+            user_id,
+            anno_stats,
+            meta_stats,
+            complete_stats,
+            workspace_level_reports,
+            organization_level_reports,
+            dataset_level_reports,
+            wid,
+            oid,
+            did,
+            language,
+        )
+        return Response(
+            {"message": "You will receive an email with the reports shortly"},
+            status=status.HTTP_200_OK,
+        )
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you will receive an email with the reports shortly, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["POST"])

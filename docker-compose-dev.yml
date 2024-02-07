@@ -109,7 +109,19 @@ services:
     depends_on:
       - redis
       - web
-
+  flower:
+    container_name: flower
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery flower --broker=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
+    depends_on:
+      - redis
+      - web
 
 volumes:
   logs_vol:
