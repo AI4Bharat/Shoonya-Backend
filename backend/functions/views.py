@@ -1,7 +1,5 @@
 import ast
-import json
-from urllib import request
-from functions.locks import Lock
+from shoonya_backend.locks import Lock
 from dataset import models as dataset_models
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -31,6 +29,8 @@ from .utils import (
     check_if_particular_organization_owner,
     check_translation_function_inputs,
 )
+from dotenv import load_dotenv
+import os
 
 
 @api_view(["POST"])
@@ -302,19 +302,35 @@ def schedule_sentence_text_translate_job(request):
     batch_size = TRANSLATOR_BATCH_SIZES.get(api_type, 75)
 
     # Call the function to save the TranslationPair dataset
-    sentence_text_translate_and_save_translation_pairs.delay(
-        languages=languages,
-        input_dataset_instance_id=input_dataset_instance_id,
-        output_dataset_instance_id=output_dataset_instance_id,
-        batch_size=batch_size,
-        api_type=api_type,
-        checks_for_particular_languages=checks_for_particular_languages,
-        automate_missing_data_items=automate_missing_data_items,
-    )
 
-    ret_dict = {"message": "Creating translation pairs from the input dataset."}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "sentence_text_translate_and_save_translation_pairs")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+
+        sentence_text_translate_and_save_translation_pairs.delay(
+            languages=languages,
+            user_id=uid,
+            input_dataset_instance_id=input_dataset_instance_id,
+            output_dataset_instance_id=output_dataset_instance_id,
+            batch_size=batch_size,
+            api_type=api_type,
+            checks_for_particular_languages=checks_for_particular_languages,
+            automate_missing_data_items=automate_missing_data_items,
+        )
+
+        ret_dict = {"message": "Creating translation pairs from the input dataset."}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["GET"])
@@ -438,17 +454,34 @@ def schedule_conversation_translation_job(request):
         )
 
     # Call the function to save the TranslationPair dataset
-    conversation_data_machine_translation.delay(
-        languages=languages,
-        input_dataset_instance_id=input_dataset_instance_id,
-        output_dataset_instance_id=output_dataset_instance_id,
-        batch_size=batch_size,
-        api_type=api_type,
-        checks_for_particular_languages=checks_for_particular_languages,
-    )
-    ret_dict = {"message": "Translating Conversation Dataitems"}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "conversation_data_machine_translation")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+
+        conversation_data_machine_translation.delay(
+            languages=languages,
+            user_id=uid,
+            input_dataset_instance_id=input_dataset_instance_id,
+            output_dataset_instance_id=output_dataset_instance_id,
+            batch_size=batch_size,
+            api_type=api_type,
+            checks_for_particular_languages=checks_for_particular_languages,
+        )
+        ret_dict = {"message": "Translating Conversation Dataitems"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
+
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @swagger_auto_schema(
@@ -530,16 +563,32 @@ def schedule_ocr_prediction_json_population(request):
         automate_missing_data_items = True
 
     # Calling a function asynchronously to create ocr predictions.
-    generate_ocr_prediction_json.delay(
-        dataset_instance_id=dataset_instance_id,
-        api_type=api_type,
-        automate_missing_data_items=automate_missing_data_items,
-    )
 
-    # Returning response
-    ret_dict = {"message": "Generating OCR Predictions"}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "generate_ocr_prediction_json")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+
+        generate_ocr_prediction_json.delay(
+            dataset_instance_id=dataset_instance_id,
+            user_id=uid,
+            api_type=api_type,
+            automate_missing_data_items=automate_missing_data_items,
+        )
+
+        # Returning response
+        ret_dict = {"message": "Generating OCR Predictions"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["POST"])
@@ -561,11 +610,25 @@ def schedule_draft_data_json_population(request):
     fields_list = fields_list.split(",")
     pk = request.data["dataset_instance_id"]
 
-    populate_draft_data_json.delay(pk, fields_list)
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "populate_draft_data_json")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+        populate_draft_data_json.delay(pk, uid, fields_list)
 
-    ret_dict = {"message": "draft_data_json population started"}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+        ret_dict = {"message": "draft_data_json population started"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
+
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["POST"])
@@ -611,16 +674,32 @@ def schedule_asr_prediction_json_population(request):
         automate_missing_data_items = True
 
     # Calling a function asynchronously to create ocr predictions.
-    generate_asr_prediction_json.delay(  # add delay
-        dataset_instance_id=dataset_instance_id,
-        api_type=api_type,
-        automate_missing_data_items=automate_missing_data_items,
-    )
 
-    # Returning response
-    ret_dict = {"message": "Generating ASR Predictions"}
-    ret_status = status.HTTP_200_OK
-    return Response(ret_dict, status=ret_status)
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    uid = request.user.id
+    celery_lock = Lock(uid, "generate_asr_prediction_json")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
+
+        generate_asr_prediction_json.delay(  # add delay
+            dataset_instance_id=dataset_instance_id,
+            user_id=uid,
+            api_type=api_type,
+            automate_missing_data_items=automate_missing_data_items,
+        )
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
+
+        # Returning response
+        ret_dict = {"message": "Generating ASR Predictions"}
+        ret_status = status.HTTP_200_OK
+        return Response(ret_dict, status=ret_status)
 
 
 @api_view(["POST"])
@@ -697,13 +776,15 @@ def schedule_project_reports_email(request):
         language = "NULL"
 
     # name of the task is the same as the name of the celery function
-    celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+    uid = request.user.id
+    celery_lock = Lock(uid, "schedule_mail_for_project_reports")
     if celery_lock.lockStatus() == 0:
-        celery_lock.setLock(50)
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
 
         schedule_mail_for_project_reports.delay(
             project_type,
-            user_id,
+            uid,
             anno_stats,
             meta_stats,
             complete_stats,
@@ -770,12 +851,25 @@ def download_all_projects(request):
         }
         return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
 
-    schedule_mail_to_download_all_projects.delay(
-        workspace_level_projects, dataset_level_projects, wid, did, user_id
-    )
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+    if celery_lock.lockStatus() == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        celery_lock.setLock(celery_lock_timeout)
 
-    return Response(
-        {"message": "You will receive an email with the download link shortly"},
-        status=status.HTTP_200_OK,
-    )
-    pass
+        schedule_mail_to_download_all_projects.delay(
+            workspace_level_projects, dataset_level_projects, wid, did, user_id
+        )
+
+        return Response(
+            {"message": "You will receive an email with the download link shortly"},
+            status=status.HTTP_200_OK,
+        )
+        pass
+    else:
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+            },
+            status=status.HTTP_200_OK,
+        )
