@@ -1725,6 +1725,8 @@ class AnnotationViewSet(
                     )
                 else:
                     annotation_obj.result = request.data["result"]
+                if annotation_obj.result.empty_text_flag == True:
+                    return Response({"message": "Text for any transcription segment cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
                 if "review_notes" in dict(request.data):
                     annotation_obj.review_notes = request.data["review_notes"]
                     update_fields_list.append("review_notes")
@@ -1899,6 +1901,8 @@ class AnnotationViewSet(
                     )
                 else:
                     annotation_obj.result = request.data["result"]
+                if annotation_obj.result.empty_text_flag == True:
+                    return Response({"message": "Text for any transcription segment cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
                 if "supercheck_notes" in dict(request.data):
                     annotation_obj.supercheck_notes = request.data["supercheck_notes"]
                     update_fields_list.append("supercheck_notes")
@@ -2079,6 +2083,7 @@ class AnnotationViewSet(
         self, result, task, is_acoustic=False, acoustic_enabled=False
     ):
         modified_result = []
+        empty_text_flag = False
         audio_duration = task.data["audio_duration"]
         if result == None or len(result) == 0:
             return modified_result
@@ -2134,6 +2139,9 @@ class AnnotationViewSet(
                 "text": [val["text"]],
             }
 
+            if val["text"] == "":
+                empty_text_flag = True
+
             label_dict["value"] = value_labels
             text_dict["value"] = value_text
 
@@ -2159,6 +2167,7 @@ class AnnotationViewSet(
 
             modified_result.append(label_dict)
             modified_result.append(text_dict)
+            modified_result.append(empty_text_flag)
 
         return modified_result
 
