@@ -1482,7 +1482,7 @@ class AnnotationViewSet(
                 return Response(ret_dict, status=ret_status)
             is_IDC, output_result = False, ""
             if auto_save:
-                update_fields_list = ["result", "lead_time", "updated_at"]
+                update_fields_list = ["result", "lead_time", "updated_at", "meta_stats"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
@@ -1508,6 +1508,11 @@ class AnnotationViewSet(
                         # store the result of all checks as well
                         annotation_obj.result.append(
                             {"prompt": request.data["result"], "output": output_result}
+                        )
+                        annotation_obj.meta_stats = (
+                            compute_meta_stats_for_instruction_driven_chat(
+                                annotation_obj.result
+                            )
                         )
                         is_IDC = True
                     else:
@@ -1620,6 +1625,11 @@ class AnnotationViewSet(
                     )
                     is_IDC = True
                     request.data["result"] = annotation_obj.result
+                    request.data[
+                        "meta_stats"
+                    ] = compute_meta_stats_for_instruction_driven_chat(
+                        annotation_obj.result
+                    )
                 annotation_response = super().partial_update(request)
                 if is_IDC:
                     annotation_response.data["output"] = output_result
@@ -1692,7 +1702,7 @@ class AnnotationViewSet(
                 return Response(ret_dict, status=ret_status)
             is_IDC, output_result = False, ""
             if auto_save:
-                update_fields_list = ["result", "lead_time", "updated_at"]
+                update_fields_list = ["result", "lead_time", "updated_at", "meta_stats"]
                 if "cl_format" in request.query_params:
                     annotation_obj.result = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
@@ -1718,6 +1728,11 @@ class AnnotationViewSet(
                         # store the result of all checks as well
                         annotation_obj.result.append(
                             {"prompt": request.data["result"], "output": output_result}
+                        )
+                        annotation_obj.meta_stats = (
+                            compute_meta_stats_for_instruction_driven_chat(
+                                annotation_obj.result
+                            )
                         )
                         is_IDC = True
                     else:
@@ -1821,6 +1836,11 @@ class AnnotationViewSet(
                     )
                     is_IDC = True
                     request.data["result"] = annotation_obj.result
+                    request.data[
+                        "meta_stats"
+                    ] = compute_meta_stats_for_instruction_driven_chat(
+                        annotation_obj.result
+                    )
                 annotation_response = super().partial_update(request)
                 if is_IDC:
                     annotation_response.data["output"] = output_result
