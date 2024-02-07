@@ -1809,13 +1809,14 @@ class AnnotationViewSet(
                     )
                 else:
                     annotation_obj.result = request.data["result"]
-                if annotation_obj.result.empty_text_flag == True:
+                if annotation_obj.result["empty_text_flag"] == True:
                     return Response(
                         {
                             "message": "Text for any transcription segment cannot be empty."
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+                del [annotation_obj.result["empty_text_flag"]]
                 if "review_notes" in dict(request.data):
                     annotation_obj.review_notes = request.data["review_notes"]
                     update_fields_list.append("review_notes")
@@ -1990,13 +1991,14 @@ class AnnotationViewSet(
                     )
                 else:
                     annotation_obj.result = request.data["result"]
-                if annotation_obj.result.empty_text_flag == True:
+                if annotation_obj.result["empty_text_flag"] == True:
                     return Response(
                         {
                             "message": "Text for any transcription segment cannot be empty."
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+                del [annotation_obj.result["empty_text_flag"]]
                 if "supercheck_notes" in dict(request.data):
                     annotation_obj.supercheck_notes = request.data["supercheck_notes"]
                     update_fields_list.append("supercheck_notes")
