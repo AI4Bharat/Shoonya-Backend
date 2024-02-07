@@ -55,7 +55,7 @@ from rest_framework.request import Request
 import os
 import tempfile
 
-from functions.locks import Lock
+from shoonya_backend.locks import Lock
 
 import logging
 
@@ -67,6 +67,7 @@ logging.basicConfig(level=logging.INFO)
 @shared_task(bind=True)
 def sentence_text_translate_and_save_translation_pairs(
     self,
+    user_id,
     languages,
     input_dataset_instance_id,
     output_dataset_instance_id,
@@ -140,7 +141,10 @@ def sentence_text_translate_and_save_translation_pairs(
                 "No sentences to upload.",
             },
         )
-
+        celery_lock = Lock(
+            user_id, "sentence_text_translate_and_save_translation_pairs"
+        )
+        celery_lock.releaseLock()
         raise Exception("No clean sentences found. Perform project export first.")
 
     # Get the output dataset instance
@@ -198,7 +202,10 @@ def sentence_text_translate_and_save_translation_pairs(
                         "API Error",
                     },
                 )
-
+                celery_lock = Lock(
+                    user_id, "sentence_text_translate_and_save_translation_pairs"
+                )
+                celery_lock.releaseLock()
                 raise Exception(
                     translations_output["output"]
                 )  # sourcery skip: raise-specific-error
@@ -215,6 +222,10 @@ def sentence_text_translate_and_save_translation_pairs(
                         "Error: Number of translated sentences does not match with the number of input sentences.",
                     },
                 )
+                celery_lock = Lock(
+                    user_id, "sentence_text_translate_and_save_translation_pairs"
+                )
+                celery_lock.releaseLock()
                 raise Exception(
                     "The number of translated sentences does not match the number of input sentences."
                 )
@@ -253,6 +264,8 @@ def sentence_text_translate_and_save_translation_pairs(
             multi_inheritance_table_bulk_insert(translation_pair_objects)
             translated_sentences_count += len(translation_pair_objects)
 
+    celery_lock = Lock(user_id, "sentence_text_translate_and_save_translation_pairs")
+    celery_lock.releaseLock()
     return f"{translated_sentences_count} translation pairs created for languages: {str(languages)}"
 
 
@@ -260,6 +273,7 @@ def sentence_text_translate_and_save_translation_pairs(
 def conversation_data_machine_translation(
     self,
     languages,
+    user_id,
     input_dataset_instance_id,
     output_dataset_instance_id,
     batch_size,
@@ -301,7 +315,8 @@ def conversation_data_machine_translation(
                 "No sentences to upload.",
             },
         )
-
+        celery_lock = Lock(user_id, "conversation_data_machine_translation")
+        celery_lock.releaseLock()
         raise Exception("The conversation data is empty.")
 
     # Iterate through the languages
@@ -347,7 +362,8 @@ def conversation_data_machine_translation(
                             "API Error",
                         },
                     )
-
+                    celery_lock = Lock(user_id, "conversation_data_machine_translation")
+                    celery_lock.releaseLock()
                     raise Exception(translations_output["output"])
 
             # Translate the scenario and prompt
@@ -368,7 +384,8 @@ def conversation_data_machine_translation(
                         "API Error",
                     },
                 )
-
+                celery_lock = Lock(user_id, "conversation_data_machine_translation")
+                celery_lock.releaseLock()
                 raise Exception(translations_output["output"])
             else:
                 translated_prompt_and_scenario = translations_output["output"]
@@ -392,13 +409,14 @@ def conversation_data_machine_translation(
 
         # Save the Conversation objects in bulk
         multi_inheritance_table_bulk_insert(all_translated_conversation_objects)
-
+    celery_lock = Lock(user_id, "conversation_data_machine_translation")
+    celery_lock.releaseLock()
     return f"{len(all_translated_conversation_objects)} conversation dataitems created for each of languages: {str(languages)}"
 
 
 @shared_task(bind=True)
 def generate_ocr_prediction_json(
-    self, dataset_instance_id, api_type, automate_missing_data_items
+    self, dataset_instance_id, user_id, api_type, automate_missing_data_items
 ):
     """Function to generate OCR prediction data and to save to the same data item.
     Args:
@@ -454,6 +472,8 @@ def generate_ocr_prediction_json(
 
     # Check if the dataframe is empty
     if ocr_data_items_df.shape[0] == 0:
+        celery_lock = Lock(user_id, "generate_ocr_prediction_json")
+        celery_lock.releaseLock()
         raise Exception("The OCR data is empty.")
 
     required_columns = {
@@ -474,6 +494,8 @@ def generate_ocr_prediction_json(
     }
     if not required_columns.issubset(ocr_data_items_df.columns):
         missing_columns = required_columns - set(ocr_data_items_df.columns)
+        celery_lock = Lock(user_id, "generate_ocr_prediction_json")
+        celery_lock.releaseLock()
         raise ValueError(
             f"The following required columns are missing: {missing_columns}"
         )
@@ -534,12 +556,14 @@ def generate_ocr_prediction_json(
             print(
                 f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
             )
+    celery_lock = Lock(user_id, "generate_ocr_prediction_json")
+    celery_lock.releaseLock()
     return f"{success_count} out of {total_count} populated"
 
 
 @shared_task(bind=True)
 def generate_asr_prediction_json(
-    self, dataset_instance_id, api_type, automate_missing_data_items
+    self, dataset_instance_id, user_id, api_type, automate_missing_data_items
 ):
     """Function to generate ASR prediction data and to save to the same data item.
     Args:
@@ -597,6 +621,8 @@ def generate_asr_prediction_json(
 
     # Check if the dataframe is empty
     if asr_data_items_df.shape[0] == 0:
+        celery_lock = Lock(user_id, "generate_asr_prediction_json")
+        celery_lock.releaseLock()
         raise Exception("The ASR data is empty.")
 
     required_columns = {
@@ -618,6 +644,8 @@ def generate_asr_prediction_json(
     }
     if not required_columns.issubset(asr_data_items_df.columns):
         missing_columns = required_columns - set(asr_data_items_df.columns)
+        celery_lock = Lock(user_id, "generate_asr_prediction_json")
+        celery_lock.releaseLock()
         raise ValueError(
             f"The following required columns are missing: {missing_columns}"
         )
@@ -680,14 +708,18 @@ def generate_asr_prediction_json(
             print(
                 f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
             )
+    celery_lock = Lock(user_id, "generate_asr_prediction_json")
+    celery_lock.releaseLock()
     print(f"{success_count} out of {total_count} populated")
 
 
 @shared_task(bind=True)
-def populate_draft_data_json(self, pk, fields_list):
+def populate_draft_data_json(self, pk, user_id, fields_list):
     try:
         dataset_instance = DatasetInstance.objects.get(pk=pk)
     except Exception as error:
+        celery_lock = Lock(user_id, "populate_draft_data_json")
+        celery_lock.releaseLock()
         return error
     dataset_type = dataset_instance.dataset_type
     dataset_model = apps.get_model("dataset", dataset_type)
@@ -707,7 +739,8 @@ def populate_draft_data_json(self, pk, fields_list):
             dataset_item.draft_data_json = new_draft_data_json
             dataset_item.save()
             cnt += 1
-
+    celery_lock = Lock(user_id, "populate_draft_data_json")
+    celery_lock.releaseLock()
     return f"successfully populated {cnt} dataset items with draft_data_json"
 
 
@@ -805,10 +838,7 @@ def schedule_mail_for_project_reports(
         )
 
     try:
-        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
         email.send()
-
-        celery_lock.releaseLock()
 
         extra_data = {
             "user_email": user.email,
@@ -832,7 +862,11 @@ def schedule_mail_for_project_reports(
         logger.info(message, extra=extra_data)
 
     except Exception as e:
+        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+        celery_lock.releaseLock()
         print(f"An error occurred while sending email: {e}")
+    celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+    celery_lock.releaseLock()
     print(f"Email sent successfully - {user_id}")
 
 
@@ -1510,9 +1544,13 @@ def schedule_mail_to_download_all_projects(
     )
     if len(proj_objs) == 0 and workspace_level_projects:
         print(f"No projects found for workspace id- {wid}")
+        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+        celery_lock.releaseLock()
         return 0
     elif len(proj_objs) == 0 and dataset_level_projects:
         print(f"No projects found for dataset id- {did}")
+        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+        celery_lock.releaseLock()
         return 0
     user = User.objects.get(id=user_id)
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -1557,8 +1595,12 @@ def schedule_mail_to_download_all_projects(
             print(f"An error occurred while sending email: {e}")
             return 0
         download_lock.release()
+        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+        celery_lock.releaseLock()
         print(f"Email sent successfully - {user_id}")
     else:
+        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
+        celery_lock.releaseLock()
         download_lock.release()
         print(url)
 
