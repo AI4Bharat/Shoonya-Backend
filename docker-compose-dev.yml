@@ -113,7 +113,7 @@ services:
     container_name: flower
     restart: always
     build: ./backend
-    command: celery -A shoonya_backend.celery flower --broker=redis://redis:6379/0 --conf=/usr/src/backend/flower_config.py
+    command: celery -A shoonya_backend.celery flower --broker=redis://redis:6379/0 --conf=/usr/src/backend/shoonya_backend/flowerconfig.py
     ports:
       - "5555:5555"
     volumes:
