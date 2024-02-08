@@ -1653,15 +1653,22 @@ class AnnotationViewSet(
         try:
             annotation_obj = Annotation.objects.get(id=pk)
             task = annotation_obj.task
+        except:
+            final_result = {"message": "annotation object does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(final_result, status=ret_status)
+
+        try:
             if task.id != request.data["task_id"]:
                 return Response(
                     {"message": "Task Id does not match the annotation's task id."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         except:
-            final_result = {"message": "annotation object does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-            return Response(final_result, status=ret_status)
+            return Response(
+                {"message": "Missing parameter task_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         auto_save = False
         if "auto_save" in request.data:
