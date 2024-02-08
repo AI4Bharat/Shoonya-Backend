@@ -10,7 +10,6 @@ from django.core.files import File
 from django.db import IntegrityError
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
-from django.http import HttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -3833,115 +3832,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks_list.append(OrderedDict(task_dict))
 
             dataset_type = project.dataset_id.all()[0].dataset_type
-            if (
-                project_type == "ConversationTranslation"
-                or project_type == "ConversationTranslationEditing"
-                or project_type == "ConversationVerification"
-            ):
+            if dataset_type == "Instruction":
                 for task in tasks_list:
-                    if project_type == "ConversationTranslation":
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).conversation_json
-                    elif project_type == "ConversationVerification":
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).unverified_conversation_json
-                    else:
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).machine_translated_conversation_json
-                    if isinstance(conversation_json, str):
-                        conversation_json = json.loads(conversation_json)
-                    for idx1 in range(len(conversation_json)):
-                        for idx2 in range(len(conversation_json[idx1]["sentences"])):
-                            conversation_json[idx1]["sentences"][idx2] = ""
-                    for result in task["annotations"][0]["result"]:
-                        if isinstance(result, str):
-                            text_dict = result
-                        else:
-                            text_dict = json.dumps(result, ensure_ascii=False)
-                        result_formatted = json.loads(text_dict)
-                        if result["to_name"] != "quality_status":
-                            to_name_list = result["to_name"].split("_")
-                            idx1 = int(to_name_list[1])
-                            idx2 = int(to_name_list[2])
-                            conversation_json[idx1]["sentences"][idx2] = ".".join(
-                                map(str, result_formatted["value"]["text"])
-                            )
-                        else:
-                            task["data"][
-                                "conversation_quality_status"
-                            ] = result_formatted["value"]["choices"][0]
-                    if project_type == "ConversationVerification":
-                        task["data"]["verified_conversation_json"] = conversation_json
-                    else:
-                        task["data"]["translated_conversation_json"] = conversation_json
-            elif dataset_type in ["SpeechConversation", "OCRDocument"]:
-                if dataset_type == "SpeechConversation":
-                    for task in tasks_list:
-                        annotation_result = task["annotations"][0]["result"]
-                        annotation_result = (
-                            json.loads(annotation_result)
-                            if isinstance(annotation_result, str)
-                            else annotation_result
-                        )
-                        speakers_json = task["data"]["speakers_json"]
-                        task["annotations"][0]["result"] = []
-                        if project_type == "AudioSegmentation":
-                            task["data"][
-                                "prediction_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, speakers_json, dataset_type
-                            )
-                        else:
-                            task["data"][
-                                "transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result,
-                                speakers_json,
-                                dataset_type,
-                                project_type
-                                == "AcousticNormalisedTranscriptionEditing",
-                            )
-                else:
-                    for task in tasks_list:
-                        annotation_result = task["annotations"][0]["result"]
-                        annotation_result = (
-                            json.loads(annotation_result)
-                            if isinstance(annotation_result, str)
-                            else annotation_result
-                        )
-                        task["annotations"][0]["result"] = []
-                        if project_type in [
-                            "OCRTranscriptionEditing",
-                            "OCRTranscription",
-                        ]:
-                            task["data"][
-                                "ocr_transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
-                            )
-                        else:
-                            task["data"][
-                                "ocr_prediction_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
-                            )
-            download_resources = True
-            export_stream, content_type, filename = DataExport.generate_export_file(
-                project, tasks_list, export_type, download_resources, request.GET
-            )
-
-            if export_type == "TSV":
-                content_type = "application/.tsv"
-                filename = filename.split(".")
-                filename[-1] = "tsv"
-                filename = ".".join(filename)
-            response = HttpResponse(File(export_stream), content_type=content_type)
-            response["Content-Disposition"] = 'attachment; filename="%s"' % filename
-            response["filename"] = filename
-            return response
+                    annotation_result = task["annotations"][0]["result"]
+                    annotation_result = (
+                        json.loads(annotation_result)
+                        if isinstance(annotation_result, str)
+                        else annotation_result
+                    )
+                    task["data"]["interactions_json"] = annotation_result
+                    del task["annotations"]
+            return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
