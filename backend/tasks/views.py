@@ -1701,6 +1701,14 @@ class AnnotationViewSet(
                     )
                 else:
                     annotation_obj.result = request.data["result"]
+                if annotation_obj.result["empty_text_flag"] == True:
+                    return Response(
+                        {
+                            "message": "Text for any transcription segment cannot be empty."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                del [annotation_obj.result["empty_text_flag"]]
                 if "annotation_notes" in dict(request.data):
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
@@ -2235,7 +2243,7 @@ class AnnotationViewSet(
                 "text": [val["text"]],
             }
 
-            if val["text"] == "":
+            if str(val["text"]).strip() == "" or str(val["text"]).strip() == "-":
                 empty_text_flag = True
 
             label_dict["value"] = value_labels
