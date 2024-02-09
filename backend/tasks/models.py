@@ -1,8 +1,10 @@
+import csv
 import hashlib
 import os
 import shutil
 from copy import deepcopy
 from datetime import datetime, timedelta
+from django.http import HttpResponse
 from django.utils.timezone import now
 import json
 
@@ -429,54 +431,73 @@ class DataExport(object):
         return sorted(formats, key=lambda f: f.get("disabled", False))
 
     @staticmethod
-    def generate_export_file(
-        project, tasks, output_format, download_resources, get_args
-    ):
-        # prepare for saving
-        now = datetime.now()
-
+    def generate_export_file(project, tasks, output_format):
         def serialize_datetime(obj):
             if isinstance(obj, datetime):
                 return obj.isoformat()
 
         data = json.dumps(tasks, default=serialize_datetime, ensure_ascii=False)
-        md5 = hashlib.md5(json.dumps(data).encode("utf-8")).hexdigest()
-        name = (
-            "project-"
-            + str(project.id)
-            + "-at-"
-            + now.strftime("%Y-%m-%d-%H-%M")
-            + f"-{md5[0:8]}"
-        )
+        data = json.loads(data)
+        if output_format == "CSV":
+            return DataExport.data_to_csv(data, project, tasks, False)
+        elif output_format == "TSV":
+            return DataExport.data_to_tsv(data, project, tasks)
+        elif output_format == "JSON":
+            return DataExport.data_to_json(data, project)
+        message = "The format asked is inappropriate"
+        status_code = 404
+        return HttpResponse(message, status=status_code)
 
-        input_json = DataExport.save_export_files(
-            project, now, get_args, data, md5, name
-        )
+    @staticmethod
+    def data_to_csv(data, project, tasks, only_data=False):
+        fieldnames = list(data[0].keys())
+        nested_fieldnames = list(data[0]["data"].keys())
+        names = []
+        csv_data = []
+        flag_for_fieldnames_to_be_considered_once = True
+        for item in data:
+            row = []
+            for fieldname in fieldnames:
+                if fieldname == "data":
+                    row.extend(item["data"][key] for key in nested_fieldnames)
+                    if flag_for_fieldnames_to_be_considered_once:
+                        names.extend(n for n in nested_fieldnames)
+                else:
+                    if flag_for_fieldnames_to_be_considered_once:
+                        names.append(fieldname)
+                    row.append(item[fieldname])
+            csv_data.append(row)
+            flag_for_fieldnames_to_be_considered_once = False
+        if only_data:
+            return fieldnames, csv_data
 
-        converter = Converter(
-            config=parse_config(project.label_config),
-            project_dir=None,
-            upload_dir=os.path.join(MEDIA_ROOT, UPLOAD_DIR),
-            download_resources=download_resources,
-        )
-        with get_temp_dir() as tmp_dir:
-            converter.convert(input_json, tmp_dir, output_format, is_dir=False)
-            files = get_all_files_from_dir(tmp_dir)
-            # if only one file is exported - no need to create archive
-            if len(os.listdir(tmp_dir)) == 1:
-                output_file = files[0]
-                ext = os.path.splitext(output_file)[-1]
-                content_type = f"application/{ext}"
-                out = read_bytes_stream(output_file)
-                filename = name + os.path.splitext(output_file)[-1]
-                return out, content_type, filename
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{project.title}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(names)
+        for row in csv_data:
+            writer.writerow(row)
+        return response
 
-            # otherwise pack output directory into archive
-            shutil.make_archive(tmp_dir, "zip", tmp_dir)
-            out = read_bytes_stream(os.path.abspath(tmp_dir + ".zip"))
-            content_type = "application/zip"
-            filename = name + ".zip"
-            return out, content_type, filename
+    @staticmethod
+    def data_to_tsv(data, project, tasks):
+        fieldnames, csv_data = DataExport.data_to_csv(data, project, tasks, True)
+        tsv_data = []
+        tsv_data.append("\t".join(fieldnames))
+        for row in csv_data:
+            tsv_data.append("\t".join(str(field) for field in row))
+        response = HttpResponse(
+            "\n".join(tsv_data), content_type="text/tab-separated-values"
+        )
+        response["Content-Disposition"] = f'attachment; filename="{project.title}.tsv"'
+        return response
+
+    @staticmethod
+    def data_to_json(data, project):
+        json_data = json.dumps(data, indent=4)
+        response = HttpResponse(json_data, content_type="application/json")
+        response["Content-Disposition"] = f'attachment; filename="{project.title}.json"'
+        return response
 
     @staticmethod
     def export_csv_file(project, tasks, download_resources, get_args):
