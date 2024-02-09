@@ -1701,7 +1701,10 @@ class AnnotationViewSet(
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                    (
+                        annotation_obj.result,
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1713,14 +1716,6 @@ class AnnotationViewSet(
                     )
                 else:
                     annotation_obj.result = request.data["result"]
-                if annotation_obj.result["empty_text_flag"] == True:
-                    return Response(
-                        {
-                            "message": "Text for any transcription segment cannot be empty."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                del [annotation_obj.result["empty_text_flag"]]
                 if "annotation_notes" in dict(request.data):
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
@@ -1762,7 +1757,10 @@ class AnnotationViewSet(
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                    (
+                        request.data["result"],
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1772,6 +1770,13 @@ class AnnotationViewSet(
                         ]
                         == 1,
                     )
+                    if empty_flag == True:
+                        return Response(
+                            {
+                                "message": "Text for any transcription segment cannot be empty."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -1817,7 +1822,10 @@ class AnnotationViewSet(
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                    (
+                        annotation_obj.result,
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1829,14 +1837,6 @@ class AnnotationViewSet(
                     )
                 else:
                     annotation_obj.result = request.data["result"]
-                if annotation_obj.result["empty_text_flag"] == True:
-                    return Response(
-                        {
-                            "message": "Text for any transcription segment cannot be empty."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                del [annotation_obj.result["empty_text_flag"]]
                 if "review_notes" in dict(request.data):
                     annotation_obj.review_notes = request.data["review_notes"]
                     update_fields_list.append("review_notes")
@@ -1917,7 +1917,10 @@ class AnnotationViewSet(
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                    (
+                        request.data["result"],
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1927,6 +1930,13 @@ class AnnotationViewSet(
                         ]
                         <= 2,
                     )
+                    if empty_flag == True:
+                        return Response(
+                            {
+                                "message": "Text for any transcription segment cannot be empty."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -1999,7 +2009,10 @@ class AnnotationViewSet(
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                    (
+                        annotation_obj.result,
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -2011,14 +2024,6 @@ class AnnotationViewSet(
                     )
                 else:
                     annotation_obj.result = request.data["result"]
-                if annotation_obj.result["empty_text_flag"] == True:
-                    return Response(
-                        {
-                            "message": "Text for any transcription segment cannot be empty."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                del [annotation_obj.result["empty_text_flag"]]
                 if "supercheck_notes" in dict(request.data):
                     annotation_obj.supercheck_notes = request.data["supercheck_notes"]
                     update_fields_list.append("supercheck_notes")
@@ -2090,7 +2095,10 @@ class AnnotationViewSet(
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                    (
+                        request.data["result"],
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -2100,6 +2108,13 @@ class AnnotationViewSet(
                         ]
                         <= 3,
                     )
+                    if empty_flag == True:
+                        return Response(
+                            {
+                                "message": "Text for any transcription segment cannot be empty."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -2283,9 +2298,8 @@ class AnnotationViewSet(
 
             modified_result.append(label_dict)
             modified_result.append(text_dict)
-            modified_result.append(empty_text_flag)
 
-        return modified_result
+        return modified_result, empty_text_flag
 
     def convert_formatted_time_to_fractional(self, formatted_time):
         hours, minutes, seconds = map(float, formatted_time.split(":"))
