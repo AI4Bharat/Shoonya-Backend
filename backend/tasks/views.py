@@ -1659,7 +1659,7 @@ class AnnotationViewSet(
             return Response(final_result, status=ret_status)
 
         try:
-            if task.id != request.data["task_id"]:
+            if str(task.id) != str(request.data["task_id"]):
                 return Response(
                     {"message": "Task Id does not match the annotation's task id."},
                     status=status.HTTP_400_BAD_REQUEST,
