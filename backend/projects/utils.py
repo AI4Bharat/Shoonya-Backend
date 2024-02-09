@@ -2,7 +2,9 @@ from typing import Tuple
 from dateutil.parser import parse as date_parse
 import re
 import nltk
-from tasks.models import Annotation
+
+from dataset.models import Instruction
+from tasks.models import Annotation, REVIEWER_ANNOTATION, SUPER_CHECKER_ANNOTATION
 from tasks.views import SentenceOperationViewSet
 import datetime
 import yaml
@@ -211,3 +213,24 @@ def ocr_word_count(annotation_result):
                 pass
 
     return word_count
+
+
+def get_attributes_for_IDC(project, task):
+    annotation = Annotation.objects.filter(task=task)
+    correct_ann_obj = annotation[0]
+    if len(annotation) == 2:
+        for ann in annotation:
+            if ann.annotation_type == REVIEWER_ANNOTATION:
+                correct_ann_obj = ann
+    elif len(annotation) == 3:
+        for ann in annotation:
+            if ann.annotation_type == SUPER_CHECKER_ANNOTATION:
+                correct_ann_obj = ann
+    return {
+        "interactions_json": correct_ann_obj.result,
+        "no_of_turns": correct_ann_obj.meta_stats["number_of_turns"],
+        "language": project.tgt_language,
+        "datetime": correct_ann_obj.annotated_at,
+        "instruction_id": Instruction.objects.get(id=task.data["instruction_id"]),
+        "time_taken": 0.0,
+    }
