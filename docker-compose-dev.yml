@@ -122,8 +122,6 @@ services:
     depends_on:
       - redis
       - web
-    env_file:
-      - ./backend/.env
 
 volumes:
   logs_vol:
