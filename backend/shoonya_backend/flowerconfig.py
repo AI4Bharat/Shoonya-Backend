@@ -11,4 +11,4 @@ broker = os.getenv("CELERY_BROKER_URL")
 # Enable basic authentication
 flower_username = os.getenv("FLOWER_USERNAME")
 flower_password = os.getenv("FLOWER_PASSWORD")
-flower_auth = f"{flower_username}:{flower_password}"
+basic_auth = f"{flower_username}:{flower_password}"
