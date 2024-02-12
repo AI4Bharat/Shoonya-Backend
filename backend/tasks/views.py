@@ -1770,7 +1770,12 @@ class AnnotationViewSet(
                         ]
                         == 1,
                     )
-                    if empty_flag == True:
+                    annotation_status = request.data["annotation_status"]
+                    if (
+                        empty_flag == True
+                        and annotation_status != DRAFT
+                        and annotation_status != SKIPPED
+                    ):
                         return Response(
                             {
                                 "message": "Text for any transcription segment cannot be empty."
@@ -1930,8 +1935,13 @@ class AnnotationViewSet(
                         ]
                         <= 2,
                     )
-                    if empty_flag == True:
-                        return Response(
+                    annotation_status = request.data["annotation_status"]
+                    if (
+                        empty_flag == True
+                        and annotation_status != DRAFT
+                        and annotation_status != SKIPPED
+                    ):
+                       return Response(
                             {
                                 "message": "Text for any transcription segment cannot be empty."
                             },
@@ -2108,7 +2118,12 @@ class AnnotationViewSet(
                         ]
                         <= 3,
                     )
-                    if empty_flag == True:
+                    annotation_status = request.data["annotation_status"]
+                    if (
+                        empty_flag == True
+                        and annotation_status != DRAFT
+                        and annotation_status != SKIPPED
+                    ):
                         return Response(
                             {
                                 "message": "Text for any transcription segment cannot be empty."
