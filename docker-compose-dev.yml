@@ -113,7 +113,7 @@ services:
     container_name: flower
     restart: always
     build: ./backend
-    command: celery -A shoonya_backend.celery flower --conf="/usr/src/backend/shoonya_backend/flowerconfig.py"
+    command: celery -A shoonya_backend.celery flower --conf="./usr/src/backend/shoonya_backend/flowerconfig.py" --basic-auth="${FLOWER_USERNAME}:${FLOWER_PASSWORD}"
     ports:
       - "5555:5555"
     volumes:
@@ -122,6 +122,8 @@ services:
     depends_on:
       - redis
       - web
+    env_file:
+      - ./backend/.env
 
 volumes:
   logs_vol:
