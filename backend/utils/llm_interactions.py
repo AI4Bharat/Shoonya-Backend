@@ -132,11 +132,6 @@ def get_llama2_output(system_prompt, conv_history, user_prompt):
 def get_model_output(system_prompt, user_prompt, history, model="gpt3.5"):
     # Assume that translation happens outside (and the prompt is already translated)
     out = ""
-    model_map = {1: "GPT3.5", 2: "GPT4", 3: "LLAMA2"}
-    if 0 < int(model) < 4:
-        model = model_map[int(model)]
-    else:
-        model = "GPT3.5"
     if model == "GPT3.5":
         out = get_gpt3_output(system_prompt, user_prompt, history)
     elif model == "GPT4":
