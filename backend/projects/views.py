@@ -644,9 +644,9 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         result["Rejected Word Count"] = rejected_word_count
     elif proj_type in get_audio_project_types():
         result["Validated Segments Duration"] = validated_audio_duration
-        result[
-            "Validated With Changes Segments Duration"
-        ] = validated_with_changes_audio_duration
+        result["Validated With Changes Segments Duration"] = (
+            validated_with_changes_audio_duration
+        )
         result["Rejected Segments Duration"] = rejected_audio_duration
         result["Total Raw Audio Duration"] = total_raw_audio_duration
         result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
@@ -2096,9 +2096,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if automatic_annotation_creation_mode != None:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
-                proj.metadata_json[
-                    "automatic_annotation_creation_mode"
-                ] = automatic_annotation_creation_mode
+                proj.metadata_json["automatic_annotation_creation_mode"] = (
+                    automatic_annotation_creation_mode
+                )
             if proj.project_type == "AcousticNormalisedTranscriptionEditing":
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
@@ -4113,11 +4113,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if include_input_data_metadata_json:
                     dataset_type = project.dataset_id.all()[0].dataset_type
                     dataset_model = getattr(dataset_models, dataset_type)
-                    task_dict["data"][
-                        "input_data_metadata_json"
-                    ] = dataset_model.objects.get(
-                        pk=task_dict["input_data"]
-                    ).metadata_json
+                    task_dict["data"]["input_data_metadata_json"] = (
+                        dataset_model.objects.get(
+                            pk=task_dict["input_data"]
+                        ).metadata_json
+                    )
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
 
@@ -4165,9 +4165,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                                 map(str, result_formatted["value"]["text"])
                             )
                         else:
-                            task["data"][
-                                "conversation_quality_status"
-                            ] = result_formatted["value"]["choices"][0]
+                            task["data"]["conversation_quality_status"] = (
+                                result_formatted["value"]["choices"][0]
+                            )
                     if project_type == "ConversationVerification":
                         task["data"]["verified_conversation_json"] = conversation_json
                     else:
@@ -4184,20 +4184,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         speakers_json = task["data"]["speakers_json"]
                         task["annotations"][0]["result"] = []
                         if project_type == "AudioSegmentation":
-                            task["data"][
-                                "prediction_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, speakers_json, dataset_type
+                            task["data"]["prediction_json"] = (
+                                convert_annotation_result_to_formatted_json(
+                                    annotation_result, speakers_json, dataset_type
+                                )
                             )
                         else:
-                            task["data"][
-                                "transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result,
-                                speakers_json,
-                                dataset_type,
-                                project_type
-                                == "AcousticNormalisedTranscriptionEditing",
+                            task["data"]["transcribed_json"] = (
+                                convert_annotation_result_to_formatted_json(
+                                    annotation_result,
+                                    speakers_json,
+                                    dataset_type,
+                                    project_type
+                                    == "AcousticNormalisedTranscriptionEditing",
+                                )
                             )
                 else:
                     for task in tasks_list:
@@ -4214,16 +4214,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             "OCRSegmentCategorizationEditing",
                             "OCRSegmentCategorization",
                         ]:
-                            task["data"][
-                                "ocr_transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
+                            task["data"]["ocr_transcribed_json"] = (
+                                convert_annotation_result_to_formatted_json(
+                                    annotation_result, None, dataset_type
+                                )
                             )
                         else:
-                            task["data"][
-                                "ocr_prediction_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
+                            task["data"]["ocr_prediction_json"] = (
+                                convert_annotation_result_to_formatted_json(
+                                    annotation_result, None, dataset_type
+                                )
                             )
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
