@@ -1,3 +1,4 @@
+import json
 import random
 from copy import deepcopy
 from collections import OrderedDict
@@ -558,6 +559,11 @@ def export_project_in_place(
                     setattr(data_item, field, conversation_quality_status)
                 elif field == "ocr_transcribed_json":
                     ta_ocr_transcribed_json = []
+                    ann = (
+                        json.loads(tl["annotations"])
+                        if isinstance(tl["annotations"], str)
+                        else tl["annotations"]
+                    )
                     for idx in range(len(json.loads(ta["annotation_bboxes"]))):
                         if ta["annotation_labels"] is not None and isinstance(
                             json.loads(ta["annotation_labels"]), list
@@ -573,10 +579,11 @@ def export_project_in_place(
                         ta["annotation_transcripts"] = (
                             ta["ocr_transcribed_json"]
                             if "ocr_transcribed_json" in ta
-                            else []
+                            else ""
                         )
                         if (
                             len(json.loads(ta["annotation_bboxes"])) > 1
+                            and ta["annotation_transcripts"]
                             and type(json.loads(ta["annotation_transcripts"])) == list
                         ):
                             try:
@@ -585,6 +592,11 @@ def export_project_in_place(
                                 )[idx]
                             except:
                                 ta_ocr_transcribed_json[-1]["text"] = ""
+                            ta_ocr_transcribed_json[-1]["id"] = (
+                                ann[0]["result"][idx * 2]["id"]
+                                if "id" in ann[0]["result"][idx * 2]
+                                else ""
+                            )
                         else:
                             try:
                                 ta_ocr_transcribed_json[-1]["text"] = ta[
@@ -592,6 +604,16 @@ def export_project_in_place(
                                 ]
                             except:
                                 ta_ocr_transcribed_json[-1]["text"] = ""
+                            ta_ocr_transcribed_json[-1]["id"] = (
+                                ann[0]["result"][idx * 2]["id"]
+                                if "id" in ann[0]["result"][idx * 2]
+                                else ""
+                            )
+                            ta_ocr_transcribed_json[-1]["parentID"] = (
+                                ann[0]["result"][idx * 2]["parentID"]
+                                if "parentID" in ann[0]["result"][idx * 2]
+                                else ""
+                            )
                     setattr(data_item, field, ta_ocr_transcribed_json)
                 else:
                     setattr(data_item, field, ta[field])
