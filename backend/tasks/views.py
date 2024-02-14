@@ -1770,7 +1770,15 @@ class AnnotationViewSet(
                         ]
                         == 1,
                     )
-                    if empty_flag == True:
+                    annotation_status = request.data["annotation_status"]
+                    if empty_flag == True and annotation_status in [
+                        LABELED,
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        VALIDATED,
+                        VALIDATED_WITH_CHANGES,
+                    ]:
                         return Response(
                             {
                                 "message": "Text for any transcription segment cannot be empty."
@@ -1930,7 +1938,15 @@ class AnnotationViewSet(
                         ]
                         <= 2,
                     )
-                    if empty_flag == True:
+                    annotation_status = request.data["annotation_status"]
+                    if empty_flag == True and annotation_status in [
+                        LABELED,
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        VALIDATED,
+                        VALIDATED_WITH_CHANGES,
+                    ]:
                         return Response(
                             {
                                 "message": "Text for any transcription segment cannot be empty."
@@ -2108,7 +2124,15 @@ class AnnotationViewSet(
                         ]
                         <= 3,
                     )
-                    if empty_flag == True:
+                    annotation_status = request.data["annotation_status"]
+                    if empty_flag == True and annotation_status in [
+                        LABELED,
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        VALIDATED,
+                        VALIDATED_WITH_CHANGES,
+                    ]:
                         return Response(
                             {
                                 "message": "Text for any transcription segment cannot be empty."
