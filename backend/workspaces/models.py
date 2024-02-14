@@ -1,7 +1,8 @@
 from django.db import models
 from organizations.models import Organization
 from anudesh_backend.mixins import DummyModelMixin
-
+from django.contrib.auth import authenticate, password_validation
+from django.contrib.auth.hashers import check_password
 from anudesh_backend import settings
 
 # Create your models here.
@@ -62,6 +63,20 @@ class Workspace(models.Model, DummyModelMixin):
             "States whether a workspace needs to be added for analytics or not."
         ),
     )
+
+    workspace_password = models.CharField(
+        verbose_name="workspace_password",
+        max_length=128,
+        blank=True,
+        null=True,
+        help_text="Password for accessing the workspace.",
+    )
+
+    def set_workspace_password(self, raw_password):
+        self.workspace_password = make_password(raw_password)
+
+    def check_workspace_password(self, raw_password):
+        return check_password(raw_password, self.workspace_password)
 
     def __str__(self):
         return str(self.workspace_name)

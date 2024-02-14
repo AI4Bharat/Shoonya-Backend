@@ -1,9 +1,11 @@
 from typing_extensions import Required
 from rest_framework import serializers
-
 from .models import *
 from users.models import User
-from users.serializers import UserProfileSerializer, ChangePasswordSerializer
+from users.serializers import UserProfileSerializer
+from django.contrib.auth.models import User
+from rest_framework.validators import UniqueValidator
+from django.contrib.auth.password_validation import validate_password
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
@@ -12,6 +14,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
     users = UserProfileSerializer(read_only=True, many=True)
     frozen_users = UserProfileSerializer(read_only=True, many=True)
     guest_workspace_display = serializers.SerializerMethodField()
+    # workspace_password = UserProfileSerializer(read_only=True, many=True)
 
     class Meta:
         model = Workspace
@@ -36,6 +39,17 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             return "Yes"
         else:
             return "No"
+
+    # def create(self, validated_data):
+    #     guest_workspace = validated_data.get("guest_workspace")
+    #     workspace_password = validated_data.get("workspace_password")
+    #     if guest_workspace and workspace_password is None:
+    #         raise serializers.ValidationError({"workspace_password": "Password is required for guest workspaces."})
+    #     workspace = super().create(validated_data)
+    #     if guest_workspace:
+    #         workspace.set_password(workspace_password)
+    #         workspace.save()
+    #     return workspace
 
 
 class WorkspaceManagerSerializer(serializers.ModelSerializer):
@@ -69,29 +83,27 @@ class WorkspaceNameSerializer(serializers.ModelSerializer):
         fields = ["id", "workspace_name"]
 
 
-class WorkspacePasswordSerializer(
-    serializers.ModelSerializer, ChangePasswordSerializer
-):
-    class Meta:
-        model = Workspace
-        fields = ["password"]
+class WorkspacePasswordSerializer(serializers.Serializer):
+    # workspace_password = serializers.CharField(write_only=True, required=True)
+    # class Meta:
+    #     model = Workspace
+    #     fields = ["workspace_password"]
+    # def validate_workspace_password(self, value):
+    #     password_validation.validate_password(value)
+    #     return value
 
-    def validate(self, data):
-        is_guest_user = (
-            self.context.get("request").user.guest_user
-            if self.context.get("request").user
-            else False
-        )
-        in_guest_workspace = self.instance.guest_workspace if self.instance else False
+    # def validate(self, data):
+    #     '''
+    #       Validate workspace_password during guest user entry
+    #     '''
 
-        if is_guest_user and in_guest_workspace:
-            self.match_old_password(self.context.get("request").user, data)
-            self.validation_checks(self.context.get("request").user, data)
-        return data
+    #     entered_password = data.get("workspace_password")
+    #     if self.instance and entered_password != self.instance.workspace_password:
+    #         raise serializers.ValidationError("Invalid workspace password.")
+    #     return data
+    enter_password = serializers.CharField(write_only=True, required=True)
 
-    def update(self, instance, validated_data):
-        new_password = validated_data.get("password")
-        if new_password:
-            instance.set_password(new_password)
-            instance.save()
-        return instance
+    def match_workspace_password(self, instance, value):
+        if not instance.check_password(value["enter_password"]):
+            return False
+        return True
