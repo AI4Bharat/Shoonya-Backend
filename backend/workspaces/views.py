@@ -165,40 +165,54 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    # @action(
-    #     detail=True,
-    #     methods=["PUT"],
-    #     name="update_password",
-    #     url_path="update_password",
-    # )
-    def update_workspace_password(self, request, pk=None, *args, **kwargs):
+    @action(
+        detail=True,
+        methods=["PUT"],
+        name="Guest Authentication",
+        url_path="guest_auth",
+    )
+    def guest_auth(self, request, pk=None, *args, **kwargs):
         try:
-            w_id = request.get("id")
-            workspace = Workspace.objects.filter(id=w_id)
-            serialized = WorkspacePasswordSerializer(
-                workspace, request.data, partial=True
-            )
-
-            if serialized.is_valid():
-                serialized.save()
-                return Response(
-                    {"message": "Workspace password updated successfully"},
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                return Response(
-                    {"message": "password updated failed"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
+            workspace = Workspace.objects.get(pk=pk)
+            print(workspace)
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
+        serializer = WorkspacePasswordSerializer(workspace, request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not serializer.match_workspace_password(workspace, request.data):
+            return Response(
+                {
+                    "message": "Your old password was entered incorrectly. Please enter it again."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            {"message": "Authentication successful."}, status=status.HTTP_200_OK
+        )
+
+    # 	    # workspace = self.get_object()
+    #         workspace = Workspace.objects.get(pk=pk)
+    #         print(workspace)
+    #         if not workspace.guest_workspace:
+    #             return Response(
+    #                 status=status.HTTP_200_OK,
+    #             )
+    #         serializer = WorkspacePasswordSerializer(data=request.data)
+    #         if serializer.is_valid():
+    #             user = self.request.user
+    #             if user.guest_user and workspace and workspace.guest_workspace:
+    #                 serializer.validate(workspace)
+    #                 serializer.save()
+    #                 return Response(status=status.HTTP_200_OK)
+    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     # @action(
     #     detail=True,
-    #     methods=["POST"],
+    #     methods=["PATCH"],
     #     name="enter_workspace",
     #     url_name="enter_workspace",
     # )

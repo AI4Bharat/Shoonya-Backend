@@ -40,6 +40,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         else:
             return "No"
 
+    # Custome creation for guest workspace
     # def create(self, validated_data):
     #     guest_workspace = validated_data.get("guest_workspace")
     #     workspace_password = validated_data.get("workspace_password")

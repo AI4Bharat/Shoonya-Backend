@@ -63,7 +63,6 @@ class Workspace(models.Model, DummyModelMixin):
             "States whether a workspace needs to be added for analytics or not."
         ),
     )
-
     workspace_password = models.CharField(
         verbose_name="workspace_password",
         max_length=128,
