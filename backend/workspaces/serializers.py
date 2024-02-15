@@ -3,9 +3,6 @@ from rest_framework import serializers
 from .models import *
 from users.models import User
 from users.serializers import UserProfileSerializer
-from django.contrib.auth.models import User
-from rest_framework.validators import UniqueValidator
-from django.contrib.auth.password_validation import validate_password
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
@@ -14,7 +11,6 @@ class WorkspaceSerializer(serializers.ModelSerializer):
     users = UserProfileSerializer(read_only=True, many=True)
     frozen_users = UserProfileSerializer(read_only=True, many=True)
     guest_workspace_display = serializers.SerializerMethodField()
-    # workspace_password = UserProfileSerializer(read_only=True, many=True)
 
     class Meta:
         model = Workspace
@@ -39,18 +35,6 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             return "Yes"
         else:
             return "No"
-
-    # Custome creation for guest workspace
-    # def create(self, validated_data):
-    #     guest_workspace = validated_data.get("guest_workspace")
-    #     workspace_password = validated_data.get("workspace_password")
-    #     if guest_workspace and workspace_password is None:
-    #         raise serializers.ValidationError({"workspace_password": "Password is required for guest workspaces."})
-    #     workspace = super().create(validated_data)
-    #     if guest_workspace:
-    #         workspace.set_password(workspace_password)
-    #         workspace.save()
-    #     return workspace
 
 
 class WorkspaceManagerSerializer(serializers.ModelSerializer):
@@ -85,13 +69,14 @@ class WorkspaceNameSerializer(serializers.ModelSerializer):
 
 
 class WorkspacePasswordSerializer(serializers.Serializer):
-    password = serializers.CharField(write_only=True, required=True)
+    Workspace_password = serializers.CharField(write_only=True, required=False)
 
-    def validate_enter_password(self, value):
-        password_validation.validate_password(value)
-        return value
-
-    def match_workspace_password(self, instance, data):
-        if not instance.check_workspace_password(data.get("password")):
-            return False
-        return True
+    def validate(self, data):
+        Workspace_password = data.get("Workspace_password")
+        workspace = self.context.get("workspace")
+        if workspace and workspace.guest_workspace:
+            if workspace.workspace_password != Workspace_password:
+                raise serializers.ValidationError(
+                    {"message": "Authentication failed. Incorrect password."}
+                )
+        return data

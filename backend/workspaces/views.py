@@ -170,42 +170,34 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         methods=["PUT"],
         name="Guest Authentication",
         url_path="guest_auth",
+        serializer_class=WorkspacePasswordSerializer,
     )
     def guest_auth(self, request, pk=None, *args, **kwargs):
+        '''
+    This endpoint is specifically designed for guest workspaces.
+    If the workspace is a guest workspace, users are allowed to enter with authentication.
+    '''
         try:
-            workspace = Workspace.objects.get(pk=pk)
+            workspace = self.get_object()
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = WorkspacePasswordSerializer(workspace, request.data)
+        if not workspace.guest_workspace:
+            return Response(
+                {"message": "You can enter the workspace."}, status=status.HTTP_200_OK
+            )
+
+        serializer = self.get_serializer(
+            data=request.data, context={"workspace": workspace}
+        )
         serializer.is_valid(raise_exception=True)
 
-        if not serializer.match_workspace_password(workspace, request.data):
-            return Response(
-                {"message": "The password is incorrect."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         return Response(
-            {"message": "Authentication successful."}, status=status.HTTP_200_OK
+            {"message": "Authentication successful. You can enter the workspace."},
+            status=status.HTTP_200_OK,
         )
-
-    # 	    # workspace = self.get_object()
-    #         workspace = Workspace.objects.get(pk=pk)
-    #         print(workspace)
-    #         if not workspace.guest_workspace:
-    #             return Response(
-    #                 status=status.HTTP_200_OK,
-    #             )
-    #         serializer = WorkspacePasswordSerializer(data=request.data)
-    #         if serializer.is_valid():
-    #             user = self.request.user
-    #             if user.guest_user and workspace and workspace.guest_workspace:
-    #                 serializer.validate(workspace)
-    #                 serializer.save()
-    #                 return Response(status=status.HTTP_200_OK)
-    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     # @action(
     #     detail=True,
