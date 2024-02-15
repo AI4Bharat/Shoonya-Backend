@@ -173,10 +173,10 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         serializer_class=WorkspacePasswordSerializer,
     )
     def guest_auth(self, request, pk=None, *args, **kwargs):
-        '''
-    This endpoint is specifically designed for guest workspaces.
-    If the workspace is a guest workspace, users are allowed to enter with authentication.
-    '''
+        """
+        This endpoint is specifically designed for guest workspaces.
+        If the workspace is a guest-workspace, users are allowed to enter with authentication.
+        """
         try:
             workspace = self.get_object()
         except Workspace.DoesNotExist:

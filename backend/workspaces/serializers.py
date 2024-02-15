@@ -77,6 +77,6 @@ class WorkspacePasswordSerializer(serializers.Serializer):
         if workspace and workspace.guest_workspace:
             if workspace.workspace_password != Workspace_password:
                 raise serializers.ValidationError(
-                    {"message": "Authentication failed. Incorrect password."}
+                    {"message": "Authentication failed.Incorrect password."}
                 )
         return data
