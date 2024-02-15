@@ -2475,7 +2475,7 @@ class SentenceOperationViewSet(viewsets.ViewSet):
 )
 @api_view(["GET"])
 def get_celery_tasks(request):
-    filters = request.data
+    filters = request.GET
     filtered_tasks = query_flower(filters)
     if "error" in filtered_tasks:
         return JsonResponse({"message": filtered_tasks["error"]}, status=503)
