@@ -1,8 +1,6 @@
-from django.contrib.auth.hashers import make_password, check_password
 from django.db import models
 from organizations.models import Organization
 from anudesh_backend.mixins import DummyModelMixin
-from django.contrib.auth import authenticate, password_validation
 from anudesh_backend import settings
 
 # Create your models here.
@@ -53,7 +51,7 @@ class Workspace(models.Model, DummyModelMixin):
     guest_workspace = models.BooleanField(
         verbose_name="guest_workspace",
         default=False,
-        help_text=("Indicates if the workspace is for guest users."),
+        help_text=("Indicates if the workspace is for guest-users."),
     )
 
     public_analytics = models.BooleanField(
@@ -70,12 +68,6 @@ class Workspace(models.Model, DummyModelMixin):
         null=True,
         help_text="Password for accessing the workspace.",
     )
-
-    def set_workspace_password(self, raw_password):
-        self.workspace_password = make_password(raw_password)
-
-    def check_workspace_password(self, raw_password):
-        return check_password(raw_password, self.workspace_password)
 
     def __str__(self):
         return str(self.workspace_name)
