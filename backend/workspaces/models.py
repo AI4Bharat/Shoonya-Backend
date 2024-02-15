@@ -1,8 +1,8 @@
+from django.contrib.auth.hashers import make_password, check_password
 from django.db import models
 from organizations.models import Organization
 from anudesh_backend.mixins import DummyModelMixin
 from django.contrib.auth import authenticate, password_validation
-from django.contrib.auth.hashers import check_password
 from anudesh_backend import settings
 
 # Create your models here.

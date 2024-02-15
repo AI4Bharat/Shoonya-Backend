@@ -174,7 +174,6 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def guest_auth(self, request, pk=None, *args, **kwargs):
         try:
             workspace = Workspace.objects.get(pk=pk)
-            print(workspace)
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
@@ -185,9 +184,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 
         if not serializer.match_workspace_password(workspace, request.data):
             return Response(
-                {
-                    "message": "Your old password was entered incorrectly. Please enter it again."
-                },
+                {"message": "The password is incorrect."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(

@@ -85,26 +85,13 @@ class WorkspaceNameSerializer(serializers.ModelSerializer):
 
 
 class WorkspacePasswordSerializer(serializers.Serializer):
-    # workspace_password = serializers.CharField(write_only=True, required=True)
-    # class Meta:
-    #     model = Workspace
-    #     fields = ["workspace_password"]
-    # def validate_workspace_password(self, value):
-    #     password_validation.validate_password(value)
-    #     return value
+    password = serializers.CharField(write_only=True, required=True)
 
-    # def validate(self, data):
-    #     '''
-    #       Validate workspace_password during guest user entry
-    #     '''
+    def validate_enter_password(self, value):
+        password_validation.validate_password(value)
+        return value
 
-    #     entered_password = data.get("workspace_password")
-    #     if self.instance and entered_password != self.instance.workspace_password:
-    #         raise serializers.ValidationError("Invalid workspace password.")
-    #     return data
-    enter_password = serializers.CharField(write_only=True, required=True)
-
-    def match_workspace_password(self, instance, value):
-        if not instance.check_password(value["enter_password"]):
+    def match_workspace_password(self, instance, data):
+        if not instance.check_workspace_password(data.get("password")):
             return False
         return True
