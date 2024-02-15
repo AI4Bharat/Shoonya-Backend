@@ -978,7 +978,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
 
 
 def convert_annotation_result_to_formatted_json(
-    annotation_result, speakers_json, dataset_type, is_acoustic=False
+    annotation_result, speakers_json, dataset_type, project_type, is_acoustic=False
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
@@ -1073,20 +1073,40 @@ def convert_annotation_result_to_formatted_json(
                 acoustic_transcribed_json, ensure_ascii=False
             )
     else:
-        for idx1 in range(0, len(annotation_result), 3):
+        dicts = (
+            2
+            if project_type
+            in ["OCRSegmentCategorization", "OCRSegmentCategorizationEditing"]
+            else 3
+        )
+        for idx1 in range(0, len(annotation_result), dicts):
             rectangle_dict = {}
             labels_dict = {}
             text_dict = {}
             if isinstance(annotation_result[idx1], str):
                 annotation_result[idx1] = json.loads(annotation_result[idx1])
-            for idx2 in range(idx1, idx1 + 3):
+            if project_type in [
+                "OCRSegmentCategorization",
+                "OCRSegmentCategorizationEditing",
+            ]:
+                custom_text_dict = {"value": {"text": ""}}
+                text_dict = json.dumps(custom_text_dict, indent=2)
+            for idx2 in range(idx1, idx1 + dicts):
                 formatted_result_dict = {}
                 if idx2 >= len(annotation_result) or idx2 < 0:
                     continue
                 if annotation_result[idx2]["type"] == "rectangle":
-                    rectangle_dict = annotation_result[idx1]
+                    rectangle_dict = (
+                        json.loads(annotation_result[idx2])
+                        if isinstance(annotation_result[idx2], str)
+                        else annotation_result[idx2]
+                    )
                 elif annotation_result[idx2]["type"] == "labels":
-                    labels_dict = annotation_result[idx2]
+                    labels_dict = (
+                        json.loads(annotation_result[idx2])
+                        if isinstance(annotation_result[idx2], str)
+                        else annotation_result[idx2]
+                    )
                 else:
                     if isinstance(annotation_result[idx2], str):
                         text_dict = annotation_result[idx2]
@@ -1099,7 +1119,9 @@ def convert_annotation_result_to_formatted_json(
             formatted_result_dict = rectangle_dict["value"]
             try:
                 labels_split = []
-                if labels_dict["value"]["labels"].find("/"):
+                if isinstance(labels_dict["value"]["labels"], str) and labels_dict[
+                    "value"
+                ]["labels"].find("/"):
                     labels_split = labels_dict["value"]["labels"].split("/")
                 if labels_split:
                     labels_dict["value"]["labels"] = labels_split
@@ -4187,7 +4209,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             task["data"][
                                 "prediction_json"
                             ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, speakers_json, dataset_type
+                                annotation_result,
+                                speakers_json,
+                                dataset_type,
+                                project_type,
+                                False,
                             )
                         else:
                             task["data"][
@@ -4196,6 +4222,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                                 annotation_result,
                                 speakers_json,
                                 dataset_type,
+                                project_type,
                                 project_type
                                 == "AcousticNormalisedTranscriptionEditing",
                             )
@@ -4217,13 +4244,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             task["data"][
                                 "ocr_transcribed_json"
                             ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
+                                annotation_result,
+                                None,
+                                dataset_type,
+                                project_type,
+                                False,
                             )
                         else:
                             task["data"][
                                 "ocr_prediction_json"
                             ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
+                                annotation_result,
+                                None,
+                                dataset_type,
+                                project_type,
+                                False,
                             )
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
