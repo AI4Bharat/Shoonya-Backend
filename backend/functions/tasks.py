@@ -719,7 +719,10 @@ def populate_draft_data_json(self, pk, user_id, fields_list):
         dataset_instance = DatasetInstance.objects.get(pk=pk)
     except Exception as error:
         celery_lock = Lock(user_id, "populate_draft_data_json")
-        celery_lock.releaseLock()
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            pass
         return error
     dataset_type = dataset_instance.dataset_type
     dataset_model = apps.get_model("dataset", dataset_type)
@@ -740,7 +743,10 @@ def populate_draft_data_json(self, pk, user_id, fields_list):
             dataset_item.save()
             cnt += 1
     celery_lock = Lock(user_id, "populate_draft_data_json")
-    celery_lock.releaseLock()
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        pass
     return f"successfully populated {cnt} dataset items with draft_data_json"
 
 
