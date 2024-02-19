@@ -88,7 +88,7 @@ def sentence_text_translate_and_save_translation_pairs(
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
         automate_missing_data_items (bool): If True, consider only those data items that are missing in the target dataset instance.
     """
-
+    task_name = "sentence_text_translate_and_save_translation_pairs"
     output_sentences = list(
         dataset_models.TranslationPair.objects.filter(
             instance_id=output_dataset_instance_id,
@@ -141,10 +141,11 @@ def sentence_text_translate_and_save_translation_pairs(
                 "No sentences to upload.",
             },
         )
-        celery_lock = Lock(
-            user_id, "sentence_text_translate_and_save_translation_pairs"
-        )
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         raise Exception("No clean sentences found. Perform project export first.")
 
     # Get the output dataset instance
@@ -203,9 +204,12 @@ def sentence_text_translate_and_save_translation_pairs(
                     },
                 )
                 celery_lock = Lock(
-                    user_id, "sentence_text_translate_and_save_translation_pairs"
+                    user_id, task_name
                 )
-                celery_lock.releaseLock()
+                try:
+                    celery_lock.releaseLock()
+                except Exception as e:
+                    print(f"Error while releasing the lock for {task_name}: {str(e)}")
                 raise Exception(
                     translations_output["output"]
                 )  # sourcery skip: raise-specific-error
@@ -223,9 +227,12 @@ def sentence_text_translate_and_save_translation_pairs(
                     },
                 )
                 celery_lock = Lock(
-                    user_id, "sentence_text_translate_and_save_translation_pairs"
+                    user_id, task_name
                 )
-                celery_lock.releaseLock()
+                try:
+                    celery_lock.releaseLock()
+                except Exception as e:
+                    print(f"Error while releasing the lock for {task_name}: {str(e)}")
                 raise Exception(
                     "The number of translated sentences does not match the number of input sentences."
                 )
