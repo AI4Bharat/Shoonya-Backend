@@ -779,6 +779,7 @@ def schedule_mail_for_project_reports(
     did,
     language,
 ):
+    task_name="schedule_mail_for_project_reports"
     proj_objs = get_proj_objs(
         workspace_level_reports,
         organization_level_reports,
@@ -791,12 +792,12 @@ def schedule_mail_for_project_reports(
     )
 
     if len(proj_objs) == 0:
-        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+        celery_lock = Lock(user_id, task_name)
         try:
             celery_lock.releaseLock()
         except Exception as e:
             print(
-                f"Error while releasing the lock for schedule_mail_for_project_reports celery task: {str(e)}"
+                f"Error while releasing the lock for {task_name}: {str(e)}"
             )
         print("No projects found")
         return 0
@@ -884,20 +885,20 @@ def schedule_mail_for_project_reports(
         logger.info(message, extra=extra_data)
 
     except Exception as e:
-        celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+        celery_lock = Lock(user_id, task_name)
         try:
             celery_lock.releaseLock()
         except Exception as e:
             print(
-                f"Error while releasing the lock for schedule_mail_for_project_reports celery task: {str(e)}"
+                f"Error while releasing the lock for {task_name}: {str(e)}"
             )
         print(f"An error occurred while sending email: {e}")
-    celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
+    celery_lock = Lock(user_id, task_name)
     try:
         celery_lock.releaseLock()
     except Exception as e:
         print(
-            f"Error while releasing the lock for schedule_mail_for_project_reports celery task: {str(e)}"
+            f"Error while releasing the lock for {task_name}: {str(e)}"
         )
     print(f"Email sent successfully - {user_id}")
 

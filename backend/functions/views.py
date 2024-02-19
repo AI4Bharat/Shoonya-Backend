@@ -797,14 +797,21 @@ def schedule_project_reports_email(request):
 
     # name of the task is the same as the name of the celery function
     uid = request.user.id
-    celery_lock = Lock(uid, "schedule_mail_for_project_reports")
+    task_name = "schedule_mail_for_project_reports"
+    celery_lock = Lock(uid, task_name)
     try:
         lock_status = celery_lock.lockStatus()
     except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
         lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
     if lock_status == 0:
         celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        celery_lock.setLock(celery_lock_timeout)
+        try:
+            celery_lock.setLock(celery_lock_timeout)
+        except Exception as e:
+            print(f"Error while setting the lock for {task_name}: {str(e)}")
 
         schedule_mail_for_project_reports.delay(
             project_type=project_type,
