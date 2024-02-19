@@ -623,11 +623,15 @@ def schedule_draft_data_json_population(request):
     pk = request.data["dataset_instance_id"]
 
     # Checking lock status, name parameter of the lock is the name of the celery function
+    task_name = "populate_draft_data_json"
     uid = request.user.id
-    celery_lock = Lock(uid, "populate_draft_data_json")
+    celery_lock = Lock(uid, task_name)
     try:
         lock_status = celery_lock.lockStatus()
     except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
         lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
 
     if lock_status == 0:
@@ -635,7 +639,8 @@ def schedule_draft_data_json_population(request):
         try:
             celery_lock.setLock(celery_lock_timeout)
         except Exception as e:
-            pass
+            print(f"Error while setting the lock for {task_name}: {str(e)}")
+
         populate_draft_data_json.delay(pk=pk, user_id=uid, fields_list=fields_list)
 
         ret_dict = {"message": "draft_data_json population started"}

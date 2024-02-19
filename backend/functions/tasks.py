@@ -722,15 +722,16 @@ def generate_asr_prediction_json(
 
 @shared_task(bind=True)
 def populate_draft_data_json(self, pk, user_id, fields_list):
+    task_name="populate_draft_data_json"
     try:
         dataset_instance = DatasetInstance.objects.get(pk=pk)
     except Exception as error:
-        celery_lock = Lock(user_id, "populate_draft_data_json")
+        celery_lock = Lock(user_id, task_name)
         try:
             celery_lock.releaseLock()
         except Exception as e:
             print(
-                f"Error while releasing the lock for populate_draft_data_json celery task: {str(e)}"
+                f"Error while releasing the lock for {task_name}: {str(e)}"
             )
         return error
     dataset_type = dataset_instance.dataset_type
@@ -751,12 +752,12 @@ def populate_draft_data_json(self, pk, user_id, fields_list):
             dataset_item.draft_data_json = new_draft_data_json
             dataset_item.save()
             cnt += 1
-    celery_lock = Lock(user_id, "populate_draft_data_json")
+    celery_lock = Lock(user_id, task_name)
     try:
         celery_lock.releaseLock()
     except Exception as e:
         print(
-            f"Error while releasing the lock for populate_draft_data_json celery task: {str(e)}"
+            f"Error while releasing the lock for {task_name}: {str(e)}"
         )
     return f"successfully populated {cnt} dataset items with draft_data_json"
 
