@@ -1673,6 +1673,18 @@ class AnnotationViewSet(
         auto_save = False
         if "auto_save" in request.data:
             auto_save = True
+            if annotation_obj.annotation_status in [
+                LABELED,
+                ACCEPTED,
+                ACCEPTED_WITH_MINOR_CHANGES,
+                ACCEPTED_WITH_MAJOR_CHANGES,
+                VALIDATED,
+                VALIDATED_WITH_CHANGES,
+            ]:
+                return Response(
+                    {"message": "Auto save disabled for submitted tasks."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         if annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             is_revised = False
