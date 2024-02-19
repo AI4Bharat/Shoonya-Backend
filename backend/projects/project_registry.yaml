@@ -46,9 +46,10 @@ Chat:
         fields:
           copy_from_input:
             id: instruction_id
+            meta_info_model: model
           annotations:
             - interactions_json
             - no_of_turns
             - language
-            - model
+            - datetime
             - time_taken

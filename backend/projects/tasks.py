@@ -17,7 +17,12 @@ from utils.monolingual.sentence_splitter import split_sentences
 from dataset.models import DatasetInstance
 from .models import *
 from .registry_helper import ProjectRegistry
-from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
+from .utils import (
+    conversation_wordcount,
+    no_of_words,
+    conversation_sentence_count,
+    get_attributes_for_IDC,
+)
 from .annotation_registry import *
 
 # Celery logger settings
@@ -651,6 +656,9 @@ def export_project_new_record(
         else:
             data_item = dataset_model()
             data_item.instance_id = export_dataset_instance
+        if project.project_type == "InstructionDrivenChat":
+            extra_data = get_attributes_for_IDC(project, task)
+            tl["data"].update(extra_data)
         for field in annotation_fields:
             setattr(data_item, field, tl["data"][field])
         for field in task_annotation_fields:
