@@ -306,7 +306,12 @@ def schedule_sentence_text_translate_job(request):
     # Checking lock status, name parameter of the lock is the name of the celery function
     uid = request.user.id
     celery_lock = Lock(uid, "sentence_text_translate_and_save_translation_pairs")
-    if celery_lock.lockStatus() == 0:
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        lock_status=0 # if lock status is not received successfully, it is assumed that the lock doesn't exist
+
+    if lock_status == 0:
         celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
         celery_lock.setLock(celery_lock_timeout)
 
