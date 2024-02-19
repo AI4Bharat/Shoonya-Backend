@@ -589,12 +589,22 @@ def schedule_ocr_prediction_json_population(request):
     # Calling a function asynchronously to create ocr predictions.
 
     # Checking lock status, name parameter of the lock is the name of the celery function
+    task_name = "generate_ocr_prediction_json"
     uid = request.user.id
-    celery_lock = Lock(uid, "generate_ocr_prediction_json")
-    if celery_lock.lockStatus() == 0:
+    celery_lock = Lock(uid, task_name)
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
+        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+    if lock_status == 0:
         celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        celery_lock.setLock(celery_lock_timeout)
-
+        try:
+            celery_lock.setLock(celery_lock_timeout)
+        except Exception as e:
+            print(f"Error while setting the lock for {task_name}: {str(e)}")
         generate_ocr_prediction_json.delay(
             dataset_instance_id=dataset_instance_id,
             user_id=uid,

@@ -203,9 +203,7 @@ def sentence_text_translate_and_save_translation_pairs(
                         "API Error",
                     },
                 )
-                celery_lock = Lock(
-                    user_id, task_name
-                )
+                celery_lock = Lock(user_id, task_name)
                 try:
                     celery_lock.releaseLock()
                 except Exception as e:
@@ -226,9 +224,7 @@ def sentence_text_translate_and_save_translation_pairs(
                         "Error: Number of translated sentences does not match with the number of input sentences.",
                     },
                 )
-                celery_lock = Lock(
-                    user_id, task_name
-                )
+                celery_lock = Lock(user_id, task_name)
                 try:
                     celery_lock.releaseLock()
                 except Exception as e:
@@ -297,7 +293,7 @@ def conversation_data_machine_translation(
             Allowed - [indic-trans, google, indic-trans-v2, azure, blank]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
     """
-    task_name="conversation_data_machine_translation"
+    task_name = "conversation_data_machine_translation"
     # Get the output dataset instance
     output_dataset_instance = dataset_models.DatasetInstance.objects.get(
         instance_id=output_dataset_instance_id
@@ -376,7 +372,9 @@ def conversation_data_machine_translation(
                     try:
                         celery_lock.releaseLock()
                     except Exception as e:
-                        print(f"Error while releasing the lock for {task_name}: {str(e)}")
+                        print(
+                            f"Error while releasing the lock for {task_name}: {str(e)}"
+                        )
                     raise Exception(translations_output["output"])
 
             # Translate the scenario and prompt
@@ -444,6 +442,7 @@ def generate_ocr_prediction_json(
             Example - [indic-trans, google, indic-trans-v2, azure, blank]
         automate_missing_data_items (bool): "Boolean to translate only missing data items"
     """
+    task_name = "generate_ocr_prediction_json"
     # Fetching the data items for the given dataset instance.
     success_count, total_count = 0, 0
     try:
@@ -491,8 +490,11 @@ def generate_ocr_prediction_json(
 
     # Check if the dataframe is empty
     if ocr_data_items_df.shape[0] == 0:
-        celery_lock = Lock(user_id, "generate_ocr_prediction_json")
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         raise Exception("The OCR data is empty.")
 
     required_columns = {
@@ -513,8 +515,11 @@ def generate_ocr_prediction_json(
     }
     if not required_columns.issubset(ocr_data_items_df.columns):
         missing_columns = required_columns - set(ocr_data_items_df.columns)
-        celery_lock = Lock(user_id, "generate_ocr_prediction_json")
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         raise ValueError(
             f"The following required columns are missing: {missing_columns}"
         )
@@ -575,8 +580,11 @@ def generate_ocr_prediction_json(
             print(
                 f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
             )
-    celery_lock = Lock(user_id, "generate_ocr_prediction_json")
-    celery_lock.releaseLock()
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     return f"{success_count} out of {total_count} populated"
 
 
@@ -734,7 +742,7 @@ def generate_asr_prediction_json(
 
 @shared_task(bind=True)
 def populate_draft_data_json(self, pk, user_id, fields_list):
-    task_name="populate_draft_data_json"
+    task_name = "populate_draft_data_json"
     try:
         dataset_instance = DatasetInstance.objects.get(pk=pk)
     except Exception as error:
@@ -742,9 +750,7 @@ def populate_draft_data_json(self, pk, user_id, fields_list):
         try:
             celery_lock.releaseLock()
         except Exception as e:
-            print(
-                f"Error while releasing the lock for {task_name}: {str(e)}"
-            )
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         return error
     dataset_type = dataset_instance.dataset_type
     dataset_model = apps.get_model("dataset", dataset_type)
@@ -768,9 +774,7 @@ def populate_draft_data_json(self, pk, user_id, fields_list):
     try:
         celery_lock.releaseLock()
     except Exception as e:
-        print(
-            f"Error while releasing the lock for {task_name}: {str(e)}"
-        )
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     return f"successfully populated {cnt} dataset items with draft_data_json"
 
 
@@ -792,7 +796,7 @@ def schedule_mail_for_project_reports(
     did,
     language,
 ):
-    task_name="schedule_mail_for_project_reports"
+    task_name = "schedule_mail_for_project_reports"
     proj_objs = get_proj_objs(
         workspace_level_reports,
         organization_level_reports,
@@ -809,9 +813,7 @@ def schedule_mail_for_project_reports(
         try:
             celery_lock.releaseLock()
         except Exception as e:
-            print(
-                f"Error while releasing the lock for {task_name}: {str(e)}"
-            )
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         print("No projects found")
         return 0
 
@@ -902,17 +904,13 @@ def schedule_mail_for_project_reports(
         try:
             celery_lock.releaseLock()
         except Exception as e:
-            print(
-                f"Error while releasing the lock for {task_name}: {str(e)}"
-            )
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         print(f"An error occurred while sending email: {e}")
     celery_lock = Lock(user_id, task_name)
     try:
         celery_lock.releaseLock()
     except Exception as e:
-        print(
-            f"Error while releasing the lock for {task_name}: {str(e)}"
-        )
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     print(f"Email sent successfully - {user_id}")
 
 
