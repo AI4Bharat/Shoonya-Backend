@@ -69,14 +69,14 @@ class WorkspaceNameSerializer(serializers.ModelSerializer):
 
 
 class WorkspacePasswordSerializer(serializers.Serializer):
-    Workspace_password = serializers.CharField(write_only=True, required=False)
+    workspace_password = serializers.CharField(write_only=True, required=False)
 
     def validate(self, data):
-        Workspace_password = data.get("Workspace_password")
+        Workspace_password = data.get("workspace_password")
         workspace = self.context.get("workspace")
         if workspace and workspace.guest_workspace:
             if workspace.workspace_password != Workspace_password:
                 raise serializers.ValidationError(
                     {"message": "Authentication failed.Incorrect password."}
                 )
-        return data
+        return True
