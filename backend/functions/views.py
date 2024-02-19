@@ -468,11 +468,23 @@ def schedule_conversation_translation_job(request):
     # Call the function to save the TranslationPair dataset
 
     # Checking lock status, name parameter of the lock is the name of the celery function
+    task_name = "conversation_data_machine_translation"
     uid = request.user.id
-    celery_lock = Lock(uid, "conversation_data_machine_translation")
-    if celery_lock.lockStatus() == 0:
+    celery_lock = Lock(uid, task_name)
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
+        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+
+    if lock_status == 0:
         celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        celery_lock.setLock(celery_lock_timeout)
+        try:
+            celery_lock.setLock(celery_lock_timeout)
+        except Exception as e:
+            print(f"Error while setting the lock for {task_name}: {str(e)}")
 
         conversation_data_machine_translation.delay(
             languages=languages,
