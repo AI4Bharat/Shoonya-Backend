@@ -599,6 +599,7 @@ def generate_asr_prediction_json(
             Example - [dhruva_asr, indic-trans, google, indic-trans-v2, azure, blank]
         automate_missing_data_items (bool): "Boolean to translate only missing data items"
     """
+    task_name = "generate_asr_prediction_json"
     # Fetching the data items for the given dataset instance.
     success_count, total_count = 0, 0
     try:
@@ -648,8 +649,11 @@ def generate_asr_prediction_json(
 
     # Check if the dataframe is empty
     if asr_data_items_df.shape[0] == 0:
-        celery_lock = Lock(user_id, "generate_asr_prediction_json")
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         raise Exception("The ASR data is empty.")
 
     required_columns = {
@@ -671,8 +675,11 @@ def generate_asr_prediction_json(
     }
     if not required_columns.issubset(asr_data_items_df.columns):
         missing_columns = required_columns - set(asr_data_items_df.columns)
-        celery_lock = Lock(user_id, "generate_asr_prediction_json")
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         raise ValueError(
             f"The following required columns are missing: {missing_columns}"
         )
@@ -735,8 +742,11 @@ def generate_asr_prediction_json(
             print(
                 f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
             )
-    celery_lock = Lock(user_id, "generate_asr_prediction_json")
-    celery_lock.releaseLock()
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     print(f"{success_count} out of {total_count} populated")
 
 
