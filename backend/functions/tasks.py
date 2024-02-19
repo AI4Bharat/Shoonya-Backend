@@ -1585,6 +1585,7 @@ def get_most_recent_annotation(annotation):
 def schedule_mail_to_download_all_projects(
     self, workspace_level_projects, dataset_level_projects, wid, did, user_id
 ):
+    task_name = "schedule_mail_to_download_all_projects"
     download_lock = threading.Lock()
     download_lock.acquire()
     proj_objs = get_proj_objs(
@@ -1598,13 +1599,19 @@ def schedule_mail_to_download_all_projects(
     )
     if len(proj_objs) == 0 and workspace_level_projects:
         print(f"No projects found for workspace id- {wid}")
-        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         return 0
     elif len(proj_objs) == 0 and dataset_level_projects:
         print(f"No projects found for dataset id- {did}")
-        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         return 0
     user = User.objects.get(id=user_id)
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -1649,12 +1656,18 @@ def schedule_mail_to_download_all_projects(
             print(f"An error occurred while sending email: {e}")
             return 0
         download_lock.release()
-        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         print(f"Email sent successfully - {user_id}")
     else:
-        celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
-        celery_lock.releaseLock()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         download_lock.release()
         print(url)
 

@@ -921,13 +921,28 @@ def download_all_projects(request):
         return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
 
     # Checking lock status, name parameter of the lock is the name of the celery function
-    celery_lock = Lock(user_id, "schedule_mail_to_download_all_projects")
-    if celery_lock.lockStatus() == 0:
+    task_name = "schedule_mail_to_download_all_projects"
+    celery_lock = Lock(user_id, task_name)
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
+        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+    if lock_status == 0:
         celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        celery_lock.setLock(celery_lock_timeout)
+        try:
+            celery_lock.setLock(celery_lock_timeout)
+        except Exception as e:
+            print(f"Error while setting the lock for {task_name}: {str(e)}")
 
         schedule_mail_to_download_all_projects.delay(
-            workspace_level_projects, dataset_level_projects, wid, did, user_id
+            workspace_level_projects=workspace_level_projects,
+            dataset_level_projects=dataset_level_projects,
+            wid=wid,
+            did=did,
+            user_id=user_id,
         )
 
         return Response(
