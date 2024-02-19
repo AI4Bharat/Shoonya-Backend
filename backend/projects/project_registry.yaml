@@ -20,6 +20,25 @@ ModelOutputEvaluation:
             - form_output_json
             - output_likert_score
             - time_taken
+    ModelInteractionEvaluation:
+      input_dataset:
+        class: Interaction
+        fields:
+          - id
+          - interactions_json
+          - no_of_turns
+          - model
+          - language
+      output_dataset:
+        class: PromptAnswer
+        save_type: new_record
+        fields:
+          copy_from_input:
+            id: interaction_id
+          annotations:
+            - eval_form_output_json
+            - eval_output_likert_score
+            - eval_time_taken
 Chat:
   description: "Instruction Driven Chat"
   project_types:

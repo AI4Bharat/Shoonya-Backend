@@ -767,6 +767,9 @@ class PromptAnswer(DatasetBase):
     Dataset for storing prompt response data
     """
 
+    interaction_id = models.ForeignKey(
+        Interaction, on_delete=models.CASCADE, null=True, blank=True
+    )
     prompt = models.TextField(
         verbose_name="prompt",
         null=True,
@@ -787,6 +790,24 @@ class PromptAnswer(DatasetBase):
     )
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
+    )
+    eval_output_likert_score = models.IntegerField(
+        verbose_name="evaluation_prompt_response_rating",
+        null=True,
+        blank=True,
+        help_text=("Rating of the prompt response"),
+    )
+    eval_form_output_json = models.JSONField(
+        verbose_name="evaluation_form_output",
+        null=True,
+        blank=True,
+        help_text=("Form output of the prompt response (JSON)"),
+    )
+    eval_time_taken = models.FloatField(
+        verbose_name="evaluation_time_taken",
+        null=True,
+        blank=True,
+        help_text=("Time taken to complete the prompt response"),
     )
 
     def __str__(self):
