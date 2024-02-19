@@ -178,12 +178,11 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         If the workspace is a guest-workspace, users are allowed to enter with authentication.
         """
         try:
-            workspace = self.get_object()
+            workspace = Workspace.objects.get(id=pk)
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
-
         if not workspace.guest_workspace:
             return Response(
                 {"message": "You can enter the workspace."}, status=status.HTTP_200_OK
@@ -256,15 +255,22 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     @is_particular_workspace_manager
     def change_workspace_password(self, request, pk=None):
         try:
-            workspace = self.get_object()
+            try:
+                workspace = Workspace.objects.get(id=pk)
+            except Workspace.DoesNotExist:
+                return Response(
+                    {"message": "No such workspace found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
             if not workspace.guest_workspace:
                 return Response(
                     {"message": "This is not a guest workspace."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-            workspace.workspace_password = request.data.get(
+            new_password = request.data.get(
                 "workspace_password", workspace.workspace_password
             )
+            workspace.set_workspace_password(new_password)
             workspace.save()
             return Response(
                 {"message": f"Password changed for {workspace.workspace_name}"}
@@ -287,13 +293,17 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             data = self.serializer_class(data=request.data)
             if data.is_valid():
                 if request.user.organization == data.validated_data["organization"]:
+                    if is_guest_workspace == "True":
+                        Workspace.validate_workspace_password(
+                            request.data.get("workspace_password")
+                        )
                     obj = data.save()
                     obj.members.add(request.user)
                     obj.created_by = request.user
                     if is_guest_workspace == "True":
                         workspace_password = request.data.get("workspace_password")
                         if workspace_password:
-                            obj.workspace_password = workspace_password
+                            obj.set_workspace_password(workspace_password)
                         obj.guest_workspace = True
                     obj.save()
                     return Response(

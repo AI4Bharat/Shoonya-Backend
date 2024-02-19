@@ -1,3 +1,6 @@
+from django.contrib.auth import password_validation
+from django.contrib.auth.hashers import make_password, check_password
+from django.core.exceptions import ValidationError
 from django.db import models
 from organizations.models import Organization
 from anudesh_backend.mixins import DummyModelMixin
@@ -81,6 +84,20 @@ class Workspace(models.Model, DummyModelMixin):
     #     if self.users.filter(pk=user.pk).exists():
     #         return True
     #     return False
+    def set_workspace_password(self, password):
+        Workspace.validate_workspace_password(password)
+        self.workspace_password = make_password(password)
+        self.save()
+
+    def match_workspace_password(self, password):
+        return check_password(password, self.workspace_password)
+
+    @staticmethod
+    def validate_workspace_password(password):
+        try:
+            password_validation.validate_password(password)
+        except ValidationError as e:
+            raise ValidationError(e)
 
     class Meta:
         ordering = ["pk"]

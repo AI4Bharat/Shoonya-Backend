@@ -75,8 +75,6 @@ class WorkspacePasswordSerializer(serializers.Serializer):
         Workspace_password = data.get("workspace_password")
         workspace = self.context.get("workspace")
         if workspace and workspace.guest_workspace:
-            if workspace.workspace_password != Workspace_password:
-                raise serializers.ValidationError(
-                    {"message": "Authentication failed.Incorrect password."}
-                )
-        return True
+            if workspace.match_workspace_password(Workspace_password):
+                return True
+        return False
