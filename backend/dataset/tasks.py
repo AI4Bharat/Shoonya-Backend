@@ -119,12 +119,28 @@ def upload_data_to_data_instance(
 
 
 @shared_task(bind=True)
-def deduplicate_dataset_instance_items(self, pk, deduplicate_field_list):
+def deduplicate_dataset_instance_items(self, pk, deduplicate_field_list, user_id):
+    task_name = " deduplicate_dataset_instance_items"
     if len(deduplicate_field_list) == 0:
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         return "Field list cannot be empty"
     try:
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         dataset_instance = DatasetInstance.objects.get(pk=pk)
     except Exception as error:
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         return error
     dataset_type = dataset_instance.dataset_type
     dataset_model = apps.get_model("dataset", dataset_type)
@@ -177,5 +193,9 @@ def deduplicate_dataset_instance_items(self, pk, deduplicate_field_list):
                     dataset_item,
                     len(related_tasks_ids),
                 ]
-
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     return f"Deleted {dataset_items_count} duplicate dataset items and {tasks_count} related tasks and {annotations_count} related annotations"
