@@ -624,7 +624,7 @@ def schedule_draft_data_json_population(request):
             celery_lock.setLock(celery_lock_timeout)
         except Exception as e:
             pass
-        populate_draft_data_json.delay(pk, uid, fields_list)
+        populate_draft_data_json.delay(pk=pk, user_id=uid, fields_list=fields_list)
 
         ret_dict = {"message": "draft_data_json population started"}
         ret_status = status.HTTP_200_OK
