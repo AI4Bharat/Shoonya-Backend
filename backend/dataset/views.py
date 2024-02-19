@@ -1,9 +1,11 @@
 import ast
 import json
+import os
 import re
 from base64 import b64encode
 from urllib.parse import parse_qsl
-
+from dotenv import load_dotenv
+from shoonya_backend.locks import Lock
 from django.apps import apps
 from django.db.models import Q
 from django.http import StreamingHttpResponse
@@ -376,22 +378,41 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             )
 
         # Uplod the dataset to the dataset instance
-        upload_data_to_data_instance.delay(
-            pk=pk,
-            dataset_type=dataset_type,
-            dataset_string=dataset_string,
-            content_type=content_type,
-            deduplicate=if_deduplicate,
-        )
 
-        # Get name of the dataset instance
-        dataset_name = get_object_or_404(DatasetInstance, pk=pk).instance_name
-        return Response(
-            {
-                "message": f"Uploading {dataset_type} data to Dataset Instance: {dataset_name}",
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        # Checking lock status, name parameter of the lock is the name of the celery function
+        uid = request.user.id
+        task_name = "upload_data_to_data_instance"
+        celery_lock = Lock(uid, task_name)
+        try:
+            lock_status = celery_lock.lockStatus()
+        except Exception as e:
+            print(
+                f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+            )
+            lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+        if lock_status == 0:
+            celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+            try:
+                celery_lock.setLock(celery_lock_timeout)
+            except Exception as e:
+                print(f"Error while setting the lock for {task_name}: {str(e)}")
+            upload_data_to_data_instance.delay(
+                pk=pk,
+                dataset_type=dataset_type,
+                user_id=uid,
+                dataset_string=dataset_string,
+                content_type=content_type,
+                deduplicate=if_deduplicate,
+            )
+
+            # Get name of the dataset instance
+            dataset_name = get_object_or_404(DatasetInstance, pk=pk).instance_name
+            return Response(
+                {
+                    "message": f"Uploading {dataset_type} data to Dataset Instance: {dataset_name}",
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="List all Projects using Dataset")

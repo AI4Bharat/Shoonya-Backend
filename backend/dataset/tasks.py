@@ -2,7 +2,7 @@ from base64 import b64decode
 
 from celery import shared_task
 from tablib import Dataset
-
+from shoonya_backend.locks import Lock
 from .resources import RESOURCE_MAP
 
 from dataset.models import DatasetInstance
@@ -16,7 +16,7 @@ from tasks.models import Task, Annotation
     bind=True,
 )
 def upload_data_to_data_instance(
-    self, dataset_string, pk, dataset_type, content_type, deduplicate=False
+    self, dataset_string, pk, user_id, dataset_type, content_type, deduplicate=False
 ):
     # sourcery skip: raise-specific-error
     """Celery background task to upload the data to the dataset instance through file upload.
@@ -30,6 +30,7 @@ def upload_data_to_data_instance(
         content_type (str): The file format of the uploaded file
         deduplicate (bool): Whether to deduplicate the data or not
     """
+    task_name = "upload_data_to_data_instance"
 
     # Create a new tablib Dataset and load the data into this dataset
     if content_type in ["xls", "xlsx"]:
@@ -53,6 +54,11 @@ def upload_data_to_data_instance(
                 "Empty Dataset Uploaded.",
             },
         )
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         raise e
 
     # Declare the appropriate resource map based on dataset type
@@ -61,6 +67,11 @@ def upload_data_to_data_instance(
     # Perform a full batch upload of the data and return success if all checks are passed
     try:
         resource.import_data(imported_data, raise_errors=True)
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         return f"All {len(imported_data.dict)} rows uploaded together."
 
     # If checks are failed, check which lines have an issue
@@ -99,6 +110,11 @@ def upload_data_to_data_instance(
                 "failed_line_numbers": failed_rows,
             },
         )
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         raise Exception(f"Upload failed for lines: {failed_rows}")
 
 
