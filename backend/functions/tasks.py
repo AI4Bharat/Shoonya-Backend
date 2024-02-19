@@ -781,7 +781,12 @@ def schedule_mail_for_project_reports(
 
     if len(proj_objs) == 0:
         celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
-        celery_lock.releaseLock()
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(
+                f"Error while releasing the lock for schedule_mail_for_project_reports celery task: {str(e)}"
+            )
         print("No projects found")
         return 0
 
@@ -869,10 +874,20 @@ def schedule_mail_for_project_reports(
 
     except Exception as e:
         celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
-        celery_lock.releaseLock()
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(
+                f"Error while releasing the lock for schedule_mail_for_project_reports celery task: {str(e)}"
+            )
         print(f"An error occurred while sending email: {e}")
     celery_lock = Lock(user_id, "schedule_mail_for_project_reports")
-    celery_lock.releaseLock()
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(
+            f"Error while releasing the lock for schedule_mail_for_project_reports celery task: {str(e)}"
+        )
     print(f"Email sent successfully - {user_id}")
 
 

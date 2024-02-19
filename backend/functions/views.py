@@ -786,23 +786,27 @@ def schedule_project_reports_email(request):
     # name of the task is the same as the name of the celery function
     uid = request.user.id
     celery_lock = Lock(uid, "schedule_mail_for_project_reports")
-    if celery_lock.lockStatus() == 0:
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+    if lock_status == 0:
         celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
         celery_lock.setLock(celery_lock_timeout)
 
         schedule_mail_for_project_reports.delay(
-            project_type,
-            uid,
-            anno_stats,
-            meta_stats,
-            complete_stats,
-            workspace_level_reports,
-            organization_level_reports,
-            dataset_level_reports,
-            wid,
-            oid,
-            did,
-            language,
+            project_type=project_type,
+            user_id=uid,
+            anno_stats=anno_stats,
+            meta_stats=meta_stats,
+            complete_stats=complete_stats,
+            workspace_level_reports=workspace_level_reports,
+            organization_level_reports=organization_level_reports,
+            dataset_level_reports=dataset_level_reports,
+            wid=wid,
+            oid=oid,
+            did=did,
+            language=language,
         )
         return Response(
             {"message": "You will receive an email with the reports shortly"},
