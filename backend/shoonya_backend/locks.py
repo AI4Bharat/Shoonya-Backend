@@ -89,11 +89,14 @@ class Lock:
             raise LockException(f"Error releasing lock: {str(e)}")
 
     def getRemainingTimeForLock(self):
-        if self.lockStatus() == 1:
-            retrieved_json_str = self.redis_connection.get(self.user_id)
-            retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
-            remaining_time = retrieved_dict[self.task_name] - time.time()
-            return remaining_time
+        try:
+            if self.lockStatus() == 1:
+                retrieved_json_str = self.redis_connection.get(self.user_id)
+                retrieved_dict = json.loads(retrieved_json_str.decode("utf-8"))
+                remaining_time = retrieved_dict[self.task_name] - time.time()
+                return remaining_time
+        except Exception as e:
+            raise LockException(f"Error getting remaining time for lock: {str(e)}")
 
 
 # testing
