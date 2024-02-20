@@ -413,6 +413,21 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_201_CREATED,
             )
+        else:
+            try:
+                remaining_time = celery_lock.getRemainingTimeForLock()
+            except Exception as e:
+                print(f"Error while retrieving the lock remaining time for {task_name}")
+                return Response(
+                    {"message": f"Your request is already being worked upon"},
+                    status=status.HTTP_200_OK,
+                )
+            return Response(
+                {
+                    "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+                },
+                status=status.HTTP_200_OK,
+            )
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="List all Projects using Dataset")
@@ -840,12 +855,27 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 celery_lock.setLock(celery_lock_timeout)
             except Exception as e:
                 print(f"Error while setting the lock for {task_name}: {str(e)}")
-        deduplicate_dataset_instance_items.delay(
-            pk=pk, deduplicate_field_list=deduplicate_fields_list, user_id=uid
-        )
-        ret_dict = {"message": "Duplicate removal started"}
-        ret_status = status.HTTP_200_OK
-        return Response(ret_dict, status=ret_status)
+            deduplicate_dataset_instance_items.delay(
+                pk=pk, deduplicate_field_list=deduplicate_fields_list, user_id=uid
+            )
+            ret_dict = {"message": "Duplicate removal started"}
+            ret_status = status.HTTP_200_OK
+            return Response(ret_dict, status=ret_status)
+        else:
+            try:
+                remaining_time = celery_lock.getRemainingTimeForLock()
+            except Exception as e:
+                print(f"Error while retrieving the lock remaining time for {task_name}")
+                return Response(
+                    {"message": f"Your request is already being worked upon"},
+                    status=status.HTTP_200_OK,
+                )
+            return Response(
+                {
+                    "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+                },
+                status=status.HTTP_200_OK,
+            )
 
     @action(
         detail=True,
