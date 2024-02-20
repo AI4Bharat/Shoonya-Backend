@@ -337,9 +337,17 @@ def schedule_sentence_text_translate_job(request):
         ret_status = status.HTTP_200_OK
         return Response(ret_dict, status=ret_status)
     else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": "Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
         return Response(
             {
-                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
             },
             status=status.HTTP_200_OK,
         )
@@ -500,9 +508,17 @@ def schedule_conversation_translation_job(request):
         return Response(ret_dict, status=ret_status)
 
     else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
         return Response(
             {
-                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
             },
             status=status.HTTP_200_OK,
         )
@@ -617,9 +633,17 @@ def schedule_ocr_prediction_json_population(request):
         ret_status = status.HTTP_200_OK
         return Response(ret_dict, status=ret_status)
     else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
         return Response(
             {
-                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
             },
             status=status.HTTP_200_OK,
         )
@@ -670,9 +694,17 @@ def schedule_draft_data_json_population(request):
         return Response(ret_dict, status=ret_status)
 
     else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
         return Response(
             {
-                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
             },
             status=status.HTTP_200_OK,
         )
@@ -746,18 +778,25 @@ def schedule_asr_prediction_json_population(request):
             api_type=api_type,
             automate_missing_data_items=automate_missing_data_items,
         )
-    else:
-        return Response(
-            {
-                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
-            },
-            status=status.HTTP_200_OK,
-        )
 
-        # Returning response
         ret_dict = {"message": "Generating ASR Predictions"}
         ret_status = status.HTTP_200_OK
         return Response(ret_dict, status=ret_status)
+    else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["POST"])
@@ -870,9 +909,17 @@ def schedule_project_reports_email(request):
             status=status.HTTP_200_OK,
         )
     else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
         return Response(
             {
-                "message": f"Your request is already being worked upon, you will receive an email with the reports shortly, you can try again after {celery_lock.getRemainingTimeForLock()}"
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
             },
             status=status.HTTP_200_OK,
         )
@@ -951,9 +998,17 @@ def download_all_projects(request):
         )
         pass
     else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
         return Response(
             {
-                "message": f"Your request is already being worked upon, you can try again after {celery_lock.getRemainingTimeForLock()}"
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
             },
             status=status.HTTP_200_OK,
         )
