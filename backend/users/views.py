@@ -322,15 +322,15 @@ class AuthViewSet(viewsets.ViewSet):
         serializer = UserLoginSerializer(user, request.data)
         serializer.is_valid(raise_exception=True)
 
+        if not user.is_active:
+            return Response(
+                {"message": "User is inactive."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         response = serializer.validate_login(serializer.validated_data)
         if response != "Correct password":
             return Response(
                 {"message": "Incorrect Password."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if not user.is_active:
-            return Response(
-                {"message": "User is inactive."}, status=status.HTTP_400_BAD_REQUEST
             )
 
         refresh = RefreshToken.for_user(user)
