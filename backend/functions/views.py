@@ -305,7 +305,6 @@ def schedule_sentence_text_translate_job(request):
 
     uid = request.user.id
 
-
     sentence_text_translate_and_save_translation_pairs.delay(
         languages=languages,
         user_id=uid,
@@ -320,7 +319,6 @@ def schedule_sentence_text_translate_job(request):
     ret_dict = {"message": "Creating translation pairs from the input dataset."}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
-
 
 
 @api_view(["GET"])
@@ -445,9 +443,7 @@ def schedule_conversation_translation_job(request):
 
     # Call the function to save the TranslationPair dataset
 
-
     uid = request.user.id
-
 
     conversation_data_machine_translation.delay(
         languages=languages,
@@ -461,8 +457,6 @@ def schedule_conversation_translation_job(request):
     ret_dict = {"message": "Translating Conversation Dataitems"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
-
-
 
 
 @swagger_auto_schema(
@@ -545,7 +539,6 @@ def schedule_ocr_prediction_json_population(request):
 
     # Calling a function asynchronously to create ocr predictions.
 
-
     uid = request.user.id
 
     generate_ocr_prediction_json.delay(
@@ -559,7 +552,6 @@ def schedule_ocr_prediction_json_population(request):
     ret_dict = {"message": "Generating OCR Predictions"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
-
 
 
 @api_view(["POST"])
@@ -581,17 +573,13 @@ def schedule_draft_data_json_population(request):
     fields_list = fields_list.split(",")
     pk = request.data["dataset_instance_id"]
 
-
     uid = request.user.id
-
 
     populate_draft_data_json.delay(pk=pk, user_id=uid, fields_list=fields_list)
 
     ret_dict = {"message": "draft_data_json population started"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
-
-
 
 
 @api_view(["POST"])
@@ -638,9 +626,7 @@ def schedule_asr_prediction_json_population(request):
 
     # Calling a function asynchronously to create ocr predictions.
 
-
     uid = request.user.id
-
 
     generate_asr_prediction_json.delay(  # add delay
         dataset_instance_id=dataset_instance_id,
@@ -652,7 +638,6 @@ def schedule_asr_prediction_json_population(request):
     ret_dict = {"message": "Generating ASR Predictions"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
-
 
 
 @api_view(["POST"])
@@ -730,7 +715,20 @@ def schedule_project_reports_email(request):
 
     # name of the task is the same as the name of the celery function
     uid = request.user.id
-    task_name = "schedule_mail_for_project_reports"
+    task_name = (
+        "schedule_mail_for_project_reports"
+        + str(project_type)
+        + str(anno_stats)
+        + str(meta_stats)
+        + str(complete_stats)
+        + str(workspace_level_reports)
+        + str(organization_level_reports)
+        + str(dataset_level_reports)
+        + str(wid)
+        + str(oid)
+        + str(did)
+        + str(language)
+    )
     celery_lock = Lock(uid, task_name)
     try:
         lock_status = celery_lock.lockStatus()
@@ -824,7 +822,14 @@ def download_all_projects(request):
         return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
 
     # Checking lock status, name parameter of the lock is the name of the celery function
-    task_name = "schedule_mail_to_download_all_projects"
+    task_name = (
+        "schedule_mail_to_download_all_projects"
+        + str(workspace_level_projects)
+        + str(dataset_level_projects)
+        + str(wid)
+        + str(did)
+    )
+
     celery_lock = Lock(user_id, task_name)
     try:
         lock_status = celery_lock.lockStatus()

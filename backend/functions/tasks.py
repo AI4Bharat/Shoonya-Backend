@@ -614,7 +614,6 @@ def generate_asr_prediction_json(
 
     # Check if the dataframe is empty
     if asr_data_items_df.shape[0] == 0:
-
         raise Exception("The ASR data is empty.")
 
     required_columns = {
@@ -709,7 +708,6 @@ def populate_draft_data_json(self, pk, user_id, fields_list):
     try:
         dataset_instance = DatasetInstance.objects.get(pk=pk)
     except Exception as error:
-
         return error
     dataset_type = dataset_instance.dataset_type
     dataset_model = apps.get_model("dataset", dataset_type)
@@ -751,7 +749,20 @@ def schedule_mail_for_project_reports(
     did,
     language,
 ):
-    task_name = "schedule_mail_for_project_reports"
+    task_name = (
+        "schedule_mail_for_project_reports"
+        + str(project_type)
+        + str(anno_stats)
+        + str(meta_stats)
+        + str(complete_stats)
+        + str(workspace_level_reports)
+        + str(organization_level_reports)
+        + str(dataset_level_reports)
+        + str(wid)
+        + str(oid)
+        + str(did)
+        + str(language)
+    )
     proj_objs = get_proj_objs(
         workspace_level_reports,
         organization_level_reports,
@@ -1530,7 +1541,13 @@ def get_most_recent_annotation(annotation):
 def schedule_mail_to_download_all_projects(
     self, workspace_level_projects, dataset_level_projects, wid, did, user_id
 ):
-    task_name = "schedule_mail_to_download_all_projects"
+    task_name = (
+        "schedule_mail_to_download_all_projects"
+        + str(workspace_level_projects)
+        + str(dataset_level_projects)
+        + str(wid)
+        + str(did)
+    )
     download_lock = threading.Lock()
     download_lock.acquire()
     proj_objs = get_proj_objs(
