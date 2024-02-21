@@ -32,5 +32,5 @@ def query_flower(filters=None):
             return {"error": "Service temporarily unavailable, check Flower"}
         else:
             return {"error": "Failed to retrieve tasks from Flower"}
-    except RequestException:
-        return {"error": "Failed to connect to Flower API"}
+    except RequestException as e:
+        return {"error": f" failed to connect to flower API, {str(e)}"}
