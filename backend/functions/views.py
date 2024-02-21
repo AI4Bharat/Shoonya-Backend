@@ -303,54 +303,24 @@ def schedule_sentence_text_translate_job(request):
 
     # Call the function to save the TranslationPair dataset
 
-    # Checking lock status, name parameter of the lock is the name of the celery function
     uid = request.user.id
-    task_name = "sentence_text_translate_and_save_translation_pairs"
-    celery_lock = Lock(uid, task_name)
-    try:
-        lock_status = celery_lock.lockStatus()
-    except Exception as e:
-        print(
-            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
-        )
-        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
 
-    if lock_status == 0:
-        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        try:
-            celery_lock.setLock(celery_lock_timeout)
-        except Exception as e:
-            print(f"Error while setting the lock for {task_name}: {str(e)}")
 
-        sentence_text_translate_and_save_translation_pairs.delay(
-            languages=languages,
-            user_id=uid,
-            input_dataset_instance_id=input_dataset_instance_id,
-            output_dataset_instance_id=output_dataset_instance_id,
-            batch_size=batch_size,
-            api_type=api_type,
-            checks_for_particular_languages=checks_for_particular_languages,
-            automate_missing_data_items=automate_missing_data_items,
-        )
+    sentence_text_translate_and_save_translation_pairs.delay(
+        languages=languages,
+        user_id=uid,
+        input_dataset_instance_id=input_dataset_instance_id,
+        output_dataset_instance_id=output_dataset_instance_id,
+        batch_size=batch_size,
+        api_type=api_type,
+        checks_for_particular_languages=checks_for_particular_languages,
+        automate_missing_data_items=automate_missing_data_items,
+    )
 
-        ret_dict = {"message": "Creating translation pairs from the input dataset."}
-        ret_status = status.HTTP_200_OK
-        return Response(ret_dict, status=ret_status)
-    else:
-        try:
-            remaining_time = celery_lock.getRemainingTimeForLock()
-        except Exception as e:
-            print(f"Error while retrieving the lock remaining time for {task_name}")
-            return Response(
-                {"message": "Your request is already being worked upon"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {
-                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
-            },
-            status=status.HTTP_200_OK,
-        )
+    ret_dict = {"message": "Creating translation pairs from the input dataset."}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
+
 
 
 @api_view(["GET"])
@@ -475,53 +445,24 @@ def schedule_conversation_translation_job(request):
 
     # Call the function to save the TranslationPair dataset
 
-    # Checking lock status, name parameter of the lock is the name of the celery function
-    task_name = "conversation_data_machine_translation"
+
     uid = request.user.id
-    celery_lock = Lock(uid, task_name)
-    try:
-        lock_status = celery_lock.lockStatus()
-    except Exception as e:
-        print(
-            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
-        )
-        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
 
-    if lock_status == 0:
-        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        try:
-            celery_lock.setLock(celery_lock_timeout)
-        except Exception as e:
-            print(f"Error while setting the lock for {task_name}: {str(e)}")
 
-        conversation_data_machine_translation.delay(
-            languages=languages,
-            user_id=uid,
-            input_dataset_instance_id=input_dataset_instance_id,
-            output_dataset_instance_id=output_dataset_instance_id,
-            batch_size=batch_size,
-            api_type=api_type,
-            checks_for_particular_languages=checks_for_particular_languages,
-        )
-        ret_dict = {"message": "Translating Conversation Dataitems"}
-        ret_status = status.HTTP_200_OK
-        return Response(ret_dict, status=ret_status)
+    conversation_data_machine_translation.delay(
+        languages=languages,
+        user_id=uid,
+        input_dataset_instance_id=input_dataset_instance_id,
+        output_dataset_instance_id=output_dataset_instance_id,
+        batch_size=batch_size,
+        api_type=api_type,
+        checks_for_particular_languages=checks_for_particular_languages,
+    )
+    ret_dict = {"message": "Translating Conversation Dataitems"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
 
-    else:
-        try:
-            remaining_time = celery_lock.getRemainingTimeForLock()
-        except Exception as e:
-            print(f"Error while retrieving the lock remaining time for {task_name}")
-            return Response(
-                {"message": f"Your request is already being worked upon"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {
-                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
-            },
-            status=status.HTTP_200_OK,
-        )
+
 
 
 @swagger_auto_schema(
@@ -604,49 +545,21 @@ def schedule_ocr_prediction_json_population(request):
 
     # Calling a function asynchronously to create ocr predictions.
 
-    # Checking lock status, name parameter of the lock is the name of the celery function
-    task_name = "generate_ocr_prediction_json"
-    uid = request.user.id
-    celery_lock = Lock(uid, task_name)
-    try:
-        lock_status = celery_lock.lockStatus()
-    except Exception as e:
-        print(
-            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
-        )
-        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
-    if lock_status == 0:
-        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        try:
-            celery_lock.setLock(celery_lock_timeout)
-        except Exception as e:
-            print(f"Error while setting the lock for {task_name}: {str(e)}")
-        generate_ocr_prediction_json.delay(
-            dataset_instance_id=dataset_instance_id,
-            user_id=uid,
-            api_type=api_type,
-            automate_missing_data_items=automate_missing_data_items,
-        )
 
-        # Returning response
-        ret_dict = {"message": "Generating OCR Predictions"}
-        ret_status = status.HTTP_200_OK
-        return Response(ret_dict, status=ret_status)
-    else:
-        try:
-            remaining_time = celery_lock.getRemainingTimeForLock()
-        except Exception as e:
-            print(f"Error while retrieving the lock remaining time for {task_name}")
-            return Response(
-                {"message": f"Your request is already being worked upon"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {
-                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
-            },
-            status=status.HTTP_200_OK,
-        )
+    uid = request.user.id
+
+    generate_ocr_prediction_json.delay(
+        dataset_instance_id=dataset_instance_id,
+        user_id=uid,
+        api_type=api_type,
+        automate_missing_data_items=automate_missing_data_items,
+    )
+
+    # Returning response
+    ret_dict = {"message": "Generating OCR Predictions"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
+
 
 
 @api_view(["POST"])
@@ -668,46 +581,17 @@ def schedule_draft_data_json_population(request):
     fields_list = fields_list.split(",")
     pk = request.data["dataset_instance_id"]
 
-    # Checking lock status, name parameter of the lock is the name of the celery function
-    task_name = "populate_draft_data_json"
+
     uid = request.user.id
-    celery_lock = Lock(uid, task_name)
-    try:
-        lock_status = celery_lock.lockStatus()
-    except Exception as e:
-        print(
-            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
-        )
-        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
 
-    if lock_status == 0:
-        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        try:
-            celery_lock.setLock(celery_lock_timeout)
-        except Exception as e:
-            print(f"Error while setting the lock for {task_name}: {str(e)}")
 
-        populate_draft_data_json.delay(pk=pk, user_id=uid, fields_list=fields_list)
+    populate_draft_data_json.delay(pk=pk, user_id=uid, fields_list=fields_list)
 
-        ret_dict = {"message": "draft_data_json population started"}
-        ret_status = status.HTTP_200_OK
-        return Response(ret_dict, status=ret_status)
+    ret_dict = {"message": "draft_data_json population started"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
 
-    else:
-        try:
-            remaining_time = celery_lock.getRemainingTimeForLock()
-        except Exception as e:
-            print(f"Error while retrieving the lock remaining time for {task_name}")
-            return Response(
-                {"message": f"Your request is already being worked upon"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {
-                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
-            },
-            status=status.HTTP_200_OK,
-        )
+
 
 
 @api_view(["POST"])
@@ -754,49 +638,21 @@ def schedule_asr_prediction_json_population(request):
 
     # Calling a function asynchronously to create ocr predictions.
 
-    # Checking lock status, name parameter of the lock is the name of the celery function
+
     uid = request.user.id
-    task_name = "generate_asr_prediction_json"
-    celery_lock = Lock(uid, task_name)
-    try:
-        lock_status = celery_lock.lockStatus()
-    except Exception as e:
-        print(
-            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
-        )
-        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
-    if lock_status == 0:
-        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
-        try:
-            celery_lock.setLock(celery_lock_timeout)
-        except Exception as e:
-            print(f"Error while setting the lock for {task_name}: {str(e)}")
 
-        generate_asr_prediction_json.delay(  # add delay
-            dataset_instance_id=dataset_instance_id,
-            user_id=uid,
-            api_type=api_type,
-            automate_missing_data_items=automate_missing_data_items,
-        )
 
-        ret_dict = {"message": "Generating ASR Predictions"}
-        ret_status = status.HTTP_200_OK
-        return Response(ret_dict, status=ret_status)
-    else:
-        try:
-            remaining_time = celery_lock.getRemainingTimeForLock()
-        except Exception as e:
-            print(f"Error while retrieving the lock remaining time for {task_name}")
-            return Response(
-                {"message": f"Your request is already being worked upon"},
-                status=status.HTTP_200_OK,
-            )
-        return Response(
-            {
-                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
-            },
-            status=status.HTTP_200_OK,
-        )
+    generate_asr_prediction_json.delay(  # add delay
+        dataset_instance_id=dataset_instance_id,
+        user_id=uid,
+        api_type=api_type,
+        automate_missing_data_items=automate_missing_data_items,
+    )
+
+    ret_dict = {"message": "Generating ASR Predictions"}
+    ret_status = status.HTTP_200_OK
+    return Response(ret_dict, status=ret_status)
+
 
 
 @api_view(["POST"])
