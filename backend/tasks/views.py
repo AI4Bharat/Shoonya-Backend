@@ -2034,8 +2034,6 @@ class AnnotationViewSet(
         return total_seconds
 
 
-
-
 class PredictionViewSet(
     mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
 ):
@@ -2209,6 +2207,7 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
     return get_model_output(
         "You are a very kind and helpful assistant!", prompt, history, model
     )
+
 
 @swagger_auto_schema(
     method="get",

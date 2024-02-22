@@ -1,6 +1,11 @@
 from django.urls import path
 from rest_framework import routers
-from tasks.views import TaskViewSet, AnnotationViewSet, PredictionViewSet, get_celery_tasks
+from tasks.views import (
+    TaskViewSet,
+    AnnotationViewSet,
+    PredictionViewSet,
+    get_celery_tasks,
+)
 
 
 router = routers.DefaultRouter()

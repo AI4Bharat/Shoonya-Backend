@@ -33,8 +33,6 @@ def compute_meta_stats_for_instruction_driven_chat(conversation_history):
     return meta_stats
 
 
-
-
 def query_flower(filters=None):
     try:
         load_dotenv()
