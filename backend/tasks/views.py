@@ -2,12 +2,12 @@ from datetime import timezone
 from locale import normalize
 from urllib.parse import unquote
 import ast
-
+from django.http import JsonResponse
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 
@@ -43,6 +43,9 @@ from rapidfuzz.distance import Levenshtein
 import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
+
+from backend.tasks.utils import query_flower
+
 
 # Create your views here.
 
@@ -2031,6 +2034,8 @@ class AnnotationViewSet(
         return total_seconds
 
 
+
+
 class PredictionViewSet(
     mixins.CreateModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
 ):
@@ -2204,3 +2209,29 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
     return get_model_output(
         "You are a very kind and helpful assistant!", prompt, history, model
     )
+
+@swagger_auto_schema(
+    method="get",
+    operation_description="Get a list of Celery tasks with an optional filter by task state. use State = 'FAILURE' for retrieving failed tasks, State = 'SUCCESS' for retrieving successful tasks, State = 'STARTED' for retrieving active tasks and State = None for all retrieving tasks",
+    responses={
+        200: "Success",
+        400: "Bad Request",
+    },
+    manual_parameters=[
+        openapi.Parameter(
+            name="state",
+            in_=openapi.IN_QUERY,
+            type=openapi.TYPE_STRING,
+            description="Filter tasks by state",
+            required=False,
+        ),
+    ],
+)
+@api_view(["GET"])
+def get_celery_tasks(request):
+    filters = request.GET
+    filtered_tasks = query_flower(filters)
+    if "error" in filtered_tasks:
+        return JsonResponse({"message": filtered_tasks["error"]}, status=503)
+
+    return JsonResponse(filtered_tasks, safe=False)
