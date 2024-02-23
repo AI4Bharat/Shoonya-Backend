@@ -4088,6 +4088,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_status = status.HTTP_200_OK
                 return Response(ret_dict, status=ret_status)
             tasks_list = []
+            is_audio_project_type = (True if project_type in get_audio_project_types() else False)
+            if include_input_data_metadata_json:
+                dataset_type = project.dataset_id.all()[0].dataset_type
+                dataset_model = getattr(dataset_models, dataset_type)
             for task in tasks:
                 task_dict = model_to_dict(task)
                 if export_type != "JSON":
@@ -4129,8 +4133,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task_dict["data"]["annotator_email"] = annotator_email
 
                 if include_input_data_metadata_json:
-                    dataset_type = project.dataset_id.all()[0].dataset_type
-                    dataset_model = getattr(dataset_models, dataset_type)
                     task_dict["data"][
                         "input_data_metadata_json"
                     ] = dataset_model.objects.get(
@@ -4139,7 +4141,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
 
-                if project_type in get_audio_project_types():
+                if is_audio_project_type:
                     data = task_dict["data"]
                     del data["audio_url"]
                     task_dict["data"] = data
