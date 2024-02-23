@@ -978,13 +978,17 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
 
 
 def convert_annotation_result_to_formatted_json(
-    annotation_result, speakers_json, dataset_type, project_type, is_acoustic=False
+    annotation_result,
+    speakers_json,
+    is_SpeechConversation,
+    is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing,
+    is_acoustic=False,
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
     standardised_transcription = ""
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
-    if dataset_type == "SpeechConversation":
+    if is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
             formatted_result_dict = {}
@@ -1073,22 +1077,14 @@ def convert_annotation_result_to_formatted_json(
                 acoustic_transcribed_json, ensure_ascii=False
             )
     else:
-        dicts = (
-            2
-            if project_type
-            in ["OCRSegmentCategorization", "OCRSegmentCategorizationEditing"]
-            else 3
-        )
+        dicts = 2 if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing else 3
         for idx1 in range(0, len(annotation_result), dicts):
             rectangle_dict = {}
             labels_dict = {}
             text_dict = {}
             if isinstance(annotation_result[idx1], str):
                 annotation_result[idx1] = json.loads(annotation_result[idx1])
-            if project_type in [
-                "OCRSegmentCategorization",
-                "OCRSegmentCategorizationEditing",
-            ]:
+            if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing:
                 custom_text_dict = {"value": {"text": ""}}
                 text_dict = json.dumps(custom_text_dict, indent=2)
             for idx2 in range(idx1, idx1 + dicts):
@@ -4092,6 +4088,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_status = status.HTTP_200_OK
                 return Response(ret_dict, status=ret_status)
             tasks_list = []
+            is_audio_project_type = (True if project_type in get_audio_project_types() else False)
+            if include_input_data_metadata_json:
+                dataset_type = project.dataset_id.all()[0].dataset_type
+                dataset_model = getattr(dataset_models, dataset_type)
             for task in tasks:
                 task_dict = model_to_dict(task)
                 if export_type != "JSON":
@@ -4133,8 +4133,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 task_dict["data"]["annotator_email"] = annotator_email
 
                 if include_input_data_metadata_json:
-                    dataset_type = project.dataset_id.all()[0].dataset_type
-                    dataset_model = getattr(dataset_models, dataset_type)
                     task_dict["data"][
                         "input_data_metadata_json"
                     ] = dataset_model.objects.get(
@@ -4143,24 +4141,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 del task_dict["annotation_users"]
                 del task_dict["review_user"]
 
-                if project_type in get_audio_project_types():
+                if is_audio_project_type:
                     data = task_dict["data"]
                     del data["audio_url"]
                     task_dict["data"] = data
                 tasks_list.append(OrderedDict(task_dict))
 
             dataset_type = project.dataset_id.all()[0].dataset_type
+            is_ConversationTranslation = (
+                True if project_type == "ConversationTranslation" else False
+            )
+            is_ConversationTranslationEditing = (
+                True if project_type == "ConversationTranslationEditing" else False
+            )
+            is_ConversationVerification = (
+                True if project_type == "ConversationVerification" else False
+            )
             if (
-                project_type == "ConversationTranslation"
-                or project_type == "ConversationTranslationEditing"
-                or project_type == "ConversationVerification"
+                is_ConversationTranslation
+                or is_ConversationTranslationEditing
+                or is_ConversationVerification
             ):
                 for task in tasks_list:
-                    if project_type == "ConversationTranslation":
+                    if is_ConversationTranslation:
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
                         ).conversation_json
-                    elif project_type == "ConversationVerification":
+                    elif is_ConversationVerification:
                         conversation_json = Conversation.objects.get(
                             id__exact=task["input_data"]
                         ).unverified_conversation_json
@@ -4190,12 +4197,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             task["data"][
                                 "conversation_quality_status"
                             ] = result_formatted["value"]["choices"][0]
-                    if project_type == "ConversationVerification":
+                    if is_ConversationVerification:
                         task["data"]["verified_conversation_json"] = conversation_json
                     else:
                         task["data"]["translated_conversation_json"] = conversation_json
             elif dataset_type in ["SpeechConversation", "OCRDocument"]:
-                if dataset_type == "SpeechConversation":
+                is_SpeechConversation = (
+                    True if dataset_type == "SpeechConversation" else False
+                )
+                if is_SpeechConversation:
+                    is_AudioSegmentation = (
+                        True if project_type == "AudioSegmentation" else False
+                    )
                     for task in tasks_list:
                         annotation_result = task["annotations"][0]["result"]
                         annotation_result = (
@@ -4205,14 +4218,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         )
                         speakers_json = task["data"]["speakers_json"]
                         task["annotations"][0]["result"] = []
-                        if project_type == "AudioSegmentation":
+                        if is_AudioSegmentation:
                             task["data"][
                                 "prediction_json"
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result,
                                 speakers_json,
-                                dataset_type,
-                                project_type,
+                                is_SpeechConversation,
+                                False,
                                 False,
                             )
                         else:
@@ -4221,12 +4234,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             ] = convert_annotation_result_to_formatted_json(
                                 annotation_result,
                                 speakers_json,
-                                dataset_type,
-                                project_type,
+                                is_SpeechConversation,
+                                False,
                                 project_type
                                 == "AcousticNormalisedTranscriptionEditing",
                             )
                 else:
+                    is_OCRSegmentCategorizationEditing = (
+                        True
+                        if project_type == "OCRSegmentCategorizationEditing"
+                        else False
+                    )
+                    is_OCRSegmentCategorization = (
+                        True if project_type == "OCRSegmentCategorization" else False
+                    )
                     for task in tasks_list:
                         annotation_result = task["annotations"][0]["result"]
                         annotation_result = (
@@ -4235,31 +4256,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             else annotation_result
                         )
                         task["annotations"][0]["result"] = []
-                        if project_type in [
-                            "OCRTranscriptionEditing",
-                            "OCRTranscription",
-                            "OCRSegmentCategorizationEditing",
-                            "OCRSegmentCategorization",
-                        ]:
-                            task["data"][
-                                "ocr_transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result,
-                                None,
-                                dataset_type,
-                                project_type,
-                                False,
-                            )
-                        else:
-                            task["data"][
-                                "ocr_prediction_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result,
-                                None,
-                                dataset_type,
-                                project_type,
-                                False,
-                            )
+                        task["data"][
+                            "ocr_transcribed_json"
+                        ] = convert_annotation_result_to_formatted_json(
+                            annotation_result,
+                            None,
+                            False,
+                            is_OCRSegmentCategorization
+                            or is_OCRSegmentCategorizationEditing,
+                            False,
+                        )
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
