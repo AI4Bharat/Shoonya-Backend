@@ -1682,7 +1682,11 @@ class AnnotationViewSet(
                 VALIDATED_WITH_CHANGES,
             ]:
                 return Response(
-                    {"message": "Auto save disabled for submitted tasks."},
+                    {
+                        "message": "Auto save disabled for "
+                        + annotation_obj.annotation_status
+                        + " tasks."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
