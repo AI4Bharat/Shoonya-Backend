@@ -1,3 +1,5 @@
+import os
+
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
@@ -18,6 +20,7 @@ from tasks.models import (
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
 )
+from anudesh_backend.locks import Lock
 from projects.utils import is_valid_date
 from datetime import datetime, timezone, timedelta
 import pandas as pd
@@ -2654,19 +2657,49 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         project_type = request.data.get("project_type")
 
-        send_user_reports_mail_ws.delay(
-            ws_id=workspace.id,
-            user_id=user_id,
-            project_type=project_type,
-            participation_types=participation_types,
-            start_date=from_date,
-            end_date=to_date,
-        )
+        task_name= "send_user_reports_mail_ws"+str(workspace.id)+str(project_type)+str(participation_types)+str(from_date)+str(to_date)
+        celery_lock = Lock(user_id, task_name)
+        try:
+            lock_status = celery_lock.lockStatus()
+        except Exception as e:
+            print(
+                f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+            )
+            lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+        if lock_status == 0:
+            celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+            try:
+                celery_lock.setLock(celery_lock_timeout)
+            except Exception as e:
+                print(f"Error while setting the lock for {task_name}: {str(e)}")
 
-        return Response(
-            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
-        )
+            send_user_reports_mail_ws.delay(
+                ws_id=workspace.id,
+                user_id=user_id,
+                project_type=project_type,
+                participation_types=participation_types,
+                start_date=from_date,
+                end_date=to_date,
+            )
 
+            return Response(
+                {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+            )
+        else:
+            try:
+                remaining_time = celery_lock.getRemainingTimeForLock()
+            except Exception as e:
+                print(f"Error while retrieving the lock remaining time for {task_name}")
+                return Response(
+                    {"message": f"Your request is already being worked upon"},
+                    status=status.HTTP_200_OK,
+                )
+            return Response(
+                {
+                    "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+                },
+                status=status.HTTP_200_OK,
+            )
 
 class WorkspaceusersViewSet(viewsets.ViewSet):
     @swagger_auto_schema(
