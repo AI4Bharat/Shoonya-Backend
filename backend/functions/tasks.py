@@ -30,7 +30,7 @@ from tasks.models import (
 from tasks.views import SentenceOperationViewSet
 from users.models import User
 from django.core.mail import EmailMessage
-
+from anudesh_backend.locks import Lock
 from utils.blob_functions import (
     extract_account_name,
     extract_account_key,
@@ -721,6 +721,20 @@ def schedule_mail_for_project_reports(
     did,
     language,
 ):
+    task_name = (
+            "schedule_mail_for_project_reports"
+            + str(project_type)
+            + str(anno_stats)
+            + str(meta_stats)
+            + str(complete_stats)
+            + str(workspace_level_reports)
+            + str(organization_level_reports)
+            + str(dataset_level_reports)
+            + str(wid)
+            + str(oid)
+            + str(did)
+            + str(language)
+    )
     proj_objs = get_proj_objs(
         workspace_level_reports,
         organization_level_reports,
@@ -732,6 +746,11 @@ def schedule_mail_for_project_reports(
         language,
     )
     if len(proj_objs) == 0:
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         print("No projects found")
         return 0
     user = User.objects.get(id=user_id)
@@ -780,6 +799,11 @@ def schedule_mail_for_project_reports(
         email.send()
     except Exception as e:
         print(f"An error occurred while sending email: {e}")
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     print(f"Email sent successfully - {user_id}")
 
 
