@@ -333,8 +333,14 @@ def send_user_reports_mail_ws(
     end_date=None,
     period=None,
 ):
-    task_name = "send_user_reports_mail_ws" + str(ws_id) + str(project_type) + str(participation_types) + str(
-        start_date) + str(end_date)
+    task_name = (
+        "send_user_reports_mail_ws"
+        + str(ws_id)
+        + str(project_type)
+        + str(participation_types)
+        + str(start_date)
+        + str(end_date)
+    )
     """Function to generate CSV of workspace user reports and send mail to the manager/owner/admin
 
     Args:
@@ -1652,6 +1658,17 @@ def send_user_analysis_reports_mail_ws(
     is_translation_project,
     reports_type,
 ):
+    task_name = (
+        "send_user_analysis_reports_mail_ws"
+        + str(pk)
+        + str(tgt_language)
+        + str(project_type)
+        + str(project_progress_stage)
+        + str(start_date)
+        + str(end_date)
+        + str(is_translation_project)
+        + str(reports_type)
+    )
     ws = Workspace.objects.get(pk=pk)
     user = User.objects.get(id=user_id)
     final_reports = []
@@ -2049,4 +2066,9 @@ def send_user_analysis_reports_mail_ws(
         [user.email],
         attachments=[(filename, content, content_type)],
     )
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     email.send()
