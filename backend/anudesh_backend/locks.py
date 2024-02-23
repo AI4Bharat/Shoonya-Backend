@@ -98,10 +98,10 @@ class Lock:
             raise LockException(f"Error getting remaining time for lock: {str(e)}")
 
 
-# testing
-if __name__ == '__main__':
-    user_id = "user123"
-    task_name = "task1"
+# # testing
+# if __name__ == '__main__':
+#     user_id = "user123"
+#     task_name = "task1"
 #
 #     #test 1
 #     lock = Lock(user_id, task_name)
@@ -115,19 +115,19 @@ if __name__ == '__main__':
 #
 #     lock.releaseLock()
 #     print(f"after releasing the lock the lock status is {lock.lockStatus()}")
-
-    #test2 part 1
-    lock = Lock(user_id, task_name)
-    print(f"Before setting the lock for 200sec the lock status is {lock.lockStatus()}")
-    lock.setLock(200)
-    print(f"Just after setting the lock for 200sec the lock status is {lock.lockStatus()}")
-
-    #test2 part2
-    lock = Lock(user_id, task_name)
-    print(f"few seconds after setting the lock for 200sec the lock status is {lock.lockStatus()}")
-
-    # #test 3 for testing remanining time
-    # lock =Lock(user_id,task_name)
-    # lock.setLock(100)
-    # time.sleep(10)
-    # print(f"remaining time = {lock.getRemainingTimeForLock()}")
+#
+#     #test2 part 1
+#     lock = Lock(user_id, task_name)
+#     print(f"Before setting the lock for 200sec the lock status is {lock.lockStatus()}")
+#     lock.setLock(200)
+#     print(f"Just after setting the lock for 200sec the lock status is {lock.lockStatus()}")
+#
+#     #test2 part2
+#     lock = Lock(user_id, task_name)
+#     print(f"few seconds after setting the lock for 200sec the lock status is {lock.lockStatus()}")
+#
+#     #test 3 for testing remanining time
+#     lock =Lock(user_id,task_name)
+#     lock.setLock(100)
+#     time.sleep(10)
+#     print(f"remaining time = {lock.getRemainingTimeForLock()}")
