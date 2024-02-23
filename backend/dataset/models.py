@@ -47,7 +47,7 @@ OCR_DOMAIN_CHOICES = (
     ("NT", "Notice"),
     ("SY", "Syllabus"),
     ("QP", "Question_Papers"),
-    ("MN", "Manual")
+    ("MN", "Manual"),
 )
 
 QUALITY_CHOICES = (

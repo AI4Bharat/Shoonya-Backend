@@ -4088,7 +4088,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_status = status.HTTP_200_OK
                 return Response(ret_dict, status=ret_status)
             tasks_list = []
-            is_audio_project_type = (True if project_type in get_audio_project_types() else False)
+            is_audio_project_type = (
+                True if project_type in get_audio_project_types() else False
+            )
             if include_input_data_metadata_json:
                 dataset_type = project.dataset_id.all()[0].dataset_type
                 dataset_model = getattr(dataset_models, dataset_type)
