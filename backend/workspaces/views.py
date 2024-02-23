@@ -521,17 +521,54 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         # enable_task_reviews = request.data.get("enable_task_reviews")
         if send_mail == True:
-            send_project_analysis_reports_mail_ws.delay(
-                pk=pk,
-                user_id=user_id,
-                tgt_language=tgt_language,
-                project_type=project_type,
+            task_name = (
+                "send_project_analysis_reports_mail_ws"
+                + str(pk)
+                + str(tgt_language)
+                + str(project_type)
             )
+            celery_lock = Lock(user_id, task_name)
+            try:
+                lock_status = celery_lock.lockStatus()
+            except Exception as e:
+                print(
+                    f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+                )
+                lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+            if lock_status == 0:
+                celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+                try:
+                    celery_lock.setLock(celery_lock_timeout)
+                except Exception as e:
+                    print(f"Error while setting the lock for {task_name}: {str(e)}")
+                send_project_analysis_reports_mail_ws.delay(
+                    pk=pk,
+                    user_id=user_id,
+                    tgt_language=tgt_language,
+                    project_type=project_type,
+                )
 
-            ret_status = status.HTTP_200_OK
-            return Response(
-                {"message": "Email scheduled successfully"}, status=ret_status
-            )
+                ret_status = status.HTTP_200_OK
+                return Response(
+                    {"message": "Email scheduled successfully"}, status=ret_status
+                )
+            else:
+                try:
+                    remaining_time = celery_lock.getRemainingTimeForLock()
+                except Exception as e:
+                    print(
+                        f"Error while retrieving the lock remaining time for {task_name}"
+                    )
+                    return Response(
+                        {"message": f"Your request is already being worked upon"},
+                        status=status.HTTP_200_OK,
+                    )
+                return Response(
+                    {
+                        "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+                    },
+                    status=status.HTTP_200_OK,
+                )
         else:
             try:
                 ws_owner = ws.created_by.get_username()

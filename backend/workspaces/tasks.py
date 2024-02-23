@@ -527,6 +527,12 @@ def send_project_analysis_reports_mail_ws(
     tgt_language,
     project_type,
 ):
+    task_name = (
+        "send_project_analysis_reports_mail_ws"
+        + str(pk)
+        + str(tgt_language)
+        + str(project_type)
+    )
     ws = Workspace.objects.get(pk=pk)
     user = User.objects.get(id=user_id)
     try:
@@ -896,6 +902,11 @@ def send_project_analysis_reports_mail_ws(
         attachments=[(filename, content, content_type)],
     )
     email.send()
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
 
 
 def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=None):
