@@ -1,6 +1,6 @@
 # Anudesh Backend
 
-Repository for Shoonya's backend.
+Repository for Anudesh's backend.
 
 ## Pre-requisites
 
@@ -111,8 +111,8 @@ os=$(uname)
 
 if [ "$os" = "Linux" ] || [ "$os" = "Darwin" ]; then
 
-git clone https://github.com/AI4Bharat/Shoonya-Backend.git
-cd Shoonya-Backend
+git clone https://github.com/AI4Bharat/Anudesh-Backend.git
+cd Anudesh-Backend
 git checkout dev
 git pull origin dev
 cp .env.example ./backend/.env
@@ -146,18 +146,18 @@ Please install and run redis from https://redis.io/download/ on port 6379 before
 
 To run background tasks for project creation, we need to run the following command in the terminal. This has also been added into the `docker-compose.yml` file.
 ```bash 
-celery command - celery -A shoonya_backend.celery worker -l info
-celery command - celery -A shoonya_backend.celery beat --loglevel=info
+celery command - celery -A anudesh_backend.celery worker -l info
+celery command - celery -A anudesh_backend.celery beat --loglevel=info
 ```
 
-You can set use the celery to local by modifying CELERY_BROKER_URL = "redis://localhost:6379/0" in ./backend/shoonya_backend/settings.py.
+You can set use the celery to local by modifying CELERY_BROKER_URL = "redis://localhost:6379/0" in ./backend/anudesh_backend/settings.py.
 
 We can set the concurrency and autoscale in the process as well to manage the number of worker processes in the background. Read more [here](https://stackoverflow.com/a/72366865/9757174). 
 
 The commands will be as follows 
 ```bash 
-celery -A shoonya_backend.celery worker --concurrency=2 --loglevel=info
-celery -A shoonya_backend.celery worker --autoscale=10,3 --loglevel=info
+celery -A anudesh_backend.celery worker --concurrency=2 --loglevel=info
+celery -A anudesh_backend.celery worker --autoscale=10,3 --loglevel=info
 ```
 
 ### Running Linters
