@@ -7,7 +7,7 @@ from django.core.mail import EmailMessage
 from organizations.models import Organization
 from tasks.models import Task
 from django.db.models import Q
-
+from anudesh_backend.locks import Lock
 from tasks.models import (
     Annotation,
     ANNOTATOR_ANNOTATION,
@@ -333,6 +333,14 @@ def send_user_reports_mail_ws(
     end_date=None,
     period=None,
 ):
+    task_name = (
+        "send_user_reports_mail_ws"
+        + str(ws_id)
+        + str(project_type)
+        + str(participation_types)
+        + str(start_date)
+        + str(end_date)
+    )
     """Function to generate CSV of workspace user reports and send mail to the manager/owner/admin
 
     Args:
@@ -504,6 +512,11 @@ def send_user_reports_mail_ws(
         [user.email],
         attachments=[(filename, content, content_type)],
     )
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     email.send()
 
 
@@ -514,6 +527,12 @@ def send_project_analysis_reports_mail_ws(
     tgt_language,
     project_type,
 ):
+    task_name = (
+        "send_project_analysis_reports_mail_ws"
+        + str(pk)
+        + str(tgt_language)
+        + str(project_type)
+    )
     ws = Workspace.objects.get(pk=pk)
     user = User.objects.get(id=user_id)
     try:
@@ -883,6 +902,11 @@ def send_project_analysis_reports_mail_ws(
         attachments=[(filename, content, content_type)],
     )
     email.send()
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
 
 
 def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=None):
@@ -1645,6 +1669,17 @@ def send_user_analysis_reports_mail_ws(
     is_translation_project,
     reports_type,
 ):
+    task_name = (
+        "send_user_analysis_reports_mail_ws"
+        + str(pk)
+        + str(tgt_language)
+        + str(project_type)
+        + str(project_progress_stage)
+        + str(start_date)
+        + str(end_date)
+        + str(is_translation_project)
+        + str(reports_type)
+    )
     ws = Workspace.objects.get(pk=pk)
     user = User.objects.get(id=user_id)
     final_reports = []
@@ -2042,4 +2077,9 @@ def send_user_analysis_reports_mail_ws(
         [user.email],
         attachments=[(filename, content, content_type)],
     )
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     email.send()

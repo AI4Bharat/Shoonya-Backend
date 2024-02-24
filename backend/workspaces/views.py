@@ -1,3 +1,5 @@
+import os
+
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
@@ -18,6 +20,7 @@ from tasks.models import (
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
 )
+from anudesh_backend.locks import Lock
 from projects.utils import is_valid_date
 from datetime import datetime, timezone, timedelta
 import pandas as pd
@@ -518,17 +521,54 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         # enable_task_reviews = request.data.get("enable_task_reviews")
         if send_mail == True:
-            send_project_analysis_reports_mail_ws.delay(
-                pk=pk,
-                user_id=user_id,
-                tgt_language=tgt_language,
-                project_type=project_type,
+            task_name = (
+                "send_project_analysis_reports_mail_ws"
+                + str(pk)
+                + str(tgt_language)
+                + str(project_type)
             )
+            celery_lock = Lock(user_id, task_name)
+            try:
+                lock_status = celery_lock.lockStatus()
+            except Exception as e:
+                print(
+                    f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+                )
+                lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+            if lock_status == 0:
+                celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+                try:
+                    celery_lock.setLock(celery_lock_timeout)
+                except Exception as e:
+                    print(f"Error while setting the lock for {task_name}: {str(e)}")
+                send_project_analysis_reports_mail_ws.delay(
+                    pk=pk,
+                    user_id=user_id,
+                    tgt_language=tgt_language,
+                    project_type=project_type,
+                )
 
-            ret_status = status.HTTP_200_OK
-            return Response(
-                {"message": "Email scheduled successfully"}, status=ret_status
-            )
+                ret_status = status.HTTP_200_OK
+                return Response(
+                    {"message": "Email scheduled successfully"}, status=ret_status
+                )
+            else:
+                try:
+                    remaining_time = celery_lock.getRemainingTimeForLock()
+                except Exception as e:
+                    print(
+                        f"Error while retrieving the lock remaining time for {task_name}"
+                    )
+                    return Response(
+                        {"message": f"Your request is already being worked upon"},
+                        status=status.HTTP_200_OK,
+                    )
+                return Response(
+                    {
+                        "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+                    },
+                    status=status.HTTP_200_OK,
+                )
         else:
             try:
                 ws_owner = ws.created_by.get_username()
@@ -1025,21 +1065,64 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     }
                     return Response(final_response, status=status.HTTP_400_BAD_REQUEST)
 
-            send_user_analysis_reports_mail_ws.delay(
-                pk=pk,
-                user_id=user_id,
-                tgt_language=tgt_language,
-                project_type=project_type,
-                project_progress_stage=project_progress_stage,
-                start_date=start_date,
-                end_date=end_date,
-                is_translation_project=is_translation_project,
-                reports_type=reports_type,
+            task_name = (
+                "send_user_analysis_reports_mail_ws"
+                + str(pk)
+                + str(tgt_language)
+                + str(project_type)
+                + str(project_progress_stage)
+                + str(start_date)
+                + str(end_date)
+                + str(is_translation_project)
+                + str(reports_type)
             )
+            celery_lock = Lock(user_id, task_name)
+            try:
+                lock_status = celery_lock.lockStatus()
+            except Exception as e:
+                print(
+                    f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+                )
+                lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+            if lock_status == 0:
+                celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+                try:
+                    celery_lock.setLock(celery_lock_timeout)
+                except Exception as e:
+                    print(f"Error while setting the lock for {task_name}: {str(e)}")
+                send_user_analysis_reports_mail_ws.delay(
+                    pk=pk,
+                    user_id=user_id,
+                    tgt_language=tgt_language,
+                    project_type=project_type,
+                    project_progress_stage=project_progress_stage,
+                    start_date=start_date,
+                    end_date=end_date,
+                    is_translation_project=is_translation_project,
+                    reports_type=reports_type,
+                )
 
-            return Response(
-                {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
-            )
+                return Response(
+                    {"message": "Email scheduled successfully"},
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                try:
+                    remaining_time = celery_lock.getRemainingTimeForLock()
+                except Exception as e:
+                    print(
+                        f"Error while retrieving the lock remaining time for {task_name}"
+                    )
+                    return Response(
+                        {"message": f"Your request is already being worked upon"},
+                        status=status.HTTP_200_OK,
+                    )
+                return Response(
+                    {
+                        "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+                    },
+                    status=status.HTTP_200_OK,
+                )
 
         if reports_type == "review":
             proj_objs = Project.objects.filter(workspace_id=pk)
@@ -2654,18 +2737,56 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         project_type = request.data.get("project_type")
 
-        send_user_reports_mail_ws.delay(
-            ws_id=workspace.id,
-            user_id=user_id,
-            project_type=project_type,
-            participation_types=participation_types,
-            start_date=from_date,
-            end_date=to_date,
+        task_name = (
+            "send_user_reports_mail_ws"
+            + str(workspace.id)
+            + str(project_type)
+            + str(participation_types)
+            + str(from_date)
+            + str(to_date)
         )
+        celery_lock = Lock(user_id, task_name)
+        try:
+            lock_status = celery_lock.lockStatus()
+        except Exception as e:
+            print(
+                f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+            )
+            lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+        if lock_status == 0:
+            celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+            try:
+                celery_lock.setLock(celery_lock_timeout)
+            except Exception as e:
+                print(f"Error while setting the lock for {task_name}: {str(e)}")
 
-        return Response(
-            {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
-        )
+            send_user_reports_mail_ws.delay(
+                ws_id=workspace.id,
+                user_id=user_id,
+                project_type=project_type,
+                participation_types=participation_types,
+                start_date=from_date,
+                end_date=to_date,
+            )
+
+            return Response(
+                {"message": "Email scheduled successfully"}, status=status.HTTP_200_OK
+            )
+        else:
+            try:
+                remaining_time = celery_lock.getRemainingTimeForLock()
+            except Exception as e:
+                print(f"Error while retrieving the lock remaining time for {task_name}")
+                return Response(
+                    {"message": f"Your request is already being worked upon"},
+                    status=status.HTTP_200_OK,
+                )
+            return Response(
+                {
+                    "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+                },
+                status=status.HTTP_200_OK,
+            )
 
 
 class WorkspaceusersViewSet(viewsets.ViewSet):

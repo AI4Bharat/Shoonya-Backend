@@ -1,5 +1,6 @@
 import ast
 import json
+from anudesh_backend.locks import Lock
 from urllib import request
 
 from dataset import models as dataset_models
@@ -696,25 +697,72 @@ def schedule_project_reports_email(request):
     except KeyError:
         language = "NULL"
 
-    schedule_mail_for_project_reports.delay(
-        project_type,
-        user_id,
-        anno_stats,
-        meta_stats,
-        complete_stats,
-        workspace_level_reports,
-        organization_level_reports,
-        dataset_level_reports,
-        wid,
-        oid,
-        did,
-        language,
+    # name of the task is the same as the name of the celery function + all the parameters that are passed to it
+    uid = request.user.id
+    task_name = (
+        "schedule_mail_for_project_reports"
+        + str(project_type)
+        + str(anno_stats)
+        + str(meta_stats)
+        + str(complete_stats)
+        + str(workspace_level_reports)
+        + str(organization_level_reports)
+        + str(dataset_level_reports)
+        + str(wid)
+        + str(oid)
+        + str(did)
+        + str(language)
     )
+    celery_lock = Lock(uid, task_name)
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
+        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
 
-    return Response(
-        {"message": "You will receive an email with the reports shortly"},
-        status=status.HTTP_200_OK,
-    )
+    if lock_status == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        try:
+            celery_lock.setLock(celery_lock_timeout)
+        except Exception as e:
+            print(f"Error while setting the lock for {task_name}: {str(e)}")
+
+        schedule_mail_for_project_reports.delay(
+            project_type,
+            user_id,
+            anno_stats,
+            meta_stats,
+            complete_stats,
+            workspace_level_reports,
+            organization_level_reports,
+            dataset_level_reports,
+            wid,
+            oid,
+            did,
+            language,
+        )
+
+        return Response(
+            {"message": "You will receive an email with the reports shortly"},
+            status=status.HTTP_200_OK,
+        )
+    else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["POST"])
@@ -759,12 +807,50 @@ def download_all_projects(request):
         }
         return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
 
-    schedule_mail_to_download_all_projects.delay(
-        workspace_level_projects, dataset_level_projects, wid, did, user_id
+    # Checking lock status, name parameter of the lock is the name of the celery function + all of it's parameters in string form
+    task_name = (
+        "schedule_mail_to_download_all_projects"
+        + str(workspace_level_projects)
+        + str(dataset_level_projects)
+        + str(wid)
+        + str(did)
     )
 
-    return Response(
-        {"message": "You will receive an email with the download link shortly"},
-        status=status.HTTP_200_OK,
-    )
-    pass
+    celery_lock = Lock(user_id, task_name)
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
+        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+
+    if lock_status == 0:
+        schedule_mail_to_download_all_projects.delay(
+            workspace_level_projects=workspace_level_projects,
+            dataset_level_projects=dataset_level_projects,
+            wid=wid,
+            did=did,
+            user_id=user_id,
+        )
+
+        return Response(
+            {"message": "You will receive an email with the download link shortly"},
+            status=status.HTTP_200_OK,
+        )
+        pass
+    else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+            },
+            status=status.HTTP_200_OK,
+        )
