@@ -168,43 +168,51 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    # @action(
-    #     detail=True,
-    #     methods=["PUT"],
-    #     name="update_password",
-    #     url_path="update_password",
-    # )
-    def update_workspace_password(self, request, pk=None, *args, **kwargs):
+    @action(
+        detail=True,
+        methods=["PUT"],
+        name="Guest Authentication",
+        url_path="guest_auth",
+        serializer_class=WorkspacePasswordSerializer,
+    )
+    def guest_auth(self, request, pk=None, *args, **kwargs):
+        """
+        This endpoint is specifically designed for guest workspaces.
+        If the workspace is a guest-workspace, users are allowed to enter with authentication.
+        """
         try:
-            w_id = request.get("id")
-            workspace = Workspace.objects.filter(id=w_id)
-            serialized = WorkspacePasswordSerializer(
-                workspace, request.data, partial=True
-            )
-
-            if serialized.is_valid():
-                serialized.save()
-                return Response(
-                    {"message": "Workspace password updated successfully"},
-                    status=status.HTTP_200_OK,
-                )
-            else:
-                return Response(
-                    {"message": "password updated failed"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
+            workspace = Workspace.objects.get(id=pk)
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
+        if not workspace.guest_workspace:
+            return Response(
+                {"message": "You can enter the workspace."}, status=status.HTTP_200_OK
+            )
 
-    # @action(
-    #     detail=True,
-    #     methods=["POST"],
-    #     name="enter_workspace",
-    #     url_name="enter_workspace",
-    # )
+        serializer = self.get_serializer(
+            data=request.data, context={"workspace": workspace}
+        )
+        if not serializer.is_valid(raise_exception=True) or not serializer.validate(
+            request.data
+        ):
+            return Response(
+                {"message": "Authentication failed!"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {"message": "Authentication successful!"},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(
+        detail=True,
+        methods=["PATCH"],
+        name="enter_workspace",
+        url_name="enter_workspace",
+    )
     def enter_workspace(self, request, pk=None):
         try:
             # guest user added as a member and an annotator to all projects in a workspace
@@ -224,7 +232,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             workspace.members.add(request.user)
             workspace.save()
 
-            projects = Project.objects.filter(workspace=workspace)
+            projects = Project.objects.filter(workspace_id=workspace.id)
             for project in projects:
                 project.annotators.add(request.user)
                 project.save()
@@ -241,6 +249,40 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 {"message": "Workspace not found."}, status=status.HTTP_404_NOT_FOUND
             )
 
+    @action(
+        detail=True,
+        methods=["PATCH"],
+        name="change_workspace_password",
+        url_name="change_workspace_password",
+    )
+    @is_particular_workspace_manager
+    def change_workspace_password(self, request, pk=None):
+        try:
+            try:
+                workspace = Workspace.objects.get(id=pk)
+            except Workspace.DoesNotExist:
+                return Response(
+                    {"message": "No such workspace found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if not workspace.guest_workspace:
+                return Response(
+                    {"message": "This is not a guest workspace."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            new_password = request.data.get(
+                "workspace_password", workspace.workspace_password
+            )
+            workspace.set_workspace_password(new_password)
+            workspace.save()
+            return Response(
+                {"message": f"Password changed for {workspace.workspace_name}"}
+            )
+        except Workspace.DoesNotExist:
+            return Response(
+                {"message": "Workspace not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
     @is_particular_workspace_manager
     def retrieve(self, request, pk=None, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
@@ -250,12 +292,22 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         # TODO: Make sure to add the user to the workspace and created_by
         # return super().create(request, *args, **kwargs)
         try:
+            is_guest_workspace = request.data.get("is_guest_workspace", False)
             data = self.serializer_class(data=request.data)
             if data.is_valid():
                 if request.user.organization == data.validated_data["organization"]:
+                    if is_guest_workspace == "True":
+                        Workspace.validate_workspace_password(
+                            request.data.get("workspace_password")
+                        )
                     obj = data.save()
                     obj.members.add(request.user)
                     obj.created_by = request.user
+                    if is_guest_workspace == "True":
+                        workspace_password = request.data.get("workspace_password")
+                        if workspace_password:
+                            obj.set_workspace_password(workspace_password)
+                        obj.guest_workspace = True
                     obj.save()
                     return Response(
                         {"message": "Workspace created!"},

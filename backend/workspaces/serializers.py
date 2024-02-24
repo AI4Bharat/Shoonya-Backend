@@ -1,9 +1,8 @@
 from typing_extensions import Required
 from rest_framework import serializers
-
 from .models import *
 from users.models import User
-from users.serializers import UserProfileSerializer, ChangePasswordSerializer
+from users.serializers import UserProfileSerializer
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
@@ -69,29 +68,13 @@ class WorkspaceNameSerializer(serializers.ModelSerializer):
         fields = ["id", "workspace_name"]
 
 
-class WorkspacePasswordSerializer(
-    serializers.ModelSerializer, ChangePasswordSerializer
-):
-    class Meta:
-        model = Workspace
-        fields = ["password"]
+class WorkspacePasswordSerializer(serializers.Serializer):
+    workspace_password = serializers.CharField(write_only=True, required=False)
 
     def validate(self, data):
-        is_guest_user = (
-            self.context.get("request").user.guest_user
-            if self.context.get("request").user
-            else False
-        )
-        in_guest_workspace = self.instance.guest_workspace if self.instance else False
-
-        if is_guest_user and in_guest_workspace:
-            self.match_old_password(self.context.get("request").user, data)
-            self.validation_checks(self.context.get("request").user, data)
-        return data
-
-    def update(self, instance, validated_data):
-        new_password = validated_data.get("password")
-        if new_password:
-            instance.set_password(new_password)
-            instance.save()
-        return instance
+        Workspace_password = data.get("workspace_password")
+        workspace = self.context.get("workspace")
+        if workspace and workspace.guest_workspace:
+            if workspace.match_workspace_password(Workspace_password):
+                return True
+        return False
