@@ -258,17 +258,17 @@ def create_tasks_from_dataitems(items, project):
                     result=item[prediction_field], task=task, completed_by=user_object
                 )
                 predictions.append(prediction)
-            #TODO:pair_id field to add in interaction json
-            #still there is a bug
-            elif project_type=="ModelInteractionEvaluation":
+            # TODO:pair_id field to add in interaction json
+            # still there is a bug
+            elif project_type == "ModelInteractionEvaluation":
                 """
-                    adding prompt_output_pair_id field to the each object
-                    present in the interactions_json field of task's data
+                adding prompt_output_pair_id field to the each object
+                present in the interactions_json field of task's data
                 """
                 print("triggered")
                 interaction_data = task["data"]["interactions_json"]
                 for i in range(len(interaction_data)):
-                    interaction_data[i]["prompt_output_pair_id"] = i+1 
+                    interaction_data[i]["prompt_output_pair_id"] = i + 1
                 task["data"]["interactions_json"] = interaction_data
 
         Annotation_model.objects.bulk_create(predictions)
@@ -380,7 +380,6 @@ def create_parameters_for_task_creation(
     project = Project.objects.get(pk=project_id)
 
     create_tasks_from_dataitems(sampled_items, project)
-    
 
 
 @shared_task
@@ -666,7 +665,7 @@ def export_project_new_record(
         tasks_list.append(OrderedDict(task_dict))
 
     project_type = project.project_type
-    
+
     for tl, task in zip(tasks_list, annotated_tasks):
         if task.output_data is not None:
             data_item = dataset_model.objects.get(id__exact=task.output_data.id)
@@ -678,17 +677,38 @@ def export_project_new_record(
             if project_type == "InstructionDrivenChat":
                 extra_data = get_attributes_for_IDC(project, task)
                 tl["data"].update(extra_data)
-                assign_attributes_and_save_dataitem(annotation_fields,task_annotation_fields,data_item,tl["data"],task,project_type)
+                assign_attributes_and_save_dataitem(
+                    annotation_fields,
+                    task_annotation_fields,
+                    data_item,
+                    tl["data"],
+                    task,
+                    project_type,
+                )
 
             elif project_type == "ModelInteractionEvaluation":
                 item_data_list = get_attributes_for_ModelInteractionEvaluation(task)
                 for item in range(len(item_data_list)):
                     data_item = dataset_model()
                     data_item.instance_id = export_dataset_instance
-                    assign_attributes_and_save_dataitem(annotation_fields,task_annotation_fields,data_item,item_data_list[item],task,project_type)
+                    assign_attributes_and_save_dataitem(
+                        annotation_fields,
+                        task_annotation_fields,
+                        data_item,
+                        item_data_list[item],
+                        task,
+                        project_type,
+                    )
 
             else:
-                assign_attributes_and_save_dataitem(annotation_fields,task_annotation_fields,data_item,tl["data"],task,project_type)
+                assign_attributes_and_save_dataitem(
+                    annotation_fields,
+                    task_annotation_fields,
+                    data_item,
+                    tl["data"],
+                    task,
+                    project_type,
+                )
 
     """
     download_resources = True

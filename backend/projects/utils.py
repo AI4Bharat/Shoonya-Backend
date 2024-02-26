@@ -214,7 +214,8 @@ def ocr_word_count(annotation_result):
 
     return word_count
 
-#function to obtain the correct annotation object
+
+# function to obtain the correct annotation object
 def get_correct_annotation_obj(task):
     annotation = Annotation.objects.filter(task=task)
     correct_ann_obj = annotation[0]
@@ -228,6 +229,7 @@ def get_correct_annotation_obj(task):
                 correct_ann_obj = ann
     return correct_ann_obj
 
+
 def get_attributes_for_IDC(project, task):
     correct_ann_obj = get_correct_annotation_obj(task)
     return {
@@ -239,7 +241,8 @@ def get_attributes_for_IDC(project, task):
         "time_taken": 0.0,
     }
 
-def get_prompt_output_by_id(prompt_output_pair_id,task_data_dict):
+
+def get_prompt_output_by_id(prompt_output_pair_id, task_data_dict):
     for interaction in task_data_dict.get("interactions_json", []):
         if interaction.get("prompt_output_pair_id") == prompt_output_pair_id:
             return interaction.get("prompt"), interaction.get("output")
@@ -252,32 +255,37 @@ def get_attributes_for_ModelInteractionEvaluation(task):
     annotation_result_json = correct_ann_obj.result
 
     interaction_id = Interaction.objects.get(id=task.data["interaction_id"])
-    
+
     model = interaction_id.model
     language = interaction_id.language
     for obj in annotation_result_json:
-        prompt_output_pair = get_prompt_output_by_id(obj["prompt_output_pair_id"],task.data)
+        prompt_output_pair = get_prompt_output_by_id(
+            obj["prompt_output_pair_id"], task.data
+        )
         temp_attributes_obj = {
-            "interaction_id":interaction_id,
-            "eval_form_output_json":obj['form_output_json'],
-            "eval_output_likert_score":obj['output_likert_score'],
-            "eval_time_taken":obj['time_taken'],
-            "model":model,
-            "language":language,
-            "prompt":prompt_output_pair[0],
-            "output":prompt_output_pair[1],
+            "interaction_id": interaction_id,
+            "eval_form_output_json": obj["form_output_json"],
+            "eval_output_likert_score": obj["output_likert_score"],
+            "eval_time_taken": obj["time_taken"],
+            "model": model,
+            "language": language,
+            "prompt": prompt_output_pair[0],
+            "output": prompt_output_pair[1],
         }
         print(temp_attributes_obj)
         res.append(temp_attributes_obj)
 
     return res
 
-def assign_attributes_and_save_dataitem(annotation_fields,task_annotation_fields,data_item,task_data,task,project_type):
+
+def assign_attributes_and_save_dataitem(
+    annotation_fields, task_annotation_fields, data_item, task_data, task, project_type
+):
     for field in annotation_fields:
         setattr(data_item, field, task_data[field])
     for field in task_annotation_fields:
         setattr(data_item, field, task_data[field])
-    if project_type=="ModelInteractionEvaluation":
+    if project_type == "ModelInteractionEvaluation":
         setattr(data_item, "prompt", task_data["prompt"])
         setattr(data_item, "output", task_data["output"])
         setattr(data_item, "model", task_data["model"])
@@ -285,4 +293,3 @@ def assign_attributes_and_save_dataitem(annotation_fields,task_annotation_fields
     data_item.save()
     task.output_data = data_item
     task.save()
-
