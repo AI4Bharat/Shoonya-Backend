@@ -3954,7 +3954,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
                     return Response(ret_dict, status=ret_status)
-                export_project_new_record.delay(
+                export_project_new_record(
                     annotation_fields=annotation_fields,
                     project_id=pk,
                     project_type=project_type,
