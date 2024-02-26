@@ -19,7 +19,7 @@ from tasks.serializers import (
     PredictionSerializer,
     TaskAnnotationSerializer,
 )
-from tasks.utils import compute_meta_stats_for_instruction_driven_chat
+from tasks.utils import compute_meta_stats_for_instruction_driven_chat, query_flower
 
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
@@ -43,8 +43,6 @@ from rapidfuzz.distance import Levenshtein
 import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
-
-from backend.tasks.utils import query_flower
 
 
 # Create your views here.
