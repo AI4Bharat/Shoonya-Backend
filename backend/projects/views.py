@@ -14,7 +14,13 @@ from django.db import IntegrityError
 
 import notifications
 from shoonya_backend.pagination import CustomPagination
-from .utils import ocr_word_count
+from .utils import (
+    ocr_word_count,
+    process_conversation_tasks,
+    process_speech_tasks,
+    process_ocr_tasks,
+    process_task,
+)
 from django.http import HttpResponse, JsonResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -4091,183 +4097,52 @@ class ProjectViewSet(viewsets.ModelViewSet):
             is_audio_project_type = (
                 True if project_type in get_audio_project_types() else False
             )
+            dataset_model = ""
             if include_input_data_metadata_json:
                 dataset_type = project.dataset_id.all()[0].dataset_type
                 dataset_model = getattr(dataset_models, dataset_type)
-            for task in tasks:
-                task_dict = model_to_dict(task)
-                if export_type != "JSON":
-                    task_dict["data"]["task_status"] = task.task_status
-                # Rename keys to match label studio converter
-                # task_dict['id'] = task_dict['task_id']
-                # del task_dict['task_id']
-                correct_annotation = task.correct_annotation
-                if correct_annotation is None and task.task_status in [
-                    ANNOTATED,
-                ]:
-                    correct_annotation = task.annotations.all().filter(
-                        annotation_type=ANNOTATOR_ANNOTATION
-                    )[0]
-                if correct_annotation is None and task.task_status in [
-                    REVIEWED,
-                ]:
-                    correct_annotation = task.annotations.all().filter(
-                        annotation_type=REVIEWER_ANNOTATION
-                    )[0]
-
-                annotator_email = ""
-                if correct_annotation is not None:
-                    try:
-                        annotator_email = correct_annotation.completed_by.email
-                    except:
-                        pass
-                    annotation_dict = model_to_dict(correct_annotation)
-                    # annotation_dict['result'] = annotation_dict['result_json']
-
-                    # del annotation_dict['result_json']
-                    # print(annotation_dict)
-                    annotation_dict["created_at"] = str(correct_annotation.created_at)
-                    annotation_dict["updated_at"] = str(correct_annotation.updated_at)
-                    task_dict["annotations"] = [OrderedDict(annotation_dict)]
-                else:
-                    task_dict["annotations"] = [OrderedDict({"result": {}})]
-
-                task_dict["data"]["annotator_email"] = annotator_email
-
-                if include_input_data_metadata_json:
-                    task_dict["data"][
-                        "input_data_metadata_json"
-                    ] = dataset_model.objects.get(
-                        pk=task_dict["input_data"]
-                    ).metadata_json
-                del task_dict["annotation_users"]
-                del task_dict["review_user"]
-
-                if is_audio_project_type:
-                    data = task_dict["data"]
-                    del data["audio_url"]
-                    task_dict["data"] = data
-                tasks_list.append(OrderedDict(task_dict))
-
             dataset_type = project.dataset_id.all()[0].dataset_type
-            is_ConversationTranslation = (
-                True if project_type == "ConversationTranslation" else False
-            )
+            is_ConversationTranslation = project_type == "ConversationTranslation"
             is_ConversationTranslationEditing = (
-                True if project_type == "ConversationTranslationEditing" else False
+                project_type == "ConversationTranslationEditing"
             )
-            is_ConversationVerification = (
-                True if project_type == "ConversationVerification" else False
+            is_ConversationVerification = project_type == "ConversationVerification"
+            is_AudioSegmentation = project_type == "AudioSegmentation"
+            is_OCRSegmentCategorizationEditing = (
+                project_type == "OCRSegmentCategorizationEditing"
             )
-            if (
-                is_ConversationTranslation
-                or is_ConversationTranslationEditing
-                or is_ConversationVerification
-            ):
-                for task in tasks_list:
-                    if is_ConversationTranslation:
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).conversation_json
-                    elif is_ConversationVerification:
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).unverified_conversation_json
-                    else:
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).machine_translated_conversation_json
-                    if isinstance(conversation_json, str):
-                        conversation_json = json.loads(conversation_json)
-                    for idx1 in range(len(conversation_json)):
-                        for idx2 in range(len(conversation_json[idx1]["sentences"])):
-                            conversation_json[idx1]["sentences"][idx2] = ""
-                    for result in task["annotations"][0]["result"]:
-                        if isinstance(result, str):
-                            text_dict = result
-                        else:
-                            text_dict = json.dumps(result, ensure_ascii=False)
-                        result_formatted = json.loads(text_dict)
-                        if result["to_name"] != "quality_status":
-                            to_name_list = result["to_name"].split("_")
-                            idx1 = int(to_name_list[1])
-                            idx2 = int(to_name_list[2])
-                            conversation_json[idx1]["sentences"][idx2] = ".".join(
-                                map(str, result_formatted["value"]["text"])
-                            )
-                        else:
-                            task["data"][
-                                "conversation_quality_status"
-                            ] = result_formatted["value"]["choices"][0]
-                    if is_ConversationVerification:
-                        task["data"]["verified_conversation_json"] = conversation_json
-                    else:
-                        task["data"]["translated_conversation_json"] = conversation_json
-            elif dataset_type in ["SpeechConversation", "OCRDocument"]:
-                is_SpeechConversation = (
-                    True if dataset_type == "SpeechConversation" else False
+            is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
+            for task in tasks:
+                curr_task = process_task(
+                    task,
+                    export_type,
+                    include_input_data_metadata_json,
+                    dataset_model,
+                    is_audio_project_type,
                 )
-                if is_SpeechConversation:
-                    is_AudioSegmentation = (
-                        True if project_type == "AudioSegmentation" else False
+                if (
+                    is_ConversationTranslation
+                    or is_ConversationTranslationEditing
+                    or is_ConversationVerification
+                ):
+                    process_conversation_tasks(
+                        curr_task,
+                        is_ConversationTranslation,
+                        is_ConversationVerification,
                     )
-                    for task in tasks_list:
-                        annotation_result = task["annotations"][0]["result"]
-                        annotation_result = (
-                            json.loads(annotation_result)
-                            if isinstance(annotation_result, str)
-                            else annotation_result
+                elif dataset_type in ["SpeechConversation", "OCRDocument"]:
+                    is_SpeechConversation = dataset_type == "SpeechConversation"
+                    if is_SpeechConversation:
+                        process_speech_tasks(
+                            curr_task, is_AudioSegmentation, project_type
                         )
-                        speakers_json = task["data"]["speakers_json"]
-                        task["annotations"][0]["result"] = []
-                        if is_AudioSegmentation:
-                            task["data"][
-                                "prediction_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result,
-                                speakers_json,
-                                is_SpeechConversation,
-                                False,
-                                False,
-                            )
-                        else:
-                            task["data"][
-                                "transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result,
-                                speakers_json,
-                                is_SpeechConversation,
-                                False,
-                                project_type
-                                == "AcousticNormalisedTranscriptionEditing",
-                            )
-                else:
-                    is_OCRSegmentCategorizationEditing = (
-                        True
-                        if project_type == "OCRSegmentCategorizationEditing"
-                        else False
-                    )
-                    is_OCRSegmentCategorization = (
-                        True if project_type == "OCRSegmentCategorization" else False
-                    )
-                    for task in tasks_list:
-                        annotation_result = task["annotations"][0]["result"]
-                        annotation_result = (
-                            json.loads(annotation_result)
-                            if isinstance(annotation_result, str)
-                            else annotation_result
+                    else:
+                        process_ocr_tasks(
+                            curr_task,
+                            is_OCRSegmentCategorization,
+                            is_OCRSegmentCategorizationEditing,
                         )
-                        task["annotations"][0]["result"] = []
-                        task["data"][
-                            "ocr_transcribed_json"
-                        ] = convert_annotation_result_to_formatted_json(
-                            annotation_result,
-                            None,
-                            False,
-                            is_OCRSegmentCategorization
-                            or is_OCRSegmentCategorizationEditing,
-                            False,
-                        )
+                tasks_list.append(curr_task)
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
