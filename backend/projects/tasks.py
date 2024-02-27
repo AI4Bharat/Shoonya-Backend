@@ -265,13 +265,13 @@ def create_tasks_from_dataitems(items, project):
                 adding prompt_output_pair_id field to the each object
                 present in the interactions_json field of task's data
                 """
-                print("triggered")
+                # print("triggered")
                 interaction_data = task["data"]["interactions_json"]
                 for i in range(len(interaction_data)):
                     interaction_data[i]["prompt_output_pair_id"] = i + 1
                 task["data"]["interactions_json"] = interaction_data
-
         Annotation_model.objects.bulk_create(predictions)
+    print("triggered")
     return tasks
 
 
@@ -603,7 +603,7 @@ def export_project_in_place(
     return f"Exported {len(data_items)} items."
 
 
-# @shared_task
+@shared_task
 def export_project_new_record(
     annotation_fields,
     project_id,
