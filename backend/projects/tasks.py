@@ -258,20 +258,18 @@ def create_tasks_from_dataitems(items, project):
                     result=item[prediction_field], task=task, completed_by=user_object
                 )
                 predictions.append(prediction)
-            # TODO:pair_id field to add in interaction json
-            # still there is a bug
-            elif project_type == "ModelInteractionEvaluation":
-                """
-                adding prompt_output_pair_id field to the each object
-                present in the interactions_json field of task's data
-                """
-                # print("triggered")
-                interaction_data = task["data"]["interactions_json"]
-                for i in range(len(interaction_data)):
-                    interaction_data[i]["prompt_output_pair_id"] = i + 1
-                task["data"]["interactions_json"] = interaction_data
         Annotation_model.objects.bulk_create(predictions)
-    print("triggered")
+    if project_type == "ModelInteractionEvaluation":
+        for task in tasks:
+            """
+            adding prompt_output_pair_id field to the each object
+            present in the interactions_json field of task's data
+            """
+            interaction_data = task.data["interactions_json"]
+            for i in range(len(interaction_data)):
+                interaction_data[i]["prompt_output_pair_id"] = i + 1
+            task.data["interactions_json"] = interaction_data
+            task.save()
     return tasks
 
 
