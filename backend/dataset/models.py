@@ -307,6 +307,10 @@ class OCRDocument(DatasetBase):
         verbose_name="image_details_json", null=True, blank=True
     )
 
+    bboxes_relation_json = models.JSONField(
+        verbose_name="image_details_json", null=True, blank=True
+    )
+
     def __str__(self):
         return str(self.id)
 

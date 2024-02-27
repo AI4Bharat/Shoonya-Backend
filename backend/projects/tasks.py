@@ -439,8 +439,13 @@ def export_project_in_place(
 
     export_excluded_task_ids = []
 
+    is_SpeechConversation = output_dataset_info["dataset_type"] == "SpeechConversation"
+    is_AcousticNormalisedTranscriptionEditing = (
+        project_type == "AcousticNormalisedTranscriptionEditing"
+    )
+    is_ConversationVerification = project.project_type == "ConversationVerification"
     for ta, tl, task in zip(tasks_annotations, tasks_list, annotated_tasks):
-        if output_dataset_info["dataset_type"] == "SpeechConversation":
+        if is_SpeechConversation:
             try:
                 ta_labels = json.loads(ta["labels"])
             except Exception as error:
@@ -448,7 +453,7 @@ def export_project_in_place(
                 print(error)
                 export_excluded_task_ids.append(task.id)
                 continue
-            if project_type == "AcousticNormalisedTranscriptionEditing":
+            if is_AcousticNormalisedTranscriptionEditing:
                 try:
                     ta_transcribed_json = json.loads(ta["verbatim_transcribed_json"])
                 except json.JSONDecodeError:
@@ -502,11 +507,11 @@ def export_project_in_place(
                         )["speaker_id"]
                         ta_labels[idx]["speaker_id"] = speaker_id
                         del ta_labels[idx]["labels"]
-                        if project_type == "AcousticNormalisedTranscriptionEditing":
+                        if is_AcousticNormalisedTranscriptionEditing:
                             temp = deepcopy(ta_labels[idx])
                             temp["text"] = ta_acoustic_transcribed_json[idx]
                             ta_acoustic_transcribed_json[idx] = temp
-                    if project_type == "AcousticNormalisedTranscriptionEditing":
+                    if is_AcousticNormalisedTranscriptionEditing:
                         try:
                             standardised_transcription = json.loads(
                                 ta["standardised_transcription"]
@@ -526,7 +531,7 @@ def export_project_in_place(
                     else:
                         setattr(data_item, field, ta_labels)
                 elif field == "conversation_json":
-                    if project.project_type == "ConversationVerification":
+                    if is_ConversationVerification:
                         conversation_json = data_item.unverified_conversation_json
                     else:
                         conversation_json = (
@@ -614,6 +619,12 @@ def export_project_in_place(
                                 if "parentID" in ann[0]["result"][idx * 2]
                                 else ""
                             )
+                    bboxes_relation_json = []
+                    for r in ann[0]["result"]:
+                        if "type" in r and r["type"] == "relation":
+                            bboxes_relation_json.append(r)
+                    if bboxes_relation_json:
+                        setattr(data_item, "bboxes_relation_json", bboxes_relation_json)
                     setattr(data_item, field, ta_ocr_transcribed_json)
                 else:
                     setattr(data_item, field, ta[field])
