@@ -2590,10 +2590,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         task.save()
 
                     return Response(
-                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
+                        {"message": "Tasks unassigned based on annotation status"},
+                        status=status.HTTP_200_OK,
                     )
                 return Response(
-                    {"message": "No tasks to unassign"}, status=status.HTTP_200_OK
+                    {"message": "No tasks to unassign based on annotation status"},
+                    status=status.HTTP_200_OK,
                 )
             return Response(
                 {"message": "Only annotators can unassign tasks"},
