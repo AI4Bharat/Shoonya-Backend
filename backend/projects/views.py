@@ -4270,6 +4270,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             or is_OCRSegmentCategorizationEditing,
                             False,
                         )
+                        if (
+                            is_OCRSegmentCategorization
+                            or is_OCRSegmentCategorizationEditing
+                        ):
+                            bboxes_relation_json = []
+                            for ann in annotation_result:
+                                if "type" in ann and ann["type"] == "relation":
+                                    bboxes_relation_json.append(ann)
+                            task["data"]["bboxes_relation_json"] = bboxes_relation_json
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
