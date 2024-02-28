@@ -1,6 +1,6 @@
 from celery import shared_task
 from datetime import datetime
-from azure.storage.blob import BlobServiceClient,generate_blob_sas, BlobSasPermissions
+from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from django.core.mail import EmailMessage
 from django.conf import settings
 from utils.blob_functions import (
@@ -13,6 +13,7 @@ import os
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 TRANSLITERATION_CONTAINER_NAME = os.getenv("TRANSLITERATION_CONTAINER_NAME")
 
+
 def get_azure_credentials(connection_string):
     account_key = extract_account_key(connection_string)
     account_name = extract_account_name(connection_string)
@@ -22,6 +23,7 @@ def get_azure_credentials(connection_string):
         raise Exception("Azure credentials are missing or incorrect")
 
     return account_key, account_name, endpoint_suffix
+
 
 @shared_task
 def send_email_with_url(user_email, attachment_url):
@@ -39,13 +41,16 @@ def send_email_with_url(user_email, attachment_url):
         print(f"Failed to send email: {str(e)}")
         raise e
 
+
 @shared_task
 def retrieve_logs_and_send_through_email(start_date_str, end_date_str, user_email):
     try:
         blob_service_client = BlobServiceClient.from_connection_string(
             AZURE_STORAGE_CONNECTION_STRING
         )
-        container_client = blob_service_client.get_container_client(TRANSLITERATION_CONTAINER_NAME)
+        container_client = blob_service_client.get_container_client(
+            TRANSLITERATION_CONTAINER_NAME
+        )
 
         if not start_date_str and not end_date_str:
             central_blob_client = container_client.get_blob_client("central.log")
@@ -72,11 +77,12 @@ def retrieve_logs_and_send_through_email(start_date_str, end_date_str, user_emai
                     if start_date <= blob_date <= end_date:
                         log_content += content.decode("utf-8")
                 except Exception as e:
-                    print(f"Failed to aggregate the logs between given dates : {str(e)}")
+                    print(
+                        f"Failed to aggregate the logs between given dates : {str(e)}"
+                    )
                     raise e
-                    
 
-            if log_content=="":
+            if log_content == "":
                 raise Exception("No logs found")
 
             log_content = log_content.replace("][", ",")

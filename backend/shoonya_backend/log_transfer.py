@@ -90,6 +90,6 @@ def rotate_logs():
 @shared_task(name="check_size")
 def check_file_size_limit():
     log_file_size = os.path.getsize(log_file_path)
-    print("The current size of the log file is : ",str(log_file_size))
+    print("The current size of the log file is : ", str(log_file_size))
     if log_file_size >= MAX_FILE_SIZE_LIMIT:
         rotate_logs()

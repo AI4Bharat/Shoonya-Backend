@@ -18,6 +18,7 @@ load_dotenv()
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 TRANSLITERATION_CONTAINER_NAME = os.getenv("TRANSLITERATION_CONTAINER_NAME")
 
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
@@ -131,7 +132,9 @@ class TransliterationSelectionViewSet(APIView):
                     {"message": "User with the provided user_id does not exist"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            retrieve_logs_and_send_through_email.delay(start_date_str,end_date_str,user.email)
+            retrieve_logs_and_send_through_email.delay(
+                start_date_str, end_date_str, user.email
+            )
         except Exception as e:
             return Response(
                 {"message": "Failed to retrieve logs", "error": str(e)},
