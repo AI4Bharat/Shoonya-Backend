@@ -444,6 +444,7 @@ def export_project_in_place(
         project_type == "AcousticNormalisedTranscriptionEditing"
     )
     is_ConversationVerification = project.project_type == "ConversationVerification"
+    bboxes_relation_json = []
     for ta, tl, task in zip(tasks_annotations, tasks_list, annotated_tasks):
         if is_SpeechConversation:
             try:
@@ -632,6 +633,8 @@ def export_project_in_place(
         except Exception as e:
             export_excluded_task_ids.append(task.id)
     # Write json to dataset columns
+    if bboxes_relation_json:
+        annotation_fields.append("bboxes_relation_json")
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
     tasks = tasks.exclude(id__in=export_excluded_task_ids)
