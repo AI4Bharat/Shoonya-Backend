@@ -3,16 +3,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from loging.serializers import TransliterationSerializer
 from azure.storage.blob import BlobServiceClient
-from azure.storage.blob import generate_blob_sas, BlobSasPermissions
-from .tasks import retrieve_logs, send_email_with_url
+from .tasks import retrieve_logs_and_send_through_email
 from users.models import User
 from rest_framework.permissions import IsAuthenticated
-from utils.blob_functions import (
-    extract_account_key,
-    extract_account_name,
-    extract_endpoint_suffix,
-    test_container_connection,
-)
+from utils.blob_functions import test_container_connection
+
 import os
 import json
 import datetime
@@ -20,21 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 TRANSLITERATION_CONTAINER_NAME = os.getenv("TRANSLITERATION_CONTAINER_NAME")
-
-
-def get_azure_credentials(connection_string):
-    account_key = extract_account_key(connection_string)
-    account_name = extract_account_name(connection_string)
-    endpoint_suffix = extract_endpoint_suffix(connection_string)
-
-    if not account_key or not account_name or not endpoint_suffix:
-        raise Exception("Azure credentials are missing or incorrect")
-
-    return account_key, account_name, endpoint_suffix
-
 
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -149,57 +131,9 @@ class TransliterationSelectionViewSet(APIView):
                     {"message": "User with the provided user_id does not exist"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-
-            if start_date_str and end_date_str:
-                task = retrieve_logs.delay(start_date_str, end_date_str)
-            else:
-                task = retrieve_logs.delay(None, None)
-
-            result = task.get()
-            log_content = result.get("log_content", "")
-            file_name = result.get("file_name", "")
-            file_name_with_prefix = f"temp_{file_name}"
-
-            blob_service_client = BlobServiceClient.from_connection_string(
-                AZURE_STORAGE_CONNECTION_STRING
-            )
-            container_client = blob_service_client.get_container_client(
-                TRANSLITERATION_CONTAINER_NAME
-            )
-            blob_client = container_client.get_blob_client(file_name_with_prefix)
-            blob_client.upload_blob(log_content, overwrite=True)
-
-            expiry = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-
-            account_key, account_name, endpoint_suffix = get_azure_credentials(
-                AZURE_STORAGE_CONNECTION_STRING
-            )
-
-            sas_token = generate_blob_sas(
-                container_name=TRANSLITERATION_CONTAINER_NAME,
-                blob_name=blob_client.blob_name,
-                account_name=account_name,
-                account_key=account_key,
-                permission=BlobSasPermissions(read=True),
-                expiry=expiry,
-            )
-
-            blob_url = f"https://{account_name}.blob.{endpoint_suffix}/{TRANSLITERATION_CONTAINER_NAME}/{blob_client.blob_name}?{sas_token}"
-            result = send_email_with_url.delay(user.email, blob_url)
-            task_status = result.get()
-
-            if task_status["status"] == "success":
-                return Response(
-                    {"message": task_status["message"]}, status=status.HTTP_200_OK
-                )
-            else:
-                return Response(
-                    {"message": task_status["message"]},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-
+            retrieve_logs_and_send_through_email.delay(start_date_str,end_date_str,user.email)
         except Exception as e:
             return Response(
-                {"message": "Failed to store log content in blob", "error": str(e)},
+                {"message": "Failed to retrieve logs", "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
