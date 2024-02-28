@@ -1128,6 +1128,8 @@ def convert_annotation_result_to_formatted_json(
                     if type(text_dict_json["value"]["text"]) == list
                     else text_dict_json["value"]["text"]
                 )
+                formatted_result_dict["id"] = rectangle_dict.get("id", "")
+                formatted_result_dict["parentID"] = rectangle_dict.get("parentID", "")
             except Exception as e:
                 return Response(
                     {"message": "Some data is missing in annotation result- " + f"{e}"},
