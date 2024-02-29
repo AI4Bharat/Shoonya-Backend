@@ -1682,7 +1682,11 @@ class AnnotationViewSet(
                 VALIDATED_WITH_CHANGES,
             ]:
                 return Response(
-                    {"message": "Auto save disabled for submitted tasks."},
+                    {
+                        "message": "Auto save disabled for "
+                        + annotation_obj.annotation_status
+                        + " tasks."
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -2136,7 +2140,6 @@ class AnnotationViewSet(
                         ]
                         <= 3,
                     )
-                    annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
                         LABELED,
                         ACCEPTED,
@@ -2253,7 +2256,7 @@ class AnnotationViewSet(
         empty_text_flag = False
         audio_duration = task.data["audio_duration"]
         if result == None or len(result) == 0:
-            return modified_result
+            return modified_result, empty_text_flag
         for idx, val in enumerate(result):
             if "standardised_transcription" in val:
                 if acoustic_enabled:
