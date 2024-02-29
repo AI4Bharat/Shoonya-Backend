@@ -2449,7 +2449,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             and "annotation_status" in request.query_params
         )
 
-        if flag==False:
+        if flag == False:
             try:
                 task_ids = request.data.get("task_ids", None)
             except ValueError:
@@ -2746,7 +2746,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             "reviewer_id" in request.query_params
             and "review_status" in request.query_params
         )
-        if flag==False:
+        if flag == False:
             try:
                 task_ids = request.data.get("task_ids", None)
             except ValueError:
@@ -3017,7 +3017,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             "superchecker_id" in request.query_params
             and "supercheck_status" in request.query_params
         )
-        if flag==False:
+        if flag == False:
             try:
                 task_ids = request.data.get("task_ids", None)
             except ValueError:
