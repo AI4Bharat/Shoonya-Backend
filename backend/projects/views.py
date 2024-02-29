@@ -3046,13 +3046,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task__project_id=project_id,
                     annotation_type=SUPER_CHECKER_ANNOTATION,
                 )
-            if flag == True:
-                ann = ann.filter(
-                    completed_by=user.id,
-                    annotation_status__in=supercheck_status,
-                )
-            elif task_ids != None:
-                ann = ann.filter(task__id__in=task_ids)
+                if flag == True:
+                    ann = ann.filter(
+                        completed_by=user.id,
+                        annotation_status__in=supercheck_status,
+                    )
+                elif task_ids != None:
+                    ann = ann.filter(task__id__in=task_ids)
 
                 for an in ann:
                     if an.annotation_status == REJECTED:
