@@ -22,6 +22,8 @@ from .utils import (
     no_of_words,
     conversation_sentence_count,
     get_attributes_for_IDC,
+    get_attributes_for_ModelInteractionEvaluation,
+    assign_attributes_and_save_dataitem,
 )
 from .annotation_registry import *
 
@@ -256,9 +258,18 @@ def create_tasks_from_dataitems(items, project):
                     result=item[prediction_field], task=task, completed_by=user_object
                 )
                 predictions.append(prediction)
-        #
-        # Prediction.objects.bulk_create(predictions)
         Annotation_model.objects.bulk_create(predictions)
+    if project_type == "ModelInteractionEvaluation":
+        for task in tasks:
+            """
+            adding prompt_output_pair_id field to the each object
+            present in the interactions_json field of task's data
+            """
+            interaction_data = task.data["interactions_json"]
+            for i in range(len(interaction_data)):
+                interaction_data[i]["prompt_output_pair_id"] = i + 1
+            task.data["interactions_json"] = interaction_data
+            task.save()
     return tasks
 
 
@@ -650,22 +661,52 @@ def export_project_new_record(
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
+
+    project_type = project.project_type
+
     for tl, task in zip(tasks_list, annotated_tasks):
         if task.output_data is not None:
             data_item = dataset_model.objects.get(id__exact=task.output_data.id)
+
         else:
             data_item = dataset_model()
             data_item.instance_id = export_dataset_instance
-        if project.project_type == "InstructionDrivenChat":
-            extra_data = get_attributes_for_IDC(project, task)
-            tl["data"].update(extra_data)
-        for field in annotation_fields:
-            setattr(data_item, field, tl["data"][field])
-        for field in task_annotation_fields:
-            setattr(data_item, field, tl["data"][field])
-        data_item.save()
-        task.output_data = data_item
-        task.save()
+
+            if project_type == "InstructionDrivenChat":
+                extra_data = get_attributes_for_IDC(project, task)
+                tl["data"].update(extra_data)
+                assign_attributes_and_save_dataitem(
+                    annotation_fields,
+                    task_annotation_fields,
+                    data_item,
+                    tl["data"],
+                    task,
+                    project_type,
+                )
+
+            elif project_type == "ModelInteractionEvaluation":
+                item_data_list = get_attributes_for_ModelInteractionEvaluation(task)
+                for item in range(len(item_data_list)):
+                    data_item = dataset_model()
+                    data_item.instance_id = export_dataset_instance
+                    assign_attributes_and_save_dataitem(
+                        annotation_fields,
+                        task_annotation_fields,
+                        data_item,
+                        item_data_list[item],
+                        task,
+                        project_type,
+                    )
+
+            else:
+                assign_attributes_and_save_dataitem(
+                    annotation_fields,
+                    task_annotation_fields,
+                    data_item,
+                    tl["data"],
+                    task,
+                    project_type,
+                )
 
     """
     download_resources = True

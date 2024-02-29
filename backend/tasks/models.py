@@ -130,6 +130,7 @@ class Task(models.Model):
         blank=True,
         related_name="input_data",
     )
+    # TODO:make this field one to many
     output_data = models.ForeignKey(
         DatasetBase,
         verbose_name="output_data",
