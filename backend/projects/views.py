@@ -2448,9 +2448,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             "annotator_id" in request.query_params
             and "annotation_status" in request.query_params
         )
-        if flag == True:
-            pass
-        else:
+
+        if flag==False:
             try:
                 task_ids = request.data.get("task_ids", None)
             except ValueError:
@@ -2475,8 +2474,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if flag == True:
                 ann = ann.filter(
                     completed_by=user.id,
-                )
-                ann = ann.filter(
                     annotation_status__in=annotation_status,
                 )
             elif task_ids != None:
@@ -2749,9 +2746,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             "reviewer_id" in request.query_params
             and "review_status" in request.query_params
         )
-        if flag == True:
-            pass
-        else:
+        if flag==False:
             try:
                 task_ids = request.data.get("task_ids", None)
             except ValueError:
@@ -2781,8 +2776,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if flag == True:
                     ann = ann.filter(
                         completed_by=user.id,
-                    )
-                    ann = ann.filter(
                         annotation_status__in=review_status,
                     )
                 elif task_ids != None:
@@ -3024,9 +3017,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             "superchecker_id" in request.query_params
             and "supercheck_status" in request.query_params
         )
-        if flag == True:
-            pass
-        else:
+        if flag==False:
             try:
                 task_ids = request.data.get("task_ids", None)
             except ValueError:
@@ -3058,8 +3049,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if flag == True:
                 ann = ann.filter(
                     completed_by=user.id,
-                )
-                ann = ann.filter(
                     annotation_status__in=supercheck_status,
                 )
             elif task_ids != None:
