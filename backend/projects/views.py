@@ -2707,7 +2707,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=["get"],
+        methods=["post"],
         name="Unassign review tasks",
         url_name="unassign_review_tasks",
     )
@@ -2738,21 +2738,55 @@ class ProjectViewSet(viewsets.ModelViewSet):
             review_status = request.query_params["review_status"]
             review_status = ast.literal_eval(review_status)
         else:
+            pass
+
+        task_ids = None
+        """
+        this flag is of type boolean
+        it denotes whether annotator_id and annotation_status both these are present in the query params or not
+        """
+        flag = (
+            "reviewer_id" in request.query_params
+            and "review_status" in request.query_params
+        )
+        if flag == True:
+            pass
+        else:
+            try:
+                task_ids = request.data.get("task_ids", None)
+            except ValueError:
+                return Response(
+                    {"message": "Invalid JSON format in request body"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if flag == False and task_ids == None:
             return Response(
-                {"message": "please provide the review_status to unassign tasks"},
+                {"message": "Either provide reviewer_id and review_status or task_ids"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
         if project_id:
-            project_obj = Project.objects.get(pk=project_id)
-            if project_obj and user in project_obj.annotation_reviewers.all():
+            try:
+                project_obj = Project.objects.get(pk=project_id)
+            except Project.DoesNotExist:
+                final_result = {"message": "Project does not exist!"}
+                ret_status = status.HTTP_404_NOT_FOUND
+                return Response(final_result, status=ret_status)
+            if project_obj:
                 ann = Annotation_model.objects.filter(
                     task__project_id=project_id,
-                    completed_by=user.id,
                     annotation_type=REVIEWER_ANNOTATION,
-                    annotation_status__in=review_status,
                 )
-                tas_ids = [an.task_id for an in ann]
+                if flag == True:
+                    ann = ann.filter(
+                        completed_by=user.id,
+                    )
+                    ann = ann.filter(
+                        annotation_status__in=review_status,
+                    )
+                elif task_ids != None:
+                    ann = ann.filter(task__id__in=task_ids)
 
                 superchecker_annotation_ids = []
                 supercheck_pulled_tasks = []
@@ -2786,7 +2820,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     an.save()
                     an.delete()
 
-                tasks = Task.objects.filter(id__in=tas_ids)
+                tasks = Task.objects.filter(id__in=task_ids)
                 if tasks.count() > 0:
                     tasks.update(review_user=None)
                     tasks.update(
