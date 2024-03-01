@@ -2489,6 +2489,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     reviewer_pulled_tasks.append(review_annotation_obj.task_id)
                 except:
                     pass
+            if task_ids == None:
+                task_ids = [an.task_id for an in ann]
             review_annotations = Annotation_model.objects.filter(
                 id__in=review_annotations_ids
             )
@@ -2794,7 +2796,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         )
                     except:
                         pass
-
+                if task_ids == None:
+                    task_ids = [an.task_id for an in ann]
                 supercheck_annotations = Annotation_model.objects.filter(
                     id__in=superchecker_annotation_ids
                 )
@@ -3053,7 +3056,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                 elif task_ids != None:
                     ann = ann.filter(task__id__in=task_ids)
-
+                if task_ids == None:
+                    task_ids = [an.task_id for an in ann]
                 for an in ann:
                     if an.annotation_status == REJECTED:
                         parent = an.parent_annotation
