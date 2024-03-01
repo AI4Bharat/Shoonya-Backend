@@ -169,6 +169,27 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             )
 
     @action(
+        detail=False,
+        methods=["GET"],
+        name="Unauthenticated Guest Wroskapce",
+        url_path="list_unauthenticated_guest_workspaces",
+    )
+    def list_unauthenticated_guest_workspaces(self, request):
+        try:
+            workspaces = Workspace.objects.filter(members__in=[request.user.pk])
+            this_user_workspace_ids = workspaces.values_list("id", flat=True)
+            guest_workspaces = Workspace.objects.filter(guest_workspace=True).exclude(
+                id__in=this_user_workspace_ids
+            )
+            serializer = WorkspaceSerializer(guest_workspaces, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"message": "Error Fetching guest workspace"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @action(
         detail=True,
         methods=["PUT"],
         name="Guest Authentication",
