@@ -2427,7 +2427,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         annotation_status = get_status_from_query_params(request, status_type)
 
         task_ids = None
-        
+
         flag = "annotation_status" in request.query_params
 
         if flag == False:
@@ -2437,9 +2437,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         if flag == False and task_ids == None:
             return Response(
-                {
-                    "message": "Either provide annotation_status or task_ids"
-                },
+                {"message": "Either provide annotation_status or task_ids"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
