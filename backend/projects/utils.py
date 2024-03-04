@@ -270,8 +270,7 @@ def get_user_from_query_params(
         else:
             response = Response(
                 {
-                    # TODO:dynamic response
-                    "message": "Only workspace managers can unassign tasks from other annotators."
+                    "message": f"Only workspace managers can unassign tasks from other {user_type}s."
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
