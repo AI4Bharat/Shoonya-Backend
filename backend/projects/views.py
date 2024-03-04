@@ -2684,47 +2684,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all labeled tasks from a reviewer.
         """
-        if "reviewer_id" in dict(request.query_params).keys():
-            reviewer_id = request.query_params["reviewer_id"]
-            reviewer = User.objects.get(pk=reviewer_id)
-            project = Project.objects.get(pk=pk)
-            workspace = project.workspace_id
-            if request.user in workspace.managers.all():
-                user = reviewer
-            else:
-                return Response(
-                    {
-                        "message": "Only workspace managers can unassign tasks from other reviewers"
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        else:
-            user = request.user
-        project_id = pk
+        user_type = "reviewer"
+        user, response = get_user_from_query_params(request, user_type, pk)
+        if response != None:
+            return response
 
-        if "review_status" in dict(request.query_params).keys():
-            review_status = request.query_params["review_status"]
-            review_status = ast.literal_eval(review_status)
-        else:
-            pass
+        status_type = "review"
+        review_status = get_status_from_query_params(request, status_type)
 
         task_ids = None
-        """
-        this flag is of type boolean
-        it denotes whether annotator_id and annotation_status both these are present in the query params or not
-        """
-        flag = (
-            "reviewer_id" in request.query_params
-            and "review_status" in request.query_params
-        )
+
+        flag = "review_status" in request.query_params
+
         if flag == False:
-            try:
-                task_ids = request.data.get("task_ids", None)
-            except ValueError:
-                return Response(
-                    {"message": "Invalid JSON format in request body"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            task_ids, response = get_task_ids(request)
+            if response != None:
+                return response
 
         if flag == False and task_ids == None:
             return Response(
@@ -2732,79 +2707,59 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if project_id:
-            try:
-                project_obj = Project.objects.get(pk=project_id)
-            except Project.DoesNotExist:
-                final_result = {"message": "Project does not exist!"}
-                ret_status = status.HTTP_404_NOT_FOUND
-                return Response(final_result, status=ret_status)
-            if project_obj:
-                ann = Annotation_model.objects.filter(
-                    task__project_id=project_id,
-                    annotation_type=REVIEWER_ANNOTATION,
-                )
-                if flag == True:
-                    ann = ann.filter(
-                        completed_by=user.id,
-                        annotation_status__in=review_status,
+        ann, response = get_annotations_for_project(
+            flag, pk, user, review_status, task_ids, REVIEWER_ANNOTATION
+        )
+        if response != None:
+            return response
+
+        if ann != None:
+            superchecker_annotation_ids = []
+            supercheck_pulled_tasks = []
+            for ann1 in ann:
+                try:
+                    supercheck_annotation_obj = Annotation_model.objects.get(
+                        parent_annotation=ann1
                     )
-                elif task_ids != None:
-                    ann = ann.filter(task__id__in=task_ids)
+                    superchecker_annotation_ids.append(supercheck_annotation_obj.id)
+                    supercheck_pulled_tasks.append(supercheck_annotation_obj.task_id)
+                except:
+                    pass
+            if task_ids == None:
+                task_ids = [an.task_id for an in ann]
+            supercheck_annotations = Annotation_model.objects.filter(
+                id__in=superchecker_annotation_ids
+            )
+            supercheck_tasks = Task.objects.filter(id__in=supercheck_pulled_tasks)
 
-                superchecker_annotation_ids = []
-                supercheck_pulled_tasks = []
-                for ann1 in ann:
-                    try:
-                        supercheck_annotation_obj = Annotation_model.objects.get(
-                            parent_annotation=ann1
-                        )
-                        superchecker_annotation_ids.append(supercheck_annotation_obj.id)
-                        supercheck_pulled_tasks.append(
-                            supercheck_annotation_obj.task_id
-                        )
-                    except:
-                        pass
-                if task_ids == None:
-                    task_ids = [an.task_id for an in ann]
-                supercheck_annotations = Annotation_model.objects.filter(
-                    id__in=superchecker_annotation_ids
-                )
-                supercheck_tasks = Task.objects.filter(id__in=supercheck_pulled_tasks)
+            supercheck_annotations.delete()
+            if len(supercheck_tasks) > 0:
+                supercheck_tasks.update(super_check_user=None)
 
-                supercheck_annotations.delete()
-                if len(supercheck_tasks) > 0:
-                    supercheck_tasks.update(super_check_user=None)
+            for an in ann:
+                if an.annotation_status == TO_BE_REVISED:
+                    parent = an.parent_annotation
+                    parent.annotation_status = LABELED
+                    parent.save(update_fields=["annotation_status"])
+                an.parent_annotation = None
+                an.save()
+                an.delete()
 
-                for an in ann:
-                    if an.annotation_status == TO_BE_REVISED:
-                        parent = an.parent_annotation
-                        parent.annotation_status = LABELED
-                        parent.save(update_fields=["annotation_status"])
-                    an.parent_annotation = None
-                    an.save()
-                    an.delete()
-
-                tasks = Task.objects.filter(id__in=task_ids)
-                if tasks.count() > 0:
-                    tasks.update(review_user=None)
-                    tasks.update(
-                        revision_loop_count=default_revision_loop_count_value()
-                    )
-                    tasks.update(task_status=ANNOTATED)
-                    return Response(
-                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
-                    )
+            tasks = Task.objects.filter(id__in=task_ids)
+            if tasks.count() > 0:
+                tasks.update(review_user=None)
+                tasks.update(revision_loop_count=default_revision_loop_count_value())
+                tasks.update(task_status=ANNOTATED)
                 return Response(
-                    {"message": "No tasks to unassign"},
-                    status=status.HTTP_404_NOT_FOUND,
+                    {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
             return Response(
-                {"message": "Only reviewers can unassign tasks"},
-                status=status.HTTP_403_FORBIDDEN,
+                {"message": "No tasks to unassign"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response(
-            {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
+            {"message": "Only reviewers can unassign tasks"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     @action(
