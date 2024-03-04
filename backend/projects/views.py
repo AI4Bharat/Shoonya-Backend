@@ -2412,63 +2412,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all unlabeled tasks from an annotator.
         """
-        # if "annotator_id" in dict(request.query_params).keys():
-        #     annotator_id = request.query_params["annotator_id"]
-        #     project = Project.objects.get(pk=pk)
-        #     annotator = User.objects.get(pk=annotator_id)
-        #     workspace = project.workspace_id
-        #     if request.user in workspace.managers.all():
-        #         user = annotator
-        #     else:
-        #         return Response(
-        #             {
-        #                 "message": "Only workspace managers can unassign tasks from other annotators."
-        #             },
-        #             status=status.HTTP_403_FORBIDDEN,
-        #         )
-        # else:
-        #     user = request.user
         user_type = "annotator"
         user, response = get_user_from_query_params(request, user_type, pk)
         if response != None:
             return response
 
-        user_obj = User.objects.get(pk=user.id)
-
-        # if "annotation_status" in dict(request.query_params).keys():
-        #     annotation_status = request.query_params["annotation_status"]
-        #     annotation_status = ast.literal_eval(annotation_status)
-        #     print(annotation_status)
-        # else:
-        #     pass
         status_type = "annotation"
         annotation_status = get_status_from_query_params(request, status_type)
 
-        # try:
-        #     project_obj = Project.objects.get(pk=project_id)
-        # except Project.DoesNotExist:
-        #     final_result = {"message": "Project does not exist!"}
-        #     ret_status = status.HTTP_404_NOT_FOUND
-        #     return Response(final_result, status=ret_status)
-
         task_ids = None
-        """
-        this flag is of type boolean
-        it denotes whether annotator_id and annotation_status both these are present in the query params or not
-        """
-        flag = (
-            "annotator_id" in request.query_params
-            and "annotation_status" in request.query_params
-        )
+        
+        flag = "annotation_status" in request.query_params
 
         if flag == False:
-            # try:
-            #     task_ids = request.data.get("task_ids", None)
-            # except ValueError:
-            #     return Response(
-            #         {"message": "Invalid JSON format in request body"},
-            #         status=status.HTTP_400_BAD_REQUEST,
-            #     )
             task_ids, response = get_task_ids(request)
             if response != None:
                 return response
@@ -2476,25 +2432,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if flag == False and task_ids == None:
             return Response(
                 {
-                    "message": "Either provide annotator_id and annotation_status or task_ids"
+                    "message": "Either provide annotation_status or task_ids"
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
-
-        # project_id = pk
-        # if project_id:
-        #     if project_obj:
-        #         ann = Annotation_model.objects.filter(
-        #             task__project_id=project_id,
-        #             annotation_type=ANNOTATOR_ANNOTATION,
-        #         )
-        #         if flag == True:
-        #             ann = ann.filter(
-        #                 completed_by=user.id,
-        #                 annotation_status__in=annotation_status,
-        #             )
-        #         elif task_ids != None:
-        #             ann = ann.filter(task__id__in=task_ids)
 
         ann, response = get_annotations_for_project(
             flag, pk, user, annotation_status, task_ids, ANNOTATOR_ANNOTATION
@@ -2553,7 +2494,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         "super_check_count": 0,
                         "review_count": 0,
                     }
-                    task.unassign(user_obj)
+                    task.unassign(user)
                     task.task_status = INCOMPLETE
                     task.save()
 

@@ -241,12 +241,6 @@ def ocr_word_count(annotation_result):
 
     return word_count
 
-
-"""
-This function retrieves user (annotator,reviewer,superchecker) from the query_params
-"""
-
-
 def get_user_from_query_params(
     request,
     user_type,
@@ -263,6 +257,7 @@ def get_user_from_query_params(
         else:
             response = Response(
                 {
+                    #TODO:dynamic response
                     "message": "Only workspace managers can unassign tasks from other annotators."
                 },
                 status=status.HTTP_403_FORBIDDEN,
@@ -272,24 +267,12 @@ def get_user_from_query_params(
         user = request.user
         return user, None
 
-
-"""
-This function retrives statuses (labled,unlabled,draft,etc.) from query_params
-"""
-
-
 def get_status_from_query_params(request, status_type):
     status_key = status_type + "_status"
     if status_key in dict(request.query_params).keys():
         status_value = request.query_params[status_key]
         return ast.literal_eval(status_value)
     return None
-
-
-"""
-This function retrives task_ids from the payload
-"""
-
 
 def get_task_ids(request):
     try:
@@ -300,12 +283,6 @@ def get_task_ids(request):
             {"message": f"Failed to get the task ids : {e}"},
             status=status.HTTP_400_BAD_REQUEST,
         )
-
-
-"""
-This function retrives all the required annotations from the given project id
-"""
-
 
 def get_annotations_for_project(
     flag, pk, user, status_value, task_ids, annotation_type
