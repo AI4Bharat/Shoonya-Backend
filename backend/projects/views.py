@@ -2911,47 +2911,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all labeled tasks from a superchecker.
         """
-        if "superchecker_id" in dict(request.query_params).keys():
-            superchecker_id = request.query_params["superchecker_id"]
-            superchecker = User.objects.get(pk=superchecker_id)
-            project = Project.objects.get(pk=pk)
-            workspace = project.workspace_id
-            if request.user in workspace.managers.all():
-                user = superchecker
-            else:
-                return Response(
-                    {
-                        "message": "Only workspace managers can unassign tasks from other supercheckers"
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        else:
-            user = request.user
-        project_id = pk
+        user_type = "superchecker"
+        user, response = get_status_from_query_params(request, user_type, pk)
+        if response != None:
+            return response
 
-        if "supercheck_status" in dict(request.query_params).keys():
-            supercheck_status = request.query_params["supercheck_status"]
-            supercheck_status = ast.literal_eval(supercheck_status)
-        else:
-            pass
+        status_type = "supercheck"
+        supercheck_status = get_status_from_query_params(request, status_type)
 
         task_ids = None
-        """
-        this flag is of type boolean
-        it denotes whether annotator_id and annotation_status both these are present in the query params or not
-        """
-        flag = (
-            "superchecker_id" in request.query_params
-            and "supercheck_status" in request.query_params
-        )
+
+        flag = "supercheck_status" in request.query_params
+
         if flag == False:
-            try:
-                task_ids = request.data.get("task_ids", None)
-            except ValueError:
-                return Response(
-                    {"message": "Invalid JSON format in request body"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            task_ids, response = get_task_ids(request)
+            if response != None:
+                return response
 
         if flag == False and task_ids == None:
             return Response(
@@ -2961,61 +2936,45 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if project_id:
-            try:
-                project_obj = Project.objects.get(pk=project_id)
-            except Project.DoesNotExist:
-                final_result = {"message": "Project does not exist!"}
-                ret_status = status.HTTP_404_NOT_FOUND
-                return Response(final_result, status=ret_status)
-            if project_obj:
-                ann = Annotation_model.objects.filter(
-                    task__project_id=project_id,
-                    annotation_type=SUPER_CHECKER_ANNOTATION,
-                )
-                if flag == True:
-                    ann = ann.filter(
-                        completed_by=user.id,
-                        annotation_status__in=supercheck_status,
-                    )
-                elif task_ids != None:
-                    ann = ann.filter(task__id__in=task_ids)
-                if task_ids == None:
-                    task_ids = [an.task_id for an in ann]
-                for an in ann:
-                    if an.annotation_status == REJECTED:
-                        parent = an.parent_annotation
-                        grand_parent = parent.parent_annotation
-                        parent.annotation_status = ACCEPTED
-                        grand_parent.annotation_status = LABELED
-                        parent.save(update_fields=["annotation_status"])
-                        grand_parent.save(update_fields=["annotation_status"])
-                    an.parent_annotation = None
-                    an.save()
-                    an.delete()
+        ann, response = get_annotations_for_project(
+            flag, pk, user, supercheck_status, task_ids, SUPER_CHECKER_ANNOTATION
+        )
+        if response != None:
+            return response
+        if ann != None:
+            if task_ids == None:
+                task_ids = [an.task_id for an in ann]
+            for an in ann:
+                if an.annotation_status == REJECTED:
+                    parent = an.parent_annotation
+                    grand_parent = parent.parent_annotation
+                    parent.annotation_status = ACCEPTED
+                    grand_parent.annotation_status = LABELED
+                    parent.save(update_fields=["annotation_status"])
+                    grand_parent.save(update_fields=["annotation_status"])
+                an.parent_annotation = None
+                an.save()
+                an.delete()
 
-                tasks = Task.objects.filter(id__in=task_ids)
-                if tasks.count() > 0:
-                    tasks.update(super_check_user=None)
-                    for task in tasks:
-                        rev_loop_count = task.revision_loop_count
-                        rev_loop_count["super_check_count"] = 0
-                        task.revision_loop_count = rev_loop_count
-                        task.task_status = REVIEWED
-                        task.save()
-                    return Response(
-                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
-                    )
+            tasks = Task.objects.filter(id__in=task_ids)
+            if tasks.count() > 0:
+                tasks.update(super_check_user=None)
+                for task in tasks:
+                    rev_loop_count = task.revision_loop_count
+                    rev_loop_count["super_check_count"] = 0
+                    task.revision_loop_count = rev_loop_count
+                    task.task_status = REVIEWED
+                    task.save()
                 return Response(
-                    {"message": "No tasks to unassign"},
-                    status=status.HTTP_404_NOT_FOUND,
+                    {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
             return Response(
-                {"message": "Only supercheckers can unassign tasks"},
-                status=status.HTTP_403_FORBIDDEN,
+                {"message": "No tasks to unassign"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response(
-            {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
+            {"message": "Only supercheckers can unassign tasks"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     @swagger_auto_schema(
