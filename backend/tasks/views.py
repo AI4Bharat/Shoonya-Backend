@@ -1,13 +1,14 @@
 import base64
 import os
 from datetime import timezone
+from django.utils import timezone
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import ast
-
+import json
 import requests
 from django.http import JsonResponse
 from requests.exceptions import RequestException
 from dotenv import load_dotenv
-
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import StreamingHttpResponse, FileResponse
@@ -31,7 +32,7 @@ from tasks.serializers import (
     TaskAnnotationSerializer,
 )
 from tasks.utils import query_flower
-
+from tasks.utils import Queued_Task_name
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
 from users.utils import generate_random_string
@@ -2492,7 +2493,40 @@ class SentenceOperationViewSet(viewsets.ViewSet):
 def get_celery_tasks(request):
     filters = request.data
     filtered_tasks = query_flower(filters)
+    for i in filtered_tasks:
+        if filtered_tasks[i]["name"] in Queued_Task_name:
+            filtered_tasks[i]["name"] = Queued_Task_name[filtered_tasks[i]["name"]]
+    for i in filtered_tasks:
+        if "state" in filtered_tasks[i] and filtered_tasks[i]["state"] == "SUCCESS":
+            timestamp = filtered_tasks[i]["succeeded"]
+            dt_object = timezone.datetime.utcfromtimestamp(timestamp)
+            formatted_date = dt_object.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            filtered_tasks[i]["succeeded"] = formatted_date
     if "error" in filtered_tasks:
         return JsonResponse({"message": filtered_tasks["error"]}, status=503)
+    page_number = request.GET.get("page")
+    page_size = int(request.GET.get("page_size", 10))
+    tasks_list = list(filtered_tasks.keys())
+    if page_number:
+        paginator = Paginator(tasks_list, page_size)
+        try:
+            page_obj = paginator.page(page_number)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
 
-    return JsonResponse(filtered_tasks, safe=False)
+        task_list = list(page_obj.object_list)
+        result_dict = {}
+        for i in task_list:
+            result_dict[i] = filtered_tasks[i]
+        data = {
+            "page_number": page_obj.number,
+            "page_size": page_size,
+            "has_next": page_obj.has_next(),
+            "has_previous": page_obj.has_previous(),
+            "results": result_dict,
+        }
+    else:
+        data = {"results": filtered_tasks}
+    return JsonResponse(data["results"], safe=False)
