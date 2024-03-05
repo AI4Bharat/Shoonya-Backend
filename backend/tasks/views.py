@@ -1,18 +1,20 @@
 import base64
 import os
 from datetime import timezone
-from django.utils import timezone
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import ast
-import json
+
 import requests
 from django.http import JsonResponse
 from requests.exceptions import RequestException
 from dotenv import load_dotenv
+from tasks.utils import Queued_Task_name
+from django.utils import timezone
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+import json
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import StreamingHttpResponse, FileResponse
-
+from utils.pagination import paginate_queryset
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
@@ -32,7 +34,7 @@ from tasks.serializers import (
     TaskAnnotationSerializer,
 )
 from tasks.utils import query_flower
-from tasks.utils import Queued_Task_name
+
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
 from users.utils import generate_random_string
@@ -2497,36 +2499,26 @@ def get_celery_tasks(request):
         if filtered_tasks[i]["name"] in Queued_Task_name:
             filtered_tasks[i]["name"] = Queued_Task_name[filtered_tasks[i]["name"]]
     for i in filtered_tasks:
-        if "state" in filtered_tasks[i] and filtered_tasks[i]["state"] == "SUCCESS":
-            timestamp = filtered_tasks[i]["succeeded"]
-            dt_object = timezone.datetime.utcfromtimestamp(timestamp)
-            formatted_date = dt_object.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            filtered_tasks[i]["succeeded"] = formatted_date
+        if filtered_tasks[i]["succeeded"] is not None:
+            filtered_tasks[i]["succeeded"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["succeeded"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["failed"] is not None:
+            filtered_tasks[i]["failed"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["failed"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["started"] is not None:
+            filtered_tasks[i]["started"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["started"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["received"] is not None:
+            filtered_tasks[i]["received"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["received"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
     if "error" in filtered_tasks:
         return JsonResponse({"message": filtered_tasks["error"]}, status=503)
     page_number = request.GET.get("page")
     page_size = int(request.GET.get("page_size", 10))
-    tasks_list = list(filtered_tasks.keys())
-    if page_number:
-        paginator = Paginator(tasks_list, page_size)
-        try:
-            page_obj = paginator.page(page_number)
-        except PageNotAnInteger:
-            page_obj = paginator.page(1)
-        except EmptyPage:
-            page_obj = paginator.page(paginator.num_pages)
-
-        task_list = list(page_obj.object_list)
-        result_dict = {}
-        for i in task_list:
-            result_dict[i] = filtered_tasks[i]
-        data = {
-            "page_number": page_obj.number,
-            "page_size": page_size,
-            "has_next": page_obj.has_next(),
-            "has_previous": page_obj.has_previous(),
-            "results": result_dict,
-        }
-    else:
-        data = {"results": filtered_tasks}
+    data = paginate_queryset(filtered_tasks, page_number, page_size)
     return JsonResponse(data["results"], safe=False)
