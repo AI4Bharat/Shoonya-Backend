@@ -3,7 +3,7 @@ import json
 import re
 from base64 import b64encode
 from urllib.parse import parse_qsl
-
+from utils.pagination import paginate_queryset
 from django.apps import apps
 from django.db.models import Q
 from django.http import StreamingHttpResponse
@@ -454,7 +454,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Get the task name from the request
         task_name = request.query_params.get("task_name")
-
+        updated_task_name = {
+            "dataset.tasks.upload_data_to_data_instance": "Upload Data to Dataset Instance",
+            "projects.tasks.export_project_in_place": "Export Project In Place",
+            "projects.tasks.export_project_new_record": "Export Project New Record",
+        }
         # Check if task name is in allowed task names list
         if task_name not in ALLOWED_CELERY_TASKS:
             return Response(
@@ -504,7 +508,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             # Get the task queryset for the task name and all the corresponding projects for this dataset
             task_queryset = TaskResult.objects.filter(
                 query,
-                task_name=task_name,
+                task_name=updated_task_name.get(task_name, task_name),
             )
 
         else:
@@ -513,7 +517,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
             # Check the celery project export status
             task_queryset = TaskResult.objects.filter(
-                task_name=task_name,
+                task_name=updated_task_name.get(task_name, task_name),
                 task_kwargs__contains=instance_id_keyword_arg,
             )
 
@@ -542,27 +546,30 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
             # displaying user friendly error messages
             result_data = json.loads(serializer.data[i]["result"])
-            error_msg_list = result_data.get("exc_message", [])
-            error_type = result_data.get("exc_type")
+            if isinstance(result_data, dict):
+                error_msg_list = result_data.get("exc_message", [])
+                error_type = result_data.get("exc_type")
 
-            if error_type == "InvalidDimensions":
-                serializer.data[i][
-                    "result"
-                ] = "The data type of some value does not match the required data type or the dimensions of the dataset that you have uploaded are incorrect"
-            elif (
-                error_type == "EncodeError"
-                and error_msg_list[0]
-                == "TypeError('Object of type set is not JSON serializable')"
-            ):
-                serializer.data[i][
-                    "result"
-                ] = "The dataset that you have uploaded is empty"
-            else:
-                serializer.data[i]["result"] = "Type of error : " + error_type + "\n"
-                if len(error_msg_list) > 0:
-                    serializer.data[i]["result"] += (
-                        "Error message : " + error_msg_list[0]
+                if error_type == "InvalidDimensions":
+                    serializer.data[i][
+                        "result"
+                    ] = "The data type of some value does not match the required data type or the dimensions of the dataset that you have uploaded are incorrect"
+                elif (
+                    error_type == "EncodeError"
+                    and error_msg_list[0]
+                    == "TypeError('Object of type set is not JSON serializable')"
+                ):
+                    serializer.data[i][
+                        "result"
+                    ] = "The dataset that you have uploaded is empty"
+                else:
+                    serializer.data[i]["result"] = (
+                        "Type of error : " + error_type + "\n"
                     )
+                    if len(error_msg_list) > 0:
+                        serializer.data[i]["result"] += (
+                            "Error message : " + error_msg_list[0]
+                        )
 
         # Add the project ID from the task kwargs to the serializer data
         if "projects" in task_name:
@@ -580,8 +587,12 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 except:
                     # Handle the project ID exception
                     serializer.data[i]["project_id"] = "Not ID found"
-
-        return Response(serializer.data)
+        page_number = request.GET.get("page")
+        page_size = int(request.GET.get("page_size", 10))
+        serializer_dict = {i: serializer.data[i] for i in range(len(serializer.data))}
+        data = paginate_queryset(serializer_dict, page_number, page_size)
+        res_data = list(data["results"].values())
+        return Response(res_data)
 
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
