@@ -1,9 +1,16 @@
+import ast
 import json
 from collections import OrderedDict
 from typing import Tuple
 from dateutil.parser import parse as date_parse
 import re
 import nltk
+from rest_framework.response import Response
+from rest_framework import status
+from tasks.models import Annotation
+from .models import Project
+from tasks.models import Annotation as Annotation_model
+from users.models import User
 from django.forms import model_to_dict
 
 from dataset.models import Conversation
@@ -20,6 +27,7 @@ from yaml.loader import SafeLoader
 from jiwer import wer
 
 from utils.convert_result_to_chitralekha_format import create_memory
+
 
 nltk.download("punkt")
 
@@ -244,6 +252,81 @@ def ocr_word_count(annotation_result):
                 pass
 
     return word_count
+
+
+def get_user_from_query_params(
+    request,
+    user_type,
+    pk,
+):
+    user_id_key = user_type + "_id"
+    if user_id_key in dict(request.query_params).keys():
+        user_id = request.query_params[user_id_key]
+        project = Project.objects.get(pk=pk)
+        user = User.objects.get(pk=user_id)
+        workspace = project.workspace_id
+        if request.user in workspace.managers.all():
+            return user, None
+        else:
+            response = Response(
+                {
+                    "message": f"Only workspace managers can unassign tasks from other {user_type}s."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+            return None, response
+    else:
+        user = request.user
+        return user, None
+
+
+def get_status_from_query_params(request, status_type):
+    status_key = status_type + "_status"
+    if status_key in dict(request.query_params).keys():
+        status_value = request.query_params[status_key]
+        return ast.literal_eval(status_value)
+    return None
+
+
+def get_task_ids(request):
+    try:
+        task_ids = request.data.get("task_ids", None)
+        return task_ids, None
+    except Exception as e:
+        return None, Response(
+            {"message": f"Failed to get the task ids : {e}"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+def get_annotations_for_project(
+    flag, pk, user, status_value, task_ids, annotation_type
+):
+    project_id = pk
+    if project_id:
+        try:
+            project_obj = Project.objects.get(pk=project_id)
+        except Project.DoesNotExist:
+            final_result = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return None, Response(final_result, status=ret_status)
+        if project_obj:
+            ann = Annotation_model.objects.filter(
+                task__project_id=project_id,
+                annotation_type=annotation_type,
+            )
+            if flag == True:
+                ann = ann.filter(
+                    completed_by=user.id,
+                    annotation_status__in=status_value,
+                )
+            elif task_ids != None:
+                ann = ann.filter(task__id__in=task_ids)
+
+            return ann, None
+    return None, Response(
+        {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 def process_conversation_tasks(task, is_translation, is_verification):
