@@ -14,5 +14,5 @@ router = routers.DefaultRouter()
 # router.register(r"annotation", AnnotationViewSet, basename="annotation")
 
 urlpatterns = [
-    path("get_celery_tasks", get_celery_tasks),
+    path("get_celery_tasks/", get_celery_tasks),
 ] + router.urls

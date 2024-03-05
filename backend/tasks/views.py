@@ -7,11 +7,14 @@ import requests
 from django.http import JsonResponse
 from requests.exceptions import RequestException
 from dotenv import load_dotenv
-
+from tasks.utils import Queued_Task_name
+from django.utils import timezone
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+import json
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import StreamingHttpResponse, FileResponse
-
+from utils.pagination import paginate_queryset
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
@@ -2492,7 +2495,30 @@ class SentenceOperationViewSet(viewsets.ViewSet):
 def get_celery_tasks(request):
     filters = request.GET
     filtered_tasks = query_flower(filters)
+    for i in filtered_tasks:
+        if filtered_tasks[i]["name"] in Queued_Task_name:
+            filtered_tasks[i]["name"] = Queued_Task_name[filtered_tasks[i]["name"]]
+    for i in filtered_tasks:
+        if filtered_tasks[i]["succeeded"] is not None:
+            filtered_tasks[i]["succeeded"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["succeeded"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["failed"] is not None:
+            filtered_tasks[i]["failed"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["failed"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["started"] is not None:
+            filtered_tasks[i]["started"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["started"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["received"] is not None:
+            filtered_tasks[i]["received"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["received"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
     if "error" in filtered_tasks:
         return JsonResponse({"message": filtered_tasks["error"]}, status=503)
-
-    return JsonResponse(filtered_tasks, safe=False)
+    page_number = request.GET.get("page")
+    page_size = int(request.GET.get("page_size", 10))
+    data = paginate_queryset(filtered_tasks, page_number, page_size)
+    return JsonResponse(data["results"], safe=False)
