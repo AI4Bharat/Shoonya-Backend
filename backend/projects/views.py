@@ -2297,17 +2297,37 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # check if user has pending tasks
         # the below logic will work only for required_annotators_per_task=1
         # TO-DO Modify and use the commented logic to cover all cases
-        proj_annotations = Annotation_model.objects.filter(task__project_id=pk).filter(
-            annotation_status__exact=UNLABELED, completed_by=cur_user
-        )
-        annotation_tasks = [anno.task.id for anno in proj_annotations]
-        pending_tasks = (
-            Task.objects.filter(project_id=pk)
-            .filter(annotation_users=cur_user.id)
-            .filter(task_status__in=[INCOMPLETE, UNLABELED])
-            .filter(id__in=annotation_tasks)
-            .count()
-        )
+
+        #TODO:optimize the query and logic
+        # proj_annotations = Annotation_model.objects.filter(task__project_id=pk).filter(
+        #     annotation_status__exact=UNLABELED, completed_by=cur_user
+        # )
+        # annotation_tasks = [anno.task.id for anno in proj_annotations]
+
+        annotation_tasks = Annotation_model.objects.filter(
+            task__project_id=pk,
+            annotation_status=UNLABELED,
+            completed_by=cur_user
+        ).values_list('task_id', flat=True)
+
+        annotation_tasks = list(annotation_tasks)
+
+        #TODO:optimize the query
+        # pending_tasks = (
+        #     Task.objects.filter(project_id=pk)
+        #     .filter(annotation_users=cur_user.id)
+        #     .filter(task_status__in=[INCOMPLETE, UNLABELED])
+        #     .filter(id__in=annotation_tasks)
+        #     .count()
+        # )
+
+        pending_tasks = Task.objects.filter(
+            project_id=pk,
+            annotation_users=cur_user.id,
+            task_status__in=[INCOMPLETE, UNLABELED],
+            id__in=annotation_tasks
+        ).aggregate(num_tasks=Count('id'))['num_tasks']
+
         # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
         # assigned_tasks = assigned_tasks_queryset.count()
         # completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
@@ -2337,23 +2357,37 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     continue
         # check if the project contains eligible tasks to pull
-        tasks = Task.objects.filter(project_id=pk)
-        tasks = tasks.order_by("id")
-        tasks = (
-            tasks.filter(task_status__in=[INCOMPLETE, UNLABELED])
-            .exclude(annotation_users=cur_user.id)
-            .annotate(annotator_count=Count("annotation_users"))
-        )
-        tasks = tasks.filter(
+
+        #TODO:reduce the number of queries and intermediate assignments
+        # tasks = Task.objects.filter(project_id=pk)
+        # tasks = tasks.order_by("id")
+        # tasks = (
+        #     tasks.filter(task_status__in=[INCOMPLETE, UNLABELED])
+        #     .exclude(annotation_users=cur_user.id)
+        #     .annotate(annotator_count=Count("annotation_users"))
+        # )
+        # tasks = tasks.filter(
+        #     annotator_count__lt=project.required_annotators_per_task
+        # ).distinct()
+
+        tasks = Task.objects.filter(
+            project_id=pk,
+            task_status__in=[INCOMPLETE, UNLABELED]
+        ).exclude(
+            annotation_users=cur_user.id
+        ).annotate(
+            annotator_count=Count("annotation_users")
+        ).filter(
             annotator_count__lt=project.required_annotators_per_task
-        ).distinct()
+        ).order_by("id").distinct()[:tasks_to_be_assigned]
+
         if not tasks:
             project.release_lock(ANNOTATION_LOCK)
             return Response(
                 {"message": "No tasks left for assignment in this project"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        tasks = tasks[:tasks_to_be_assigned]
+        # tasks = tasks[:tasks_to_be_assigned]
         # tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
@@ -2375,15 +2409,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                     task.delete()
                     continue
+            #TODO:optimize the query
+            # annotator_anno_count = Annotation_model.objects.filter(
+            #     task_id=task, annotation_type=ANNOTATOR_ANNOTATION
+            # ).count()
+
             annotator_anno_count = Annotation_model.objects.filter(
-                task_id=task, annotation_type=ANNOTATOR_ANNOTATION
-            ).count()
-            if annotator_anno_count < project.required_annotators_per_task:
-                cur_user_anno_count = Annotation_model.objects.filter(
+                task_id=task, 
+                annotation_type=ANNOTATOR_ANNOTATION
+            ).aggregate(count=Count('id')['count'])
+
+            #pulled this query out of if else block as it was common
+            cur_user_anno_count = Annotation_model.objects.filter(
                     task_id=task,
                     annotation_type=ANNOTATOR_ANNOTATION,
                     completed_by=cur_user,
-                ).count()
+                ).aggregate(count=Count('id'))['count']
+
+            if annotator_anno_count < project.required_annotators_per_task:
+                #TODO:optimize the query
+                # cur_user_anno_count = Annotation_model.objects.filter(
+                #     task_id=task,
+                #     annotation_type=ANNOTATOR_ANNOTATION,
+                #     completed_by=cur_user,
+                # ).count()
+
+                
                 if cur_user_anno_count == 0:
                     base_annotation_obj = Annotation_model(
                         result=result,
@@ -2397,15 +2448,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             f"Task and completed_by fields are same while assigning new task "
                             f"for project id-{project.id}, user-{cur_user.email}"
                         )
-            else:
-                cur_user_anno_count = Annotation_model.objects.filter(
-                    task_id=task,
-                    annotation_type=ANNOTATOR_ANNOTATION,
-                    completed_by=cur_user,
-                ).count()
-                if cur_user_anno_count == 0:
-                    task.annotation_users.remove(cur_user)
-                    task.save()
+            # else:
+                #TODO: optimize the query
+                # cur_user_anno_count = Annotation_model.objects.filter(
+                #     task_id=task,
+                #     annotation_type=ANNOTATOR_ANNOTATION,
+                #     completed_by=cur_user,
+                # ).count()
+            elif cur_user_anno_count == 0:
+                task.annotation_users.remove(cur_user)
+                task.save()
+                
         project.release_lock(ANNOTATION_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -4244,7 +4297,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 #     )
 
                 tasks = get_tasks_by_project_stage(project)
-                
+
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK
