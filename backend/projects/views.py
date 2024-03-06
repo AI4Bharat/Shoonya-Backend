@@ -16,6 +16,7 @@ import notifications
 from shoonya_backend.pagination import CustomPagination
 from .utils import (
     get_task_ids,
+    get_tasks_by_project_stage,
     ocr_word_count,
     get_user_from_query_params,
     get_status_from_query_params,
@@ -4178,19 +4179,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
             # If save_type is 'in_place'
             if output_dataset_info["save_type"] == "in_place":
                 annotation_fields = output_dataset_info["fields"]["annotations"]
+                #TODO:get_tasks_by_project_stage function
+                # if project.project_stage == REVIEW_STAGE:
+                #     tasks = Task.objects.filter(
+                #         project_id__exact=project, task_status__in=[REVIEWED]
+                #     )
+                # elif project.project_stage == SUPERCHECK_STAGE:
+                #     tasks = Task.objects.filter(
+                #         project_id__exact=project, task_status__in=[SUPER_CHECKED]
+                #     )
+                # else:
+                #     tasks = Task.objects.filter(
+                #         project_id__exact=project, task_status__in=[ANNOTATED]
+                #     )
 
-                if project.project_stage == REVIEW_STAGE:
-                    tasks = Task.objects.filter(
-                        project_id__exact=project, task_status__in=[REVIEWED]
-                    )
-                elif project.project_stage == SUPERCHECK_STAGE:
-                    tasks = Task.objects.filter(
-                        project_id__exact=project, task_status__in=[SUPER_CHECKED]
-                    )
-                else:
-                    tasks = Task.objects.filter(
-                        project_id__exact=project, task_status__in=[ANNOTATED]
-                    )
+                tasks = get_tasks_by_project_stage(project)
 
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
@@ -4226,19 +4229,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task_annotation_fields += list(
                         output_dataset_info["fields"]["copy_from_input"].values()
                     )
+                #TODO:get_tasks_by_project_stage function
+                # if project.project_stage == REVIEW_STAGE:
+                #     tasks = Task.objects.filter(
+                #         project_id__exact=project, task_status__in=[REVIEWED]
+                #     )
+                # elif project.project_stage == SUPERCHECK_STAGE:
+                #     tasks = Task.objects.filter(
+                #         project_id__exact=project, task_status__in=[SUPER_CHECKED]
+                #     )
+                # else:
+                #     tasks = Task.objects.filter(
+                #         project_id__exact=project, task_status__in=[ANNOTATED]
+                #     )
 
-                if project.project_stage == REVIEW_STAGE:
-                    tasks = Task.objects.filter(
-                        project_id__exact=project, task_status__in=[REVIEWED]
-                    )
-                elif project.project_stage == SUPERCHECK_STAGE:
-                    tasks = Task.objects.filter(
-                        project_id__exact=project, task_status__in=[SUPER_CHECKED]
-                    )
-                else:
-                    tasks = Task.objects.filter(
-                        project_id__exact=project, task_status__in=[ANNOTATED]
-                    )
+                tasks = get_tasks_by_project_stage(project)
+                
                 if len(tasks) == 0:
                     ret_dict = {"message": "No tasks to export!"}
                     ret_status = status.HTTP_200_OK

@@ -7,8 +7,8 @@ import re
 import nltk
 from rest_framework.response import Response
 from rest_framework import status
-from tasks.models import Annotation
-from .models import Project
+from tasks.models import SUPER_CHECKED, Annotation, Task
+from .models import REVIEW_STAGE, SUPERCHECK_STAGE, Project
 from tasks.models import Annotation as Annotation_model
 from users.models import User
 from django.forms import model_to_dict
@@ -506,3 +506,18 @@ def process_task(
         task_dict["data"] = data
 
     return OrderedDict(task_dict)
+
+def get_tasks_by_project_stage(project):
+    if project.project_stage == REVIEW_STAGE:
+        tasks = Task.objects.filter(
+            project_id=project, task_status=REVIEWED
+        )
+    elif project.project_stage == SUPERCHECK_STAGE:
+        tasks = Task.objects.filter(
+            project_id=project, task_status=SUPER_CHECKED
+        )
+    else:
+        tasks = Task.objects.filter(
+            project_id=project, task_status=ANNOTATED
+        )
+    return tasks
