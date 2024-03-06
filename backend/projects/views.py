@@ -2308,7 +2308,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task__project_id=pk,
             annotation_status=UNLABELED,
             completed_by=cur_user
-        ).values_list('task_id', flat=True)
+        ).values_list('task__id', flat=True)
 
         annotation_tasks = list(annotation_tasks)
 
@@ -2458,7 +2458,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             elif cur_user_anno_count == 0:
                 task.annotation_users.remove(cur_user)
                 task.save()
-                
+
         project.release_lock(ANNOTATION_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -2661,12 +2661,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     continue
         # check if the project contains eligible tasks to pull
+        #TODO:optimize the query
+        # tasks = (
+        #     Task.objects.filter(project_id=pk)
+        #     .filter(task_status=ANNOTATED)
+        #     .filter(review_user__isnull=True)
+        #     .exclude(annotation_users=cur_user.id)
+        #     .distinct()
+        # )
+
         tasks = (
-            Task.objects.filter(project_id=pk)
-            .filter(task_status=ANNOTATED)
-            .filter(review_user__isnull=True)
-            .exclude(annotation_users=cur_user.id)
-            .distinct()
+            Task.objects.filter(
+                project_id=pk,
+                task_status=ANNOTATED,
+                review_user__isnull=True
+            ).exclude(
+                annotation_users=cur_user.id
+            ).distinct()
         )
         if not tasks:
             project.release_lock(REVIEW_LOCK)
