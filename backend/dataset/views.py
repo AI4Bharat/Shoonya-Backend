@@ -454,11 +454,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Get the task name from the request
         task_name = request.query_params.get("task_name")
-        updated_task_name = {
-            "dataset.tasks.upload_data_to_data_instance": "Upload Data to Dataset Instance",
-            "projects.tasks.export_project_in_place": "Export Project In Place",
-            "projects.tasks.export_project_new_record": "Export Project New Record",
-        }
         # Check if task name is in allowed task names list
         if task_name not in ALLOWED_CELERY_TASKS:
             return Response(
@@ -508,7 +503,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             # Get the task queryset for the task name and all the corresponding projects for this dataset
             task_queryset = TaskResult.objects.filter(
                 query,
-                task_name=updated_task_name.get(task_name, task_name),
+                task_name=task_name,
             )
 
         else:
@@ -517,7 +512,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
             # Check the celery project export status
             task_queryset = TaskResult.objects.filter(
-                task_name=updated_task_name.get(task_name, task_name),
+                task_name=task_name,
                 task_kwargs__contains=instance_id_keyword_arg,
             )
 
@@ -587,8 +582,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 except:
                     # Handle the project ID exception
                     serializer.data[i]["project_id"] = "Not ID found"
-        page_number = request.GET.get("page")
-        page_size = int(request.GET.get("page_size", 10))
+        page_number = request.query_params.get("page", "1")
+        page_number = int(page_number)
+        page_size = int(request.query_params.get("page_size", "10"))
+        page_size = int(page_size)
         serializer_dict = {i: serializer.data[i] for i in range(len(serializer.data))}
         data = paginate_queryset(serializer_dict, page_number, page_size)
         res_data = list(data["results"].values())
