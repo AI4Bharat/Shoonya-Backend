@@ -2493,7 +2493,7 @@ class SentenceOperationViewSet(viewsets.ViewSet):
 )
 @api_view(["GET"])
 def get_celery_tasks(request):
-    filters = request.data
+    filters = request.GET
     filtered_tasks = query_flower(filters)
     for i in filtered_tasks:
         if filtered_tasks[i]["name"] in Queued_Task_name:
