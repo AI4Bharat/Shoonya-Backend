@@ -2689,12 +2689,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if "num_tasks" in dict(request.data):
             task_pull_count = request.data["num_tasks"]
         # Sort by most recently updated annotation; temporary change
+        #TODO:optimize the query
+        # task_ids = (
+        #     Annotation_model.objects.filter(task__in=tasks)
+        #     .filter(annotation_type=ANNOTATOR_ANNOTATION)
+        #     .distinct()
+        #     .order_by("-updated_at")
+        #     .values_list("task", flat=True)
+        # )
+
         task_ids = (
-            Annotation_model.objects.filter(task__in=tasks)
-            .filter(annotation_type=ANNOTATOR_ANNOTATION)
-            .distinct()
-            .order_by("-updated_at")
-            .values_list("task", flat=True)
+            Annotation_model.objects.filter(
+                task__in=tasks,
+                annotation_type=ANNOTATOR_ANNOTATION
+            ).distinct().order_by("-updated_at").values_list("task", flat=True)
         )
         # tasks = tasks.order_by("id")
         task_ids = list(task_ids)
@@ -2703,6 +2711,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
+            #TODO optimize the query
+            # rec_ann = (
+            #     Annotation_model.objects.filter(task_id=task_id)
+            #     .filter(annotation_type=ANNOTATOR_ANNOTATION)
+            #     .order_by("-updated_at")
+            # )
+
             rec_ann = (
                 Annotation_model.objects.filter(task_id=task_id)
                 .filter(annotation_type=ANNOTATOR_ANNOTATION)
