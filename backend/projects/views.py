@@ -2419,7 +2419,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Unassigns all unlabeled tasks from an annotator.
         """
         user_type = "annotator"
-        user, response = get_user_from_query_params(request, user_type)
+        user, response = get_user_from_query_params(request, user_type,pk)
         if response != None:
             return response
 
@@ -2686,7 +2686,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Unassigns all labeled tasks from a reviewer.
         """
         user_type = "reviewer"
-        user, response = get_user_from_query_params(request, user_type)
+        user, response = get_user_from_query_params(request, user_type,pk)
         if response != None:
             return response
 
