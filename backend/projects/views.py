@@ -1834,14 +1834,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"message": "Project does not exist"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            for user_id in ids:
-                user = User.objects.get(pk=user_id)
-                project.frozen_users.remove(user)
-                project.save()
-            return Response(
-                {"message": "Frozen User removed from the project"},
-                status=status.HTTP_200_OK,
-            )
+            workspace_projects = Project.objects.filter(workspace=project.workspace)
+
+            for workspace_project in workspace_projects:
+                for user_id in ids:
+                    user = User.objects.get(pk=user_id)
+                    if user in workspace_projects.frozen_users.all():
+                        workspace_project.frozen_users.remove(user)
+                        workspace_project.save()
+                return Response(
+                    {"message": "Frozen User removed from the workspace project"},
+                    status=status.HTTP_200_OK,
+                )
         except User.DoesNotExist:
             return Response(
                 {"message": "User does not exist"}, status=status.HTTP_404_NOT_FOUND
