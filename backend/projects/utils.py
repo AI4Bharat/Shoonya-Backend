@@ -507,17 +507,12 @@ def process_task(
 
     return OrderedDict(task_dict)
 
+
 def get_tasks_by_project_stage(project):
     if project.project_stage == REVIEW_STAGE:
-        tasks = Task.objects.filter(
-            project_id=project, task_status=REVIEWED
-        )
+        tasks = Task.objects.filter(project_id=project, task_status=REVIEWED)
     elif project.project_stage == SUPERCHECK_STAGE:
-        tasks = Task.objects.filter(
-            project_id=project, task_status=SUPER_CHECKED
-        )
+        tasks = Task.objects.filter(project_id=project, task_status=SUPER_CHECKED)
     else:
-        tasks = Task.objects.filter(
-            project_id=project, task_status=ANNOTATED
-        )
+        tasks = Task.objects.filter(project_id=project, task_status=ANNOTATED)
     return tasks
