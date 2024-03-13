@@ -3481,7 +3481,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 workspace.frozen_users.remove(user)
                 workspace.save()
 
-                projects = Project.objects.filter(workspace = workspace)
+                projects = Project.objects.filter(workspace_id = pk)
                 for project in projects:
                     if user in project.frozen_users.all():
                         project.frozen_users.remove(user)
