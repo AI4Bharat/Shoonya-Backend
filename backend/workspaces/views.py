@@ -3481,13 +3481,15 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 workspace.frozen_users.remove(user)
                 workspace.save()
 
-                projects = Project.objects.filter(workspace_id = pk)
+                projects = Project.objects.filter(workspace_id=pk)
                 for project in projects:
                     if user in project.frozen_users.all():
                         project.frozen_users.remove(user)
                         project.save()
                 return Response(
-                    {"message": "Frozen User removed from the workspace and workspace project"},
+                    {
+                        "message": "Frozen User removed from the workspace and workspace project"
+                    },
                     status=status.HTTP_200_OK,
                 )
             else:
