@@ -211,6 +211,11 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "You can enter the workspace."}, status=status.HTTP_200_OK
             )
+        if not request.user.guest_user:
+            return Response(
+                {"message": "Only guest users can enter this workspace."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = self.get_serializer(
             data=request.data, context={"workspace": workspace}
@@ -223,8 +228,18 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        response = self.enter_workspace(request, pk=pk)
+        if response.status_code != 200:
+            if response.status_code == 404:
+                message = "Workspace not found."
+            elif response.status_code == 403:
+                message = "Forbidden!"
+            else:
+                message = "An error occurred while adding user to guest workspace."
+        else:
+            message = "Authentication successful!"
         return Response(
-            {"message": "Authentication successful!"},
+            {"message": message},
             status=status.HTTP_200_OK,
         )
 
@@ -241,12 +256,6 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             if not workspace.guest_workspace:
                 return Response(
                     {"message": "This is not a guest workspace."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
-            if not request.user.guest_user:
-                return Response(
-                    {"message": "Only guest users can enter this workspace."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
