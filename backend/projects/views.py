@@ -2499,7 +2499,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         "super_check_count": 0,
                         "review_count": 0,
                     }
-                    task.unassign(user)
+                    # task.unassign(user)
+                    task.annotation_users.clear()
                     task.task_status = INCOMPLETE
                     task.save()
 
