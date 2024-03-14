@@ -3488,7 +3488,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                         project.save()
                 return Response(
                     {
-                        "message": "Frozen User removed from the workspace and workspace project"
+                        "message": "Frozen User removed from the projects"
                     },
                     status=status.HTTP_200_OK,
                 )
