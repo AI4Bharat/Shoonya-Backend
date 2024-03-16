@@ -42,6 +42,7 @@ services:
     volumes:
       - ./backend/:/usr/src/backend/
       - static_volume:/usr/src/backend/static
+      - logs_vol:/logs
     ports:
       - 8000:8000
     depends_on:
@@ -59,6 +60,7 @@ services:
     command: celery -A shoonya_backend.celery worker -Q default --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
     depends_on:
       - redis
       - web 
@@ -71,6 +73,7 @@ services:
     command: celery -A shoonya_backend.celery worker -Q functions --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
     depends_on:
       - redis
       - web
@@ -81,6 +84,7 @@ services:
     command: celery -A shoonya_backend.celery beat --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend
+      - logs_vol:/logs
     depends_on:
       - redis
       - web
@@ -92,6 +96,7 @@ services:
     command: celery -A shoonya_backend.celery worker -Q reports --concurrency=2 --loglevel=info
     volumes:
       - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
     depends_on:
       - redis
       - web
@@ -101,11 +106,25 @@ services:
     image: docker.elastic.co/logstash/logstash:7.14.0
     hostname: shoonya_dev_logger
     volumes:
-      - ./logstash_dev.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./logstash_prod.conf:/usr/share/logstash/pipeline/logstash.conf
       - logs_vol:/logs
     extra_hosts:
       - "elasticsearch:20.42.57.194"
     command: logstash -f /usr/share/logstash/pipeline/logstash.conf
+
+  flower:
+    container_name: flower
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery flower --conf="./usr/src/backend/shoonya_backend/flowerconfig.py" --basic-auth="${FLOWER_USERNAME}:${FLOWER_PASSWORD}"
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend/:/usr/src/backend/
+      - logs_vol:/logs
+    depends_on:
+      - redis
+      - web
 
 volumes:
   logs_vol:

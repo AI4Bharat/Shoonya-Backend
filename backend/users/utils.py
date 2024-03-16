@@ -168,9 +168,10 @@ LANG_TRANS_MODEL_CODES = {
 DEFAULT_ULCA_INDIC_TO_INDIC_MODEL_ID = 144
 
 TRANSLATOR_BATCH_SIZES = {
-    "indic-trans": 75,
+    "indic-trans": 64,
     "google": 128,
     "azure": 256,
+    "indic-trans-v2": 16,
 }
 
 

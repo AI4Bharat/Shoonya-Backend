@@ -1,7 +1,5 @@
 import ast
-import json
-from urllib import request
-
+from shoonya_backend.locks import Lock
 from dataset import models as dataset_models
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -31,6 +29,8 @@ from .utils import (
     check_if_particular_organization_owner,
     check_translation_function_inputs,
 )
+from dotenv import load_dotenv
+import os
 
 
 @api_view(["POST"])
@@ -302,8 +302,12 @@ def schedule_sentence_text_translate_job(request):
     batch_size = TRANSLATOR_BATCH_SIZES.get(api_type, 75)
 
     # Call the function to save the TranslationPair dataset
+
+    uid = request.user.id
+
     sentence_text_translate_and_save_translation_pairs.delay(
         languages=languages,
+        user_id=uid,
         input_dataset_instance_id=input_dataset_instance_id,
         output_dataset_instance_id=output_dataset_instance_id,
         batch_size=batch_size,
@@ -438,8 +442,12 @@ def schedule_conversation_translation_job(request):
         )
 
     # Call the function to save the TranslationPair dataset
+
+    uid = request.user.id
+
     conversation_data_machine_translation.delay(
         languages=languages,
+        user_id=uid,
         input_dataset_instance_id=input_dataset_instance_id,
         output_dataset_instance_id=output_dataset_instance_id,
         batch_size=batch_size,
@@ -530,8 +538,12 @@ def schedule_ocr_prediction_json_population(request):
         automate_missing_data_items = True
 
     # Calling a function asynchronously to create ocr predictions.
+
+    uid = request.user.id
+
     generate_ocr_prediction_json.delay(
         dataset_instance_id=dataset_instance_id,
+        user_id=uid,
         api_type=api_type,
         automate_missing_data_items=automate_missing_data_items,
     )
@@ -561,7 +573,9 @@ def schedule_draft_data_json_population(request):
     fields_list = fields_list.split(",")
     pk = request.data["dataset_instance_id"]
 
-    populate_draft_data_json.delay(pk, fields_list)
+    uid = request.user.id
+
+    populate_draft_data_json.delay(pk=pk, user_id=uid, fields_list=fields_list)
 
     ret_dict = {"message": "draft_data_json population started"}
     ret_status = status.HTTP_200_OK
@@ -611,13 +625,16 @@ def schedule_asr_prediction_json_population(request):
         automate_missing_data_items = True
 
     # Calling a function asynchronously to create ocr predictions.
+
+    uid = request.user.id
+
     generate_asr_prediction_json.delay(  # add delay
         dataset_instance_id=dataset_instance_id,
+        user_id=uid,
         api_type=api_type,
         automate_missing_data_items=automate_missing_data_items,
     )
 
-    # Returning response
     ret_dict = {"message": "Generating ASR Predictions"}
     ret_status = status.HTTP_200_OK
     return Response(ret_dict, status=ret_status)
@@ -696,25 +713,70 @@ def schedule_project_reports_email(request):
     except KeyError:
         language = "NULL"
 
-    schedule_mail_for_project_reports.delay(
-        project_type,
-        user_id,
-        anno_stats,
-        meta_stats,
-        complete_stats,
-        workspace_level_reports,
-        organization_level_reports,
-        dataset_level_reports,
-        wid,
-        oid,
-        did,
-        language,
+    # name of the task is the same as the name of the celery function
+    uid = request.user.id
+    task_name = (
+        "schedule_mail_for_project_reports"
+        + str(project_type)
+        + str(anno_stats)
+        + str(meta_stats)
+        + str(complete_stats)
+        + str(workspace_level_reports)
+        + str(organization_level_reports)
+        + str(dataset_level_reports)
+        + str(wid)
+        + str(oid)
+        + str(did)
+        + str(language)
     )
+    celery_lock = Lock(uid, task_name)
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
+        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+    if lock_status == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        try:
+            celery_lock.setLock(celery_lock_timeout)
+        except Exception as e:
+            print(f"Error while setting the lock for {task_name}: {str(e)}")
 
-    return Response(
-        {"message": "You will receive an email with the reports shortly"},
-        status=status.HTTP_200_OK,
-    )
+        schedule_mail_for_project_reports.delay(
+            project_type=project_type,
+            user_id=uid,
+            anno_stats=anno_stats,
+            meta_stats=meta_stats,
+            complete_stats=complete_stats,
+            workspace_level_reports=workspace_level_reports,
+            organization_level_reports=organization_level_reports,
+            dataset_level_reports=dataset_level_reports,
+            wid=wid,
+            oid=oid,
+            did=did,
+            language=language,
+        )
+        return Response(
+            {"message": "You will receive an email with the reports shortly"},
+            status=status.HTTP_200_OK,
+        )
+    else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @api_view(["POST"])
@@ -759,12 +821,55 @@ def download_all_projects(request):
         }
         return Response(final_response, status=status.HTTP_401_UNAUTHORIZED)
 
-    schedule_mail_to_download_all_projects.delay(
-        workspace_level_projects, dataset_level_projects, wid, did, user_id
+    # Checking lock status, name parameter of the lock is the name of the celery function
+    task_name = (
+        "schedule_mail_to_download_all_projects"
+        + str(workspace_level_projects)
+        + str(dataset_level_projects)
+        + str(wid)
+        + str(did)
     )
 
-    return Response(
-        {"message": "You will receive an email with the download link shortly"},
-        status=status.HTTP_200_OK,
-    )
-    pass
+    celery_lock = Lock(user_id, task_name)
+    try:
+        lock_status = celery_lock.lockStatus()
+    except Exception as e:
+        print(
+            f"Error while retrieving the status of the lock for {task_name} : {str(e)}"
+        )
+        lock_status = 0  # if lock status is not received successfully, it is assumed that the lock doesn't exist
+    if lock_status == 0:
+        celery_lock_timeout = int(os.getenv("DEFAULT_CELERY_LOCK_TIMEOUT"))
+        try:
+            celery_lock.setLock(celery_lock_timeout)
+        except Exception as e:
+            print(f"Error while setting the lock for {task_name}: {str(e)}")
+
+        schedule_mail_to_download_all_projects.delay(
+            workspace_level_projects=workspace_level_projects,
+            dataset_level_projects=dataset_level_projects,
+            wid=wid,
+            did=did,
+            user_id=user_id,
+        )
+
+        return Response(
+            {"message": "You will receive an email with the download link shortly"},
+            status=status.HTTP_200_OK,
+        )
+        pass
+    else:
+        try:
+            remaining_time = celery_lock.getRemainingTimeForLock()
+        except Exception as e:
+            print(f"Error while retrieving the lock remaining time for {task_name}")
+            return Response(
+                {"message": f"Your request is already being worked upon"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {
+                "message": f"Your request is already being worked upon, you can try again after {remaining_time}"
+            },
+            status=status.HTTP_200_OK,
+        )

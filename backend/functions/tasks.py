@@ -1,4 +1,5 @@
 import datetime
+import time
 import zipfile
 import threading
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -28,7 +29,7 @@ from tasks.models import (
     ANNOTATED,
 )
 from tasks.views import SentenceOperationViewSet
-from users.models import User
+from users.models import User, LANG_CHOICES
 from django.core.mail import EmailMessage
 
 from utils.blob_functions import (
@@ -54,11 +55,19 @@ from rest_framework.request import Request
 import os
 import tempfile
 
+from shoonya_backend.locks import Lock
+
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 ## CELERY SHARED TASKS
 @shared_task(bind=True)
 def sentence_text_translate_and_save_translation_pairs(
     self,
+    user_id,
     languages,
     input_dataset_instance_id,
     output_dataset_instance_id,
@@ -79,7 +88,7 @@ def sentence_text_translate_and_save_translation_pairs(
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
         automate_missing_data_items (bool): If True, consider only those data items that are missing in the target dataset instance.
     """
-
+    task_name = "sentence_text_translate_and_save_translation_pairs"
     output_sentences = list(
         dataset_models.TranslationPair.objects.filter(
             instance_id=output_dataset_instance_id,
@@ -207,6 +216,7 @@ def sentence_text_translate_and_save_translation_pairs(
                         "Error: Number of translated sentences does not match with the number of input sentences.",
                     },
                 )
+
                 raise Exception(
                     "The number of translated sentences does not match the number of input sentences."
                 )
@@ -245,6 +255,8 @@ def sentence_text_translate_and_save_translation_pairs(
             multi_inheritance_table_bulk_insert(translation_pair_objects)
             translated_sentences_count += len(translation_pair_objects)
 
+    celery_lock = Lock(user_id, "sentence_text_translate_and_save_translation_pairs")
+    celery_lock.releaseLock()
     return f"{translated_sentences_count} translation pairs created for languages: {str(languages)}"
 
 
@@ -252,6 +264,7 @@ def sentence_text_translate_and_save_translation_pairs(
 def conversation_data_machine_translation(
     self,
     languages,
+    user_id,
     input_dataset_instance_id,
     output_dataset_instance_id,
     batch_size,
@@ -268,7 +281,7 @@ def conversation_data_machine_translation(
             Allowed - [indic-trans, google, indic-trans-v2, azure, blank]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
     """
-
+    task_name = "conversation_data_machine_translation"
     # Get the output dataset instance
     output_dataset_instance = dataset_models.DatasetInstance.objects.get(
         instance_id=output_dataset_instance_id
@@ -390,7 +403,7 @@ def conversation_data_machine_translation(
 
 @shared_task(bind=True)
 def generate_ocr_prediction_json(
-    self, dataset_instance_id, api_type, automate_missing_data_items
+    self, dataset_instance_id, user_id, api_type, automate_missing_data_items
 ):
     """Function to generate OCR prediction data and to save to the same data item.
     Args:
@@ -399,6 +412,7 @@ def generate_ocr_prediction_json(
             Example - [indic-trans, google, indic-trans-v2, azure, blank]
         automate_missing_data_items (bool): "Boolean to translate only missing data items"
     """
+    task_name = "generate_ocr_prediction_json"
     # Fetching the data items for the given dataset instance.
     success_count, total_count = 0, 0
     try:
@@ -466,6 +480,11 @@ def generate_ocr_prediction_json(
     }
     if not required_columns.issubset(ocr_data_items_df.columns):
         missing_columns = required_columns - set(ocr_data_items_df.columns)
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         raise ValueError(
             f"The following required columns are missing: {missing_columns}"
         )
@@ -526,12 +545,17 @@ def generate_ocr_prediction_json(
             print(
                 f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
             )
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     return f"{success_count} out of {total_count} populated"
 
 
 @shared_task(bind=True)
 def generate_asr_prediction_json(
-    self, dataset_instance_id, api_type, automate_missing_data_items
+    self, dataset_instance_id, user_id, api_type, automate_missing_data_items
 ):
     """Function to generate ASR prediction data and to save to the same data item.
     Args:
@@ -540,6 +564,7 @@ def generate_asr_prediction_json(
             Example - [dhruva_asr, indic-trans, google, indic-trans-v2, azure, blank]
         automate_missing_data_items (bool): "Boolean to translate only missing data items"
     """
+    task_name = "generate_asr_prediction_json"
     # Fetching the data items for the given dataset instance.
     success_count, total_count = 0, 0
     try:
@@ -610,6 +635,7 @@ def generate_asr_prediction_json(
     }
     if not required_columns.issubset(asr_data_items_df.columns):
         missing_columns = required_columns - set(asr_data_items_df.columns)
+
         raise ValueError(
             f"The following required columns are missing: {missing_columns}"
         )
@@ -672,11 +698,13 @@ def generate_asr_prediction_json(
             print(
                 f"The {api_type} API has not generated predictions for data item with id-{curr_id}"
             )
+
     print(f"{success_count} out of {total_count} populated")
 
 
 @shared_task(bind=True)
-def populate_draft_data_json(self, pk, fields_list):
+def populate_draft_data_json(self, pk, user_id, fields_list):
+    task_name = "populate_draft_data_json"
     try:
         dataset_instance = DatasetInstance.objects.get(pk=pk)
     except Exception as error:
@@ -721,6 +749,20 @@ def schedule_mail_for_project_reports(
     did,
     language,
 ):
+    task_name = (
+        "schedule_mail_for_project_reports"
+        + str(project_type)
+        + str(anno_stats)
+        + str(meta_stats)
+        + str(complete_stats)
+        + str(workspace_level_reports)
+        + str(organization_level_reports)
+        + str(dataset_level_reports)
+        + str(wid)
+        + str(oid)
+        + str(did)
+        + str(language)
+    )
     proj_objs = get_proj_objs(
         workspace_level_reports,
         organization_level_reports,
@@ -731,55 +773,110 @@ def schedule_mail_for_project_reports(
         did,
         language,
     )
+
     if len(proj_objs) == 0:
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         print("No projects found")
         return 0
+
     user = User.objects.get(id=user_id)
-    result = get_stats(
-        proj_objs, anno_stats, meta_stats, complete_stats, project_type, user
-    )
-    df = pd.DataFrame.from_dict(result)
-    transposed_df = df.transpose()
-    content = transposed_df.to_csv(index=True)
-    content_type = "text/csv"
+    if len(proj_objs) != 0:
+        result = get_stats(
+            proj_objs, anno_stats, meta_stats, complete_stats, project_type, user
+        )
+        df = pd.DataFrame.from_dict(result)
+        transposed_df = df.transpose()
+        content = transposed_df.to_csv(index=True)
+        content_type = "text/csv"
 
-    if workspace_level_reports:
-        workspace = Workspace.objects.filter(id=wid)
-        name = workspace[0].workspace_name
-        type = "workspace"
-        filename = f"{name}_user_analytics.csv"
-    elif dataset_level_reports:
-        dataset = DatasetInstance.objects.filter(instance_id=did)
-        name = dataset[0].instance_name
-        type = "dataset"
-        filename = f"{name}_user_analytics.csv"
+        if workspace_level_reports:
+            workspace = Workspace.objects.filter(id=wid)
+            name = workspace[0].workspace_name
+            type = "workspace"
+            filename = f"{name}_user_analytics.csv"
+        elif dataset_level_reports:
+            dataset = DatasetInstance.objects.filter(instance_id=did)
+            name = dataset[0].instance_name
+            type = "dataset"
+            filename = f"{name}_user_analytics.csv"
+        else:
+            organization = Organization.objects.filter(id=oid)
+            name = organization[0].title
+            type = "organization"
+            filename = f"{name}_user_analytics.csv"
+        message = (
+            "Dear "
+            + str(user.username)
+            + f",\nYour project reports for the {type}"
+            + f"{name}"
+            + " are ready."
+            + "\nProject Type: "
+            + f"{project_type}"
+            + "\n Thanks for contributing on Shoonya!"
+        )
+        email = EmailMessage(
+            f"{name}-" + " Project Reports",
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            attachments=[(filename, content, content_type)],
+        )
     else:
-        organization = Organization.objects.filter(id=oid)
-        name = organization[0].title
-        type = "organization"
-        filename = f"{name}_user_analytics.csv"
+        message = (
+            "Dear "
+            + str(user.username)
+            + f",\nYour project reports could not be fetched because there are no projects found from the given data."
+            + "\nProject Type: "
+            + f"{project_type}"
+            + "\n Thanks for contributing on Shoonya!"
+        )
+        email = EmailMessage(
+            f"Project Reports",
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+        )
 
-    message = (
-        "Dear "
-        + str(user.username)
-        + f",\nYour project reports for the {type}"
-        + f"{name}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
-    )
-
-    email = EmailMessage(
-        f"{name}" + " Payment Reports",
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        attachments=[(filename, content, content_type)],
-    )
     try:
         email.send()
+
+        extra_data = {
+            "user_email": user.email,
+            "request_path": "/schedule_project_reports_email",
+        }
+        ids = (
+            "workspace_id-" + str(wid)
+            if workspace_level_reports
+            else (
+                "organization_id-" + str(oid)
+                if organization_level_reports
+                else ("dataset_id-" + str(did) if dataset_level_reports else None)
+            )
+        )
+
+        message = (
+            f"Project reports sent successfully for {ids}"
+            if len(proj_objs) != 0
+            else f"No projects found but email was sent for {ids}"
+        )
+        logger.info(message, extra=extra_data)
+
     except Exception as e:
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         print(f"An error occurred while sending email: {e}")
+    celery_lock = Lock(user_id, task_name)
+    try:
+        celery_lock.releaseLock()
+    except Exception as e:
+        print(f"Error while releasing the lock for {task_name}: {str(e)}")
     print(f"Email sent successfully - {user_id}")
 
 
@@ -1171,7 +1268,8 @@ def get_proj_objs(
 ):
     if workspace_level_reports:
         if project_type:
-            if language != "NULL":
+            LANG_CHOICES_DICT = dict(LANG_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     workspace_id=wid,
                     project_type=project_type,
@@ -1185,7 +1283,8 @@ def get_proj_objs(
             proj_objs = Project.objects.filter(workspace_id=wid)
     elif organization_level_reports:
         if project_type:
-            if language != "NULL":
+            LANG_CHOICES_DICT = dict(LANG_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     organization_id=oid,
                     project_type=project_type,
@@ -1199,7 +1298,8 @@ def get_proj_objs(
             proj_objs = Project.objects.filter(organization_id=oid)
     elif dataset_level_reports:
         if project_type:
-            if language != "NULL":
+            LANG_CHOICES_DICT = dict(LANG_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     dataset_id=did,
                     project_type=project_type,
@@ -1441,6 +1541,13 @@ def get_most_recent_annotation(annotation):
 def schedule_mail_to_download_all_projects(
     self, workspace_level_projects, dataset_level_projects, wid, did, user_id
 ):
+    task_name = (
+        "schedule_mail_to_download_all_projects"
+        + str(workspace_level_projects)
+        + str(dataset_level_projects)
+        + str(wid)
+        + str(did)
+    )
     download_lock = threading.Lock()
     download_lock.acquire()
     proj_objs = get_proj_objs(
@@ -1454,9 +1561,19 @@ def schedule_mail_to_download_all_projects(
     )
     if len(proj_objs) == 0 and workspace_level_projects:
         print(f"No projects found for workspace id- {wid}")
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         return 0
     elif len(proj_objs) == 0 and dataset_level_projects:
         print(f"No projects found for dataset id- {did}")
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         return 0
     user = User.objects.get(id=user_id)
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -1501,8 +1618,18 @@ def schedule_mail_to_download_all_projects(
             print(f"An error occurred while sending email: {e}")
             return 0
         download_lock.release()
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         print(f"Email sent successfully - {user_id}")
     else:
+        celery_lock = Lock(user_id, task_name)
+        try:
+            celery_lock.releaseLock()
+        except Exception as e:
+            print(f"Error while releasing the lock for {task_name}: {str(e)}")
         download_lock.release()
         print(url)
 

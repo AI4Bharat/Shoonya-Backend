@@ -1,17 +1,31 @@
+import base64
+import os
 from datetime import timezone
-from locale import normalize
-from urllib.parse import unquote
 import ast
 
+import requests
+from django.http import JsonResponse
+from requests.exceptions import RequestException
+from dotenv import load_dotenv
+from tasks.utils import Queued_Task_name
+from django.utils import timezone
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+import json
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.http import StreamingHttpResponse, FileResponse
+from utils.pagination import paginate_queryset
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
-
-
+from drf_yasg.utils import swagger_auto_schema
+from shoonya_backend.pagination import CustomPagination
+from projects.decorators import is_org_owner
+from projects.utils import get_ocr_project_types
 from tasks.models import *
 from tasks.serializers import (
     TaskSerializer,
@@ -19,6 +33,7 @@ from tasks.serializers import (
     PredictionSerializer,
     TaskAnnotationSerializer,
 )
+from tasks.utils import query_flower
 
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
@@ -197,6 +212,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             if exist_req_user:
                 user_id = int(req_user)
+            from projects.utils import get_audio_project_types
 
             if "annotation_status" in dict(request.query_params):
                 ann_status = request.query_params["annotation_status"]
@@ -210,8 +226,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_type=ANNOTATOR_ANNOTATION,
                         )
                         if (
-                            ann_status[0] == "labeled"
-                            and "rejected" in request.query_params
+                            "rejected" in request.query_params
                             and request.query_params["rejected"] == "True"
                         ):
                             tasks = Task.objects.filter(
@@ -252,6 +267,23 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
+                                if (
+                                    proj_objs[0].project_type
+                                    in get_audio_project_types()
+                                ):
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "audio_url" in tas["data"]:
+                                            del data["audio_url"]
+                                        tas["data"] = data
+                                elif (
+                                    proj_objs[0].project_type in get_ocr_project_types()
+                                ):
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "image_url" in tas["data"]:
+                                            del data["image_url"]
+                                        tas["data"] = data
                                 final_dict["result"] = ordered_tasks
                                 return Response(final_dict)
                             except:
@@ -270,8 +302,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     completed_by=user_id,
                 )
                 if (
-                    ann_status[0] == "labeled"
-                    and "rejected" in request.query_params
+                    "rejected" in request.query_params
                     and request.query_params["rejected"] == "True"
                 ):
                     tasks = Task.objects.filter(
@@ -344,6 +375,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -368,12 +411,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_type=REVIEWER_ANNOTATION,
                         )
                         if (
-                            (
-                                "accepted" in rew_status
-                                or "accepted_with_minor_changes" in rew_status
-                                or "accepted_with_major_changes" in rew_status
-                            )
-                            and "rejected" in request.query_params
+                            "rejected" in request.query_params
                             and request.query_params["rejected"] == "True"
                         ):
                             tasks = Task.objects.filter(
@@ -416,6 +454,23 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
+                                if (
+                                    proj_objs[0].project_type
+                                    in get_audio_project_types()
+                                ):
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "audio_url" in tas["data"]:
+                                            del data["audio_url"]
+                                        tas["data"] = data
+                                elif (
+                                    proj_objs[0].project_type in get_ocr_project_types()
+                                ):
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "image_url" in tas["data"]:
+                                            del data["image_url"]
+                                        tas["data"] = data
                                 final_dict["result"] = ordered_tasks
                                 return Response(final_dict)
                             except:
@@ -435,12 +490,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     completed_by=user_id,
                 )
                 if (
-                    (
-                        "accepted" in rew_status
-                        or "accepted_with_minor_changes" in rew_status
-                        or "accepted_with_major_changes" in rew_status
-                    )
-                    and "rejected" in request.query_params
+                    "rejected" in request.query_params
                     and request.query_params["rejected"] == "True"
                 ):
                     tasks = Task.objects.filter(
@@ -569,6 +619,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -626,6 +688,23 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 final_dict["total_count"] = len(ordered_tasks)
                                 page_items = page_object.page(page_number)
                                 ordered_tasks = page_items.object_list
+                                if (
+                                    proj_objs[0].project_type
+                                    in get_audio_project_types()
+                                ):
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "audio_url" in tas["data"]:
+                                            del data["audio_url"]
+                                        tas["data"] = data
+                                elif (
+                                    proj_objs[0].project_type in get_ocr_project_types()
+                                ):
+                                    for tas in ordered_tasks:
+                                        data = tas["data"]
+                                        if "image_url" in tas["data"]:
+                                            del data["image_url"]
+                                        tas["data"] = data
                                 final_dict["result"] = ordered_tasks
                                 return Response(final_dict)
                             except:
@@ -722,6 +801,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -767,6 +858,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             final_dict["total_count"] = len(ordered_tasks)
                             page_items = page_object.page(page_number)
                             ordered_tasks = page_items.object_list
+                            if proj_objs[0].project_type in get_audio_project_types():
+                                for tas in ordered_tasks:
+                                    data = tas["data"]
+                                    if "audio_url" in tas["data"]:
+                                        del data["audio_url"]
+                                    tas["data"] = data
+                            elif proj_objs[0].project_type in get_ocr_project_types():
+                                for tas in ordered_tasks:
+                                    data = tas["data"]
+                                    if "image_url" in tas["data"]:
+                                        del data["image_url"]
+                                    tas["data"] = data
                             final_dict["result"] = ordered_tasks
                             return Response(final_dict)
                         except:
@@ -806,6 +909,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -842,6 +957,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -879,6 +1006,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         final_dict["total_count"] = len(ordered_tasks)
                         page_items = page_object.page(page_number)
                         ordered_tasks = page_items.object_list
+                        if proj_objs[0].project_type in get_audio_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "audio_url" in tas["data"]:
+                                    del data["audio_url"]
+                                tas["data"] = data
+                        elif proj_objs[0].project_type in get_ocr_project_types():
+                            for tas in ordered_tasks:
+                                data = tas["data"]
+                                if "image_url" in tas["data"]:
+                                    del data["image_url"]
+                                tas["data"] = data
                         final_dict["result"] = ordered_tasks
                         return Response(final_dict)
                     except:
@@ -942,6 +1081,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         url_path="delete_project_tasks",
         url_name="delete_project_tasks",
     )
+    @is_org_owner
     def delete_project_tasks(self, request, pk=None):
         project = Project.objects.get(pk=pk)
         try:
@@ -1300,6 +1440,75 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @swagger_auto_schema(
+        method="get",
+        responses={
+            200: "Audio file fetched successfully",
+            204: "No audio_url present",
+            400: "Invalid parameters in the request body!",
+            500: "Connection to Minio Failed",
+        },
+    )
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="get_audio_file",
+        url_name="get_audio_file",
+    )
+    def get_audio_file(self, request):
+        audio_url, taskid = "", ""
+        if "audio_url" in request.query_params:
+            audio_url = request.query_params.get("audio_url")
+        elif "task_id" in request.query_params:
+            taskid = request.query_params.get("task_id")
+        else:
+            return Response(
+                {"message": "Please send a task id or audio url"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if taskid:
+            try:
+                task = Task.objects.filter(id=taskid)[0]
+            except ObjectDoesNotExist as e:
+                return Response(
+                    {"message": f"Task with id {taskid} does not exist: {e}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                audio_url = task.data["audio_url"]
+            except KeyError as e:
+                return Response(
+                    {
+                        "message": f"Audio url for task with id - {taskid} does not exist"
+                    },
+                    status=status.HTTP_204_NO_CONTENT,
+                )
+        from minio import Minio
+
+        try:
+            eos_client = Minio(
+                endpoint=os.getenv("MINIO_ENDPOINT"),
+                access_key=os.getenv("MINIO_ACCESS_KEY"),
+                secret_key=os.getenv("MINIO_SECRET_KEY"),
+                secure=True,
+            )
+        except Exception as e:
+            return Response(
+                {"message": "Connection to minio failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        try:
+            encoded_audio_data = base64.b64encode(
+                eos_client.get_object("asr-transcription", audio_url).data
+            ).decode("utf-8")
+        except Exception as e:
+            return Response(
+                {"message": f"Could not fetch audio file"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(data=encoded_audio_data, status=status.HTTP_200_OK)
+
 
 class AnnotationViewSet(
     mixins.CreateModelMixin,
@@ -1452,9 +1661,37 @@ class AnnotationViewSet(
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(final_result, status=ret_status)
 
+        try:
+            if str(task.id) != str(request.data["task_id"]):
+                return Response(
+                    {"message": "Task Id does not match the annotation's task id."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except:
+            return Response(
+                {"message": "Missing parameter task_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         auto_save = False
         if "auto_save" in request.data:
             auto_save = True
+            if annotation_obj.annotation_status in [
+                LABELED,
+                ACCEPTED,
+                ACCEPTED_WITH_MINOR_CHANGES,
+                ACCEPTED_WITH_MAJOR_CHANGES,
+                VALIDATED,
+                VALIDATED_WITH_CHANGES,
+            ]:
+                return Response(
+                    {
+                        "message": "Auto save disabled for "
+                        + annotation_obj.annotation_status
+                        + " tasks."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         if annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             is_revised = False
@@ -1483,7 +1720,10 @@ class AnnotationViewSet(
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                    (
+                        annotation_obj.result,
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1536,7 +1776,10 @@ class AnnotationViewSet(
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                    (
+                        request.data["result"],
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1546,6 +1789,21 @@ class AnnotationViewSet(
                         ]
                         == 1,
                     )
+                    annotation_status = request.data["annotation_status"]
+                    if empty_flag == True and annotation_status in [
+                        LABELED,
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        VALIDATED,
+                        VALIDATED_WITH_CHANGES,
+                    ]:
+                        return Response(
+                            {
+                                "message": "Text for any transcription segment cannot be empty."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -1591,7 +1849,10 @@ class AnnotationViewSet(
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                    (
+                        annotation_obj.result,
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1683,7 +1944,10 @@ class AnnotationViewSet(
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                    (
+                        request.data["result"],
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1693,6 +1957,21 @@ class AnnotationViewSet(
                         ]
                         <= 2,
                     )
+                    annotation_status = request.data["annotation_status"]
+                    if empty_flag == True and annotation_status in [
+                        LABELED,
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        VALIDATED,
+                        VALIDATED_WITH_CHANGES,
+                    ]:
+                        return Response(
+                            {
+                                "message": "Text for any transcription segment cannot be empty."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -1765,7 +2044,10 @@ class AnnotationViewSet(
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
                 if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
+                    (
+                        annotation_obj.result,
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1848,7 +2130,10 @@ class AnnotationViewSet(
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
                 if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
+                    (
+                        request.data["result"],
+                        empty_flag,
+                    ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
@@ -1858,6 +2143,20 @@ class AnnotationViewSet(
                         ]
                         <= 3,
                     )
+                    if empty_flag == True and annotation_status in [
+                        LABELED,
+                        ACCEPTED,
+                        ACCEPTED_WITH_MINOR_CHANGES,
+                        ACCEPTED_WITH_MAJOR_CHANGES,
+                        VALIDATED,
+                        VALIDATED_WITH_CHANGES,
+                    ]:
+                        return Response(
+                            {
+                                "message": "Text for any transcription segment cannot be empty."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 annotation_response = super().partial_update(request)
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
@@ -1957,9 +2256,10 @@ class AnnotationViewSet(
         self, result, task, is_acoustic=False, acoustic_enabled=False
     ):
         modified_result = []
+        empty_text_flag = False
         audio_duration = task.data["audio_duration"]
         if result == None or len(result) == 0:
-            return modified_result
+            return modified_result, empty_text_flag
         for idx, val in enumerate(result):
             if "standardised_transcription" in val:
                 if acoustic_enabled:
@@ -2012,6 +2312,9 @@ class AnnotationViewSet(
                 "text": [val["text"]],
             }
 
+            if str(val["text"]).strip() == "" or str(val["text"]).strip() == "-":
+                empty_text_flag = True
+
             label_dict["value"] = value_labels
             text_dict["value"] = value_text
 
@@ -2038,7 +2341,7 @@ class AnnotationViewSet(
             modified_result.append(label_dict)
             modified_result.append(text_dict)
 
-        return modified_result
+        return modified_result, empty_text_flag
 
     def convert_formatted_time_to_fractional(self, formatted_time):
         hours, minutes, seconds = map(float, formatted_time.split(":"))
@@ -2169,3 +2472,53 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 {"message": "Invalid parameters in request body!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+@swagger_auto_schema(
+    method="get",
+    operation_description="Get a list of Celery tasks with an optional filter by task state. use State = 'FAILURE' for retrieving failed tasks, State = 'SUCCESS' for retrieving successful tasks, State = 'STARTED' for retrieving active tasks and State = None for all retrieving tasks",
+    responses={
+        200: "Success",
+        400: "Bad Request",
+    },
+    manual_parameters=[
+        openapi.Parameter(
+            name="state",
+            in_=openapi.IN_QUERY,
+            type=openapi.TYPE_STRING,
+            description="Filter tasks by state",
+            required=False,
+        ),
+    ],
+)
+@api_view(["GET"])
+def get_celery_tasks(request):
+    filters = request.GET
+    filtered_tasks = query_flower(filters)
+    for i in filtered_tasks:
+        if filtered_tasks[i]["name"] in Queued_Task_name:
+            filtered_tasks[i]["name"] = Queued_Task_name[filtered_tasks[i]["name"]]
+    for i in filtered_tasks:
+        if filtered_tasks[i]["succeeded"] is not None:
+            filtered_tasks[i]["succeeded"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["succeeded"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["failed"] is not None:
+            filtered_tasks[i]["failed"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["failed"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["started"] is not None:
+            filtered_tasks[i]["started"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["started"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["received"] is not None:
+            filtered_tasks[i]["received"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["received"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+    if "error" in filtered_tasks:
+        return JsonResponse({"message": filtered_tasks["error"]}, status=503)
+    page_number = request.GET.get("page")
+    page_size = int(request.GET.get("page_size", 10))
+    data = paginate_queryset(filtered_tasks, page_number, page_size)
+    return JsonResponse(data["results"], safe=False)

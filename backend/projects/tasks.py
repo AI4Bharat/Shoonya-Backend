@@ -1,3 +1,4 @@
+import json
 import random
 from copy import deepcopy
 from collections import OrderedDict
@@ -438,8 +439,14 @@ def export_project_in_place(
 
     export_excluded_task_ids = []
 
+    is_SpeechConversation = output_dataset_info["dataset_type"] == "SpeechConversation"
+    is_AcousticNormalisedTranscriptionEditing = (
+        project_type == "AcousticNormalisedTranscriptionEditing"
+    )
+    is_ConversationVerification = project.project_type == "ConversationVerification"
+    bboxes_relation_json = []
     for ta, tl, task in zip(tasks_annotations, tasks_list, annotated_tasks):
-        if output_dataset_info["dataset_type"] == "SpeechConversation":
+        if is_SpeechConversation:
             try:
                 ta_labels = json.loads(ta["labels"])
             except Exception as error:
@@ -447,7 +454,7 @@ def export_project_in_place(
                 print(error)
                 export_excluded_task_ids.append(task.id)
                 continue
-            if project_type == "AcousticNormalisedTranscriptionEditing":
+            if is_AcousticNormalisedTranscriptionEditing:
                 try:
                     ta_transcribed_json = json.loads(ta["verbatim_transcribed_json"])
                 except json.JSONDecodeError:
@@ -501,11 +508,11 @@ def export_project_in_place(
                         )["speaker_id"]
                         ta_labels[idx]["speaker_id"] = speaker_id
                         del ta_labels[idx]["labels"]
-                        if project_type == "AcousticNormalisedTranscriptionEditing":
+                        if is_AcousticNormalisedTranscriptionEditing:
                             temp = deepcopy(ta_labels[idx])
                             temp["text"] = ta_acoustic_transcribed_json[idx]
                             ta_acoustic_transcribed_json[idx] = temp
-                    if project_type == "AcousticNormalisedTranscriptionEditing":
+                    if is_AcousticNormalisedTranscriptionEditing:
                         try:
                             standardised_transcription = json.loads(
                                 ta["standardised_transcription"]
@@ -525,7 +532,7 @@ def export_project_in_place(
                     else:
                         setattr(data_item, field, ta_labels)
                 elif field == "conversation_json":
-                    if project.project_type == "ConversationVerification":
+                    if is_ConversationVerification:
                         conversation_json = data_item.unverified_conversation_json
                     else:
                         conversation_json = (
@@ -558,23 +565,67 @@ def export_project_in_place(
                     setattr(data_item, field, conversation_quality_status)
                 elif field == "ocr_transcribed_json":
                     ta_ocr_transcribed_json = []
+                    ann = (
+                        json.loads(tl["annotations"])
+                        if isinstance(tl["annotations"], str)
+                        else tl["annotations"]
+                    )
                     for idx in range(len(json.loads(ta["annotation_bboxes"]))):
-                        ta_ocr_transcribed_json.append(
-                            json.loads(ta["annotation_labels"])[idx]
-                        )
+                        if ta["annotation_labels"] is not None and isinstance(
+                            json.loads(ta["annotation_labels"]), list
+                        ):
+                            ta_ocr_transcribed_json.append(
+                                json.loads(ta["annotation_labels"])[idx]
+                            )
+                        else:
+                            ta_ocr_transcribed_json.append(
+                                json.loads(ta["annotation_bboxes"])[idx]
+                            )
                         # QUICKFIX for adjusting tasks_annotations
-                        ta["annotation_transcripts"] = ta["ocr_transcribed_json"]
+                        ta["annotation_transcripts"] = (
+                            ta["ocr_transcribed_json"]
+                            if "ocr_transcribed_json" in ta
+                            else ""
+                        )
                         if (
                             len(json.loads(ta["annotation_bboxes"])) > 1
+                            and ta["annotation_transcripts"]
                             and type(json.loads(ta["annotation_transcripts"])) == list
                         ):
-                            ta_ocr_transcribed_json[-1]["text"] = json.loads(
-                                ta["annotation_transcripts"]
-                            )[idx]
+                            try:
+                                ta_ocr_transcribed_json[-1]["text"] = json.loads(
+                                    ta["annotation_transcripts"]
+                                )[idx]
+                            except:
+                                ta_ocr_transcribed_json[-1]["text"] = ""
+                            ta_ocr_transcribed_json[-1]["id"] = (
+                                ann[0]["result"][idx * 2]["id"]
+                                if "id" in ann[0]["result"][idx * 2]
+                                else ""
+                            )
                         else:
-                            ta_ocr_transcribed_json[-1]["text"] = ta[
-                                "annotation_transcripts"
-                            ]
+                            try:
+                                ta_ocr_transcribed_json[-1]["text"] = ta[
+                                    "annotation_transcripts"
+                                ]
+                            except:
+                                ta_ocr_transcribed_json[-1]["text"] = ""
+                            ta_ocr_transcribed_json[-1]["id"] = (
+                                ann[0]["result"][idx * 2]["id"]
+                                if "id" in ann[0]["result"][idx * 2]
+                                else ""
+                            )
+                            ta_ocr_transcribed_json[-1]["parentID"] = (
+                                ann[0]["result"][idx * 2]["parentID"]
+                                if "parentID" in ann[0]["result"][idx * 2]
+                                else ""
+                            )
+                    bboxes_relation_json = []
+                    for r in ann[0]["result"]:
+                        if "type" in r and r["type"] == "relation":
+                            bboxes_relation_json.append(r)
+                    if bboxes_relation_json:
+                        setattr(data_item, "bboxes_relation_json", bboxes_relation_json)
                     setattr(data_item, field, ta_ocr_transcribed_json)
                 else:
                     setattr(data_item, field, ta[field])
@@ -582,6 +633,8 @@ def export_project_in_place(
         except Exception as e:
             export_excluded_task_ids.append(task.id)
     # Write json to dataset columns
+    if bboxes_relation_json:
+        annotation_fields.append("bboxes_relation_json")
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
     tasks = tasks.exclude(id__in=export_excluded_task_ids)

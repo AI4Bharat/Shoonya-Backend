@@ -9,6 +9,9 @@ class SelectionSerializer(serializers.Serializer):
 
 
 class TransliterationSerializer(serializers.Serializer):
+    uuid = serializers.CharField()
+    parent_uuid = serializers.CharField()
     word = serializers.CharField()
+    source = serializers.CharField()
     language = serializers.CharField()
     steps = SelectionSerializer(many=True)
