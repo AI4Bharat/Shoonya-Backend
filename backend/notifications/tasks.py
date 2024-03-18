@@ -22,7 +22,7 @@ def delete_excess_Notification(user):
     return 0
 
 
-@shared_task
+# @shared_task
 def create_notification_handler(title, notification_type, users_ids):
     if not notification_aggregated(title, notification_type, users_ids):
         new_notif = Notification(
