@@ -1342,10 +1342,7 @@ def send_user_analytics_mail_org(
                     "Average Segments Per Task": round(avg_segments_per_task, 2),
                 }
                 if project_type != None and is_translation_project:
-                    (
-                        avg_char_score,
-                        avg_bleu_score,
-                    ) = get_translation_quality_reports(
+                    (avg_char_score, avg_bleu_score,) = get_translation_quality_reports(
                         pk,
                         annotator,
                         project_type,
