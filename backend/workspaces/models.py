@@ -90,6 +90,8 @@ class Workspace(models.Model, DummyModelMixin):
         self.save()
 
     def match_workspace_password(self, password):
+        if not self.workspace_password:
+            return False
         return check_password(password, self.workspace_password)
 
     @staticmethod
