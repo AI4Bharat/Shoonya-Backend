@@ -212,6 +212,12 @@ def create_tasks_from_dataitems(items, project):
                 field_name = "speaker_" + str(indx) + "_details"
                 task.data[field_name] = stringify_json(task.data["speakers_json"][indx])
                 indx += 1
+        # checking if a task for the data item already exists
+        existing_task = Task.objects.filter(
+            data=task.data, project_id=project, input_data=data
+        )
+        if existing_task:
+            continue
         tasks.append(task)
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
