@@ -1527,7 +1527,9 @@ def update_notification(annotation_obj, task):
                 project_manager_bool=True,
             )
             notification_ids_set = list(set(notification_ids))
-            createNotification(title, notification_type, notification_ids_set)
+            createNotification(
+                title, notification_type, notification_ids_set, project_id, task.id
+            )
         except Exception as e:
             print(f"Error in creating notification: {e}")
 

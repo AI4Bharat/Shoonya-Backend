@@ -23,12 +23,24 @@ def delete_excess_Notification(user):
 
 
 # @shared_task
-def create_notification_handler(title, notification_type, users_ids):
+def create_notification_handler(
+    title, notification_type, users_ids, project_id=None, task_id=None
+):
     if not notification_aggregated(title, notification_type, users_ids):
+        notitification_url = (
+            f"/projects/{project_id}/task/{task_id}"
+            if project_id and task_id
+            else f"/projects/{project_id}"
+            if project_id
+            else f"/task/{task_id}"
+            if task_id
+            else None
+        )
         new_notif = Notification(
             notification_type=notification_type,
             title=title,
             metadata_json="null",
+            on_click=notitification_url,
         )
         try:
             with transaction.atomic():
