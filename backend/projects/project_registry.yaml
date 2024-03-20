@@ -123,6 +123,7 @@ OCR:
         fields:
           - language
           - image_url
+          - ocr_domain
         display_fields:
           - language
           - image_url
@@ -140,6 +141,7 @@ OCR:
         fields:
           - language
           - image_url
+          - ocr_domain
         display_fields:
           - language
           - image_url
