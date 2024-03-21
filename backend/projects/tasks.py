@@ -620,10 +620,32 @@ def export_project_in_place(
                                 if "parentID" in ann[0]["result"][idx * 2]
                                 else ""
                             )
-                    bboxes_relation_json = []
+                    bboxes_relation_json, annotated_document_details_json = [], []
                     for r in ann[0]["result"]:
                         if "type" in r and r["type"] == "relation":
                             bboxes_relation_json.append(r)
+                    task_data = (
+                        json.loads(task.data)
+                        if isinstance(task.data, str)
+                        else task.data
+                    )
+                    if "language" in task_data or "ocr_domain" in task_data:
+                        language = (
+                            task_data["language"] if "language" in task_data else ""
+                        )
+                        ocr_domain = (
+                            task_data["ocr_domain"] if "ocr_domain" in task_data else ""
+                        )
+                        annotated_document_details_json = {
+                            "language": language,
+                            "ocr_domain": ocr_domain,
+                        }
+                        setattr(
+                            data_item,
+                            "annotated_document_details_json",
+                            annotated_document_details_json,
+                        )
+                        annotation_fields.append("annotated_document_details_json")
                     if bboxes_relation_json:
                         setattr(data_item, "bboxes_relation_json", bboxes_relation_json)
                     setattr(data_item, field, ta_ocr_transcribed_json)

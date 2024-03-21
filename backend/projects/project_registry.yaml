@@ -127,6 +127,7 @@ OCR:
         display_fields:
           - language
           - image_url
+          - ocr_domain
       output_dataset: 
         class: OCRDocument
         save_type: in_place
@@ -145,6 +146,7 @@ OCR:
         display_fields:
           - language
           - image_url
+          - ocr_domain
         prediction: ocr_prediction_json
       output_dataset:
         class: OCRDocument
