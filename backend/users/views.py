@@ -677,20 +677,29 @@ class UserViewSet(viewsets.ViewSet):
         serializer = UserUpdateSerializer(user, request.data, partial=True)
 
         existing_is_active = user.is_active
-        is_active_payload = request.data.get('is_active',None)
+        is_active_payload = request.data.get("is_active", None)
 
-        if(existing_is_active == is_active_payload):
+        if existing_is_active == is_active_payload:
             pass
         else:
             if is_active_payload is False:
-                workspaces = Workspace.objects.filter(Q(members=user) | Q(managers=user))
-                workspace_view=WorkspaceViewSet()
+                workspaces = Workspace.objects.filter(
+                    Q(members=user) | Q(managers=user)
+                )
+                workspace_view = WorkspaceViewSet()
                 for workspace in workspaces:
-                    workspace_view.unassign_manager(request,pk=workspace.pk,ids=[user.id])
-                    workspace_view.remove_members(request,pk=workspace.pk,user_id=user.id)
-                return Response({"message":"User removed from all workspaces both as workspace member and workspace manager"},
-                                status=status.HTTP_200_OK) 
-
+                    workspace_view.unassign_manager(
+                        request, pk=workspace.pk, ids=[user.id]
+                    )
+                    workspace_view.remove_members(
+                        request, pk=workspace.pk, user_id=user.id
+                    )
+                return Response(
+                    {
+                        "message": "User removed from all workspaces both as workspace member and workspace manager"
+                    },
+                    status=status.HTTP_200_OK,
+                )
 
         if request.data["role"] != user.role:
             new_role = int(request.data["role"])
@@ -1460,16 +1469,16 @@ class AnalyticsViewSet(viewsets.ViewSet):
             schedule = (
                 "Daily"
                 if task.schedule == 1
-                else "Weekly"
-                if task.schedule == 2
-                else "Monthly"
+                else "Weekly" if task.schedule == 2 else "Monthly"
             )
             scheduled_day = (
                 calendar.day_name[int(task.celery_task.crontab.day_of_week) - 1]
                 if task.schedule == 2
-                else task.celery_task.crontab.day_of_month
-                if task.schedule == 3
-                else None
+                else (
+                    task.celery_task.crontab.day_of_month
+                    if task.schedule == 3
+                    else None
+                )
             )
             result.append(
                 {
@@ -1482,9 +1491,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     "Scheduled Day": scheduled_day,
                     "Created At": task.created_at,
                     "Run Count": task.celery_task.total_run_count,
-                    "Status": "Enabled"
-                    if task.celery_task.enabled == True
-                    else "Disabled",
+                    "Status": (
+                        "Enabled" if task.celery_task.enabled == True else "Disabled"
+                    ),
                 }
             )
         result = sorted(result, key=lambda x: x["Created At"], reverse=True)
