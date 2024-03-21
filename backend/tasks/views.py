@@ -1513,7 +1513,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
 
 def update_notification(annotation_obj, task):
-
     project_id = task.project_id.id
     project_name = task.project_id
     notification_type = "task_update"
