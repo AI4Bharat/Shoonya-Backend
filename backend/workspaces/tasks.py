@@ -74,6 +74,7 @@ def get_all_annotation_reports(
     total_audio_duration_list = []
     total_raw_audio_duration_list = []
     total_word_count_list = []
+    only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
             try:
@@ -94,6 +95,8 @@ def get_all_annotation_reports(
                 total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
+    else:
+        only_tasks = True
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
@@ -115,6 +118,10 @@ def get_all_annotation_reports(
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        del result["Word Count"]
+    elif only_tasks:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -179,6 +186,7 @@ def get_all_review_reports(
     total_audio_duration_list = []
     total_raw_audio_duration_list = []
     total_word_count_list = []
+    only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
             try:
@@ -199,7 +207,8 @@ def get_all_review_reports(
                 total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
-
+    else:
+        only_tasks = True
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
     total_raw_audio_duration = convert_seconds_to_hours(
@@ -220,6 +229,10 @@ def get_all_review_reports(
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        del result["Word Count"]
+    elif only_tasks:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -270,6 +283,7 @@ def get_all_supercheck_reports(
     validated_word_count_list = []
     validated_audio_duration_list = []
     validated_raw_audio_duration_list = []
+    only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
             try:
@@ -292,6 +306,8 @@ def get_all_supercheck_reports(
                 )
             except:
                 pass
+    else:
+        only_tasks = True
 
     validated_word_count = sum(validated_word_count_list)
     validated_audio_duration = convert_seconds_to_hours(
@@ -315,6 +331,10 @@ def get_all_supercheck_reports(
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        del result["Word Count"]
+    elif only_tasks:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
