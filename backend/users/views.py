@@ -1469,16 +1469,17 @@ class AnalyticsViewSet(viewsets.ViewSet):
             schedule = (
                 "Daily"
                 if task.schedule == 1
-                else "Weekly" if task.schedule == 2 else "Monthly"
+                else "Weekly" 
+                if task.schedule == 2 
+                else "Monthly"
             )
             scheduled_day = (
                 calendar.day_name[int(task.celery_task.crontab.day_of_week) - 1]
                 if task.schedule == 2
-                else (
-                    task.celery_task.crontab.day_of_month
-                    if task.schedule == 3
-                    else None
-                )
+                else task.celery_task.crontab.day_of_month
+                if task.schedule == 3
+                else None
+                
             )
             result.append(
                 {
@@ -1491,9 +1492,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     "Scheduled Day": scheduled_day,
                     "Created At": task.created_at,
                     "Run Count": task.celery_task.total_run_count,
-                    "Status": (
-                        "Enabled" if task.celery_task.enabled == True else "Disabled"
-                    ),
+                    "Status": "Enabled" 
+                    if task.celery_task.enabled == True 
+                    
+                    else "Disabled"   
                 }
             )
         result = sorted(result, key=lambda x: x["Created At"], reverse=True)
