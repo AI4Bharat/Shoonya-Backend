@@ -370,7 +370,7 @@ def create_parameters_for_task_creation(
     tasks = create_tasks_from_dataitems(sampled_items, project)
 
 
-@shared_task
+# @shared_task
 def export_project_in_place(
     annotation_fields, project_id, project_type, get_request_data
 ) -> None:
@@ -445,6 +445,7 @@ def export_project_in_place(
     )
     is_ConversationVerification = project.project_type == "ConversationVerification"
     bboxes_relation_json = []
+    annotated_document_details_json = {}
     for ta, tl, task in zip(tasks_annotations, tasks_list, annotated_tasks):
         if is_SpeechConversation:
             try:
@@ -631,7 +632,7 @@ def export_project_in_place(
                     )
                     if "language" in task_data or "ocr_domain" in task_data:
                         language = (
-                            task_data["language"] if "language" in task_data else ""
+                            task_data["language"] if "language" in task_data else []
                         )
                         ocr_domain = (
                             task_data["ocr_domain"] if "ocr_domain" in task_data else ""
@@ -645,7 +646,6 @@ def export_project_in_place(
                             "annotated_document_details_json",
                             annotated_document_details_json,
                         )
-                        annotation_fields.append("annotated_document_details_json")
                     if bboxes_relation_json:
                         setattr(data_item, "bboxes_relation_json", bboxes_relation_json)
                     setattr(data_item, field, ta_ocr_transcribed_json)
@@ -657,6 +657,8 @@ def export_project_in_place(
     # Write json to dataset columns
     if bboxes_relation_json:
         annotation_fields.append("bboxes_relation_json")
+    if annotated_document_details_json:
+        annotation_fields.append("annotated_document_details_json")
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
     tasks = tasks.exclude(id__in=export_excluded_task_ids)
