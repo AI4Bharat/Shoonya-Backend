@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "workspaces",
     "dataset",
     "projects",
+    "notifications",
     "tasks",
     "functions",
     "loging",
