@@ -1,6 +1,7 @@
 """
 Module to store Import-Export resource classes
 """
+
 from import_export.resources import ModelResource
 from .models import *
 from .mixins import ResourceMixin

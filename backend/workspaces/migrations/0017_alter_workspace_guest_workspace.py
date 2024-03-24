@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('workspaces', '0016_workspace_workspace_password'),
+        ("workspaces", "0016_workspace_workspace_password"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='workspace',
-            name='guest_workspace',
-            field=models.BooleanField(default=False, help_text='Indicates if the workspace is for guest-users.', verbose_name='guest_workspace'),
+            model_name="workspace",
+            name="guest_workspace",
+            field=models.BooleanField(
+                default=False,
+                help_text="Indicates if the workspace is for guest-users.",
+                verbose_name="guest_workspace",
+            ),
         ),
     ]

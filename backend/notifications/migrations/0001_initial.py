@@ -14,20 +14,85 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Notification',
+            name="Notification",
             fields=[
-                ('id', models.AutoField(help_text='Auto-incremented unique identifier.', primary_key=True, serialize=False)),
-                ('notification_type', models.CharField(choices=[('publish_project', 'Publish Project'), ('task_reject', 'Task Reject'), ('add_member', 'Member Added'), ('remove_member', 'Member Removed'), ('task_update', 'Task Update'), ('project_update', 'Project Update')], help_text='Type of notification.', max_length=200)),
-                ('created_at', models.DateTimeField(auto_now_add=True, help_text='Date and time when the notification was created.')),
-                ('priority', models.IntegerField(default=1, help_text='Priority level of the notification.')),
-                ('title', models.CharField(help_text='Title of the notification.', max_length=200)),
-                ('on_click', models.URLField(blank=True, help_text='URL to be opened when the notification is clicked.', null=True)),
-                ('metadata_json', models.JSONField(blank=True, help_text='Additional metadata in JSON format.', null=True)),
-                ('seen_json', models.JSONField(blank=True, help_text='JSON field to store information about whether the notification has been seen.', null=True)),
-                ('reciever_user_id', models.ManyToManyField(blank=True, help_text='Users who will receive the notification.', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.AutoField(
+                        help_text="Auto-incremented unique identifier.",
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "notification_type",
+                    models.CharField(
+                        choices=[
+                            ("publish_project", "Publish Project"),
+                            ("task_reject", "Task Reject"),
+                            ("add_member", "Member Added"),
+                            ("remove_member", "Member Removed"),
+                            ("task_update", "Task Update"),
+                            ("project_update", "Project Update"),
+                        ],
+                        help_text="Type of notification.",
+                        max_length=200,
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        auto_now_add=True,
+                        help_text="Date and time when the notification was created.",
+                    ),
+                ),
+                (
+                    "priority",
+                    models.IntegerField(
+                        default=1, help_text="Priority level of the notification."
+                    ),
+                ),
+                (
+                    "title",
+                    models.CharField(
+                        help_text="Title of the notification.", max_length=200
+                    ),
+                ),
+                (
+                    "on_click",
+                    models.URLField(
+                        blank=True,
+                        help_text="URL to be opened when the notification is clicked.",
+                        null=True,
+                    ),
+                ),
+                (
+                    "metadata_json",
+                    models.JSONField(
+                        blank=True,
+                        help_text="Additional metadata in JSON format.",
+                        null=True,
+                    ),
+                ),
+                (
+                    "seen_json",
+                    models.JSONField(
+                        blank=True,
+                        help_text="JSON field to store information about whether the notification has been seen.",
+                        null=True,
+                    ),
+                ),
+                (
+                    "reciever_user_id",
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text="Users who will receive the notification.",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ('-created_at',),
+                "ordering": ("-created_at",),
             },
         ),
     ]

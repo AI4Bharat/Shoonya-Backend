@@ -1433,10 +1433,10 @@ class AnnotationViewSet(
                     )
                     is_IDC = True
                     request.data["result"] = annotation_obj.result
-                    request.data[
-                        "meta_stats"
-                    ] = compute_meta_stats_for_instruction_driven_chat(
-                        annotation_obj.result
+                    request.data["meta_stats"] = (
+                        compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
                     )
                 annotation_response = super().partial_update(request)
                 if is_IDC:
@@ -1626,10 +1626,10 @@ class AnnotationViewSet(
                     )
                     is_IDC = True
                     request.data["result"] = annotation_obj.result
-                    request.data[
-                        "meta_stats"
-                    ] = compute_meta_stats_for_instruction_driven_chat(
-                        annotation_obj.result
+                    request.data["meta_stats"] = (
+                        compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
                     )
                 annotation_response = super().partial_update(request)
                 if is_IDC:
@@ -1837,10 +1837,10 @@ class AnnotationViewSet(
                     )
                     is_IDC = True
                     request.data["result"] = annotation_obj.result
-                    request.data[
-                        "meta_stats"
-                    ] = compute_meta_stats_for_instruction_driven_chat(
-                        annotation_obj.result
+                    request.data["meta_stats"] = (
+                        compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
                     )
                 annotation_response = super().partial_update(request)
                 if is_IDC:
@@ -1975,9 +1975,11 @@ class AnnotationViewSet(
             text_dict = {
                 "origin": "manual",
                 "to_name": "audio_url",
-                "from_name": "transcribed_json"
-                if not is_acoustic
-                else "verbatim_transcribed_json",
+                "from_name": (
+                    "transcribed_json"
+                    if not is_acoustic
+                    else "verbatim_transcribed_json"
+                ),
                 "original_length": audio_duration,
             }
 

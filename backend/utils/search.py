@@ -65,18 +65,18 @@ def process_search_query(
             print({i: j})
             if i in searchable_fields:
                 if type(parsed_value) == str:
-                    queryset_dict[
-                        f"{search_field_name}__{i}__icontains"
-                    ] = parsed_value  # Unaccent doesn't work as intended.
+                    queryset_dict[f"{search_field_name}__{i}__icontains"] = (
+                        parsed_value  # Unaccent doesn't work as intended.
+                    )
                 else:
                     queryset_dict[f"{search_field_name}__{i}"] = parsed_value
             else:
                 if type(parsed_value) != str:
                     queryset_dict[i] = parse_for_data_types(j)
                 else:
-                    queryset_dict[
-                        f"{i}__icontains"
-                    ] = parsed_value  # Unaccent is not supported for CharField
+                    queryset_dict[f"{i}__icontains"] = (
+                        parsed_value  # Unaccent is not supported for CharField
+                    )
     except Exception as e:
         print(f"\033[1mError found while processing query dictionary. In: {e}\033[0m")
 

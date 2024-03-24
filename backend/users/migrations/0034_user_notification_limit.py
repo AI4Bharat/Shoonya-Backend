@@ -6,13 +6,17 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0033_auto_20240123_0310'),
+        ("users", "0033_auto_20240123_0310"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='notification_limit',
-            field=models.BigIntegerField(default=100, help_text='Indicates the number of maximum notifications a user will receive.', null=True),
+            model_name="user",
+            name="notification_limit",
+            field=models.BigIntegerField(
+                default=100,
+                help_text="Indicates the number of maximum notifications a user will receive.",
+                null=True,
+            ),
         ),
     ]

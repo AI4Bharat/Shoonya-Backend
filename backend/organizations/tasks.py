@@ -42,11 +42,11 @@ def get_all_annotation_reports(
     participation_type = (
         "Full Time"
         if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
+        else (
+            "Part Time"
+            if participation_type == 2
+            else "Contract Basis" if participation_type == 4 else "N/A"
+        )
     )
     role = get_role_name(user.role)
     userName = user.username
@@ -137,11 +137,11 @@ def get_all_review_reports(
     participation_type = (
         "Full Time"
         if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
+        else (
+            "Part Time"
+            if participation_type == 2
+            else "Contract Basis" if participation_type == 4 else "N/A"
+        )
     )
     role = get_role_name(user.role)
     userName = user.username
@@ -237,11 +237,11 @@ def get_all_supercheck_reports(
     participation_type = (
         "Full Time"
         if user.participation_type == 1
-        else "Part Time"
-        if user.participation_type == 2
-        else "Contract Basis"
-        if user.participation_type == 4
-        else "N/A"
+        else (
+            "Part Time"
+            if user.participation_type == 2
+            else "Contract Basis" if user.participation_type == 4 else "N/A"
+        )
     )
     role = get_role_name(user.role)
     userName = user.username
@@ -471,13 +471,15 @@ def send_user_reports_mail_org(
     filename = f"{organization.title}_user_analytics.csv"
 
     participation_types = [
-        "Full Time"
-        if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
+        (
+            "Full Time"
+            if participation_type == 1
+            else (
+                "Part Time"
+                if participation_type == 2
+                else "Contract Basis" if participation_type == 4 else "N/A"
+            )
+        )
         for participation_type in participation_types
     ]
     participation_types_string = ", ".join(participation_types)
@@ -1257,11 +1259,11 @@ def send_user_analytics_mail_org(
             participation_type = (
                 "Full Time"
                 if participation_type == 1
-                else "Part Time"
-                if participation_type == 2
-                else "Contract Basis"
-                if participation_type == 4
-                else "N/A"
+                else (
+                    "Part Time"
+                    if participation_type == 2
+                    else "Contract Basis" if participation_type == 4 else "N/A"
+                )
             )
             role = get_role_name(annotator.role)
             user_id = annotator.id

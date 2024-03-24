@@ -40,11 +40,11 @@ def get_all_annotation_reports(
     participation_type = (
         "Full Time"
         if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
+        else (
+            "Part Time"
+            if participation_type == 2
+            else "Contract Basis" if participation_type == 4 else "N/A"
+        )
     )
     role = get_role_name(user.role)
     userName = user.username
@@ -135,11 +135,11 @@ def get_all_review_reports(
     participation_type = (
         "Full Time"
         if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
+        else (
+            "Part Time"
+            if participation_type == 2
+            else "Contract Basis" if participation_type == 4 else "N/A"
+        )
     )
     role = get_role_name(user.role)
     userName = user.username
@@ -235,11 +235,11 @@ def get_all_supercheck_reports(
     participation_type = (
         "Full Time"
         if user.participation_type == 1
-        else "Part Time"
-        if user.participation_type == 2
-        else "Contract Basis"
-        if user.participation_type == 4
-        else "N/A"
+        else (
+            "Part Time"
+            if user.participation_type == 2
+            else "Contract Basis" if user.participation_type == 4 else "N/A"
+        )
     )
     role = get_role_name(user.role)
     userName = user.username
@@ -477,13 +477,15 @@ def send_user_reports_mail_ws(
     filename = f"{workspace.workspace_name}_user_analytics.csv"
 
     participation_types = [
-        "Full Time"
-        if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
+        (
+            "Full Time"
+            if participation_type == 1
+            else (
+                "Part Time"
+                if participation_type == 2
+                else "Contract Basis" if participation_type == 4 else "N/A"
+            )
+        )
         for participation_type in participation_types
     ]
     participation_types_string = ", ".join(participation_types)
@@ -915,11 +917,11 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
     participation_type = (
         "Full Time"
         if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
+        else (
+            "Part Time"
+            if participation_type == 2
+            else "Contract Basis" if participation_type == 4 else "N/A"
+        )
     )
     role = get_role_name(user.role)
     userName = user.username
@@ -1146,15 +1148,15 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
             "OCRTranscription",
         ]:
             result["Validated Word Count"] = validated_word_count
-            result[
-                "Validated With Changes Word Count"
-            ] = validated_with_changes_word_count
+            result["Validated With Changes Word Count"] = (
+                validated_with_changes_word_count
+            )
             result["Rejected Word Count"] = rejected_word_count
         elif project_type in get_audio_project_types():
             result["Validated Audio Duration"] = validated_audio_duration
-            result[
-                "Validated With Changes Audio Duration"
-            ] = validated_with_changes_audio_duration
+            result["Validated With Changes Audio Duration"] = (
+                validated_with_changes_audio_duration
+            )
             result["Rejected Audio Duration"] = rejected_audio_duration
             result["Total Raw Audio Duration"] = total_raw_audio_duration
             result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
@@ -1175,11 +1177,11 @@ def get_review_reports(
     participation_type = (
         "Full Time"
         if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
+        else (
+            "Part Time"
+            if participation_type == 2
+            else "Contract Basis" if participation_type == 4 else "N/A"
+        )
     )
     role = get_role_name(user.role)
     userName = user.username
