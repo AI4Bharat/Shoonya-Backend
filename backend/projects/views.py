@@ -37,6 +37,8 @@ from tasks.serializers import TaskSerializer
 from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
+import notifications
+
 from .utils import (
     get_annotations_for_project,
     get_status_from_query_params,
@@ -83,7 +85,6 @@ from users.utils import generate_random_string
 from notifications.views import createNotification
 from notifications.utils import get_userids_from_project_id
 # Create your views here.
-
 
 EMAIL_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
@@ -1438,6 +1439,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if freeze_user == True:
                     project.frozen_users.add(user)
                 project.save()
+                
+                # Creating Notification
+                title = f"{project.title}:{project.id} Some annotators have been removed from this project"
+                notification_type = "remove_member"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                notification_ids.extend(ids)
+                notification_ids_set = list(set(notification_ids))
+                createNotification(title, notification_type, notification_ids_set)
             return Response(
                 {"message": "User removed from project"},
                 status=status.HTTP_201_CREATED,

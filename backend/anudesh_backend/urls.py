@@ -44,6 +44,7 @@ urlpatterns = [
     path("workspaces/", include("workspaces.urls")),
     # path("/", include("tasks.urls")),
     path("tasks/", include("tasks.urls")),
+    path("notifications/", include("notifications.urls")),
     path("projects/", include("projects.urls")),
     path("functions/", include("functions.urls")),
     path("data/", include("dataset.urls")),
