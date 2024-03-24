@@ -490,9 +490,9 @@ def generate_ocr_prediction_json(
 
             # Updating the ocr_prediction_json column and saving in OCRDocument dataset with the new ocr predictions
             try:
-                ocr_data_items_df.at[index, "ocr_prediction_json"] = (
-                    ocr_predictions_json
-                )
+                ocr_data_items_df.at[
+                    index, "ocr_prediction_json"
+                ] = ocr_predictions_json
                 ocr_document = dataset_models.OCRDocument(
                     instance_id_id=dataset_instance_id,
                     id=curr_id,
@@ -1094,9 +1094,9 @@ def get_modified_stats_result(
         for key, value in result_rev_anno_stats.items():
             result[f"Reviewer - {key.replace('_', ' ').title()} Annotations"] = value
         for key, value in result_sup_anno_stats.items():
-            result[f"Superchecker - {key.replace('_', ' ').title()} Annotations"] = (
-                value
-            )
+            result[
+                f"Superchecker - {key.replace('_', ' ').title()} Annotations"
+            ] = value
     if meta_stats or complete_stats:
         for key, stats in result_ann_meta_stats.items():
             update_stats(stats)
@@ -1106,9 +1106,9 @@ def get_modified_stats_result(
             update_stats(stats)
         for key, value in result_ann_meta_stats.items():
             for sub_key in value.keys():
-                result[f"Annotator - {key.replace('_', ' ').title()} {sub_key}"] = (
-                    value[sub_key]
-                )
+                result[
+                    f"Annotator - {key.replace('_', ' ').title()} {sub_key}"
+                ] = value[sub_key]
         for key, value in result_rev_meta_stats.items():
             for sub_key in value.keys():
                 result[f"Reviewer - {key.replace('_', ' ').title()} {sub_key}"] = value[
@@ -1116,25 +1116,25 @@ def get_modified_stats_result(
                 ]
         for key, value in result_sup_meta_stats.items():
             for sub_key in value.keys():
-                result[f"Superchecker - {key.replace('_', ' ').title()} {sub_key}"] = (
-                    value[sub_key]
-                )
+                result[
+                    f"Superchecker - {key.replace('_', ' ').title()} {sub_key}"
+                ] = value[sub_key]
 
-        result["Average Annotator VS Reviewer Character Edit Distance"] = (
-            "{:.2f}".format(get_average_of_a_list(average_ann_vs_rev_CED))
-        )
+        result[
+            "Average Annotator VS Reviewer Character Edit Distance"
+        ] = "{:.2f}".format(get_average_of_a_list(average_ann_vs_rev_CED))
         result["Average Annotator VS Reviewer Word Error Rate"] = "{:.2f}".format(
             get_average_of_a_list(average_ann_vs_rev_WER)
         )
-        result["Average Reviewer VS Superchecker Character Edit Distance"] = (
-            "{:.2f}".format(get_average_of_a_list(average_rev_vs_sup_CED))
-        )
+        result[
+            "Average Reviewer VS Superchecker Character Edit Distance"
+        ] = "{:.2f}".format(get_average_of_a_list(average_rev_vs_sup_CED))
         result["Average Reviewer VS Superchecker Word Error Rate"] = "{:.2f}".format(
             get_average_of_a_list(average_rev_vs_sup_WER)
         )
-        result["Average Annotator VS Superchecker Character Edit Distance"] = (
-            "{:.2f}".format(get_average_of_a_list(average_ann_vs_sup_CED))
-        )
+        result[
+            "Average Annotator VS Superchecker Character Edit Distance"
+        ] = "{:.2f}".format(get_average_of_a_list(average_ann_vs_sup_CED))
         result["Average Annotator VS Superchecker Word Error Rate"] = "{:.2f}".format(
             get_average_of_a_list(average_ann_vs_sup_WER)
         )
@@ -1508,9 +1508,9 @@ def schedule_mail_to_download_all_projects(
             query_params = QueryDict(mutable=True)
             query_params["include_input_data_metadata_json"] = "true"
             query_params["export_type"] = "CSV"
-            query_params["task_status"] = (
-                "incomplete,annotated,reviewed,super_checked,exported"
-            )
+            query_params[
+                "task_status"
+            ] = "incomplete,annotated,reviewed,super_checked,exported"
             custom_request = Request(factory.get(url, data=query_params, timeout=15))
             custom_request.user = user
             try:
