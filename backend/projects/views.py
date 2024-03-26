@@ -6,7 +6,8 @@ import pandas as pd
 import ast
 import csv
 import math
-
+from utils.search_response_by_keyword import search_response_by_keyword
+from utils.pagination import paginate_queryset
 from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
@@ -1444,7 +1445,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 projects = projects.order_by(F("published_at").desc(nulls_last=True))
 
             projects_json = ProjectSerializerOptimized(projects, many=True)
-            return Response(projects_json.data, status=status.HTTP_200_OK)
+            key_word = request.query_params.get("keyword", None)
+            key_values_list = [
+                "project_type",
+                "id",
+                "title",
+                "project_stage",
+                "tgt_language",
+                "workspace_id",
+            ]
+            projects_json_search = search_response_by_keyword(
+                key_word, key_values_list, list(projects_json.data)
+            )
+            projects_json_dict = {
+                project["id"]: project for project in projects_json_search
+            }
+            page = request.query_params.get("page", None)
+            recordes = request.query_params.get("records", 10)
+            projects_json_dict = paginate_queryset(projects_json_dict, page, recordes)
+            return Response(projects_json_dict.values(), status=status.HTTP_200_OK)
         except Exception:
             return Response(
                 {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
