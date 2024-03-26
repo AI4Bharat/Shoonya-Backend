@@ -28,12 +28,8 @@ from projects.utils import (
 )
 
 
-def get_all_annotation_reports(
-    proj_ids,
-    userid,
-    project_type,
-    start_date=None,
-    end_date=None,
+def get_user_reports(
+    proj_ids, userid, project_type, report_type, start_date=None, end_date=None
 ):
     user = User.objects.get(pk=userid)
     participation_type = user.participation_type
@@ -52,34 +48,24 @@ def get_all_annotation_reports(
     user_lang = user.languages
 
     if not start_date:
-        submitted_tasks = Annotation.objects.filter(
-            annotation_status="labeled",
-            task__project_id__in=proj_ids,
-            annotation_type=ANNOTATOR_ANNOTATION,
-            completed_by=userid,
-        )
+        submitted_tasks = get_submitted_tasks(proj_ids, userid, report_type)
     else:
-        submitted_tasks = Annotation.objects.filter(
-            annotation_status="labeled",
-            task__project_id__in=proj_ids,
-            annotation_type=ANNOTATOR_ANNOTATION,
-            completed_by=userid,
-            updated_at__range=[start_date, end_date],
+        submitted_tasks = get_submitted_tasks(
+            proj_ids, userid, report_type, start_date, end_date
         )
 
     submitted_tasks_count = submitted_tasks.count()
 
     project_type_lower = project_type.lower()
-    is_translation_project = True if "translation" in project_type_lower else False
-    is_CT_OR_CTE = (
-        True
-        if project_type in ["ConversationTranslationEditing", "ConversationTranslation"]
-        else False
-    )
+    is_translation_project = "translation" in project_type_lower
+    is_CT = project_type == "ConversationTranslation"
+    is_CTE = project_type == "ConversationTranslationEditing"
+    is_CV = project_type == "ConversationVerification"
+    total_word_count_list = []
     total_audio_duration_list = []
     total_raw_audio_duration_list = []
-    total_word_count_list = []
     only_tasks = False
+
     if is_translation_project:
         for anno in submitted_tasks:
             try:
@@ -102,6 +88,14 @@ def get_all_annotation_reports(
                 pass
     else:
         only_tasks = True
+    total_sentence_count_list = [0]
+    if is_CV or is_CT or is_CTE:
+        for anno in submitted_tasks:
+            try:
+                total_sentence_count_list.append(anno.task.data["sentence_count"])
+                total_sentence_count_list[0] += total_sentence_count_list[-1]
+            except:
+                pass
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
@@ -114,7 +108,7 @@ def get_all_annotation_reports(
         "Email": email,
         "Participation Type": participation_type,
         "Role": role,
-        "Type of Work": "Annotator",
+        "Type of Work": report_type,
         "Total Segments Duration": total_audio_duration,
         "Total Raw Audio Duration": total_raw_audio_duration,
         "Word Count": total_word_count,
@@ -128,245 +122,89 @@ def get_all_annotation_reports(
         del result["Total Segments Duration"]
         del result["Total Raw Audio Duration"]
         del result["Word Count"]
-    elif is_CT_OR_CTE:
+    elif is_CT or is_CTE:
         del result["Total Segments Duration"]
         del result["Total Raw Audio Duration"]
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
         del result["Total Raw Audio Duration"]
+    if is_CV or is_CT or is_CTE:
+        result["sentence_count"] = total_sentence_count_list[0]
 
     return result
 
 
-def get_all_review_reports(
-    proj_ids,
-    userid,
-    project_type,
-    start_date=None,
-    end_date=None,
-):
-    user = User.objects.get(pk=userid)
-    participation_type = user.participation_type
-    participation_type = (
-        "Full Time"
-        if participation_type == 1
-        else "Part Time"
-        if participation_type == 2
-        else "Contract Basis"
-        if participation_type == 4
-        else "N/A"
-    )
-    role = get_role_name(user.role)
-    userName = user.username
-    email = user.email
-    user_lang = user.languages
+def get_submitted_tasks(proj_ids, userid, report_type, start_date=None, end_date=None):
+    submitted_tasks = []
+    if report_type == "Annotation":
+        if not start_date:
+            submitted_tasks = Annotation.objects.filter(
+                annotation_status="labeled",
+                task__project_id__in=proj_ids,
+                annotation_type=ANNOTATOR_ANNOTATION,
+                completed_by=userid,
+            )
+        else:
+            submitted_tasks = Annotation.objects.filter(
+                annotation_status="labeled",
+                task__project_id__in=proj_ids,
+                annotation_type=ANNOTATOR_ANNOTATION,
+                completed_by=userid,
+                updated_at__range=[start_date, end_date],
+            )
+    elif report_type == "Review":
+        if not start_date:
+            submitted_tasks = Annotation.objects.filter(
+                annotation_status__in=[
+                    "accepted",
+                    "to_be_revised",
+                    "accepted_with_minor_changes",
+                    "accepted_with_major_changes",
+                ],
+                task__project_id__in=proj_ids,
+                task__review_user=userid,
+                annotation_type=REVIEWER_ANNOTATION,
+            )
+        else:
+            submitted_tasks = Annotation.objects.filter(
+                annotation_status__in=[
+                    "accepted",
+                    "to_be_revised",
+                    "accepted_with_minor_changes",
+                    "accepted_with_major_changes",
+                ],
+                task__project_id__in=proj_ids,
+                task__review_user=userid,
+                annotation_type=REVIEWER_ANNOTATION,
+                updated_at__range=[start_date, end_date],
+            )
+    elif report_type == "Supercheck":
+        if not start_date:
+            submitted_tasks = Annotation.objects.filter(
+                annotation_status__in=[
+                    "validated",
+                    "validated_with_changes",
+                    "rejected",
+                ],
+                task__project_id__in=proj_ids,
+                task__super_check_user=userid,
+                annotation_type=SUPER_CHECKER_ANNOTATION,
+            )
+        else:
+            submitted_tasks = Annotation.objects.filter(
+                annotation_status__in=[
+                    "validated",
+                    "validated_with_changes",
+                    "rejected",
+                ],
+                task__project_id__in=proj_ids,
+                task__super_check_user=userid,
+                annotation_type=SUPER_CHECKER_ANNOTATION,
+                updated_at__range=[start_date, end_date],
+            )
 
-    if not start_date:
-        submitted_tasks = Annotation.objects.filter(
-            annotation_status__in=[
-                "accepted",
-                "to_be_revised",
-                "accepted_with_minor_changes",
-                "accepted_with_major_changes",
-            ],
-            task__project_id__in=proj_ids,
-            task__review_user=userid,
-            annotation_type=REVIEWER_ANNOTATION,
-        )
-    else:
-        submitted_tasks = Annotation.objects.filter(
-            annotation_status__in=[
-                "accepted",
-                "to_be_revised",
-                "accepted_with_minor_changes",
-                "accepted_with_major_changes",
-            ],
-            task__project_id__in=proj_ids,
-            task__review_user=userid,
-            annotation_type=REVIEWER_ANNOTATION,
-            updated_at__range=[start_date, end_date],
-        )
-
-    submitted_tasks_count = submitted_tasks.count()
-
-    project_type_lower = project_type.lower()
-    is_translation_project = True if "translation" in project_type_lower else False
-    is_CT_OR_CTE = (
-        True
-        if project_type in ["ConversationTranslationEditing", "ConversationTranslation"]
-        else False
-    )
-    total_audio_duration_list = []
-    total_raw_audio_duration_list = []
-    total_word_count_list = []
-    only_tasks = False
-    if is_translation_project:
-        for anno in submitted_tasks:
-            try:
-                total_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
-    elif "OCRTranscription" in project_type:
-        for anno in submitted_tasks:
-            total_word_count_list.append(ocr_word_count(anno.result))
-    elif (
-        project_type in get_audio_project_types() or project_type == "AllAudioProjects"
-    ):
-        for anno in submitted_tasks:
-            try:
-                total_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
-                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
-            except:
-                pass
-    else:
-        only_tasks = True
-    total_word_count = sum(total_word_count_list)
-    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-    total_raw_audio_duration = convert_seconds_to_hours(
-        sum(total_raw_audio_duration_list)
-    )
-
-    result = {
-        "Name": userName,
-        "Email": email,
-        "Participation Type": participation_type,
-        "Role": role,
-        "Type of Work": "Review",
-        "Total Segments Duration": total_audio_duration,
-        "Total Raw Audio Duration": total_raw_audio_duration,
-        "Word Count": total_word_count,
-        "Submitted Tasks": submitted_tasks_count,
-        "Language": user_lang,
-    }
-
-    if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
-        del result["Word Count"]
-    elif only_tasks:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
-        del result["Word Count"]
-    elif is_CT_OR_CTE:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
-        del result["Word Count"]
-    else:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
-
-    return result
-
-
-def get_all_supercheck_reports(
-    proj_ids, userid, project_type, start_date=None, end_date=None
-):
-    user = User.objects.get(pk=userid)
-    participation_type = (
-        "Full Time"
-        if user.participation_type == 1
-        else "Part Time"
-        if user.participation_type == 2
-        else "Contract Basis"
-        if user.participation_type == 4
-        else "N/A"
-    )
-    role = get_role_name(user.role)
-    userName = user.username
-    email = user.email
-    user_lang = user.languages
-
-    if not start_date:
-        submitted_tasks = Annotation.objects.filter(
-            annotation_status__in=["validated", "validated_with_changes", "rejected"],
-            task__project_id__in=proj_ids,
-            task__super_check_user=userid,
-            annotation_type=SUPER_CHECKER_ANNOTATION,
-        )
-    else:
-        submitted_tasks = Annotation.objects.filter(
-            annotation_status__in=["validated", "validated_with_changes", "rejected"],
-            task__project_id__in=proj_ids,
-            task__super_check_user=userid,
-            annotation_type=SUPER_CHECKER_ANNOTATION,
-            updated_at__range=[start_date, end_date],
-        )
-
-    submitted_tasks_count = submitted_tasks.count()
-
-    project_type_lower = project_type.lower()
-    is_translation_project = True if "translation" in project_type_lower else False
-    is_CT_OR_CTE = (
-        True
-        if project_type in ["ConversationTranslationEditing", "ConversationTranslation"]
-        else False
-    )
-    validated_word_count_list = []
-    validated_audio_duration_list = []
-    validated_raw_audio_duration_list = []
-    only_tasks = False
-    if is_translation_project:
-        for anno in submitted_tasks:
-            try:
-                validated_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
-    elif "OCRTranscription" in project_type:
-        for anno in submitted_tasks:
-            validated_word_count_list.append(ocr_word_count(anno.result))
-    elif (
-        project_type in get_audio_project_types() or project_type == "AllAudioProjects"
-    ):
-        for anno in submitted_tasks:
-            try:
-                validated_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
-                validated_raw_audio_duration_list.append(
-                    anno.task.data["audio_duration"]
-                )
-            except:
-                pass
-    else:
-        only_tasks = True
-
-    validated_word_count = sum(validated_word_count_list)
-    validated_audio_duration = convert_seconds_to_hours(
-        sum(validated_audio_duration_list)
-    )
-    validated_raw_audio_duration = convert_seconds_to_hours(
-        sum(validated_raw_audio_duration_list)
-    )
-
-    result = {
-        "Name": userName,
-        "Email": email,
-        "Participation Type": participation_type,
-        "Role": role,
-        "Type of Work": "Supercheck",
-        "Total Segments Duration": validated_audio_duration,
-        "Total Raw Audio Duration": validated_raw_audio_duration,
-        "Word Count": validated_word_count,
-        "Submitted Tasks": submitted_tasks_count,
-        "Language": user_lang,
-    }
-
-    if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
-        del result["Word Count"]
-    elif only_tasks:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
-        del result["Word Count"]
-    elif is_CT_OR_CTE:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
-        del result["Word Count"]
-    else:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
-
-    return result
+    return submitted_tasks
 
 
 @shared_task(queue="reports")
@@ -465,12 +303,8 @@ def send_user_reports_mail_ws(
     for id in ws_anno_list:
         anno_projs = proj_objs.filter(annotators=id)
         user_projs_ids = [user_proj.id for user_proj in anno_projs]
-        annotate_result = get_all_annotation_reports(
-            user_projs_ids,
-            id,
-            project_type,
-            start_date,
-            end_date,
+        annotate_result = get_user_reports(
+            user_projs_ids, id, project_type, "Annotation", start_date, end_date
         )
         final_reports.append(annotate_result)
 
@@ -481,12 +315,8 @@ def send_user_reports_mail_ws(
             for user_proj in review_projs
             # if user_proj.project_stage > ANNOTATION_STAGE
         ]
-        review_result = get_all_review_reports(
-            user_projs_ids,
-            id,
-            project_type,
-            start_date,
-            end_date,
+        review_result = get_user_reports(
+            user_projs_ids, id, project_type, "Review", start_date, end_date
         )
         final_reports.append(review_result)
 
@@ -497,12 +327,8 @@ def send_user_reports_mail_ws(
             for user_proj in supercheck_projs
             # if user_proj.project_stage > REVIEW_STAGE
         ]
-        supercheck_result = get_all_supercheck_reports(
-            user_projs_ids,
-            id,
-            project_type,
-            start_date,
-            end_date,
+        supercheck_result = get_user_reports(
+            user_projs_ids, id, project_type, "Supercheck", start_date, end_date
         )
         final_reports.append(supercheck_result)
 
