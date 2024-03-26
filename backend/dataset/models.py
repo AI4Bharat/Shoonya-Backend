@@ -35,6 +35,19 @@ OCR_DOMAIN_CHOICES = (
     ("BO", "Books"),
     ("FO", "Forms"),
     ("OT", "Others"),
+    ("TB", "Textbooks"),
+    ("NV", "Novels"),
+    ("NP", "Newspapers"),
+    ("MG", "Magazines"),
+    ("RP", "Research_Papers"),
+    ("FM", "Form"),
+    ("BR", "Brochure_Posters_Leaflets"),
+    ("AR", "Acts_Rules"),
+    ("PB", "Publication"),
+    ("NT", "Notice"),
+    ("SY", "Syllabus"),
+    ("QP", "Question_Papers"),
+    ("MN", "Manual"),
 )
 
 QUALITY_CHOICES = (
@@ -292,6 +305,14 @@ class OCRDocument(DatasetBase):
 
     image_details_json = models.JSONField(
         verbose_name="image_details_json", null=True, blank=True
+    )
+
+    bboxes_relation_json = models.JSONField(
+        verbose_name="bboxes_relation_json", null=True, blank=True
+    )
+
+    annotated_document_details_json = models.JSONField(
+        verbose_name="annotated_document_details_json", null=True, blank=True
     )
 
     def __str__(self):

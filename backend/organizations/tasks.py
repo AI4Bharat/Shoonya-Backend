@@ -73,9 +73,15 @@ def get_all_annotation_reports(
 
     project_type_lower = project_type.lower()
     is_translation_project = True if "translation" in project_type_lower else False
+    is_CT_OR_CTE = (
+        True
+        if project_type in ["ConversationTranslationEditing", "ConversationTranslation"]
+        else False
+    )
     total_audio_duration_list = []
     total_raw_audio_duration_list = []
     total_word_count_list = []
+    only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
             try:
@@ -96,6 +102,8 @@ def get_all_annotation_reports(
                 total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
+    else:
+        only_tasks = True
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
@@ -117,6 +125,14 @@ def get_all_annotation_reports(
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        del result["Word Count"]
+    elif only_tasks:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
+        del result["Word Count"]
+    elif is_CT_OR_CTE:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -178,9 +194,15 @@ def get_all_review_reports(
 
     project_type_lower = project_type.lower()
     is_translation_project = True if "translation" in project_type_lower else False
+    is_CT_OR_CTE = (
+        True
+        if project_type in ["ConversationTranslationEditing", "ConversationTranslation"]
+        else False
+    )
     total_audio_duration_list = []
     total_raw_audio_duration_list = []
     total_word_count_list = []
+    only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
             try:
@@ -201,6 +223,8 @@ def get_all_review_reports(
                 total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
+    else:
+        only_tasks = True
 
     total_word_count = sum(total_word_count_list)
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
@@ -222,6 +246,14 @@ def get_all_review_reports(
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        del result["Word Count"]
+    elif only_tasks:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
+        del result["Word Count"]
+    elif is_CT_OR_CTE:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -268,10 +300,15 @@ def get_all_supercheck_reports(
 
     project_type_lower = project_type.lower()
     is_translation_project = True if "translation" in project_type_lower else False
-
+    is_CT_OR_CTE = (
+        True
+        if project_type in ["ConversationTranslationEditing", "ConversationTranslation"]
+        else False
+    )
     validated_word_count_list = []
     validated_audio_duration_list = []
     validated_raw_audio_duration_list = []
+    only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
             try:
@@ -294,6 +331,8 @@ def get_all_supercheck_reports(
                 )
             except:
                 pass
+    else:
+        only_tasks = True
 
     validated_word_count = sum(validated_word_count_list)
     validated_audio_duration = convert_seconds_to_hours(
@@ -317,6 +356,14 @@ def get_all_supercheck_reports(
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        del result["Word Count"]
+    elif only_tasks:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
+        del result["Word Count"]
+    elif is_CT_OR_CTE:
+        del result["Total Segments Duration"]
+        del result["Total Raw Audio Duration"]
         del result["Word Count"]
     else:
         del result["Total Segments Duration"]
@@ -742,6 +789,7 @@ def get_translation_quality_reports(
     ]
     reviewed_annotations_of_user = Annotation.objects.filter(
         id__in=parent_anno_ids_of_reviewed,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
 
@@ -758,6 +806,7 @@ def get_translation_quality_reports(
     parent_anno_ids_of_accepted = [ann.parent_annotation_id for ann in accepted_tasks]
     accepted_annotations_of_user = Annotation.objects.filter(
         id__in=parent_anno_ids_of_accepted,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
 
@@ -783,6 +832,7 @@ def get_translation_quality_reports(
     ]
     minor_changes_annotations_of_user = Annotation.objects.filter(
         id__in=parent_annotation_minor_changes,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
     minor_changes_count = minor_changes_annotations_of_user.count()
@@ -800,6 +850,7 @@ def get_translation_quality_reports(
     ]
     major_changes_annotations_of_user = Annotation.objects.filter(
         id__in=parent_annotation_major_changes,
+        annotation_type=ANNOTATOR_ANNOTATION,
         completed_by=annotator,
     )
     major_changes_count = major_changes_annotations_of_user.count()
@@ -816,7 +867,10 @@ def get_translation_quality_reports(
     total_lead_time = []
     for annot in accepted_with_changes_tasks:
         annotator_obj = annot
-        reviewer_obj = Annotation.objects.filter(parent_annotation_id=annot.id)
+        reviewer_obj = Annotation.objects.filter(
+            parent_annotation_id=annot.id,
+            annotation_type=REVIEWER_ANNOTATION,
+        )
 
         str1 = annotator_obj.result[0]["value"]["text"]
         str2 = reviewer_obj[0].result[0]["value"]["text"]
@@ -1065,7 +1119,8 @@ def send_project_analytics_mail_org(
                 for each_task in labeled_tasks:
                     try:
                         annotate_annotation = Annotation.objects.filter(
-                            task=each_task, parent_annotation_id__isnull=True
+                            task=each_task,
+                            annotation_type=ANNOTATOR_ANNOTATION,
                         )[0]
                         total_duration_annotated_count_list.append(
                             get_audio_transcription_duration(annotate_annotation.result)
@@ -1076,7 +1131,8 @@ def send_project_analytics_mail_org(
                 for each_task in reviewed_tasks:
                     try:
                         review_annotation = Annotation.objects.filter(
-                            task=each_task, parent_annotation_id__isnull=False
+                            task=each_task,
+                            annotation_type=REVIEWER_ANNOTATION,
                         )[0]
                         total_duration_reviewed_count_list.append(
                             get_audio_transcription_duration(review_annotation.result)

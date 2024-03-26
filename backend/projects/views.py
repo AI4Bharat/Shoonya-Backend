@@ -11,8 +11,22 @@ from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
-from .utils import ocr_word_count
-from django.http import HttpResponse
+
+import notifications
+from shoonya_backend.pagination import CustomPagination
+from .utils import (
+    get_task_ids,
+    ocr_word_count,
+    get_user_from_query_params,
+    get_status_from_query_params,
+    get_annotations_for_project,
+    ocr_word_count,
+    process_conversation_tasks,
+    process_speech_tasks,
+    process_ocr_tasks,
+    process_task,
+)
+from django.http import HttpResponse, JsonResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -62,8 +76,10 @@ from .decorators import (
     is_project_editor,
     project_is_archived,
     project_is_published,
+    is_org_owner,
 )
 from .utils import (
+    get_annotations_for_project,
     is_valid_date,
     no_of_words,
     minor_major_accepted_task,
@@ -74,9 +90,9 @@ from .utils import (
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 
-from workspaces.decorators import is_particular_workspace_manager
 from users.utils import generate_random_string
 from notifications.views import createNotification
+from notifications.utils import get_userids_from_project_id
 import json
 
 # Create your views here.
@@ -265,7 +281,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 total_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
-    elif proj_type == "OCRTranscriptionEditing":
+    elif (
+        proj_type == "OCRTranscriptionEditing"
+        or proj_type == "OCRSegmentCategorizationEditing"
+    ):
         for anno in total_rev_annos_accepted:
             total_word_count_list.append(ocr_word_count(anno.result))
     elif proj_type in get_audio_project_types():
@@ -381,6 +400,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "SemanticTextualSimilarity_Scale5",
             "OCRTranscriptionEditing",
             "OCRTranscription",
+            "OCRSegmentCategorization",
+            "OCRSegmentCategorizationEditing",
         ]:
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
@@ -544,7 +565,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
                 rejected_word_count_list.append(anno.task.data["word_count"])
             except:
                 pass
-    elif "OCRTranscription" in proj_type:
+    elif "OCRTranscription" in proj_type or "OCRSegmentCategorization" in proj_type:
         for anno in validated_objs:
             validated_word_count_list.append(ocr_word_count(anno.result))
         for anno in validated_with_changes_objs:
@@ -627,6 +648,8 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "SemanticTextualSimilarity_Scale5",
         "OCRTranscriptionEditing",
         "OCRTranscription",
+        "OCRSegmentCategorization",
+        "OCRSegmentCategorizationEditing",
     ]:
         result["Validated Word Count"] = validated_word_count
         result["Validated With Changes Word Count"] = validated_with_changes_word_count
@@ -891,7 +914,10 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
-    elif proj_type == "OCRTranscriptionEditing":
+    elif (
+        proj_type == "OCRTranscriptionEditing"
+        or proj_type == "OCRSegmentCategorizationEditing"
+    ):
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = (
             json.loads(data_item.ocr_prediction_json)
@@ -964,13 +990,17 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
 
 
 def convert_annotation_result_to_formatted_json(
-    annotation_result, speakers_json, dataset_type, is_acoustic=False
+    annotation_result,
+    speakers_json,
+    is_SpeechConversation,
+    is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing,
+    is_acoustic=False,
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
     standardised_transcription = ""
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
-    if dataset_type == "SpeechConversation":
+    if is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
             formatted_result_dict = {}
@@ -1043,7 +1073,11 @@ def convert_annotation_result_to_formatted_json(
 
                 if is_acoustic:
                     acoustic_formatted_result_dict = deepcopy(formatted_result_dict)
-                    acoustic_dict_json = json.loads(acoustic_text_dict)
+                    acoustic_dict_json = (
+                        json.loads(acoustic_text_dict)
+                        if isinstance(acoustic_text_dict, str)
+                        else acoustic_text_dict
+                    )
                     acoustic_formatted_result_dict["text"] = (
                         acoustic_dict_json["value"]["text"][0]
                         if acoustic_dict_json
@@ -1055,20 +1089,32 @@ def convert_annotation_result_to_formatted_json(
                 acoustic_transcribed_json, ensure_ascii=False
             )
     else:
-        for idx1 in range(0, len(annotation_result), 3):
+        dicts = 2 if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing else 3
+        for idx1 in range(0, len(annotation_result), dicts):
             rectangle_dict = {}
             labels_dict = {}
             text_dict = {}
             if isinstance(annotation_result[idx1], str):
                 annotation_result[idx1] = json.loads(annotation_result[idx1])
-            for idx2 in range(idx1, idx1 + 3):
+            if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing:
+                custom_text_dict = {"value": {"text": ""}}
+                text_dict = json.dumps(custom_text_dict, indent=2)
+            for idx2 in range(idx1, idx1 + dicts):
                 formatted_result_dict = {}
                 if idx2 >= len(annotation_result) or idx2 < 0:
                     continue
                 if annotation_result[idx2]["type"] == "rectangle":
-                    rectangle_dict = annotation_result[idx1]
+                    rectangle_dict = (
+                        json.loads(annotation_result[idx2])
+                        if isinstance(annotation_result[idx2], str)
+                        else annotation_result[idx2]
+                    )
                 elif annotation_result[idx2]["type"] == "labels":
-                    labels_dict = annotation_result[idx2]
+                    labels_dict = (
+                        json.loads(annotation_result[idx2])
+                        if isinstance(annotation_result[idx2], str)
+                        else annotation_result[idx2]
+                    )
                 else:
                     if isinstance(annotation_result[idx2], str):
                         text_dict = annotation_result[idx2]
@@ -1080,6 +1126,13 @@ def convert_annotation_result_to_formatted_json(
                 continue
             formatted_result_dict = rectangle_dict["value"]
             try:
+                labels_split = []
+                if isinstance(labels_dict["value"]["labels"], str) and labels_dict[
+                    "value"
+                ]["labels"].find("/"):
+                    labels_split = labels_dict["value"]["labels"].split("/")
+                if labels_split:
+                    labels_dict["value"]["labels"] = labels_split
                 formatted_result_dict["labels"] = labels_dict["value"]["labels"]
                 text_dict_json = json.loads(text_dict)
                 formatted_result_dict["text"] = (
@@ -1087,6 +1140,8 @@ def convert_annotation_result_to_formatted_json(
                     if type(text_dict_json["value"]["text"]) == list
                     else text_dict_json["value"]["text"]
                 )
+                formatted_result_dict["id"] = rectangle_dict.get("id", "")
+                formatted_result_dict["parentID"] = rectangle_dict.get("parentID", "")
             except Exception as e:
                 return Response(
                     {"message": "Some data is missing in annotation result- " + f"{e}"},
@@ -1460,6 +1515,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if freeze_user == True:
                     project.frozen_users.add(user)
                 project.save()
+
+            # Creating Notification
+            title = f"{project.title}:{project.id} Some annotators have been removed from this project"
+            notification_type = "remove_member"
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
+
             return Response(
                 {"message": "User removed from project"},
                 status=status.HTTP_201_CREATED,
@@ -1473,6 +1543,115 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Project does not exist"},
                 status=status.HTTP_404_NOT_FOUND,
+            )
+
+    @swagger_auto_schema(
+        method="post",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "project_task_start_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_task_end_id": openapi.Schema(type=openapi.TYPE_INTEGER),
+                "project_task_ids": openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                ),
+            },
+            description="Either pass the project_task_start_id and project_task_end_id or the project_task_ids in request body",
+        ),
+        manual_parameters=[
+            openapi.Parameter(
+                "id",
+                openapi.IN_PATH,
+                description=("A unique integer identifying the project"),
+                type=openapi.TYPE_INTEGER,
+                required=True,
+            )
+        ],
+        responses={
+            200: "returned successfully! or No rows to show",
+            403: "Not authorized!",
+            400: "Invalid parameters in the request body!",
+        },
+    )
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="get_all_tasks_for_confirmation_before_deletion",
+        url_name="get_all_tasks_for_confirmation_before_deletion",
+    )
+    def get_all_tasks_for_confirmation_before_deletion(self, request, pk=None):
+        project = Project.objects.get(pk=pk)
+        try:
+            if not (
+                (
+                    request.user.role == User.ORGANIZATION_OWNER
+                    or request.user.is_superuser
+                )
+                and (request.user.organization == project.organization_id)
+            ):
+                return JsonResponse(
+                    {"message": "You are not authorized to access the endpoint."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            if "project_task_ids" in request.data:
+                project_task_ids = request.data.get("project_task_ids")
+                if len(project_task_ids) == 0:
+                    return JsonResponse(
+                        {"message": "No task Ids found in request"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                project_task_start_id = request.data.get("project_task_start_id")
+                project_task_end_id = request.data.get("project_task_end_id")
+
+                if (
+                    project_task_start_id == ""
+                    or project_task_end_id == ""
+                    or project_task_start_id == None
+                    or project_task_end_id == None
+                ):
+                    return JsonResponse(
+                        {"message": "Project task start id or end id not found."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                project_task_ids = [
+                    id for id in range(project_task_start_id, project_task_end_id + 1)
+                ]
+
+            project_tasks = (
+                Task.objects.filter(project_id=project)
+                .filter(id__in=project_task_ids)
+                .order_by("id")
+            )
+
+            # pagination
+            paginator = CustomPagination()
+            result_page = paginator.paginate_queryset(project_tasks, request)
+
+            num_project_tasks = len(project_tasks)
+
+            if num_project_tasks == 0:
+                return JsonResponse(
+                    {
+                        "message": "No rows to show corresponding to the entered task ids"
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                serializer = TaskSerializer(result_page, many=True)
+                return paginator.get_paginated_response(
+                    {
+                        "message": "Project tasks retrieved successfully for valid task ids",
+                        "data": serializer.data,
+                    }
+                )
+
+        except Exception as error:
+            return JsonResponse(
+                {"message": str(error)}, status=status.HTTP_400_BAD_REQUEST
             )
 
     @is_project_editor
@@ -1536,6 +1715,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if freeze_user == True:
                     project.frozen_users.add(user)
                 project.save()
+
+            # Creating Notification
+            title = f"{project.title}:{project.id} Some reviewers have been removed from this project"
+            notification_type = "remove_member"
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
+
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
             )
@@ -1602,6 +1796,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if freeze_user == True:
                     project.frozen_users.add(user)
                 project.save()
+            # Creating Notification
+            title = f"{project.title}:{project.id} Some supercheckers have been removed from this project"
+            notification_type = "remove_member"
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids.extend(ids)
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
+
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
             )
@@ -1953,6 +2161,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Update project details
         """
+        # creating notifications
+        project = Project.objects.get(pk=pk)
+        title = f"{project.title}:{project.id} Project has been updated"
+        notification_type = "project_update"
+        notification_ids = get_userids_from_project_id(
+            project_id=pk,
+            annotators_bool=True,
+            reviewers_bool=True,
+            super_checkers_bool=True,
+            project_manager_bool=True,
+        )
+        createNotification(title, notification_type, notification_ids)
         return super().update(request, *args, **kwargs)
 
     @is_project_editor
@@ -1970,7 +2190,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     # TODO : add exceptions
     @action(detail=True, methods=["POST", "GET"], name="Archive Project")
-    @is_project_editor
+    @is_org_owner
     def archive(self, request, pk=None, *args, **kwargs):
         """
         Archive a published project
@@ -2142,6 +2362,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AcousticNormalisedTranscriptionEditing",
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
+                "OCRSegmentCategorizationEditing",
             ]:
                 try:
                     result = convert_prediction_json_to_annotation_result(
@@ -2190,54 +2411,42 @@ class ProjectViewSet(viewsets.ModelViewSet):
         )
 
     @action(
-        detail=True, methods=["get"], name="Unassign tasks", url_name="unassign_tasks"
+        detail=True, methods=["post"], name="Unassign tasks", url_name="unassign_tasks"
     )
     @project_is_archived
     def unassign_tasks(self, request, pk, *args, **kwargs):
         """
         Unassigns all unlabeled tasks from an annotator.
         """
-        if "annotator_id" in dict(request.query_params).keys():
-            annotator_id = request.query_params["annotator_id"]
-            project = Project.objects.get(pk=pk)
-            annotator = User.objects.get(pk=annotator_id)
-            workspace = project.workspace_id
-            if request.user in workspace.managers.all():
-                user = annotator
-            else:
-                return Response(
-                    {
-                        "message": "Only workspace managers can unassign tasks from other annotators."
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        else:
-            user = request.user
-        userRole = user.role
-        user_obj = User.objects.get(pk=user.id)
-        project_id = pk
+        user_type = "annotator"
+        user, response = get_user_from_query_params(request, user_type, pk)
+        if response != None:
+            return response
 
-        if "annotation_status" in dict(request.query_params).keys():
-            annotation_status = request.query_params["annotation_status"]
-            annotation_status = ast.literal_eval(annotation_status)[0].split(",")
-        else:
+        status_type = "annotation"
+        annotation_status = get_status_from_query_params(request, status_type)
+
+        task_ids = None
+
+        flag = "annotation_status" in request.query_params
+        if flag == False:
+            task_ids, response = get_task_ids(request)
+            print(task_ids)
+            if response != None:
+                return response
+
+        if flag == False and task_ids == None:
             return Response(
-                {"message": "please provide the annotation_status to unassign tasks"},
+                {"message": "Either provide annotation_status or task_ids"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        try:
-            project_obj = Project.objects.get(pk=project_id)
-        except Project.DoesNotExist:
-            final_result = {"message": "Project does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-            return Response(final_result, status=ret_status)
-        if project_obj and user in project_obj.annotators.all():
-            ann = Annotation_model.objects.filter(
-                task__project_id=project_id,
-                completed_by=user.id,
-                annotation_type=ANNOTATOR_ANNOTATION,
-                annotation_status__in=annotation_status,
-            )
+
+        ann, response = get_annotations_for_project(
+            flag, pk, user, annotation_status, task_ids, ANNOTATOR_ANNOTATION
+        )
+        if response != None:
+            return response
+        if ann != None:
             review_annotations_ids = []
             reviewer_pulled_tasks = []
             for ann1 in ann:
@@ -2249,7 +2458,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     reviewer_pulled_tasks.append(review_annotation_obj.task_id)
                 except:
                     pass
-            tas_ids = [an.task_id for an in ann]
+            if task_ids == None:
+                task_ids = [an.task_id for an in ann]
+            print(task_ids)
             review_annotations = Annotation_model.objects.filter(
                 id__in=review_annotations_ids
             )
@@ -2281,14 +2492,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             ann.delete()
 
-            tasks = Task.objects.filter(id__in=tas_ids)
+            tasks = Task.objects.filter(id__in=task_ids)
             if tasks.count() > 0:
                 for task in tasks:
                     task.revision_loop_count = {
                         "super_check_count": 0,
                         "review_count": 0,
                     }
-                    task.unassign(user_obj)
+                    # task.unassign(user)
+                    task.annotation_users.clear()
                     task.task_status = INCOMPLETE
                     task.save()
 
@@ -2465,7 +2677,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=["get"],
+        methods=["post"],
         name="Unassign review tasks",
         url_name="unassign_review_tasks",
     )
@@ -2474,96 +2686,82 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all labeled tasks from a reviewer.
         """
-        if "reviewer_id" in dict(request.query_params).keys():
-            reviewer_id = request.query_params["reviewer_id"]
-            reviewer = User.objects.get(pk=reviewer_id)
-            project = Project.objects.get(pk=pk)
-            workspace = project.workspace_id
-            if request.user in workspace.managers.all():
-                user = reviewer
-            else:
-                return Response(
-                    {
-                        "message": "Only workspace managers can unassign tasks from other reviewers"
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        else:
-            user = request.user
-        project_id = pk
+        user_type = "reviewer"
+        user, response = get_user_from_query_params(request, user_type, pk)
+        if response != None:
+            return response
 
-        if "review_status" in dict(request.query_params).keys():
-            review_status = request.query_params["review_status"]
-            review_status = ast.literal_eval(review_status)
-        else:
+        status_type = "review"
+        review_status = get_status_from_query_params(request, status_type)
+
+        task_ids = None
+
+        flag = "review_status" in request.query_params
+
+        if flag == False:
+            task_ids, response = get_task_ids(request)
+            if response != None:
+                return response
+
+        if flag == False and task_ids == None:
             return Response(
-                {"message": "please provide the review_status to unassign tasks"},
+                {"message": "Either provide reviewer_id and review_status or task_ids"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if project_id:
-            project_obj = Project.objects.get(pk=project_id)
-            if project_obj and user in project_obj.annotation_reviewers.all():
-                ann = Annotation_model.objects.filter(
-                    task__project_id=project_id,
-                    completed_by=user.id,
-                    annotation_type=REVIEWER_ANNOTATION,
-                    annotation_status__in=review_status,
-                )
-                tas_ids = [an.task_id for an in ann]
+        ann, response = get_annotations_for_project(
+            flag, pk, user, review_status, task_ids, REVIEWER_ANNOTATION
+        )
+        if response != None:
+            return response
 
-                superchecker_annotation_ids = []
-                supercheck_pulled_tasks = []
-                for ann1 in ann:
-                    try:
-                        supercheck_annotation_obj = Annotation_model.objects.get(
-                            parent_annotation=ann1
-                        )
-                        superchecker_annotation_ids.append(supercheck_annotation_obj.id)
-                        supercheck_pulled_tasks.append(
-                            supercheck_annotation_obj.task_id
-                        )
-                    except:
-                        pass
-
-                supercheck_annotations = Annotation_model.objects.filter(
-                    id__in=superchecker_annotation_ids
-                )
-                supercheck_tasks = Task.objects.filter(id__in=supercheck_pulled_tasks)
-
-                supercheck_annotations.delete()
-                if len(supercheck_tasks) > 0:
-                    supercheck_tasks.update(super_check_user=None)
-
-                for an in ann:
-                    if an.annotation_status == TO_BE_REVISED:
-                        parent = an.parent_annotation
-                        parent.annotation_status = LABELED
-                        parent.save(update_fields=["annotation_status"])
-                    an.parent_annotation = None
-                    an.save()
-                    an.delete()
-
-                tasks = Task.objects.filter(id__in=tas_ids)
-                if tasks.count() > 0:
-                    tasks.update(review_user=None)
-                    tasks.update(
-                        revision_loop_count=default_revision_loop_count_value()
+        if ann != None:
+            superchecker_annotation_ids = []
+            supercheck_pulled_tasks = []
+            for ann1 in ann:
+                try:
+                    supercheck_annotation_obj = Annotation_model.objects.get(
+                        parent_annotation=ann1
                     )
-                    tasks.update(task_status=ANNOTATED)
-                    return Response(
-                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
-                    )
+                    superchecker_annotation_ids.append(supercheck_annotation_obj.id)
+                    supercheck_pulled_tasks.append(supercheck_annotation_obj.task_id)
+                except:
+                    pass
+            if task_ids == None:
+                task_ids = [an.task_id for an in ann]
+            supercheck_annotations = Annotation_model.objects.filter(
+                id__in=superchecker_annotation_ids
+            )
+            supercheck_tasks = Task.objects.filter(id__in=supercheck_pulled_tasks)
+
+            supercheck_annotations.delete()
+            if len(supercheck_tasks) > 0:
+                supercheck_tasks.update(super_check_user=None)
+
+            for an in ann:
+                if an.annotation_status == TO_BE_REVISED:
+                    parent = an.parent_annotation
+                    parent.annotation_status = LABELED
+                    parent.save(update_fields=["annotation_status"])
+                an.parent_annotation = None
+                an.save()
+                an.delete()
+
+            tasks = Task.objects.filter(id__in=task_ids)
+            if tasks.count() > 0:
+                tasks.update(review_user=None)
+                tasks.update(revision_loop_count=default_revision_loop_count_value())
+                tasks.update(task_status=ANNOTATED)
                 return Response(
-                    {"message": "No tasks to unassign"},
-                    status=status.HTTP_404_NOT_FOUND,
+                    {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
             return Response(
-                {"message": "Only reviewers can unassign tasks"},
-                status=status.HTTP_403_FORBIDDEN,
+                {"message": "No tasks to unassign"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response(
-            {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
+            {"message": "Only reviewers can unassign tasks"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     @action(
@@ -2706,7 +2904,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=["get"],
+        methods=["post"],
         name="Unassign supercheck tasks",
         url_name="unassign_supercheck_tasks",
     )
@@ -2715,78 +2913,70 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Unassigns all labeled tasks from a superchecker.
         """
-        if "superchecker_id" in dict(request.query_params).keys():
-            superchecker_id = request.query_params["superchecker_id"]
-            superchecker = User.objects.get(pk=superchecker_id)
-            project = Project.objects.get(pk=pk)
-            workspace = project.workspace_id
-            if request.user in workspace.managers.all():
-                user = superchecker
-            else:
-                return Response(
-                    {
-                        "message": "Only workspace managers can unassign tasks from other supercheckers"
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-        else:
-            user = request.user
-        project_id = pk
+        user_type = "superchecker"
+        user, response = get_user_from_query_params(request, user_type, pk)
+        if response != None:
+            return response
 
-        if "supercheck_status" in dict(request.query_params).keys():
-            supercheck_status = request.query_params["supercheck_status"]
-            supercheck_status = ast.literal_eval(supercheck_status)
-        else:
+        status_type = "supercheck"
+        supercheck_status = get_status_from_query_params(request, status_type)
+
+        task_ids = None
+
+        flag = "supercheck_status" in request.query_params
+
+        if flag == False:
+            task_ids, response = get_task_ids(request)
+            if response != None:
+                return response
+
+        if flag == False and task_ids == None:
             return Response(
-                {"message": "please provide the supercheck_status to unassign tasks"},
+                {
+                    "message": "Either provide superchecker_id and supercheck_status or task_ids"
+                },
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        if project_id:
-            project_obj = Project.objects.get(pk=project_id)
-            if project_obj and user in project_obj.review_supercheckers.all():
-                ann = Annotation_model.objects.filter(
-                    task__project_id=project_id,
-                    completed_by=user.id,
-                    annotation_type=SUPER_CHECKER_ANNOTATION,
-                    annotation_status__in=supercheck_status,
-                )
-                tas_ids = [an.task_id for an in ann]
+        ann, response = get_annotations_for_project(
+            flag, pk, user, supercheck_status, task_ids, SUPER_CHECKER_ANNOTATION
+        )
+        if response != None:
+            return response
+        if ann != None:
+            if task_ids == None:
+                task_ids = [an.task_id for an in ann]
+            for an in ann:
+                if an.annotation_status == REJECTED:
+                    parent = an.parent_annotation
+                    grand_parent = parent.parent_annotation
+                    parent.annotation_status = ACCEPTED
+                    grand_parent.annotation_status = LABELED
+                    parent.save(update_fields=["annotation_status"])
+                    grand_parent.save(update_fields=["annotation_status"])
+                an.parent_annotation = None
+                an.save()
+                an.delete()
 
-                for an in ann:
-                    if an.annotation_status == REJECTED:
-                        parent = an.parent_annotation
-                        grand_parent = parent.parent_annotation
-                        parent.annotation_status = ACCEPTED
-                        grand_parent.annotation_status = LABELED
-                        parent.save(update_fields=["annotation_status"])
-                        grand_parent.save(update_fields=["annotation_status"])
-                    an.parent_annotation = None
-                    an.save()
-                    an.delete()
-
-                tasks = Task.objects.filter(id__in=tas_ids)
-                if tasks.count() > 0:
-                    tasks.update(super_check_user=None)
-                    for task in tasks:
-                        rev_loop_count = task.revision_loop_count
-                        rev_loop_count["super_check_count"] = 0
-                        task.revision_loop_count = rev_loop_count
-                        task.task_status = REVIEWED
-                        task.save()
-                    return Response(
-                        {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
-                    )
+            tasks = Task.objects.filter(id__in=task_ids)
+            if tasks.count() > 0:
+                tasks.update(super_check_user=None)
+                for task in tasks:
+                    rev_loop_count = task.revision_loop_count
+                    rev_loop_count["super_check_count"] = 0
+                    task.revision_loop_count = rev_loop_count
+                    task.task_status = REVIEWED
+                    task.save()
                 return Response(
-                    {"message": "No tasks to unassign"},
-                    status=status.HTTP_404_NOT_FOUND,
+                    {"message": "Tasks unassigned"}, status=status.HTTP_200_OK
                 )
             return Response(
-                {"message": "Only supercheckers can unassign tasks"},
-                status=status.HTTP_403_FORBIDDEN,
+                {"message": "No tasks to unassign"},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return Response(
-            {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
+            {"message": "Only supercheckers can unassign tasks"},
+            status=status.HTTP_403_FORBIDDEN,
         )
 
     @swagger_auto_schema(
@@ -3128,7 +3318,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 total_word_count = sum(total_word_count_list)
                 items.append(("Word Count", total_word_count))
-            elif "OCRTranscription" in project_type:
+            elif (
+                "OCRTranscription" in project_type
+                or "OCRSegmentCategorization" in project_type
+            ):
                 total_word_count = 0
                 for each_anno in labeled_annotations:
                     total_word_count += ocr_word_count(each_anno.result)
@@ -3390,6 +3583,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.annotators.add(annotator)
                 project.save()
 
+            # Creating Notification
+            title = f"{project.title}:{project.id} New annotators have been added to the project"
+            notification_type = "add_member"
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
+
             return Response(
                 {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
             )
@@ -3442,6 +3648,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.annotation_reviewers.add(user)
                 project.save()
 
+            # Creating Notification
+            title = (
+                f"{project.title}:{project.id} New reviewers have been added to project"
+            )
+            notification_type = "add_member"
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
+
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
             return Response(
@@ -3491,6 +3712,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 project.review_supercheckers.add(user)
                 project.save()
+
+            # Creating Notification
+            title = f"{project.title}:{project.id} New super checkers have been added to project"
+            notification_type = "add_member"
+            notification_ids = get_userids_from_project_id(
+                project_id=pk,
+                annotators_bool=True,
+                reviewers_bool=True,
+                super_checkers_bool=True,
+                project_manager_bool=True,
+            )
+
+            createNotification(title, notification_type, notification_ids)
 
             return Response(
                 {"message": "SuperCheckers added"}, status=status.HTTP_200_OK
@@ -3736,7 +3970,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
-    @is_project_editor
+    @is_org_owner
     def pull_new_items(self, request, pk=None, *args, **kwargs):
         """
         Pull New Data Items to the Project
@@ -3804,7 +4038,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(ret_dict, status=ret_status)
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
-    @is_project_editor
+    @is_org_owner
     def download(self, request, pk=None, *args, **kwargs):
         """
         Download a project
@@ -3837,154 +4071,55 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_status = status.HTTP_200_OK
                 return Response(ret_dict, status=ret_status)
             tasks_list = []
-            for task in tasks:
-                task_dict = model_to_dict(task)
-                if export_type != "JSON":
-                    task_dict["data"]["task_status"] = task.task_status
-                # Rename keys to match label studio converter
-                # task_dict['id'] = task_dict['task_id']
-                # del task_dict['task_id']
-                correct_annotation = task.correct_annotation
-                if correct_annotation is None and task.task_status in [
-                    ANNOTATED,
-                ]:
-                    correct_annotation = task.annotations.all().filter(
-                        annotation_type=ANNOTATOR_ANNOTATION
-                    )[0]
-                if correct_annotation is None and task.task_status in [
-                    REVIEWED,
-                ]:
-                    correct_annotation = task.annotations.all().filter(
-                        annotation_type=REVIEWER_ANNOTATION
-                    )[0]
-
-                annotator_email = ""
-                if correct_annotation is not None:
-                    try:
-                        annotator_email = correct_annotation.completed_by.email
-                    except:
-                        pass
-                    annotation_dict = model_to_dict(correct_annotation)
-                    # annotation_dict['result'] = annotation_dict['result_json']
-
-                    # del annotation_dict['result_json']
-                    # print(annotation_dict)
-                    annotation_dict["created_at"] = str(correct_annotation.created_at)
-                    annotation_dict["updated_at"] = str(correct_annotation.updated_at)
-                    task_dict["annotations"] = [OrderedDict(annotation_dict)]
-                else:
-                    task_dict["annotations"] = [OrderedDict({"result": {}})]
-
-                task_dict["data"]["annotator_email"] = annotator_email
-
-                if include_input_data_metadata_json:
-                    dataset_type = project.dataset_id.all()[0].dataset_type
-                    dataset_model = getattr(dataset_models, dataset_type)
-                    task_dict["data"][
-                        "input_data_metadata_json"
-                    ] = dataset_model.objects.get(
-                        pk=task_dict["input_data"]
-                    ).metadata_json
-                del task_dict["annotation_users"]
-                del task_dict["review_user"]
-                tasks_list.append(OrderedDict(task_dict))
-
+            is_audio_project_type = (
+                True if project_type in get_audio_project_types() else False
+            )
+            dataset_model = ""
+            if include_input_data_metadata_json:
+                dataset_type = project.dataset_id.all()[0].dataset_type
+                dataset_model = getattr(dataset_models, dataset_type)
             dataset_type = project.dataset_id.all()[0].dataset_type
-            if (
-                project_type == "ConversationTranslation"
-                or project_type == "ConversationTranslationEditing"
-                or project_type == "ConversationVerification"
-            ):
-                for task in tasks_list:
-                    if project_type == "ConversationTranslation":
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).conversation_json
-                    elif project_type == "ConversationVerification":
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).unverified_conversation_json
-                    else:
-                        conversation_json = Conversation.objects.get(
-                            id__exact=task["input_data"]
-                        ).machine_translated_conversation_json
-                    if isinstance(conversation_json, str):
-                        conversation_json = json.loads(conversation_json)
-                    for idx1 in range(len(conversation_json)):
-                        for idx2 in range(len(conversation_json[idx1]["sentences"])):
-                            conversation_json[idx1]["sentences"][idx2] = ""
-                    for result in task["annotations"][0]["result"]:
-                        if isinstance(result, str):
-                            text_dict = result
-                        else:
-                            text_dict = json.dumps(result, ensure_ascii=False)
-                        result_formatted = json.loads(text_dict)
-                        if result["to_name"] != "quality_status":
-                            to_name_list = result["to_name"].split("_")
-                            idx1 = int(to_name_list[1])
-                            idx2 = int(to_name_list[2])
-                            conversation_json[idx1]["sentences"][idx2] = ".".join(
-                                map(str, result_formatted["value"]["text"])
-                            )
-                        else:
-                            task["data"][
-                                "conversation_quality_status"
-                            ] = result_formatted["value"]["choices"][0]
-                    if project_type == "ConversationVerification":
-                        task["data"]["verified_conversation_json"] = conversation_json
-                    else:
-                        task["data"]["translated_conversation_json"] = conversation_json
-            elif dataset_type in ["SpeechConversation", "OCRDocument"]:
-                if dataset_type == "SpeechConversation":
-                    for task in tasks_list:
-                        annotation_result = task["annotations"][0]["result"]
-                        annotation_result = (
-                            json.loads(annotation_result)
-                            if isinstance(annotation_result, str)
-                            else annotation_result
+            is_ConversationTranslation = project_type == "ConversationTranslation"
+            is_ConversationTranslationEditing = (
+                project_type == "ConversationTranslationEditing"
+            )
+            is_ConversationVerification = project_type == "ConversationVerification"
+            is_AudioSegmentation = project_type == "AudioSegmentation"
+            is_OCRSegmentCategorizationEditing = (
+                project_type == "OCRSegmentCategorizationEditing"
+            )
+            is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
+            for task in tasks:
+                curr_task = process_task(
+                    task,
+                    export_type,
+                    include_input_data_metadata_json,
+                    dataset_model,
+                    is_audio_project_type,
+                )
+                if (
+                    is_ConversationTranslation
+                    or is_ConversationTranslationEditing
+                    or is_ConversationVerification
+                ):
+                    process_conversation_tasks(
+                        curr_task,
+                        is_ConversationTranslation,
+                        is_ConversationVerification,
+                    )
+                elif dataset_type in ["SpeechConversation", "OCRDocument"]:
+                    is_SpeechConversation = dataset_type == "SpeechConversation"
+                    if is_SpeechConversation:
+                        process_speech_tasks(
+                            curr_task, is_AudioSegmentation, project_type
                         )
-                        speakers_json = task["data"]["speakers_json"]
-                        task["annotations"][0]["result"] = []
-                        if project_type == "AudioSegmentation":
-                            task["data"][
-                                "prediction_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, speakers_json, dataset_type
-                            )
-                        else:
-                            task["data"][
-                                "transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result,
-                                speakers_json,
-                                dataset_type,
-                                project_type
-                                == "AcousticNormalisedTranscriptionEditing",
-                            )
-                else:
-                    for task in tasks_list:
-                        annotation_result = task["annotations"][0]["result"]
-                        annotation_result = (
-                            json.loads(annotation_result)
-                            if isinstance(annotation_result, str)
-                            else annotation_result
+                    else:
+                        process_ocr_tasks(
+                            curr_task,
+                            is_OCRSegmentCategorization,
+                            is_OCRSegmentCategorizationEditing,
                         )
-                        task["annotations"][0]["result"] = []
-                        if project_type in [
-                            "OCRTranscriptionEditing",
-                            "OCRTranscription",
-                        ]:
-                            task["data"][
-                                "ocr_transcribed_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
-                            )
-                        else:
-                            task["data"][
-                                "ocr_prediction_json"
-                            ] = convert_annotation_result_to_formatted_json(
-                                annotation_result, None, dataset_type
-                            )
+                tasks_list.append(curr_task)
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
@@ -4027,7 +4162,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["POST", "GET"], name="Export Project")
     @project_is_archived
-    @is_project_editor
+    @is_org_owner
     def project_export(self, request, pk=None, *args, **kwargs):
         """
         Export a project
@@ -4179,24 +4314,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             project.is_published = True
             project.published_at = datetime.now()
-            # creating notifications
-            title = f"{project.id} - {project.title} has been published"
-            notification_type = "publish_project"
-            annotators_ids = [a.get("id") for a in annotators]
-            reviewers_ids = [r.get("id") for r in reviewers]
-            super_checkers_ids = [s.get("id") for s in super_checkers]
-            project_workspace = project.workspace_id
-            project_workspace_managers = project_workspace.managers.all()
-            project_workspace_managers_ids = [p.id for p in project_workspace_managers]
-            users_ids = (
-                annotators_ids
-                + reviewers_ids
-                + super_checkers_ids
-                + project_workspace_managers_ids
-            )
+
             try:
                 project.save()
-                createNotification(title, notification_type, list(set(users_ids)))
+                # Creating Notification
+                title = f"{project.id}:{project.title} Project has been published"
+                notification_type = "publish_project"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                createNotification(title, notification_type, notification_ids)
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:

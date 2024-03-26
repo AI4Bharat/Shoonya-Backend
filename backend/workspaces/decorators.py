@@ -11,6 +11,8 @@ PERMISSION_ERROR = {
 WORKSPACE_ERROR = {"message": "Workspace does not exist"}
 WORKSPACE_IS_ARCHIVED_ERROR = {"message": "This Workspace is archived!"}
 NOT_IN_WORKSPACE_ERROR = {"message": "You do not belong to this workspace!"}
+NO_ORGANIZATION_FOUND = {"message": "No organization found"}
+NO_ORGANIZATION_OWNER_ERROR = {"message": "You are not an organisation owner"}
 
 
 # Only allow workspace managers and organization owners to create workspaces.

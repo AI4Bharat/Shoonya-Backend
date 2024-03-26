@@ -3,7 +3,7 @@ import json
 import re
 from base64 import b64encode
 from urllib.parse import parse_qsl
-
+from utils.pagination import paginate_queryset
 from django.apps import apps
 from django.db.models import Q
 from django.http import StreamingHttpResponse
@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from organizations.decorators import (
     is_particular_organization_owner,
+    is_organization_owner,
 )
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -201,6 +202,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return DatasetInstanceUploadSerializer
         return DatasetInstanceSerializer
 
+    @is_organization_owner
     def retrieve(self, request, pk, *args, **kwargs):
         """Retrieves a DatasetInstance given its ID"""
 
@@ -295,6 +297,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.data)
 
+    @is_organization_owner
     @action(methods=["GET"], detail=True, name="Download Dataset in CSV format")
     def download(self, request, pk):
         """
@@ -321,6 +324,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             exported_items, status=status.HTTP_200_OK, content_type=content_type
         )
 
+    @is_organization_owner
     @action(methods=["POST"], detail=True, name="Upload Dataset File")
     def upload(self, request, pk):
         """
@@ -389,6 +393,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @is_organization_owner
     @action(methods=["GET"], detail=True, name="List all Projects using Dataset")
     def projects(self, request, pk):
         """
@@ -449,7 +454,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         # Get the task name from the request
         task_name = request.query_params.get("task_name")
-
         # Check if task name is in allowed task names list
         if task_name not in ALLOWED_CELERY_TASKS:
             return Response(
@@ -537,27 +541,30 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
             # displaying user friendly error messages
             result_data = json.loads(serializer.data[i]["result"])
-            error_msg_list = result_data.get("exc_message", [])
-            error_type = result_data.get("exc_type")
+            if isinstance(result_data, dict):
+                error_msg_list = result_data.get("exc_message", [])
+                error_type = result_data.get("exc_type")
 
-            if error_type == "InvalidDimensions":
-                serializer.data[i][
-                    "result"
-                ] = "The data type of some value does not match the required data type or the dimensions of the dataset that you have uploaded are incorrect"
-            elif (
-                error_type == "EncodeError"
-                and error_msg_list[0]
-                == "TypeError('Object of type set is not JSON serializable')"
-            ):
-                serializer.data[i][
-                    "result"
-                ] = "The dataset that you have uploaded is empty"
-            else:
-                serializer.data[i]["result"] = "Type of error : " + error_type + "\n"
-                if len(error_msg_list) > 0:
-                    serializer.data[i]["result"] += (
-                        "Error message : " + error_msg_list[0]
+                if error_type == "InvalidDimensions":
+                    serializer.data[i][
+                        "result"
+                    ] = "The data type of some value does not match the required data type or the dimensions of the dataset that you have uploaded are incorrect"
+                elif (
+                    error_type == "EncodeError"
+                    and error_msg_list[0]
+                    == "TypeError('Object of type set is not JSON serializable')"
+                ):
+                    serializer.data[i][
+                        "result"
+                    ] = "The dataset that you have uploaded is empty"
+                else:
+                    serializer.data[i]["result"] = (
+                        "Type of error : " + error_type + "\n"
                     )
+                    if len(error_msg_list) > 0:
+                        serializer.data[i]["result"] += (
+                            "Error message : " + error_msg_list[0]
+                        )
 
         # Add the project ID from the task kwargs to the serializer data
         if "projects" in task_name:
@@ -575,8 +582,14 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 except:
                     # Handle the project ID exception
                     serializer.data[i]["project_id"] = "Not ID found"
-
-        return Response(serializer.data)
+        page_number = request.query_params.get("page", "1")
+        page_number = int(page_number)
+        page_size = int(request.query_params.get("page_size", "10"))
+        page_size = int(page_size)
+        serializer_dict = {i: serializer.data[i] for i in range(len(serializer.data))}
+        data = paginate_queryset(serializer_dict, page_number, page_size)
+        res_data = list(data["results"].values())
+        return Response(res_data)
 
     @action(methods=["GET"], detail=True, name="List all Users using Dataset")
     def users(self, request, pk):
@@ -618,7 +631,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             500: "Server error occured",
         },
     )
-    @is_particular_organization_owner
+    @is_organization_owner
     @action(
         detail=True,
         methods=["POST"],
@@ -700,7 +713,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         url_path="removemanagers",
         url_name="remove_managers",
     )
-    @is_particular_organization_owner
+    @is_organization_owner
     def remove_managers(self, request, pk=None):
         if "ids" in dict(request.data):
             ids = request.data.get("ids", "")
@@ -759,6 +772,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     def accepted_filetypes(self, request):
         return Response(DatasetInstanceViewSet.ACCEPTED_FILETYPES)
 
+    @is_organization_owner
     @swagger_auto_schema(
         method="get",
         manual_parameters=[
@@ -1171,6 +1185,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         DatasetInstancePermission,
     )
 
+    @is_organization_owner
     def list(self, request):
         dataset_instances = DatasetInstance.objects.filter(
             instance_id__in=self.queryset.distinct("instance_id").values_list(
@@ -1179,6 +1194,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         ).values("instance_id", "dataset_type")
         return Response(data=dataset_instances, status=status.HTTP_200_OK)
 
+    @is_organization_owner
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
         try:
@@ -1258,6 +1274,7 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
     # return Response(filtered_data)
 
+    @is_organization_owner
     @swagger_auto_schema(
         method="post",
         request_body=openapi.Schema(
