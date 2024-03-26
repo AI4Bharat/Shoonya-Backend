@@ -1464,7 +1464,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             recordes = request.query_params.get("records", 10)
             projects_json_dict = paginate_queryset(projects_json_dict, page, recordes)
             projects_json_response = list(projects_json_dict.values())
-            return JsonResponse(projects_json_response, safe=False, status=status.HTTP_200_O)
+            return JsonResponse(
+                projects_json_response, safe=False, status=status.HTTP_200_O
+            )
         except Exception:
             return Response(
                 {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
