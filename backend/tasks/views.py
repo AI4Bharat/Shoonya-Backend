@@ -1762,7 +1762,20 @@ class AnnotationViewSet(
             == "AcousticNormalisedTranscriptionEditing"
             else False
         )
-
+        is_ocr_sc_or_sce = (
+            True
+            if annotation_obj.task.project_id.project_type
+            in ["OCRSegmentCategorization", "OCRSegmentCategorizationEditing"]
+            else False
+        )
+        if is_ocr_sc_or_sce and (
+            "language" in request.data or "ocr_domain" in request.data
+        ):
+            language = request.data.get("languages", [])
+            ocr_domain = request.data.get("ocr_domain", "")
+            self.populate_task_data_language_and_domain(
+                annotation_obj.task, language, ocr_domain
+            )
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
@@ -2401,6 +2414,15 @@ class AnnotationViewSet(
         hours, minutes, seconds = map(float, formatted_time.split(":"))
         total_seconds = (hours * 3600) + (minutes * 60) + seconds
         return total_seconds
+
+    def populate_task_data_language_and_domain(self, task, language, ocr_domain):
+        data = json.loads(task.data) if isinstance(task.data, str) else task.data
+        try:
+            data["language"] = language if language else data["language"]
+            data["ocr_domain"] = ocr_domain if ocr_domain else data["ocr_domain"]
+            task.save()
+        except Exception as e:
+            pass
 
 
 class PredictionViewSet(
