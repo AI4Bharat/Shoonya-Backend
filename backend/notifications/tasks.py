@@ -10,25 +10,38 @@ NOTIFICATION_CREATION_FAILED = {"message": "Notification creation failed"}
 
 
 def delete_excess_Notification(user):
-    user_notifications_count = len(Notification.objects.filter(reciever_user_id=user))
-    if user_notifications_count >= user.notification_limit:
-        excess_notifications = Notification.objects.filter(
-            reciever_user_id=user
-        ).order_by("created_at")[: user_notifications_count - user.notification_limit]
-        for excess_notification in excess_notifications:
-            excess_notification.reciever_user_id.remove(user)
-            if len(excess_notification.reciever_user_id.all()) == 0:
-                excess_notification.delete()
+    if user.notification_limit is not None:
+        user_notifications_count = len(Notification.objects.filter(reciever_user_id=user))
+        if user_notifications_count >= user.notification_limit:
+            excess_notifications = Notification.objects.filter(
+                reciever_user_id=user
+            ).order_by("created_at")[: user_notifications_count - user.notification_limit]
+            for excess_notification in excess_notifications:
+                excess_notification.reciever_user_id.remove(user)
+                if len(excess_notification.reciever_user_id.all()) == 0:
+                    excess_notification.delete()
     return 0
 
 
 # @shared_task
-def create_notification_handler(title, notification_type, users_ids):
+def create_notification_handler(
+    title, notification_type, users_ids, project_id=None, task_id=None
+):
     if not notification_aggregated(title, notification_type, users_ids):
+        notitification_url = (
+            f"/projects/{project_id}/task/{task_id}"
+            if project_id and task_id
+            else f"/projects/{project_id}"
+            if project_id
+            else f"/task/{task_id}"
+            if task_id
+            else None
+        )
         new_notif = Notification(
             notification_type=notification_type,
             title=title,
             metadata_json="null",
+            on_click=notitification_url,
         )
         try:
             with transaction.atomic():
@@ -38,7 +51,7 @@ def create_notification_handler(title, notification_type, users_ids):
                     new_notif.reciever_user_id.add(receiver_user)
                     delete_excess_Notification(receiver_user)
         except Exception as e:
-            print(NOTIFICATION_CREATION_FAILED)
+            print(e,NOTIFICATION_CREATION_FAILED)
         print(NOTIFICATION_CREATED)
     else:
         print(NOTIFICATION_CREATED)

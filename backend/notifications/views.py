@@ -21,9 +21,13 @@ MISSING_REQUEST_PARAMETERS = {
 NOTIFICATION_CHANGED_STATE = {"message": "Notification changed state"}
 
 
-def createNotification(title, notification_type, users_ids):
+def createNotification(
+    title, notification_type, users_ids, project_id=None, task_id=None
+):
     """calling shared task of notification creation from tasks"""
-    create_notification_handler(title, notification_type, users_ids)
+    create_notification_handler(
+        title, notification_type, users_ids, project_id, task_id
+    )
     print(f"Creating notifications title- {title} for users_ids- {users_ids}")
     return 0
 
