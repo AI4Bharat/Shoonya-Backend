@@ -11,11 +11,15 @@ NOTIFICATION_CREATION_FAILED = {"message": "Notification creation failed"}
 
 def delete_excess_Notification(user):
     if user.notification_limit is not None:
-        user_notifications_count = len(Notification.objects.filter(reciever_user_id=user))
+        user_notifications_count = len(
+            Notification.objects.filter(reciever_user_id=user)
+        )
         if user_notifications_count >= user.notification_limit:
             excess_notifications = Notification.objects.filter(
                 reciever_user_id=user
-            ).order_by("created_at")[: user_notifications_count - user.notification_limit]
+            ).order_by("created_at")[
+                : user_notifications_count - user.notification_limit
+            ]
             for excess_notification in excess_notifications:
                 excess_notification.reciever_user_id.remove(user)
                 if len(excess_notification.reciever_user_id.all()) == 0:
@@ -51,7 +55,7 @@ def create_notification_handler(
                     new_notif.reciever_user_id.add(receiver_user)
                     delete_excess_Notification(receiver_user)
         except Exception as e:
-            print(e,NOTIFICATION_CREATION_FAILED)
+            print(e, NOTIFICATION_CREATION_FAILED)
         print(NOTIFICATION_CREATED)
     else:
         print(NOTIFICATION_CREATED)
