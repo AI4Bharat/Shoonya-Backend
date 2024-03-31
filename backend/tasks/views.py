@@ -1383,7 +1383,9 @@ class AnnotationViewSet(
             == "AcousticNormalisedTranscriptionEditing"
             else False
         )
-
+        interaction_llm = False
+        if "interaction_llm" in request.data:
+            interaction_llm = True
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
@@ -1410,16 +1412,28 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        output_result = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                            annotation_obj.task.project_id.metadata_json,
-                        )
-                        # store the result of all checks as well
-                        annotation_obj.result.append(
-                            {"prompt": request.data["result"], "output": output_result}
-                        )
+                        if not interaction_llm:
+                            output_result = get_llm_output(
+                                request.data["result"],
+                                annotation_obj.task,
+                                annotation_obj,
+                                annotation_obj.task.project_id.metadata_json,
+                            )
+                            # store the result of all checks as well
+                            annotation_obj.result.append(
+                                {
+                                    "prompt": request.data["result"],
+                                    "output": output_result,
+                                }
+                            )
+                        # remove this check when you store the check results also
+                        if (
+                            interaction_llm
+                            and isinstance(request.data["result"], list)
+                            and isinstance(annotation_obj.result, list)
+                            and len(annotation_obj.result) < len(request.data["result"])
+                        ):
+                            annotation_obj.result = request.data["result"]
                         annotation_obj.meta_stats = (
                             compute_meta_stats_for_instruction_driven_chat(
                                 annotation_obj.result
@@ -1485,16 +1499,25 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    output_result = get_llm_output(
-                        request.data["result"],
-                        annotation_obj.task,
-                        annotation_obj,
-                        annotation_obj.task.project_id.metadata_json,
-                    )
-                    # store the result of all checks as well
-                    annotation_obj.result.append(
-                        {"prompt": request.data["result"], "output": output_result}
-                    )
+                    if not interaction_llm:
+                        output_result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
+                        )
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {"prompt": request.data["result"], "output": output_result}
+                        )
+                    # remove this check when you store the check results also
+                    if (
+                        interaction_llm
+                        and isinstance(request.data["result"], list)
+                        and isinstance(annotation_obj.result, list)
+                        and len(annotation_obj.result) < len(request.data["result"])
+                    ):
+                        annotation_obj.result = request.data["result"]
                     is_IDC = True
                     request.data["result"] = annotation_obj.result
                     request.data[
@@ -1564,16 +1587,27 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        output_result = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                            annotation_obj.task.project_id.metadata_json,
-                        )
-                        # store the result of all checks as well
-                        annotation_obj.result.append(
-                            {"prompt": request.data["result"], "output": output_result}
-                        )
+                        if not interaction_llm:
+                            output_result = get_llm_output(
+                                request.data["result"],
+                                annotation_obj.task,
+                                annotation_obj,
+                                annotation_obj.task.project_id.metadata_json,
+                            )
+                            # store the result of all checks as well
+                            annotation_obj.result.append(
+                                {
+                                    "prompt": request.data["result"],
+                                    "output": output_result,
+                                }
+                            )
+                        if (
+                            interaction_llm
+                            and isinstance(request.data["result"], list)
+                            and isinstance(annotation_obj.result, list)
+                            and len(annotation_obj.result) < len(request.data["result"])
+                        ):
+                            annotation_obj.result = request.data["result"]
                         annotation_obj.meta_stats = (
                             compute_meta_stats_for_instruction_driven_chat(
                                 annotation_obj.result
@@ -1678,16 +1712,24 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    output_result = get_llm_output(
-                        request.data["result"],
-                        annotation_obj.task,
-                        annotation_obj,
-                        annotation_obj.task.project_id.metadata_json,
-                    )
-                    # store the result of all checks as well
-                    annotation_obj.result.append(
-                        {"prompt": request.data["result"], "output": output_result}
-                    )
+                    if not interaction_llm:
+                        output_result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
+                        )
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {"prompt": request.data["result"], "output": output_result}
+                        )
+                    if (
+                        interaction_llm
+                        and isinstance(request.data["result"], list)
+                        and isinstance(annotation_obj.result, list)
+                        and len(annotation_obj.result) < len(request.data["result"])
+                    ):
+                        annotation_obj.result = request.data["result"]
                     is_IDC = True
                     request.data["result"] = annotation_obj.result
                     request.data[
@@ -1784,16 +1826,27 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        output_result = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                            annotation_obj.task.project_id.metadata_json,
-                        )
-                        # store the result of all checks as well
-                        annotation_obj.result.append(
-                            {"prompt": request.data["result"], "output": output_result}
-                        )
+                        if not interaction_llm:
+                            output_result = get_llm_output(
+                                request.data["result"],
+                                annotation_obj.task,
+                                annotation_obj,
+                                annotation_obj.task.project_id.metadata_json,
+                            )
+                            # store the result of all checks as well
+                            annotation_obj.result.append(
+                                {
+                                    "prompt": request.data["result"],
+                                    "output": output_result,
+                                }
+                            )
+                        if (
+                            interaction_llm
+                            and isinstance(request.data["result"], list)
+                            and isinstance(annotation_obj.result, list)
+                            and len(annotation_obj.result) < len(request.data["result"])
+                        ):
+                            annotation_obj.result = request.data["result"]
                         annotation_obj.meta_stats = (
                             compute_meta_stats_for_instruction_driven_chat(
                                 annotation_obj.result
@@ -1889,16 +1942,24 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    output_result = get_llm_output(
-                        request.data["result"],
-                        annotation_obj.task,
-                        annotation_obj,
-                        annotation_obj.task.project_id.metadata_json,
-                    )
-                    # store the result of all checks as well
-                    annotation_obj.result.append(
-                        {"prompt": request.data["result"], "output": output_result}
-                    )
+                    if not interaction_llm:
+                        output_result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
+                        )
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {"prompt": request.data["result"], "output": output_result}
+                        )
+                    if (
+                        interaction_llm
+                        and isinstance(request.data["result"], list)
+                        and isinstance(annotation_obj.result, list)
+                        and len(annotation_obj.result) < len(request.data["result"])
+                    ):
+                        annotation_obj.result = request.data["result"]
                     is_IDC = True
                     request.data["result"] = annotation_obj.result
                     request.data[
