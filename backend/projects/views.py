@@ -1528,7 +1528,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
             notification_ids.extend(ids)
             notification_ids_set = list(set(notification_ids))
-            createNotification(title, notification_type, notification_ids_set)
+            createNotification(title, notification_type, notification_ids_set, pk)
 
             return Response(
                 {"message": "User removed from project"},
@@ -1728,7 +1728,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
             notification_ids.extend(ids)
             notification_ids_set = list(set(notification_ids))
-            createNotification(title, notification_type, notification_ids_set)
+            createNotification(
+                title, notification_type, notification_ids_set, project.id
+            )
 
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
@@ -1808,7 +1810,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
             notification_ids.extend(ids)
             notification_ids_set = list(set(notification_ids))
-            createNotification(title, notification_type, notification_ids_set)
+            createNotification(title, notification_type, notification_ids_set, pk)
 
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
@@ -2172,7 +2174,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             super_checkers_bool=True,
             project_manager_bool=True,
         )
-        createNotification(title, notification_type, notification_ids)
+        createNotification(title, notification_type, notification_ids, pk)
         return super().update(request, *args, **kwargs)
 
     @is_project_editor
@@ -2429,9 +2431,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         task_ids = None
 
         flag = "annotation_status" in request.query_params
-
         if flag == False:
             task_ids, response = get_task_ids(request)
+            print(task_ids)
             if response != None:
                 return response
 
@@ -2460,6 +2462,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     pass
             if task_ids == None:
                 task_ids = [an.task_id for an in ann]
+            print(task_ids)
             review_annotations = Annotation_model.objects.filter(
                 id__in=review_annotations_ids
             )
@@ -2498,7 +2501,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         "super_check_count": 0,
                         "review_count": 0,
                     }
-                    task.unassign(user)
+                    # task.unassign(user)
+                    task.annotation_users.clear()
                     task.task_status = INCOMPLETE
                     task.save()
 
@@ -2912,7 +2916,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         Unassigns all labeled tasks from a superchecker.
         """
         user_type = "superchecker"
-        user, response = get_status_from_query_params(request, user_type, pk)
+        user, response = get_user_from_query_params(request, user_type, pk)
         if response != None:
             return response
 
@@ -3592,7 +3596,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_manager_bool=True,
             )
 
-            createNotification(title, notification_type, notification_ids)
+            createNotification(title, notification_type, notification_ids, pk)
 
             return Response(
                 {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
@@ -3659,7 +3663,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_manager_bool=True,
             )
 
-            createNotification(title, notification_type, notification_ids)
+            createNotification(title, notification_type, notification_ids, pk)
 
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
@@ -3722,7 +3726,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_manager_bool=True,
             )
 
-            createNotification(title, notification_type, notification_ids)
+            createNotification(title, notification_type, notification_ids, pk)
 
             return Response(
                 {"message": "SuperCheckers added"}, status=status.HTTP_200_OK
@@ -4325,7 +4329,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     super_checkers_bool=True,
                     project_manager_bool=True,
                 )
-                createNotification(title, notification_type, notification_ids)
+                createNotification(title, notification_type, notification_ids, pk)
                 ret_dict = {"message": "This project is published"}
                 ret_status = status.HTTP_200_OK
             except Exception as e:
