@@ -212,6 +212,15 @@ def create_tasks_from_dataitems(items, project):
                 field_name = "speaker_" + str(indx) + "_details"
                 task.data[field_name] = stringify_json(task.data["speakers_json"][indx])
                 indx += 1
+        # checking if a task for the data item already exists for batch mode
+        if project.sampling_mode == BATCH:
+            existing_task = Task.objects.filter(
+                input_data=data,
+                project_id__project_type=project.project_type,
+                project_id__sampling_mode=BATCH,
+            )
+            if existing_task:
+                continue
         tasks.append(task)
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
@@ -370,7 +379,7 @@ def create_parameters_for_task_creation(
     tasks = create_tasks_from_dataitems(sampled_items, project)
 
 
-@shared_task
+# @shared_task
 def export_project_in_place(
     annotation_fields, project_id, project_type, get_request_data
 ) -> None:
@@ -445,6 +454,7 @@ def export_project_in_place(
     )
     is_ConversationVerification = project.project_type == "ConversationVerification"
     bboxes_relation_json = []
+    annotated_document_details_json = {}
     for ta, tl, task in zip(tasks_annotations, tasks_list, annotated_tasks):
         if is_SpeechConversation:
             try:
@@ -620,10 +630,31 @@ def export_project_in_place(
                                 if "parentID" in ann[0]["result"][idx * 2]
                                 else ""
                             )
-                    bboxes_relation_json = []
+                    bboxes_relation_json, annotated_document_details_json = [], []
                     for r in ann[0]["result"]:
                         if "type" in r and r["type"] == "relation":
                             bboxes_relation_json.append(r)
+                    task_data = (
+                        json.loads(task.data)
+                        if isinstance(task.data, str)
+                        else task.data
+                    )
+                    if "language" in task_data or "ocr_domain" in task_data:
+                        language = (
+                            task_data["language"] if "language" in task_data else []
+                        )
+                        ocr_domain = (
+                            task_data["ocr_domain"] if "ocr_domain" in task_data else ""
+                        )
+                        annotated_document_details_json = {
+                            "language": language,
+                            "ocr_domain": ocr_domain,
+                        }
+                        setattr(
+                            data_item,
+                            "annotated_document_details_json",
+                            annotated_document_details_json,
+                        )
                     if bboxes_relation_json:
                         setattr(data_item, "bboxes_relation_json", bboxes_relation_json)
                     setattr(data_item, field, ta_ocr_transcribed_json)
@@ -635,6 +666,8 @@ def export_project_in_place(
     # Write json to dataset columns
     if bboxes_relation_json:
         annotation_fields.append("bboxes_relation_json")
+    if annotated_document_details_json:
+        annotation_fields.append("annotated_document_details_json")
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
     tasks = tasks.exclude(id__in=export_excluded_task_ids)

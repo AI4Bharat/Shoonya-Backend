@@ -454,6 +454,16 @@ def process_ocr_results(
             if "type" in ann and ann["type"] == "relation":
                 bboxes_relation_json.append(ann)
         task["data"]["bboxes_relation_json"] = bboxes_relation_json
+        task_data = (
+            json.loads(task["data"]) if isinstance(task["data"], str) else task["data"]
+        )
+        if "language" in task_data or "ocr_domain" in task_data:
+            language = task_data["language"] if "language" in task_data else []
+            ocr_domain = task_data["ocr_domain"] if "ocr_domain" in task_data else ""
+            task["data"]["annotated_document_details_json"] = {
+                "language": language,
+                "ocr_domain": ocr_domain,
+            }
 
 
 def process_task(
