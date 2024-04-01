@@ -37,6 +37,8 @@ from tasks.serializers import TaskSerializer
 from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
+import notifications
+
 from .utils import (
     get_annotations_for_project,
     get_status_from_query_params,
@@ -80,9 +82,10 @@ from .utils import (
 
 from workspaces.decorators import is_particular_workspace_manager
 from users.utils import generate_random_string
+from notifications.views import createNotification
+from notifications.utils import get_userids_from_project_id
 
 # Create your views here.
-
 
 EMAIL_REGEX = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 
@@ -1437,6 +1440,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if freeze_user == True:
                     project.frozen_users.add(user)
                 project.save()
+
+                # Creating Notification
+                title = f"{project.title}:{project.id} Some annotators have been removed from this project"
+                notification_type = "remove_member"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                notification_ids.extend(ids)
+                notification_ids_set = list(set(notification_ids))
+                createNotification(title, notification_type, notification_ids_set, pk)
             return Response(
                 {"message": "User removed from project"},
                 status=status.HTTP_201_CREATED,
@@ -1513,6 +1530,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if freeze_user == True:
                     project.frozen_users.add(user)
                 project.save()
+                # Creating Notification
+                title = f"{project.title}:{project.id} Some annotators have been removed from this project"
+                notification_type = "remove_member"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                notification_ids.extend(ids)
+                notification_ids_set = list(set(notification_ids))
+                createNotification(
+                    title, notification_type, notification_ids_set, project.id
+                )
+
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
             )
@@ -1579,6 +1612,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 if freeze_user == True:
                     project.frozen_users.add(user)
                 project.save()
+                # Creating Notification
+                title = f"{project.title}:{project.id} Some supercheckers have been removed from this project"
+                notification_type = "remove_member"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                notification_ids.extend(ids)
+                notification_ids_set = list(set(notification_ids))
+                createNotification(title, notification_type, notification_ids_set, pk)
+
             return Response(
                 {"message": "User removed from the project"}, status=status.HTTP_200_OK
             )
@@ -1899,6 +1946,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         Update project details
         """
+        # creating notifications
+        project = Project.objects.get(pk=pk)
+        title = f"{project.title}:{project.id} Project has been updated"
+        notification_type = "project_update"
+        notification_ids = get_userids_from_project_id(
+            project_id=pk,
+            annotators_bool=True,
+            reviewers_bool=True,
+            super_checkers_bool=True,
+            project_manager_bool=True,
+        )
+        createNotification(title, notification_type, notification_ids, pk)
         return super().update(request, *args, **kwargs)
 
     @is_project_editor
@@ -3307,6 +3366,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project.annotators.add(annotator)
                 project.save()
 
+                # Creating Notification
+                title = f"{project.title}:{project.id} New annotators have been added to the project"
+                notification_type = "add_member"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+
+                createNotification(title, notification_type, notification_ids, pk)
+
             return Response(
                 {"message": "Annotator added to the project"}, status=status.HTTP_200_OK
             )
@@ -3358,6 +3430,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 project.annotation_reviewers.add(user)
                 project.save()
+                # Creating Notification
+                title = f"{project.title}:{project.id} New reviewers have been added to project"
+                notification_type = "add_member"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+
+                createNotification(title, notification_type, notification_ids, pk)
 
             return Response({"message": "Reviewers added"}, status=status.HTTP_200_OK)
         except Project.DoesNotExist:
@@ -3408,6 +3492,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                 project.review_supercheckers.add(user)
                 project.save()
+                # Creating Notification
+                title = f"{project.title}:{project.id} New super checkers have been added to project"
+                notification_type = "add_member"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                createNotification(title, notification_type, notification_ids, pk)
 
             return Response(
                 {"message": "SuperCheckers added"}, status=status.HTTP_200_OK
@@ -3969,6 +4064,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project = Project.objects.get(pk=pk)
 
             if project.is_published:
+                # Creating Notification
+                title = f"{project.id}:{project.title} Project has been published"
+                notification_type = "publish_project"
+                notification_ids = get_userids_from_project_id(
+                    project_id=pk,
+                    annotators_bool=True,
+                    reviewers_bool=True,
+                    super_checkers_bool=True,
+                    project_manager_bool=True,
+                )
+                createNotification(title, notification_type, notification_ids, pk)
                 return Response(PROJECT_IS_PUBLISHED_ERROR, status=status.HTTP_200_OK)
             serializer = ProjectUsersSerializer(project, many=False)
             # ret_dict = serializer.data
