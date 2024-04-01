@@ -34,6 +34,8 @@ from tasks.serializers import (
     TaskAnnotationSerializer,
 )
 from tasks.utils import query_flower
+from notifications.views import createNotification
+from notifications.utils import get_userids_from_project_id
 
 from users.models import User
 from projects.models import Project, REVIEW_STAGE, ANNOTATION_STAGE, SUPERCHECK_STAGE
@@ -1510,6 +1512,41 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         return Response(data=encoded_audio_data, status=status.HTTP_200_OK)
 
 
+def update_notification(annotation_obj, task):
+    project_id = task.project_id.id
+    project_name = task.project_id
+    notification_type = "task_update"
+
+    if annotation_obj.annotation_status == TO_BE_REVISED:
+        title = f"{project_name} : {project_id} Some tasks annotated by you in this project have been sent back for revision"
+        try:
+            notification_ids = get_userids_from_project_id(
+                project_id=project_id,
+                reviewers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_ids_set = list(set(notification_ids))
+            createNotification(
+                title, notification_type, notification_ids_set, project_id, task.id
+            )
+        except Exception as e:
+            print(f"Error in creating notification: {e}")
+
+    elif annotation_obj.annotation_status == REJECTED:
+        title = f"{project_name} : {project_id} Some tasks reviewed by you in this project have been rejected by superchecker"
+        try:
+            notification_ids = get_userids_from_project_id(
+                project_id=project_id,
+                reviewers_bool=True,
+                project_manager_bool=True,
+            )
+            notification_type = "rejected task"
+            notification_ids_set = list(set(notification_ids))
+            createNotification(title, notification_type, notification_ids_set)
+        except Exception as e:
+            print(f"Error in creating notification: {e}")
+
+
 class AnnotationViewSet(
     mixins.CreateModelMixin,
     mixins.UpdateModelMixin,
@@ -1673,6 +1710,11 @@ class AnnotationViewSet(
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        try:
+            task = Task.objects.get(pk=request.data["task_id"])
+        except:
+            print("task not found")
+
         auto_save = False
         if "auto_save" in request.data:
             auto_save = True
@@ -1696,10 +1738,22 @@ class AnnotationViewSet(
         if annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             is_revised = False
             if annotation_obj.annotation_status == TO_BE_REVISED:
+                update_notification(annotation_obj, task)
                 is_revised = True
+                print(annotation_obj)
+                if "ids" in dict(request.data):
+                    pass
+
+                else:
+                    return Response(
+                        {"message": "key doesnot match"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
         elif annotation_obj.annotation_type == SUPER_CHECKER_ANNOTATION:
             is_rejected = False
             if annotation_obj.annotation_type == REJECTED:
+                update_notification(annotation_obj, task)
                 is_rejected = True
 
         is_acoustic_project_type = (
