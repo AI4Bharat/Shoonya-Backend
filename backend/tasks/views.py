@@ -1786,6 +1786,20 @@ class AnnotationViewSet(
 
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
+                if "last_updated_at" in request.data:
+                    dt_object = datetime.strptime(request.data["last_updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                    output_datetime = dt_object.strftime("%Y-%m-%d %H:%M:%S.%f+00:00")
+                    if str(output_datetime) != str(annotation_obj.updated_at):
+                        return Response(
+                            {
+                                "message": "Sorry, someone else has updated this data. Please refresh and try again."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                if "updated_at" in request.data:
+                    annotation_obj.updated_at = request.data["updated_at"]
+                else:
+                    annotation_obj.updated_at = datetime.now()
                 if "cl_format" in request.query_params:
                     (
                         annotation_obj.result,
@@ -1915,6 +1929,20 @@ class AnnotationViewSet(
 
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
+                if "last_updated_at" in request.data:
+                    dt_object = datetime.strptime(request.data["last_updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                    output_datetime = dt_object.strftime("%Y-%m-%d %H:%M:%S.%f+00:00")
+                    if str(output_datetime) != str(annotation_obj.updated_at):
+                        return Response(
+                            {
+                                "message": "Sorry, someone else has updated this data. Please refresh and try again."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                if "updated_at" in request.data:
+                    annotation_obj.updated_at = request.data["updated_at"]
+                else:
+                    annotation_obj.updated_at = datetime.now()
                 if "cl_format" in request.query_params:
                     (
                         annotation_obj.result,
@@ -2110,6 +2138,20 @@ class AnnotationViewSet(
 
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at"]
+                if "last_updated_at" in request.data:
+                    dt_object = datetime.strptime(request.data["last_updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                    output_datetime = dt_object.strftime("%Y-%m-%d %H:%M:%S.%f+00:00")
+                    if str(output_datetime) != str(annotation_obj.updated_at):
+                        return Response(
+                            {
+                                "message": "Sorry, someone else has updated this data. Please refresh and try again."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                if "updated_at" in request.data:
+                    annotation_obj.updated_at = request.data["updated_at"]
+                else:
+                    annotation_obj.updated_at = datetime.now()
                 if "cl_format" in request.query_params:
                     (
                         annotation_obj.result,
