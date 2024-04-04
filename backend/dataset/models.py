@@ -658,8 +658,8 @@ class Instruction(DatasetBase):
     meta_info_model = models.CharField(
         max_length=255,
         verbose_name="Meta Info Model",
-        null=True,
-        blank=True,
+        default="GPT3.5",
+        choices=LLM_CHOICES,
         help_text="Model information for the instruction",
     )
     meta_info_auto_generated = models.BooleanField(
@@ -671,15 +671,11 @@ class Instruction(DatasetBase):
     meta_info_intent = models.CharField(
         max_length=255,
         verbose_name="Meta Info Intent",
-        null=True,
-        blank=True,
         help_text="Intent information for the instruction",
     )
     meta_info_domain = models.CharField(
         max_length=255,
         verbose_name="Meta Info Domain",
-        null=True,
-        blank=True,
         help_text="Domain information for the instruction",
     )
     meta_info_structure = models.CharField(
@@ -693,8 +689,6 @@ class Instruction(DatasetBase):
         max_length=20,
         choices=LANGUAGE_CHOICES_INSTRUCTIONS,
         verbose_name="Meta Info Language",
-        null=True,
-        blank=True,
         help_text="Language of the instruction",
     )
     instruction_data = models.TextField(verbose_name="Instruction_data")
