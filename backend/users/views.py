@@ -59,7 +59,7 @@ from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import logging
-from workspaces.views import WorkspaceViewSet
+from workspaces.views import WorkspaceusersViewSet
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -686,14 +686,38 @@ class UserViewSet(viewsets.ViewSet):
                 workspaces = Workspace.objects.filter(
                     Q(members=user) | Q(managers=user)
                 )
-                workspace_view = WorkspaceViewSet()
+                workspacecustomviewset_obj = WorkspaceCustomViewSet()
+                request.data["ids"] = [user.id]
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
+                failed_workspace_unassign = []
+                failed_workspace_remove = []
+
                 for workspace in workspaces:
-                    workspace_view.unassign_manager(
-                        request, pk=workspace.pk, ids=[user.id]
+                    response_unassign = workspacecustomviewset_obj.unassign_manager(
+                        request=request, pk=workspace.pk
                     )
-                    workspace_view.remove_members(
-                        request, pk=workspace.pk, user_id=user.id
+
+                    if response_unassign.status_code != 200:
+                        failed_workspace_unassign.append(workspace.pk)
+
+                    response_remove = workspaceusersviewset_obj.remove_members(
+                        request=request, pk=workspace.pk
                     )
+
+                    if response_remove.status_code != 200:
+                        failed_workspace_remove.append(workspace.pk)
+
+                message = "User removed from some workspaces both as workspace member and workspace manager."
+                if failed_workspace_unassign:
+                    message += f" {failed_workspace_unassign} failed to unassign user as workspace manager."
+                if failed_workspace_remove:
+                    message += f" {failed_workspace_remove} failed to remove user as workspace member."
+                if message:
+                    return Response({"message": message}, status=status.HTTP_200_OK)
+
                 return Response(
                     {
                         "message": "User removed from all workspaces both as workspace member and workspace manager"
@@ -1469,8 +1493,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
             schedule = (
                 "Daily"
                 if task.schedule == 1
-                else "Weekly" 
-                if task.schedule == 2 
+                else "Weekly"
+                if task.schedule == 2
                 else "Monthly"
             )
             scheduled_day = (
@@ -1479,7 +1503,6 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 else task.celery_task.crontab.day_of_month
                 if task.schedule == 3
                 else None
-                
             )
             result.append(
                 {
@@ -1492,10 +1515,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     "Scheduled Day": scheduled_day,
                     "Created At": task.created_at,
                     "Run Count": task.celery_task.total_run_count,
-                    "Status": "Enabled" 
-                    if task.celery_task.enabled == True 
-                    
-                    else "Disabled"   
+                    "Status": "Enabled"
+                    if task.celery_task.enabled == True
+                    else "Disabled",
                 }
             )
         result = sorted(result, key=lambda x: x["Created At"], reverse=True)
