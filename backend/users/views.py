@@ -61,6 +61,8 @@ from dotenv import load_dotenv
 import logging
 from workspaces.views import WorkspaceusersViewSet
 
+
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -686,6 +688,7 @@ class UserViewSet(viewsets.ViewSet):
                 workspaces = Workspace.objects.filter(
                     Q(members=user) | Q(managers=user)
                 )
+
                 workspacecustomviewset_obj = WorkspaceCustomViewSet()
                 request.data["ids"] = [user.id]
 
