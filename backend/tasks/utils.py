@@ -30,6 +30,7 @@ Queued_Task_name = {
     "workspaces.tasks.send_user_reports_mail_ws": "Send User Payment Reports Mail At Workspace Level",
 }
 
+
 def compute_meta_stats_for_instruction_driven_chat(conversation_history):
     """
     Calculate meta stats for instruction-driven chat.
