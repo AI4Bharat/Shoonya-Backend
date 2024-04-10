@@ -4,15 +4,17 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('tasks', '0048_alter_annotation_unique_together'),
+        ("tasks", "0048_alter_annotation_unique_together"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='annotation',
-            name='version_updated_at',
-            field=models.DateTimeField(default='2000-01-01T00:00:00.000Z', verbose_name='annotation_version_updated_at'),
+            model_name="annotation",
+            name="version_updated_at",
+            field=models.DateTimeField(
+                default="2000-01-01T00:00:00.000Z",
+                verbose_name="annotation_version_updated_at",
+            ),
         ),
     ]
