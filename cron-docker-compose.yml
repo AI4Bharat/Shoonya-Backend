@@ -1,0 +1,19 @@
+version: '3.3'
+
+services:
+  cron:
+    build: ./cron
+    image: evgeniy-khyst/cron
+    environment:
+      COMPOSE_PROJECT_NAME: "${COMPOSE_PROJECT_NAME}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./:/workdir:ro
+    restart: unless-stopped
+    networks:
+      - shoonya_backend
+
+
+networks:
+  shoonya_backend:
+    external: true
