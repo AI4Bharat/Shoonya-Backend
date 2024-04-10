@@ -379,7 +379,7 @@ def create_parameters_for_task_creation(
     tasks = create_tasks_from_dataitems(sampled_items, project)
 
 
-# @shared_task
+@shared_task
 def export_project_in_place(
     annotation_fields, project_id, project_type, get_request_data
 ) -> None:
