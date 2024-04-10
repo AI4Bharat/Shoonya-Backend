@@ -20,6 +20,8 @@ from tasks.serializers import (
     TaskAnnotationSerializer,
 )
 from tasks.utils import compute_meta_stats_for_instruction_driven_chat, query_flower
+from tasks.utils import Queued_Task_name
+from utils.pagination import paginate_queryset
 from notifications.views import createNotification
 from notifications.utils import get_userids_from_project_id
 
@@ -2357,7 +2359,31 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
 def get_celery_tasks(request):
     filters = request.GET
     filtered_tasks = query_flower(filters)
+    for i in filtered_tasks:
+        if filtered_tasks[i]["name"] in Queued_Task_name:
+            filtered_tasks[i]["name"] = Queued_Task_name[filtered_tasks[i]["name"]]
+    for i in filtered_tasks:
+        if filtered_tasks[i]["succeeded"] is not None:
+            filtered_tasks[i]["succeeded"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["succeeded"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["failed"] is not None:
+            filtered_tasks[i]["failed"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["failed"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["started"] is not None:
+            filtered_tasks[i]["started"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["started"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        if filtered_tasks[i]["received"] is not None:
+            filtered_tasks[i]["received"] = timezone.datetime.utcfromtimestamp(
+                filtered_tasks[i]["received"]
+            ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
     if "error" in filtered_tasks:
         return JsonResponse({"message": filtered_tasks["error"]}, status=503)
+    page_number = request.GET.get("page")
+    page_size = int(request.GET.get("page_size", 10))
+    data = paginate_queryset(filtered_tasks, page_number, page_size)
+    return JsonResponse(data["results"], safe=False)
 
-    return JsonResponse(filtered_tasks, safe=False)
