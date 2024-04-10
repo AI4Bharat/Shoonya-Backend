@@ -29,7 +29,7 @@ mapping = {
             },
             "AZURE_CONNECTION_STRING": {
                 "help": "AZURE storage string",
-                "default": "DefaultEndpointsProtocol=https;AccountName=shoonyastoragedevelop;AccountKey=QhS6VOXZkHwVQyoE/Jm+uq4gvGgd5aloGrqVxYnRs/dgPHX0G6U4XmLCtZCIeKyNNK0n3Q9oRDNE+AStMDbqXg==;EndpointSuffix=core.windows.net",
+                "default": "",
             },
             "LOGS_CONTAINER_NAME": {
                 "help": "Logs container name",
