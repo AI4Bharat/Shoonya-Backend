@@ -1791,17 +1791,19 @@ class AnnotationViewSet(
                         request.data["last_updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
                     )
                     output_datetime = dt_object.strftime("%Y-%m-%d %H:%M:%S.%f+00:00")
-                    if str(output_datetime) != str(annotation_obj.updated_at):
+                    if str(output_datetime) != str(annotation_obj.version_updated_at):
                         return Response(
                             {
-                                "message": "Sorry, someone else has updated this data. Please refresh and try again."
+                                "message": "Annotation got updated, please refresh and try again."
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                if "updated_at" in request.data:
-                    annotation_obj.updated_at = request.data["updated_at"]
-                else:
-                    annotation_obj.updated_at = datetime.now()
+                    else:
+                        annotation_obj.version_updated_at = (
+                            request.data["version_updated_at"]
+                            or annotation_obj.version_updated_at
+                        )
+                        update_fields_list.append("version_updated_at")
                 if "cl_format" in request.query_params:
                     (
                         annotation_obj.result,
@@ -1936,17 +1938,19 @@ class AnnotationViewSet(
                         request.data["last_updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
                     )
                     output_datetime = dt_object.strftime("%Y-%m-%d %H:%M:%S.%f+00:00")
-                    if str(output_datetime) != str(annotation_obj.updated_at):
+                    if str(output_datetime) != str(annotation_obj.version_updated_at):
                         return Response(
                             {
-                                "message": "Sorry, someone else has updated this data. Please refresh and try again."
+                                "message": "Annotation got updated, please refresh and try again."
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                if "updated_at" in request.data:
-                    annotation_obj.updated_at = request.data["updated_at"]
-                else:
-                    annotation_obj.updated_at = datetime.now()
+                    else:
+                        annotation_obj.version_updated_at = (
+                            request.data["version_updated_at"]
+                            or annotation_obj.version_updated_at
+                        )
+                        update_fields_list.append("version_updated_at")
                 if "cl_format" in request.query_params:
                     (
                         annotation_obj.result,
@@ -2147,17 +2151,19 @@ class AnnotationViewSet(
                         request.data["last_updated_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
                     )
                     output_datetime = dt_object.strftime("%Y-%m-%d %H:%M:%S.%f+00:00")
-                    if str(output_datetime) != str(annotation_obj.updated_at):
+                    if str(output_datetime) != str(annotation_obj.version_updated_at):
                         return Response(
                             {
-                                "message": "Sorry, someone else has updated this data. Please refresh and try again."
+                                "message": "Annotation got updated, please refresh and try again."
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                if "updated_at" in request.data:
-                    annotation_obj.updated_at = request.data["updated_at"]
-                else:
-                    annotation_obj.updated_at = datetime.now()
+                    else:
+                        annotation_obj.version_updated_at = (
+                            request.data["version_updated_at"]
+                            or annotation_obj.version_updated_at
+                        )
+                        update_fields_list.append("version_updated_at")
                 if "cl_format" in request.query_params:
                     (
                         annotation_obj.result,
