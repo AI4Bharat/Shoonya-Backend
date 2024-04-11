@@ -229,7 +229,13 @@ class Annotation(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name="annotation_created_at"
     )
-    updated_at = models.DateTimeField(verbose_name="annotation_updated_at")
+    updated_at = models.DateTimeField(
+        auto_now=True, verbose_name="annotation_updated_at"
+    )
+    version_updated_at = models.DateTimeField(
+        default="2000-01-01T00:00:00.000001Z",
+        verbose_name="annotation_version_updated_at",
+    )
     lead_time = models.FloatField(default=0.0, verbose_name="annotation_lead_time")
     parent_annotation = models.ForeignKey(
         "self",
