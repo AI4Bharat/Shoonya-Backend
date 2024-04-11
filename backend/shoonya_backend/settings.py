@@ -41,6 +41,7 @@ else:
         "shoonya.ai4bharat.org",
         "0.0.0.0",
         "backend.shoonya.ai4bharat.org",
+        "backend.shoonya2.ai4bharat.org",
     ]
 
 # Application definition
