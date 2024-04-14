@@ -2,49 +2,103 @@ import click
 import json
 import subprocess
 
+# mapping = {
+#     "Default Setup": {
+#         "file": "default-docker-compose.yml",
+#         "description": "Required for the application to work. Contains a docker deployment of Django, Celery, and Redis",
+#         "parameters": {
+#             "DB_NAME": {
+#                 "help": "If you set up a PG installation, enter the same credentials, leave these to default",
+#                 "default": "postgres",
+#             },
+#             "DB_USER": {
+#                 "help": "If you set up a PG installation, enter the same credentials, leave these to default",
+#                 "default": "postgres",
+#             },
+#             "DB_PASSWORD": {
+#                 "help": "If you set up a PG installation, enter the same credentials, leave these to default",
+#                 "default": "postgres",
+#             },
+#             "DB_HOST": {
+#                 "help": "If you set up a PG installation, enter the same credentials, leave these to default",
+#                 "default": "db",
+#             },
+#             "SECRET_KEY": {
+#                 "help": "Django secret key",
+#                 "default": "abcd1234",
+#             },
+#             "AZURE_CONNECTION_STRING": {
+#                 "help": "AZURE storage string",
+#                 "default": "AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=dummydeveloper;AccountKey=hello/Jm+uq4gvGgd5aloGrqVxYnRs/dgPHX0G6U4XmLCtZCIeKyNNK0n3Q9oRDNE+AStMDbqXg==;EndpointSuffix=core.windows.net",
+#             },
+#             "LOGS_CONTAINER_NAME": {
+#                 "help": "Logs container name",
+#                 "default": "logs",
+#             },
+#         },
+#     },
+# }
+
 mapping = {
     "Default Setup": {
-        "file": "default.yml",
+        "file": "default-docker-compose.yml",
         "description": "Required for the application to work. Contains a docker deployment of Django, Celery, and Redis",
         "parameters": {
             "DB_NAME": {
                 "help": "If you set up a PG installation, enter the same credentials, leave these to default",
                 "default": "postgres",
+                "warning": "Please provide a valid database name",
             },
             "DB_USER": {
                 "help": "If you set up a PG installation, enter the same credentials, leave these to default",
                 "default": "postgres",
+                "warning": "Please provide a valid database user",
             },
             "DB_PASSWORD": {
                 "help": "If you set up a PG installation, enter the same credentials, leave these to default",
                 "default": "postgres",
+                "warning": "Please provide a valid database password",
             },
             "DB_HOST": {
                 "help": "If you set up a PG installation, enter the same credentials, leave these to default",
                 "default": "db",
+                "warning": "Please provide a valid database host",
             },
             "SECRET_KEY": {
                 "help": "Django secret key",
                 "default": "abcd1234",
+                "warning": "Please provide a valid secret key",
             },
             "AZURE_CONNECTION_STRING": {
                 "help": "AZURE storage string",
-                "default": "",
+                "default": "AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=dummydeveloper;AccountKey=hello/Jm+uq4gvGgd5aloGrqVxYnRs/dgPHX0G6U4XmLCtZCIeKyNNK0n3Q9oRDNE+AStMDbqXg==;EndpointSuffix=core.windows.net",
+                "warning": "Please provide a valid Azure connection string",
             },
             "LOGS_CONTAINER_NAME": {
                 "help": "Logs container name",
                 "default": "logs",
+                "warning": "Please provide a valid logs container name",
             },
         },
     },
 }
 
+def handle_error(error_message):
+    click.secho(error_message, fg="red", bold=True)
+    exit(1)
 
 @click.command()
 def run_application():
-    click.echo("Welcome to the application setup CLI!")
+    click.secho("Welcome to the application setup CLI!", fg="green", bold=True)
     # click.echo("Default configuration includes Django, Celery, and Redis.")
-    subprocess.run(["docker", "network", "create", "shoonya_backend"], check=True)
+
+    try: 
+        subprocess.run(["docker", "network", "create", "shoonya_backend"], check=True)
+        click.secho("Network created with the name shoonya_backend", fg="green", bold=True)
+    except subprocess.CalledProcessError:
+        click.secho("Network already exists with the name shoonya. Skipping creation.", fg="yellow")
+
+
     selected_components = []
     parameters_dict = {}
 
@@ -54,7 +108,7 @@ def run_application():
     )
     if install_postgres.upper() == "Y":
         subprocess.run(
-            ["docker-compose", "-f", "postgres.yml", "up", "--build", "-d"], check=True
+            ["docker-compose", "-f", "postgres-docker-compose.yml", "up", "--build", "-d"], check=True
         )
 
     production = click.prompt(
@@ -78,6 +132,7 @@ def run_application():
                 for param, details in parameters.items():
                     help_message = details.get("help", "")
                     default_value = details.get("default", "")
+                    warning = details.get("warning", "")
                     value = click.prompt(
                         f"Enter value for {param} ({help_message})",
                         default=default_value,
@@ -86,6 +141,8 @@ def run_application():
                         value = default_value
                     component_params[param] = value
                 parameters_dict[key] = component_params
+
+ 
 
     if parameters_dict:
         with open("backend/.env", "w") as env_file:
@@ -107,10 +164,10 @@ def run_application():
         for file in docker_compose_files:
             subprocess.run(["docker-compose", "-f", file, "logs", "-f"], check=True)
 
-        click.echo("Application setup complete!")
+        click.secho("Application setup complete!", fg="green", bold=True)
         subprocess.run(["docker", "ps"], check=True)
     else:
-        click.echo("No components selected. Exiting.")
+        click.secho("No components selected. Exiting.",fg="red",bold=True)
 
 
 if __name__ == "__main__":
