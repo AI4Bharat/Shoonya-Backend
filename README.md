@@ -71,7 +71,61 @@ GOOGLE_APPLICATION_CREDENTIALS="/path/to/gcloud-key.json"
 
 ### Docker Installation
 
-`cd` back to the root folder .Once inside, build the docker containers:
+
+
+
+```markdown
+# Application Setup Guide
+
+This guide will walk you through setting up the application using different methods and components.
+
+## Running the Script
+
+To run the setup script, follow these steps:
+
+1. Clone this repository to your local machine.
+2. Navigate to the repository directory.
+3. Run the following command:
+
+   ```bash
+   python setup.py
+   ```
+
+4. Follow the prompts to select components and provide required parameters.
+
+## Components
+
+### Default Setup
+
+- **Description:** Required for the application to work. Contains a docker deployment of Django, Celery, and Redis.
+  
+  **Parameters:**
+  - `DB_NAME`
+    - **Description:** Database name.
+    - **Default:** `postgres`
+  - `DB_USER`
+    - **Description:** Database user.
+    - **Default:** `postgres`
+  - `DB_PASSWORD`
+    - **Description:** Database password.
+    - **Default:** `postgres`
+  - `DB_HOST`
+    - **Description:** Database host.
+    - **Default:** `db`
+  - `SECRET_KEY`
+    - **Description:** Django secret key.
+    - **Default:** `abcd1234`
+  - `AZURE_CONNECTION_STRING`
+    - **Description:** Azure storage string.
+    - **Default:** `AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=dummydeveloper;AccountKey=hello/Jm+uq4gvGgd5aloGrqVxYnRs/dgPHX0G6U4XmLCtZCIeKyNNK0n3Q9oRDNE+AStMDbqXg==;EndpointSuffix=core.windows.net`
+  - `LOGS_CONTAINER_NAME`
+    - **Description:** Logs container name.
+    - **Default:** `logs`
+
+
+
+
+<!-- `cd` back to the root folder .Once inside, build the docker containers:
 
 ```bash
 docker-compose -f docker-compose-local.yml build
@@ -97,7 +151,9 @@ docker-compose exec web python manage.py migrate
 # Create a superuser
 docker-compose exec web python manage.py createsuperuser
 
-```
+``` -->
+
+
 
 If there were no errors, congratulations! The project is up and running.
 
