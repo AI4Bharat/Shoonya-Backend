@@ -2,28 +2,28 @@ import click
 import json
 import subprocess
  
-mapping = {
+component_mapping = {
     "Default Setup": {
         "file": "default-docker-compose.yml",
         "description": "Required for the application to work. Contains a docker deployment of Django, Celery, and Redis",
         "parameters": {
             "DB_NAME": {
-                "help": "If you set up a PG installation, enter the same credentials, leave these to default",
+                "help": "If you set up a PG installation, leave these to default",
                 "default": "postgres",
                 "warning": "Please provide a valid database name",
             },
             "DB_USER": {
-                "help": "If you set up a PG installation, enter the same credentials, leave these to default",
+                "help": "If you set up a PG installation, leave these to default",
                 "default": "postgres",
                 "warning": "Please provide a valid database user",
             },
             "DB_PASSWORD": {
-                "help": "If you set up a PG installation, enter the same credentials, leave these to default",
+                "help": "If you set up a PG installation, leave these to default",
                 "default": "postgres",
                 "warning": "Please provide a valid database password",
             },
             "DB_HOST": {
-                "help": "If you set up a PG installation, enter the same credentials, leave these to default",
+                "help": "If you set up a PG installation, leave these to default",
                 "default": "db",
                 "warning": "Please provide a valid database host",
             },
@@ -44,6 +44,91 @@ mapping = {
             },
         },
     },
+    "Elasticsearch-Logstash-Kibana": {
+        "file": "elk-docker-compose.yml",
+        "description": "ELK stack for logging monitoring etc",
+        "parameters": {
+            "ELASTICSEARCH_URL": {
+                "help": "url for elasticsearch",
+                "default": "elasticsearch:9200",
+                "warning": "Please provide a valid elasticsearch endpoint",
+            },
+            "INDEX_NAME": {
+                "help": "",
+                "default": "",
+                "warning": "",
+            }
+        },
+    },
+    "Email Service": {
+        "description": "Required for the application to work. Contains a docker deployment of Django, Celery, and Redis",
+        "parameters": {
+            "EMAIL_HOST": {
+                "help": "If you set up a PG installation, leave these to default",
+                "default": "postgres",
+                "warning": "Please provide a valid database name",
+            },
+            "SMTP_USERNAME": {
+                "help": "If you set up a PG installation, leave these to default",
+                "default": "postgres",
+                "warning": "Please provide a valid database user",
+            },
+            "SMTP_PASSWORD": {
+                "help": "If you set up a PG installation, leave these to default",
+                "default": "postgres",
+                "warning": "Please provide a valid database password",
+            },
+            "DEFAULT_FROM_EMAIL": {
+                "help": "If you set up a PG installation, leave these to default",
+                "default": "db",
+                "warning": "Please provide a valid database host",
+            }
+        },
+    },
+    "Logging": {
+        
+        "description": "Required for the application to work. Contains a docker deployment of Django, Celery, and Redis",
+        "parameters": {
+            "LOGGING": {
+                "help": "If you set up a PG installation, leave these to default",
+                "default": "postgres",
+                "warning": "Please provide a valid database name",
+            },
+            "LOG_LEVEL": {
+                "help": "If you set up a PG installation, leave these to default",
+                "default": "postgres",
+                "warning": "Please provide a valid database user",
+            }
+        },
+    },
+    "MINIO": {
+        "description": "Required for the application to work. Contains a docker deployment of Django, Celery, and Redis",
+        "parameters": {
+            "MINIO_ACCESS_KEY": {
+                "help": "",
+                "default": "",
+                "warning": "",
+            },
+            "MINIO_SECRET_KEY": {
+                "help": "",
+                "default": "",
+                "warning": "",
+            },
+            "MINIO_ENDPOINT": {
+                "help": "",
+                "default": "",
+                "warning": "",
+            },
+        },
+    }  
+}
+
+environment = {
+    "ENVIRONMENT": {
+        "default" : "dev",
+        "help": "The environment in which the application is running. PROD : Production, DEV : Development"
+    },
+
 }
 
 def echo_error(error_message):
@@ -68,9 +153,18 @@ def run_application():
 
 
     selected_components = []
+    docker_compose_files = []
     parameters_dict = {}
 
     try : 
+        production = click.prompt(
+            "Do you want to run the application in production mode? (Y/N)", default="N"
+        )
+        if production.upper() == "N":
+            click.echo("Running in development mode")
+            parameters_dict["ENVIRONMENT"] = dict({
+                "ENV" : "dev"
+            })
         # Ask user if they want PostgreSQL installation
         install_postgres = click.prompt(
             "Do you want to include PostgreSQL installation? (Y/N)", default="N"
@@ -80,20 +174,17 @@ def run_application():
                 ["docker-compose", "-f", "postgres-docker-compose.yml", "up", "--build", "-d"], check=True
             )
 
-        production = click.prompt(
-            "Do you want to run the application in production mode? (Y/N)", default="N"
-        )
-        if production.upper() == "N":
-            click.echo("Running in production mode")
-            parameters_dict["ENVIRONMENT"] = dict({
-                "ENV" : "dev"
-            })
+        
         for key, value in mapping.items():
             choice = click.prompt(
                 f"Do you want to include {key}? ({value['description']}) (Y/N)", default="N"
             )
             if choice.upper() == "Y":
                 selected_components.append(key)
+                #modify the next line such that it only appends if there is a key called "file" in the value
+                if "file" in value:
+                    docker_compose_files.append(value["file"])
+                 
                 parameters = value.get("parameters")
                 if parameters:
                     click.echo(f"Please provide values for parameters for {key}:")
@@ -106,6 +197,7 @@ def run_application():
                             f"Enter value for {param} ({help_message})",
                             default=default_value,
                         )
+
                         if not value:
                             value = default_value
                         component_params[param] = value
@@ -116,9 +208,7 @@ def run_application():
                     for param, value in params.items():
                         env_file.write(f"{param}={value}\n")
 
-        docker_compose_files = [
-            mapping[component]["file"] for component in selected_components
-        ]
+        
         if docker_compose_files:
             click.echo("Running Docker Compose...")
             for file in docker_compose_files:
@@ -156,3 +246,4 @@ def run_application():
 
 if __name__ == "__main__":
     run_application()
+ 
