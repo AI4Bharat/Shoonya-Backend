@@ -27,6 +27,16 @@ component_mapping = {
                 "default": "db",
                 "warning": "Please provide a valid database host",
             },
+            "REDIS_HOST": {
+                "help": "If you are using the inbuilt redis as broker, leave these to default",
+                "default": "redis",
+                "warning": "Please provide a valid redis host",
+            },
+            "REDIS_PORT": {
+                "help": "If you are using the inbuilt redis as broker, leave these to default",
+                "default": "6379",
+                "warning": "Please provide a valid redis port",
+            },
             "CELERY_BROKER_URL": {
                 "help": "Broker for celery tasks",
                 "default": "redis://redis:6379/0",
@@ -36,16 +46,6 @@ component_mapping = {
                 "help": "Django secret key",
                 "default": "abcd1234",
                 "warning": "Please provide a valid secret key",
-            },
-            "AZURE_CONNECTION_STRING": {
-                "help": "AZURE storage string",
-                "default": "AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=dummydeveloper;AccountKey=hello/Jm+uq4gvGgd5aloGrqVxYnRs/dgPHX0G6U4XmLCtZCIeKyNNK0n3Q9oRDNE+AStMDbqXg==;EndpointSuffix=core.windows.net",
-                "warning": "Please provide a valid Azure connection string",
-            },
-            "LOGS_CONTAINER_NAME": {
-                "help": "Logs container name",
-                "default": "logs",
-                "warning": "Please provide a valid logs container name",
             },
         },
     },
@@ -267,6 +267,16 @@ environment = {
     "ENVIRONMENT": {
         "default": "dev",
         "help": "The environment in which the application is running. PROD : Production, DEV : Development",
+    },
+    "AZURE_CONNECTION_STRING": {
+        "help": "AZURE storage string",
+        "default": "AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=dummydeveloper;AccountKey=hello/Jm+uq4gvGgd5aloGrqVxYnRs/dgPHX0G6U4XmLCtZCIeKyNNK0n3Q9oRDNE+AStMDbqXg==;EndpointSuffix=core.windows.net",
+        
+    },
+    "LOGS_CONTAINER_NAME": {
+        "help": "Logs container name",
+        "default": "logs",
+        
     },
 }
 
