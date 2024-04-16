@@ -685,38 +685,39 @@ class UserViewSet(viewsets.ViewSet):
             if is_active_payload is False:
                 workspaces = Workspace.objects.filter(
                     Q(members=user) | Q(managers=user)
-                )
+                ).distinct()
+
                 workspacecustomviewset_obj = WorkspaceCustomViewSet()
                 request.data["ids"] = [user.id]
 
                 workspaceusersviewset_obj = WorkspaceusersViewSet()
                 request.data["user_id"] = user.id
 
-                failed_workspace_unassign = []
-                failed_workspace_remove = []
+                # failed_workspace_unassign = []
+                # failed_workspace_remove = []
 
                 for workspace in workspaces:
-                    response_unassign = workspacecustomviewset_obj.unassign_manager(
+                    workspacecustomviewset_obj.unassign_manager(
                         request=request, pk=workspace.pk
                     )
 
-                    if response_unassign.status_code != 200:
-                        failed_workspace_unassign.append(workspace.pk)
+                    # if response_unassign.status_code != 200:
+                    #     failed_workspace_unassign.append(workspace.pk)
 
-                    response_remove = workspaceusersviewset_obj.remove_members(
+                    workspaceusersviewset_obj.remove_members(
                         request=request, pk=workspace.pk
                     )
 
-                    if response_remove.status_code != 200:
-                        failed_workspace_remove.append(workspace.pk)
+                #     if response_remove.status_code != 200:
+                #         failed_workspace_remove.append(workspace.pk)
 
-                message = "User removed from some workspaces both as workspace member and workspace manager."
-                if failed_workspace_unassign:
-                    message += f" {failed_workspace_unassign} failed to unassign user as workspace manager."
-                if failed_workspace_remove:
-                    message += f" {failed_workspace_remove} failed to remove user as workspace member."
-                if message:
-                    return Response({"message": message}, status=status.HTTP_200_OK)
+                # message = "User removed from some workspaces both as workspace member and workspace manager."
+                # if failed_workspace_unassign:
+                #     message += f" {failed_workspace_unassign} failed to unassign user as workspace manager."
+                # if failed_workspace_remove:
+                #     message += f" {failed_workspace_remove} failed to remove user as workspace member."
+                # if message:
+                #     return Response({"message": message}, status=status.HTTP_200_OK)
 
                 return Response(
                     {
