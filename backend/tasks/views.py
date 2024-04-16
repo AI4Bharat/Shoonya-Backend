@@ -1776,7 +1776,7 @@ class AnnotationViewSet(
             self.populate_task_data_language_and_domain(
                 annotation_obj.task, language, ocr_domain
             )
-        
+
         if "last_updated_at" in request.data:
             try:
                 dt_object = datetime.strptime(
@@ -1795,7 +1795,7 @@ class AnnotationViewSet(
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-        
+
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
@@ -1805,7 +1805,12 @@ class AnnotationViewSet(
             # need to add few filters here
 
             if auto_save:
-                update_fields_list = ["result", "lead_time", "updated_at", "version_updated_at"]
+                update_fields_list = [
+                    "result",
+                    "lead_time",
+                    "updated_at",
+                    "version_updated_at",
+                ]
                 annotation_obj.version_updated_at = (
                     request.data["version_updated_at"]
                     or annotation_obj.version_updated_at
@@ -1938,7 +1943,12 @@ class AnnotationViewSet(
                 return Response(ret_dict, status=ret_status)
 
             if auto_save:
-                update_fields_list = ["result", "lead_time", "updated_at", "version_updated_at"]
+                update_fields_list = [
+                    "result",
+                    "lead_time",
+                    "updated_at",
+                    "version_updated_at",
+                ]
                 annotation_obj.version_updated_at = (
                     request.data["version_updated_at"]
                     or annotation_obj.version_updated_at
@@ -2137,7 +2147,12 @@ class AnnotationViewSet(
                 return Response(ret_dict, status=ret_status)
 
             if auto_save:
-                update_fields_list = ["result", "lead_time", "updated_at", "version_updated_at"]
+                update_fields_list = [
+                    "result",
+                    "lead_time",
+                    "updated_at",
+                    "version_updated_at",
+                ]
                 annotation_obj.version_updated_at = (
                     request.data["version_updated_at"]
                     or annotation_obj.version_updated_at
