@@ -105,6 +105,8 @@ class InviteViewSet(viewsets.ViewSet):
                         email=email.lower(),
                         organization_id=org.id,
                         role=request.data.get("role"),
+                        is_approved=True, # as it can be only done by project owner
+                        approved_by=request.user.user_id,
                     )
                     user.set_password(generate_random_string(10))
                     valid_user_emails.append(email)
@@ -258,6 +260,7 @@ class InviteViewSet(viewsets.ViewSet):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
+            user.is_approved = False
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
@@ -277,8 +280,73 @@ class InviteViewSet(viewsets.ViewSet):
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
+    # function to list the users whose user.is_approved is false 
+    @permission_classes([IsAuthenticated])
+    @swagger_auto_schema(responses={200: UserSignUpSerializer})
+    @action(detail=False, methods=["get"], url_path="pending_users")
+    def pending_users(self, request):
+        """
+        List of users who have not accepted the invite yet in that organisation/workspace
+        """
+        organisation_id = request.user.organization_id
+        users = User.objects.filter(organization_id=organisation_id, is_approved=True)
+        serialized = UserSignUpSerializer(users, many=True)
+        return Response(serialized.data, status=status.HTTP_200_OK)
+ 
+    # function to reject the user request to join the workspace by organiastion owner and delete the user from the table 
+    @permission_classes([IsAuthenticated])
+    @is_organization_owner
+    @swagger_auto_schema(request_body=UserSignUpSerializer)
+    @action(detail=True, methods=["delete"], url_path="reject_user")
+    def reject_user(self, request, pk=None):
+        """
+        Reject the user request to join the workspace
+        """
+        try:
+            user = User.objects.get(id=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        user.delete()
+        return Response({"message": "User rejected"}, status=status.HTTP_200_OK)
 
-
+    # function to approve the user request to join the workspace by organiastion owner and update the user.is_approved to true
+    @permission_classes([IsAuthenticated])
+    @is_organization_owner
+    @swagger_auto_schema(request_body=UserSignUpSerializer)
+    @action(detail=True, methods=["patch"], url_path="approve_user")
+    def approve_user(self, request, pk=None):
+        """
+        Approve the user request to join the workspace
+        """
+        try:
+            user = User.objects.get(id=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        user.is_approved = True
+        user.save()
+        return Response({"message": "User approved"}, status=status.HTTP_200_OK)
+    
+    # function to request workspace owner to add the users to the workspace by workspace manager
+    @permission_classes([IsAuthenticated])
+    @swagger_auto_schema(request_body=UserSignUpSerializer)
+    @action(detail=True, methods=["post"], url_path="request_user")
+    def request_user(self, request, pk=None):
+        """
+        Request the workspace owner to add the user to the workspace
+        """
+        try:
+            user = User.objects.get(id=pk)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        user.is_approved = False
+        user.save()
+        return Response({"message": "User requested"}, status=status.HTTP_200_OK)
 class AuthViewSet(viewsets.ViewSet):
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserLoginSerializer)
