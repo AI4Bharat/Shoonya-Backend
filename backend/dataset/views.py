@@ -305,7 +305,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         URL: /data/instances/<instance-id>/download/
         Accepted methods: GET
         """
-        export_type = request.GET.get("export_type", "csv").lower()
+        export_type = request.GET.get("type", "csv").lower()
         try:
             # Get the dataset instance for the id
             dataset_instance = DatasetInstance.objects.get(instance_id=pk)
