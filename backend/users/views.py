@@ -20,6 +20,7 @@ from .serializers import (
     UserLoginSerializer,
     UserProfileSerializer,
     UserSignUpSerializer,
+    UsersPendingSerializer,
     UserUpdateSerializer,
     LanguageSerializer,
     ChangePasswordSerializer,
@@ -282,28 +283,38 @@ class InviteViewSet(viewsets.ViewSet):
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
     # function to list the users whose user.is_approved is false 
     @permission_classes([IsAuthenticated])
-    @swagger_auto_schema(responses={200: UserSignUpSerializer})
+    @swagger_auto_schema(responses={200: UsersPendingSerializer})
     @action(detail=False, methods=["get"], url_path="pending_users")
     def pending_users(self, request):
         """
         List of users who have not accepted the invite yet in that organisation/workspace
         """
-        organisation_id = request.user.organization_id
-        users = User.objects.filter(organization_id=organisation_id, is_approved=True)
-        serialized = UserSignUpSerializer(users, many=True)
-        return Response(serialized.data, status=status.HTTP_200_OK)
+        organisation_id = request.query_params.get('organisation_id')
+        users = User.objects.filter(organization_id=organisation_id, is_approved=False)
+        serialized = UsersPendingSerializer(users, many=True)
+
+        if(serialized.data) :
+            return Response(serialized.data, status=status.HTTP_200_OK)
+
+        return Response({"message": "No pending users"}, status=status.HTTP_200_OK)        
  
     # function to reject the user request to join the workspace by organiastion owner and delete the user from the table 
     @permission_classes([IsAuthenticated])
     @is_organization_owner
-    @swagger_auto_schema(request_body=UserSignUpSerializer)
-    @action(detail=True, methods=["delete"], url_path="reject_user")
-    def reject_user(self, request, pk=None):
+    @swagger_auto_schema(request_body=UsersPendingSerializer)
+    @action(detail=False, methods=["delete"], url_path="reject_user")
+    def reject_user(self, request):
         """
         Reject the user request to join the workspace
         """
         try:
-            user = User.objects.get(id=pk)
+            user_id = request.user.id
+            user = User.objects.get(id=user_id)
+
+            if user.is_approved  == True:
+                return Response(
+                    {"message": "User is already approved"}, status=status.HTTP_400_BAD_REQUEST
+                )
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
@@ -314,32 +325,45 @@ class InviteViewSet(viewsets.ViewSet):
     # function to approve the user request to join the workspace by organiastion owner and update the user.is_approved to true
     @permission_classes([IsAuthenticated])
     @is_organization_owner
-    @swagger_auto_schema(request_body=UserSignUpSerializer)
-    @action(detail=True, methods=["patch"], url_path="approve_user")
-    def approve_user(self, request, pk=None):
+    @swagger_auto_schema(request_body=UsersPendingSerializer)
+    @action(detail=False, methods=["patch"], url_path="approve_user")
+    def approve_user(self, request):
         """
         Approve the user request to join the workspace
         """
         try:
-            user = User.objects.get(id=pk)
+            user_id = request.user.id
+            user = User.objects.get(id=user_id)
+
+            if user.is_approved  == True:
+                return Response(
+                    {"message": "User is already approved"}, status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            user.is_approved = True
+            user.save()
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        user.is_approved = True
-        user.save()
+        except Exception as e:
+            return Response(
+                {"message": "Error in approving user"}, status=status.HTTP_400_BAD_REQUEST
+            )
+      
         return Response({"message": "User approved"}, status=status.HTTP_200_OK)
     
     # function to request workspace owner to add the users to the workspace by workspace manager
     @permission_classes([IsAuthenticated])
-    @swagger_auto_schema(request_body=UserSignUpSerializer)
-    @action(detail=True, methods=["post"], url_path="request_user")
-    def request_user(self, request, pk=None):
+    @swagger_auto_schema(request_body=UsersPendingSerializer)
+    @action(detail=False, methods=["post"], url_path="request_user")
+    def request_user(self, request):
         """
         Request the workspace owner to add the user to the workspace
         """
         try:
-            user = User.objects.get(id=pk)
+            user_id = request.user.id
+            user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
