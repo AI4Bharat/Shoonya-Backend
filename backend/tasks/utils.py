@@ -21,7 +21,7 @@ def compute_meta_stats_for_instruction_driven_chat(conversation_history):
         else conversation_history
     )
     number_of_words = sum(
-        len(entry["prompt"].split()) for entry in conversation_history
+        len(entry["prompt"].split()) for entry in conversation_history if "prompt" in entry
     )
     number_of_turns = len(conversation_history)
 
