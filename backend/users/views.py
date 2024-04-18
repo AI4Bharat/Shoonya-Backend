@@ -106,7 +106,7 @@ class InviteViewSet(viewsets.ViewSet):
                         email=email.lower(),
                         organization_id=org.id,
                         role=request.data.get("role"),
-                        is_approved=True, # as it can be only done by project owner
+                        is_approved=True,  # as it can be only done by project owner
                         approved_by=request.user.user_id,
                     )
                     user.set_password(generate_random_string(10))
@@ -281,7 +281,8 @@ class InviteViewSet(viewsets.ViewSet):
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
-    # function to list the users whose user.is_approved is false 
+
+    # function to list the users whose user.is_approved is false
     @permission_classes([IsAuthenticated])
     @swagger_auto_schema(responses={200: UsersPendingSerializer})
     @action(detail=False, methods=["get"], url_path="pending_users")
@@ -289,16 +290,16 @@ class InviteViewSet(viewsets.ViewSet):
         """
         List of users who have not accepted the invite yet in that organisation/workspace
         """
-        organisation_id = request.query_params.get('organisation_id')
+        organisation_id = request.query_params.get("organisation_id")
         users = User.objects.filter(organization_id=organisation_id, is_approved=False)
         serialized = UsersPendingSerializer(users, many=True)
 
-        if(serialized.data) :
+        if serialized.data:
             return Response(serialized.data, status=status.HTTP_200_OK)
 
-        return Response({"message": "No pending users"}, status=status.HTTP_200_OK)        
- 
-    # function to reject the user request to join the workspace by organiastion owner and delete the user from the table 
+        return Response({"message": "No pending users"}, status=status.HTTP_200_OK)
+
+    # function to reject the user request to join the workspace by organiastion owner and delete the user from the table
     @permission_classes([IsAuthenticated])
     @is_organization_owner
     @swagger_auto_schema(request_body=UsersPendingSerializer)
@@ -311,9 +312,10 @@ class InviteViewSet(viewsets.ViewSet):
             user_id = request.user.id
             user = User.objects.get(id=user_id)
 
-            if user.is_approved  == True:
+            if user.is_approved == True:
                 return Response(
-                    {"message": "User is already approved"}, status=status.HTTP_400_BAD_REQUEST
+                    {"message": "User is already approved"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
         except User.DoesNotExist:
             return Response(
@@ -335,11 +337,12 @@ class InviteViewSet(viewsets.ViewSet):
             user_id = request.user.id
             user = User.objects.get(id=user_id)
 
-            if user.is_approved  == True:
+            if user.is_approved == True:
                 return Response(
-                    {"message": "User is already approved"}, status=status.HTTP_400_BAD_REQUEST
+                    {"message": "User is already approved"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             user.is_approved = True
             user.save()
         except User.DoesNotExist:
@@ -348,11 +351,12 @@ class InviteViewSet(viewsets.ViewSet):
             )
         except Exception as e:
             return Response(
-                {"message": "Error in approving user"}, status=status.HTTP_400_BAD_REQUEST
+                {"message": "Error in approving user"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-      
+
         return Response({"message": "User approved"}, status=status.HTTP_200_OK)
-    
+
     # function to request workspace owner to add the users to the workspace by workspace manager
     @permission_classes([IsAuthenticated])
     @swagger_auto_schema(request_body=UsersPendingSerializer)
@@ -371,6 +375,8 @@ class InviteViewSet(viewsets.ViewSet):
         user.is_approved = False
         user.save()
         return Response({"message": "User requested"}, status=status.HTTP_200_OK)
+
+
 class AuthViewSet(viewsets.ViewSet):
     @permission_classes([AllowAny])
     @swagger_auto_schema(request_body=UserLoginSerializer)

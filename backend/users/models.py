@@ -223,18 +223,20 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     approved_by = models.ForeignKey(
-        'self', 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         default=1,
     )
+
     class Meta:
         db_table = "user"
         indexes = [
             models.Index(fields=["username"]),
             models.Index(fields=["email"]),
         ]
+
     def clean(self):
         super().clean()
         self.email = self.__class__.objects.normalize_email(self.email)

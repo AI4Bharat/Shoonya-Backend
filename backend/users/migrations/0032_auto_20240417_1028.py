@@ -6,20 +6,29 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('users', '0031_user_notification_limit'),
+        ("users", "0031_user_notification_limit"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='approved_by',
-            field=models.ForeignKey(blank=True, default=1, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL),
+            model_name="user",
+            name="approved_by",
+            field=models.ForeignKey(
+                blank=True,
+                default=1,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='user',
-            name='is_approved',
-            field=models.BooleanField(default=True, help_text='Indicates whether user is approved by the admin or not.', verbose_name='is_approved'),
+            model_name="user",
+            name="is_approved",
+            field=models.BooleanField(
+                default=True,
+                help_text="Indicates whether user is approved by the admin or not.",
+                verbose_name="is_approved",
+            ),
         ),
     ]
