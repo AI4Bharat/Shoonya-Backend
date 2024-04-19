@@ -693,31 +693,14 @@ class UserViewSet(viewsets.ViewSet):
                 workspaceusersviewset_obj = WorkspaceusersViewSet()
                 request.data["user_id"] = user.id
 
-                # failed_workspace_unassign = []
-                # failed_workspace_remove = []
-
                 for workspace in workspaces:
                     workspacecustomviewset_obj.unassign_manager(
                         request=request, pk=workspace.pk
                     )
 
-                    # if response_unassign.status_code != 200:
-                    #     failed_workspace_unassign.append(workspace.pk)
-
                     workspaceusersviewset_obj.remove_members(
                         request=request, pk=workspace.pk
                     )
-
-                #     if response_remove.status_code != 200:
-                #         failed_workspace_remove.append(workspace.pk)
-
-                # message = "User removed from some workspaces both as workspace member and workspace manager."
-                # if failed_workspace_unassign:
-                #     message += f" {failed_workspace_unassign} failed to unassign user as workspace manager."
-                # if failed_workspace_remove:
-                #     message += f" {failed_workspace_remove} failed to remove user as workspace member."
-                # if message:
-                #     return Response({"message": message}, status=status.HTTP_200_OK)
 
                 return Response(
                     {
