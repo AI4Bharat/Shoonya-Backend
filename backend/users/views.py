@@ -683,6 +683,9 @@ class UserViewSet(viewsets.ViewSet):
             pass
         else:
             if is_active_payload is False:
+                if user.enable_mail:
+                    user.enable_mail = False
+                    user.save()
                 workspaces = Workspace.objects.filter(
                     Q(members=user) | Q(managers=user)
                 ).distinct()
