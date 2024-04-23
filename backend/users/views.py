@@ -107,7 +107,7 @@ class InviteViewSet(viewsets.ViewSet):
                         organization_id=org.id,
                         role=request.data.get("role"),
                         is_approved=True,  # as it can be only done by project owner
-                        approved_by=request.user.user_id,
+                        invited_by=request.user.user_id,
                     )
                     user.set_password(generate_random_string(10))
                     valid_user_emails.append(email)
@@ -281,7 +281,8 @@ class InviteViewSet(viewsets.ViewSet):
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
-
+    # 1 add users to workspace - workspace name 
+    # 2. Invite new users to {organisation name}
     # function to list the users whose user.is_approved is false
     @permission_classes([IsAuthenticated])
     @swagger_auto_schema(responses={200: UsersPendingSerializer})
@@ -309,7 +310,7 @@ class InviteViewSet(viewsets.ViewSet):
         Reject the user request to join the workspace
         """
         try:
-            user_id = request.user.id
+            user_id = request.query_params.get('userId', None)            
             user = User.objects.get(id=user_id)
 
             if user.is_approved == True:
@@ -334,9 +335,10 @@ class InviteViewSet(viewsets.ViewSet):
         Approve the user request to join the workspace
         """
         try:
-            user_id = request.user.id
+            user_id = request.query_params.get('userId', None)            
             user = User.objects.get(id=user_id)
-
+            organisation_id = user.organization_id
+        
             if user.is_approved == True:
                 return Response(
                     {"message": "User is already approved"},
@@ -345,6 +347,8 @@ class InviteViewSet(viewsets.ViewSet):
 
             user.is_approved = True
             user.save()
+            # invite the user via mail now 
+            Invite.create_invite(organization=organisation_id,users=user)
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
@@ -356,26 +360,94 @@ class InviteViewSet(viewsets.ViewSet):
             )
 
         return Response({"message": "User approved"}, status=status.HTTP_200_OK)
-
     # function to request workspace owner to add the users to the workspace by workspace manager
     @permission_classes([IsAuthenticated])
-    @swagger_auto_schema(request_body=UsersPendingSerializer)
+    @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @action(detail=False, methods=["post"], url_path="request_user")
     def request_user(self, request):
         """
-        Request the workspace owner to add the user to the workspace
+        Request the workspace owner to add the user to the workspace from manager 
         """
-        try:
-            user_id = request.user.id
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response(
-                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        user.is_approved = False
-        user.save()
-        return Response({"message": "User requested"}, status=status.HTTP_200_OK)
+        all_emails = request.data.get("emails")
+        distinct_emails = list(set(all_emails))
+        organization_id = request.data.get("organization_id")
+        users = []
 
+        try:
+            org = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        already_existing_emails = []
+        valid_user_emails = []
+        invalid_emails = []
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
+
+        for email in distinct_emails:
+            # Checking if the email is in valid format.
+            if re.fullmatch(regex, email):
+                if email in existing_emails_set:
+                    already_existing_emails.append(email)
+                    continue
+                try:
+                    user = User(
+                        username=generate_random_string(12),
+                        email=email.lower(),
+                        organization_id=org.id,
+                        role=request.data.get("role"),
+                        is_approved=False,
+                        invited_by=request.user.user_id,
+                    )
+                    user.set_password(generate_random_string(10))
+                    valid_user_emails.append(email)
+                    users.append(user)
+                except:
+                    pass
+            else:
+                invalid_emails.append(email)
+        # setting error messages
+        (
+            additional_message_for_existing_emails,
+            additional_message_for_invalid_emails,
+        ) = ("", "")
+        additional_message_for_valid_emails = ""
+        if already_existing_emails:
+            additional_message_for_existing_emails += (
+                f", Invites already sent to: {','.join(already_existing_emails)}"
+            )
+        if invalid_emails:
+            additional_message_for_invalid_emails += (
+                f", Invalid emails: {','.join(invalid_emails)}"
+            )
+        if valid_user_emails:
+            additional_message_for_valid_emails += (
+                f", Invites sent to : {','.join(valid_user_emails)}"
+            )
+        if len(valid_user_emails) == 0:
+            return Response(
+                {
+                    "message": "No invites sent"
+                    + additional_message_for_invalid_emails
+                    + additional_message_for_existing_emails
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        elif len(invalid_emails) == 0:
+            ret_dict = {
+                "message": "Invites sent & request sent to workspace owner"
+                + additional_message_for_valid_emails
+                + additional_message_for_existing_emails
+            }
+        else:
+            ret_dict = {
+                "message": f"Invites sent partially!"
+                + additional_message_for_valid_emails
+                + additional_message_for_invalid_emails
+                + additional_message_for_existing_emails
+            }
+        users = User.objects.bulk_create(users)
+        return Response(ret_dict, status=status.HTTP_201_CREATED)
 
 class AuthViewSet(viewsets.ViewSet):
     @permission_classes([AllowAny])
