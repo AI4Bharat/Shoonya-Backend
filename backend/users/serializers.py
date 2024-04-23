@@ -32,7 +32,16 @@ class UserSignUpSerializer(serializers.ModelSerializer):
 class UsersPendingSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "email","role","invited_by","has_accepted_invite"]
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "role",
+            "invited_by",
+            "has_accepted_invite",
+        ]
 
     def update(self, instance, validated_data):
         instance.id = validated_data.get("id", instance.id)
@@ -42,7 +51,9 @@ class UsersPendingSerializer(serializers.ModelSerializer):
         instance.email(validated_data.get("email", instance.email))
         instance.role(validated_data.get("role", instance.role))
         instance.invited_by(validated_data.get("invited_by", instance.invited_by))
-        instance.has_accepted_invite(validated_data.get("has_accepted_invite", instance.has_accepted_invite))
+        instance.has_accepted_invite(
+            validated_data.get("has_accepted_invite", instance.has_accepted_invite)
+        )
         instance.save()
         return instance
 

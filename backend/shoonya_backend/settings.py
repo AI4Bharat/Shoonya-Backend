@@ -35,7 +35,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 DEBUG = os.getenv("ENV") == "dev"
 
 if DEBUG:
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"] 
+    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
 else:
     ALLOWED_HOSTS = [
         "shoonya.ai4bharat.org",
@@ -187,7 +187,7 @@ REST_FRAMEWORK = {
 
 
 # Email Settings
-EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend" 
+EMAIL_BACKEND = "django_smtp_ssl.SSLEmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = 465
 EMAIL_HOST_USER = os.getenv("SMTP_USERNAME")
@@ -195,8 +195,8 @@ EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD")
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
-DOMAIN = "shoonya.ai4bharat.org"  
-SITE_NAME = "shoonya.ai4bharat.org" 
+DOMAIN = "shoonya.ai4bharat.org"
+SITE_NAME = "shoonya.ai4bharat.org"
 
 DJOSER = {
     "PASSWORD_RESET_CONFIRM_URL": "#/forget-password/confirm/{uid}/{token}",

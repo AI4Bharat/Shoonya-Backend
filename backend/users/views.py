@@ -281,7 +281,8 @@ class InviteViewSet(viewsets.ViewSet):
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
-    # 1 add users to workspace - workspace name 
+
+    # 1 add users to workspace - workspace name
     # 2. Invite new users to {organisation name}
     # function to list the users whose user.is_approved is false
     @permission_classes([IsAuthenticated])
@@ -310,7 +311,7 @@ class InviteViewSet(viewsets.ViewSet):
         Reject the user request to join the workspace
         """
         try:
-            user_id = request.query_params.get('userId', None)            
+            user_id = request.query_params.get("userId", None)
             user = User.objects.get(id=user_id)
 
             if user.is_approved == True:
@@ -335,10 +336,10 @@ class InviteViewSet(viewsets.ViewSet):
         Approve the user request to join the workspace
         """
         try:
-            user_id = request.query_params.get('userId', None)            
+            user_id = request.query_params.get("userId", None)
             user = User.objects.get(id=user_id)
             organisation_id = user.organization_id
-        
+
             if user.is_approved == True:
                 return Response(
                     {"message": "User is already approved"},
@@ -347,8 +348,8 @@ class InviteViewSet(viewsets.ViewSet):
 
             user.is_approved = True
             user.save()
-            # invite the user via mail now 
-            Invite.create_invite(organization=organisation_id,users=user)
+            # invite the user via mail now
+            Invite.create_invite(organization=organisation_id, users=user)
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
@@ -360,13 +361,14 @@ class InviteViewSet(viewsets.ViewSet):
             )
 
         return Response({"message": "User approved"}, status=status.HTTP_200_OK)
+
     # function to request workspace owner to add the users to the workspace by workspace manager
     @permission_classes([IsAuthenticated])
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @action(detail=False, methods=["post"], url_path="request_user")
     def request_user(self, request):
         """
-        Request the workspace owner to add the user to the workspace from manager 
+        Request the workspace owner to add the user to the workspace from manager
         """
         all_emails = request.data.get("emails")
         distinct_emails = list(set(all_emails))
@@ -448,6 +450,7 @@ class InviteViewSet(viewsets.ViewSet):
             }
         users = User.objects.bulk_create(users)
         return Response(ret_dict, status=status.HTTP_201_CREATED)
+
 
 class AuthViewSet(viewsets.ViewSet):
     @permission_classes([AllowAny])
