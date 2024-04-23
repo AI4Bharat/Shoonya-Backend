@@ -107,7 +107,6 @@ class InviteViewSet(viewsets.ViewSet):
                         organization_id=org.id,
                         role=request.data.get("role"),
                         is_approved=True,  # as it can be only done by project owner
-                        invited_by=request.user.user_id,
                     )
                     user.set_password(generate_random_string(10))
                     valid_user_emails.append(email)
@@ -349,17 +348,18 @@ class InviteViewSet(viewsets.ViewSet):
             user.is_approved = True
             user.save()
             # invite the user via mail now
-            Invite.create_invite(organization=organisation_id, users=user)
+            try:
+                users = [user]
+                Invite.create_invite(organization=organisation_id, users=users)
+            except:
+                return Response(
+                    {"message": "Error in sending invite"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
-            return Response(
-                {"message": "Error in approving user"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         return Response({"message": "User approved"}, status=status.HTTP_200_OK)
 
     # function to request workspace owner to add the users to the workspace by workspace manager
@@ -398,8 +398,8 @@ class InviteViewSet(viewsets.ViewSet):
                         email=email.lower(),
                         organization_id=org.id,
                         role=request.data.get("role"),
+                        has_accepted_invite=False,
                         is_approved=False,
-                        invited_by=request.user.user_id,
                     )
                     user.set_password(generate_random_string(10))
                     valid_user_emails.append(email)
