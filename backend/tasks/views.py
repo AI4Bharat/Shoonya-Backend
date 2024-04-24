@@ -156,7 +156,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         for i in serializer.data:
             if len(i["result"]) > 0:
                 if type(i["result"][0]["output"]) == type([]):
-                    i["result"][0]["output"]=i["result"][0]["output"][0]["value"]
+                    i["result"][0]["output"] = i["result"][0]["output"][0]["value"]
                     print(i["result"][0]["output"])
         return Response(serializer.data)
 
