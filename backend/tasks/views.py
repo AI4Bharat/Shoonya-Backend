@@ -1441,6 +1441,9 @@ class AnnotationViewSet(
                                 annotation_obj.result
                             )
                         )
+                        if "clear_conversation" in request.data:
+                            if request.data["clear_conversation"] == True:
+                                annotation_obj.result = request.data["result"]
                         is_IDC = True
                     else:
                         annotation_obj.result = request.data["result"]
@@ -1615,6 +1618,9 @@ class AnnotationViewSet(
                                 annotation_obj.result
                             )
                         )
+                        if "clear_conversation" in request.data:
+                            if request.data["clear_conversation"] == True:
+                                annotation_obj.result = request.data["result"]
                         is_IDC = True
                     else:
                         annotation_obj.result = request.data["result"]
@@ -1854,6 +1860,9 @@ class AnnotationViewSet(
                                 annotation_obj.result
                             )
                         )
+                        if "clear_conversation" in request.data:
+                            if request.data["clear_conversation"] == True:
+                                annotation_obj.result = request.data["result"]
                         is_IDC = True
                     else:
                         annotation_obj.result = request.data["result"]
