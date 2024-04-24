@@ -29,6 +29,7 @@ class UserSignUpSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+
 class UsersPendingSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -56,6 +57,8 @@ class UsersPendingSerializer(serializers.ModelSerializer):
         )
         instance.save()
         return instance
+
+
 class UserUpdateSerializer(serializers.ModelSerializer):
     organization = OrganizationSerializer()
 
