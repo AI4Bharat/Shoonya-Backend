@@ -153,7 +153,7 @@ sentry-sdk==1.29.2
 simplejson==3.19.1
 six==1.16.0
 snowballstemmer==2.2.0
-social-auth-app-django==4.0.0
+social-auth-app-django==5.4.1
 social-auth-core==4.4.2
 soupsieve==2.4.1
 Sphinx==4.3.2
