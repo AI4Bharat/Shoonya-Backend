@@ -157,7 +157,6 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             if len(i["result"]) > 0:
                 if type(i["result"][0]["output"]) == type([]):
                     i["result"][0]["output"] = i["result"][0]["output"][0]["value"]
-                    print(i["result"][0]["output"])
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="predictions")
