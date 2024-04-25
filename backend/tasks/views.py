@@ -11,6 +11,11 @@ from tasks.utils import Queued_Task_name
 from django.utils import timezone
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import json
+from celery import Celery
+
+# from flower.api import Flower
+# flower_app = Flower()
+celery_app = Celery()
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import StreamingHttpResponse, FileResponse
@@ -2598,3 +2603,24 @@ def get_celery_tasks(request):
     page_size = int(request.GET.get("page_size", 10))
     data = paginate_queryset(filtered_tasks, page_number, page_size)
     return JsonResponse(data["results"], safe=False)
+
+
+def stopping_celery_tasks(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None or task.state == "PENDING":
+        return JsonResponse({"message": "Task not found or not running"}, status=404)
+
+    if task.state in ["SUCCESS", "FAILURE", "REVOKED"]:
+        return JsonResponse(
+            {"message": "Task already completed or revoked"}, status=400
+        )
+
+    task.revoke(terminate=True)
+
+    return JsonResponse({"message": "Task stopped successfully"}, status=200)

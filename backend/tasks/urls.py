@@ -6,6 +6,7 @@ from tasks.views import (
     AnnotationViewSet,
     PredictionViewSet,
     get_celery_tasks,
+    stopping_celery_tasks,
 )
 
 router = routers.DefaultRouter()
@@ -15,4 +16,5 @@ router = routers.DefaultRouter()
 
 urlpatterns = [
     path("get_celery_tasks/", get_celery_tasks),
+    path("stopping_celery_tasks/", stopping_celery_tasks),
 ] + router.urls
