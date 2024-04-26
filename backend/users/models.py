@@ -218,7 +218,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     is_approved = models.BooleanField(
         verbose_name="is_approved",
-        default=True,
+        default=False,
         help_text=("Indicates whether user is approved by the admin or not."),
     )
 

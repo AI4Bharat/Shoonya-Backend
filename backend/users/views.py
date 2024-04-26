@@ -106,13 +106,16 @@ class InviteViewSet(viewsets.ViewSet):
                         email=email.lower(),
                         organization_id=org.id,
                         role=request.data.get("role"),
-                        is_approved=True,  # as it can be only done by project owner
                     )
+                    user.is_approved = True
                     user.set_password(generate_random_string(10))
                     valid_user_emails.append(email)
                     users.append(user)
                 except:
-                    pass
+                    return Response(
+                        {"message": "Error in creating user"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             else:
                 invalid_emails.append(email)
         # setting error messages
