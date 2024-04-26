@@ -60,7 +60,7 @@ from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import pyrebase
-from workspaces.views import WorkspaceViewSet
+from workspaces.views import WorkspaceusersViewSet
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 load_dotenv()
@@ -925,17 +925,28 @@ class UserViewSet(viewsets.ViewSet):
             pass
         else:
             if is_active_payload is False:
+                if user.enable_mail:
+                    user.enable_mail = False
+                    user.save()
                 workspaces = Workspace.objects.filter(
                     Q(members=user) | Q(managers=user)
-                )
-                workspace_view = WorkspaceViewSet()
+                ).distinct()
+
+                workspacecustomviewset_obj = WorkspaceCustomViewSet()
+                request.data["ids"] = [user.id]
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
                 for workspace in workspaces:
-                    workspace_view.unassign_manager(
-                        request, pk=workspace.pk, ids=[user.id]
+                    workspacecustomviewset_obj.unassign_manager(
+                        request=request, pk=workspace.pk
                     )
-                    workspace_view.remove_members(
-                        request, pk=workspace.pk, user_id=user.id
+
+                    workspaceusersviewset_obj.remove_members(
+                        request=request, pk=workspace.pk
                     )
+
                 return Response(
                     {
                         "message": "User removed from all workspaces both as workspace member and workspace manager"
