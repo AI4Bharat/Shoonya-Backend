@@ -284,6 +284,19 @@ class User(AbstractBaseUser, PermissionsMixin):
             "Indicates whether user prefers Chitralekha UI for audio transcription tasks or not."
         ),
     )
+    is_approved = models.BooleanField(
+        verbose_name="is_approved",
+        default=False,
+        help_text=("Indicates whether user is approved by the admin or not."),
+    )
+
+    invited_by = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        default=2,
+    )
 
     class Meta:
         db_table = "user"
