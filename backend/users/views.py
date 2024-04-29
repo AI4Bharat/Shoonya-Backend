@@ -704,7 +704,8 @@ class UserViewSet(viewsets.ViewSet):
                     workspaceusersviewset_obj.remove_members(
                         request=request, pk=workspace.pk
                     )
-
+                user.is_active = False
+                user.save()
                 return Response(
                     {
                         "message": "User removed from all workspaces both as workspace member and workspace manager"
