@@ -332,7 +332,7 @@ class InviteViewSet(viewsets.ViewSet):
     @permission_classes([IsAuthenticated])
     @is_organization_owner
     @swagger_auto_schema(request_body=UsersPendingSerializer)
-    @action(detail=False, methods=["patch"], url_path="approve_user")
+    @action(detail=False, methods=["post"], url_path="approve_user")
     def approve_user(self, request):
         """
         Approve the user request to join the workspace
@@ -342,21 +342,28 @@ class InviteViewSet(viewsets.ViewSet):
             user = User.objects.get(id=user_id)
             organisation_id = user.organization_id
 
+            try:
+                organisation = Organization.objects.get(id=organisation_id)
+            except Organization.DoesNotExist:
+                return Response(
+                    {"message": "Organization not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
             if user.is_approved == True:
                 return Response(
                     {"message": "User is already approved"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
             user.is_approved = True
             user.save()
             # invite the user via mail now
             try:
-                users = [user]
-                Invite.create_invite(organization=organisation_id, users=users)
-            except:
+                users = []
+                users.append(user)
+                Invite.create_invite(organization=organisation, users=users)
+            except Exception as e:
                 return Response(
-                    {"message": "Error in sending invite"},
+                    {"message": f"Error in sending invite: {str(e)}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         except User.DoesNotExist:
