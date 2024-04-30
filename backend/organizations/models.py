@@ -4,9 +4,10 @@ from users.models import *
 from shoonya_backend.settings import AUTH_USER_MODEL
 from shoonya_backend.mixins import DummyModelMixin
 import secrets
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 import os
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -130,12 +131,134 @@ class Invite(models.Model):
                     invite = Invite.objects.create(organization=organization, user=user)
                     invite.invite_code = cls.generate_invite_code()
                     invite.save()
-                send_mail(
-                    "Invitation to join Organization",
-                    f"Hello! You are invited to {organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
+                current_environment = os.getenv("ENV")
+                base_url = (
+                    "dev.shoonya.ai4bharat.org"
+                    if current_environment == "dev"
+                    else "shoonya.ai4bharat.org"
                 )
+                subject = "Invitation to join Organization"
+                invite_link = f"https://{base_url}/#/invite/{invite.invite_code}"
+                text_content = f"Hello! You are invited to {organization.title}. Your Invite link is: "
+                html_content = f"""
+            <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Invitation to join Shoonya Organisation</title>
+<style>
+*{
+margin: 0;
+padding: 0;
+}
+body {
+font-family: "Arial", sans-serif;
+background-color: #f2f8f8;
+margin: 0;
+padding: 0;
+padding-top: 2rem;
+}
+.container {
+background-color: #fff;
+border: solid 1px #e1e1e1;
+border-radius: 2px;
+padding: 1.4rem;
+max-width: 380px;
+margin: auto;
+}
+.header {
+width: fit-content;
+margin: auto;
+}
+h1 {
+font-size: 1.2rem;
+font-weight: 300;
+margin: 1rem 0;
+font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+p {
+font-size: 0.9rem;
+color: #222;
+margin: 0.8rem 0;
+}
+.primary {
+color: #18621f;
+}
+.footer {
+margin-top: 1rem;
+font-size: 0.9rem;
+}
+.footer > * {
+font-size: inherit;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header class="header">
+<h3>Invitaiton to join Shoonya</h3>
+</header>
+<main>
+<div style="margin: 1rem auto; width: fit-content">
+<table
+width="180"
+border="0"
+align="center"
+cellpadding="0"
+cellspacing="0"
+>
+<tbody>
+<tr>
+
+<td
+style="
+font-size: 12px;
+font-family: 'Zurich BT', Tahoma, Helvetica, Arial;
+text-align: center;
+color: white;
+border-radius: 1rem;
+border-width: 1px;
+background-color: rgb(44, 39, 153);
+
+">
+<a target="_blank" style="text-decoration: none; color:white; font-size: 14px; display: block; padding: 0.2rem 0.5rem; " href="{invite_link}">
+Join Shoonya Now
+</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div>
+<p>
+Please use the above link to verify your email address and complete your registration.
+</p>
+<p style="font-style: italic">
+For security purposes, please do not share the this link with
+anyone.
+</p>
+<p style="font-size: 10px; color:grey">
+    If clicking the link doesn't work, you can copy and paste the link into your browser's address window, or retype it there.
+    <a href="{invite_link}">{invite_link}</a>
+</p>
+</div>
+</main>
+<footer class="footer">
+<p>
+Best Regards,<br />
+Shoonya Team
+</p>
+</footer>
+</div>
+</body>
+</html>
+"""
+                msg = EmailMultiAlternatives(
+                    subject, text_content, settings.DEFAULT_FROM_EMAIL, [user.email]
+                )
+                msg.attach_alternative(html_content, "text/html")
+                msg.send()
 
     # def has_permission(self, user):
     #     if self.organization.created_by.pk == user.pk or user.is_superuser:
@@ -147,12 +270,140 @@ class Invite(models.Model):
         with transaction.atomic():
             for user in users:
                 invite = Invite.objects.get(user=user)
-                send_mail(
-                    "Invitation to join Organization",
-                    f"Hello! You are invited to {invite.organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
-                    settings.DEFAULT_FROM_EMAIL,
-                    [user.email],
+                current_environment = os.getenv("ENV")
+                base_url = (
+                    "dev.shoonya.ai4bharat.org"
+                    if current_environment == "dev"
+                    else "shoonya.ai4bharat.org"
                 )
+                subject = "Invitation to join Organization"
+                invite_link = f"https://{base_url}/#/invite/{invite.invite_code}"
+                text_content = f"Hello! You are invited to {organization.title}. Your Invite link is: "
+                html_content = f"""
+            <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Invitation to join Shoonya Organisation</title>
+<style>
+*{
+margin: 0;
+padding: 0;
+}
+body {
+font-family: "Arial", sans-serif;
+background-color: #f2f8f8;
+margin: 0;
+padding: 0;
+padding-top: 2rem;
+}
+.container {
+background-color: #fff;
+border: solid 1px #e1e1e1;
+border-radius: 2px;
+padding: 1.4rem;
+max-width: 380px;
+margin: auto;
+}
+.header {
+width: fit-content;
+margin: auto;
+}
+h1 {
+font-size: 1.2rem;
+font-weight: 300;
+margin: 1rem 0;
+font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+p {
+font-size: 0.9rem;
+color: #222;
+margin: 0.8rem 0;
+}
+.primary {
+color: #18621f;
+}
+.footer {
+margin-top: 1rem;
+font-size: 0.9rem;
+}
+.footer > * {
+font-size: inherit;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<header class="header">
+<h3>Invitaiton to join Shoonya</h3>
+</header>
+<main>
+<div style="margin: 1rem auto; width: fit-content">
+<table
+width="180"
+border="0"
+align="center"
+cellpadding="0"
+cellspacing="0"
+>
+<tbody>
+<tr>
+
+<td
+style="
+font-size: 12px;
+font-family: 'Zurich BT', Tahoma, Helvetica, Arial;
+text-align: center;
+color: white;
+border-radius: 1rem;
+border-width: 1px;
+background-color: rgb(44, 39, 153);
+
+">
+<a target="_blank" style="text-decoration: none; color:white; font-size: 14px; display: block; padding: 0.2rem 0.5rem; " href="{invite_link}">
+Join Shoonya Now
+</a>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div>
+<p>
+Please use the above link to verify your email address and complete your registration.
+</p>
+<p style="font-style: italic">
+For security purposes, please do not share the this link with
+anyone.
+</p>
+<p style="font-size: 10px; color:grey">
+    If clicking the link doesn't work, you can copy and paste the link into your browser's address window, or retype it there.
+    <a href="{invite_link}">{invite_link}</a>
+</p>
+</div>
+</main>
+<footer class="footer">
+<p>
+Best Regards,<br />
+Shoonya Team
+</p>
+</footer>
+</div>
+</body>
+</html>
+"""
+                msg = EmailMultiAlternatives(
+                    subject, text_content, settings.DEFAULT_FROM_EMAIL, [user.email]
+                )
+                msg.attach_alternative(html_content, "text/html")
+                msg.send()
+                # send_mail(
+                #     "Invitation to join Organization",
+                #     f"Hello! You are invited to {invite.organization.title}. Your Invite link is: https://shoonya.ai4bharat.org/#/invite/{invite.invite_code}",
+                #     settings.DEFAULT_FROM_EMAIL,
+                #     [user.email],
+                # )
 
     @classmethod
     def generate_invite_code(cls):

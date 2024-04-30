@@ -296,6 +296,13 @@ class InviteViewSet(viewsets.ViewSet):
         """
         organisation_id = request.query_params.get("organisation_id")
         users = User.objects.filter(organization_id=organisation_id, is_approved=False)
+
+        # demo_user = User.objects.filter(id=1)
+        # filtered_user = demo_user.values_list("email", flat=True)
+        # # Convert QuerySet to list and get first element
+        # email = list(filtered_user)[0]
+        # print(email)
+        # print(request.user)
         serialized = UsersPendingSerializer(users, many=True)
 
         if serialized.data:
@@ -434,12 +441,12 @@ class InviteViewSet(viewsets.ViewSet):
             )
         if valid_user_emails:
             additional_message_for_valid_emails += (
-                f", Invites sent to : {','.join(valid_user_emails)}"
+                f", Requested users : {','.join(valid_user_emails)}"
             )
         if len(valid_user_emails) == 0:
             return Response(
                 {
-                    "message": "No invites sent"
+                    "message": "No Requests sent"
                     + additional_message_for_invalid_emails
                     + additional_message_for_existing_emails
                 },
@@ -447,13 +454,13 @@ class InviteViewSet(viewsets.ViewSet):
             )
         elif len(invalid_emails) == 0:
             ret_dict = {
-                "message": "Invites sent & request sent to workspace owner"
+                "message": "The invites to this users will be sent after approval from the organization owner"
                 + additional_message_for_valid_emails
                 + additional_message_for_existing_emails
             }
         else:
             ret_dict = {
-                "message": f"Invites sent partially!"
+                "message": f"Request sent partially!"
                 + additional_message_for_valid_emails
                 + additional_message_for_invalid_emails
                 + additional_message_for_existing_emails
