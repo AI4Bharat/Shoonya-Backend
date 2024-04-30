@@ -132,7 +132,7 @@ class Invite(models.Model):
         subject = "Invitation to join Organization"
         invite_link = f"https://{base_url}/#/invite/{invite.invite_code}"
         text_content = f"Hello! You are invited to Shoonya. Your Invite link is: "
-        style_string ="""
+        style_string = """
         *{ margin: 0; 
         padding: 0;
         }
@@ -176,7 +176,7 @@ class Invite(models.Model):
         .footer > * {
         font-size: inherit;
         }"""
-                
+
         html_content = f"""
             <!DOCTYPE html>
             <html lang="en">
@@ -253,6 +253,7 @@ class Invite(models.Model):
         )
         msg.attach_alternative(html_content, "text/html")
         msg.send()
+
     def create_invite(cls, organization=None, users=None):
         with transaction.atomic():
             for user in users:
