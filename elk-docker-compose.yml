@@ -6,7 +6,7 @@ services:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.14.0
     volumes:
       - ./elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
-      # - elasticsearch_vol:/elasticsearch_data
+      - elasticsearch_vol:/elasticsearch_data
     environment:
       - discovery.type=single-node
     ports:
@@ -27,16 +27,14 @@ services:
     hostname: shoonya_dev_logger
     volumes:
       - ./logstash_dev.conf:/usr/share/logstash/pipeline/logstash.conf
-      # - logs_vol:/logs
+      - logs_vol:/logs
     extra_hosts:
       - "elasticsearch:elasticsearch"
     command: logstash -f /usr/share/logstash/pipeline/logstash.conf
 
 volumes:
   elasticsearch_vol:
-    external: true
   logs_vol:
-    external: true
 
 networks:
   shoonya_backend:
