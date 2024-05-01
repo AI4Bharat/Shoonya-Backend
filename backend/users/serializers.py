@@ -29,6 +29,35 @@ class UserSignUpSerializer(serializers.ModelSerializer):
         return instance
 
 
+class UsersPendingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "role",
+            "invited_by",
+            "has_accepted_invite",
+        ]
+
+    def update(self, instance, validated_data):
+        instance.id = validated_data.get("id", instance.id)
+        instance.username = validated_data.get("username", instance.username)
+        instance.first_name(validated_data.get("first_name", instance.first_name))
+        instance.last_name(validated_data.get("last_name", instance.last_name))
+        instance.email(validated_data.get("email", instance.email))
+        instance.role(validated_data.get("role", instance.role))
+        instance.invited_by(validated_data.get("invited_by", instance.invited_by))
+        instance.has_accepted_invite(
+            validated_data.get("has_accepted_invite", instance.has_accepted_invite)
+        )
+        instance.save()
+        return instance
+
+
 class UserUpdateSerializer(serializers.ModelSerializer):
     organization = OrganizationSerializer()
 
