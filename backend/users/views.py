@@ -300,9 +300,6 @@ class InviteViewSet(viewsets.ViewSet):
                 {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-    # 1 add users to workspace - workspace name
-    # 2. Invite new users to {organisation name}
-    # function to list the users whose user.is_approved is false
     @permission_classes([IsAuthenticated])
     @swagger_auto_schema(responses={200: UsersPendingSerializer})
     @action(detail=False, methods=["get"], url_path="pending_users")
@@ -358,6 +355,14 @@ class InviteViewSet(viewsets.ViewSet):
             user = User.objects.get(id=user_id)
             organisation_id = user.organization_id
 
+            try:
+                organisation = Organization.objects.get(id=organisation_id)
+            except Organization.DoesNotExist:
+                return Response(
+                    {"message": "Organization not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             if user.is_approved == True:
                 return Response(
                     {"message": "User is already approved"},
@@ -368,8 +373,9 @@ class InviteViewSet(viewsets.ViewSet):
             user.save()
             # invite the user via mail now
             try:
-                users = [user]
-                Invite.create_invite(organization=organisation_id, users=users)
+                users = []
+                users.append(user)
+                Invite.create_invite(organization=organisation, users=users)
             except:
                 return Response(
                     {"message": "Error in sending invite"},
@@ -443,7 +449,7 @@ class InviteViewSet(viewsets.ViewSet):
             )
         if valid_user_emails:
             additional_message_for_valid_emails += (
-                f", Invites sent to : {','.join(valid_user_emails)}"
+                f", Requested users: {','.join(valid_user_emails)}"
             )
         if len(valid_user_emails) == 0:
             return Response(
@@ -456,13 +462,13 @@ class InviteViewSet(viewsets.ViewSet):
             )
         elif len(invalid_emails) == 0:
             ret_dict = {
-                "message": "Invites sent & request sent to workspace owner"
+                "The invites to this users will be sent after approval from the organization owner"
                 + additional_message_for_valid_emails
                 + additional_message_for_existing_emails
             }
         else:
             ret_dict = {
-                "message": f"Invites sent partially!"
+                "message": f"Request sent partially!"
                 + additional_message_for_valid_emails
                 + additional_message_for_invalid_emails
                 + additional_message_for_existing_emails
