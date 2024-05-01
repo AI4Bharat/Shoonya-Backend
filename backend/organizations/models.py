@@ -253,8 +253,8 @@ class Invite(models.Model):
         )
         msg.attach_alternative(html_content, "text/html")
         msg.send()
-
-    def create_invite(cls, organization=None, users=None):
+    @classmethod 
+    def create_invite(cls,organization=None, users=None):
         with transaction.atomic():
             for user in users:
                 try:
