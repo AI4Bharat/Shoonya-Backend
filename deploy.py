@@ -264,7 +264,7 @@ component_mapping = {
 }
 
 environment = {
-    "ENVIRONMENT": {
+    "ENV": {
         "default": "dev",
         "help": "The environment in which the application is running. PROD : Production, DEV : Development",
     },
