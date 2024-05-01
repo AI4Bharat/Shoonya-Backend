@@ -332,7 +332,7 @@ def run_application():
                 check=True,
             )
 
-        for key, value in mapping.items():
+        for key, value in component_mapping.items():
             choice = click.prompt(
                 f"Do you want to include {key}? ({value['description']}) (Y/N)",
                 default="N",
@@ -364,7 +364,7 @@ def run_application():
             with open("backend/.env", "w") as env_file:
                 for component, params in parameters_dict.items():
                     for param, value in params.items():
-                        env_file.write(f"{param}={value}\n")
+                        env_file.write(f"{param}='{value}'\n")
 
         if docker_compose_files:
             click.echo("Running Docker Compose...")
