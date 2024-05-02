@@ -540,9 +540,7 @@ def send_user_reports_mail_org(
     </ul>
 """
     compiled_code = send_email_template_with_attachment(
-        "User Analytics Report",
-        user.email,
-        message
+        "User Analytics Report", user.email, message
     )
     msg = EmailMultiAlternatives(
         "User Analytics Report",
@@ -554,7 +552,7 @@ def send_user_reports_mail_org(
     msg.attach(filename, content, content_type)
     msg.send()
     # message = (
-    #     "Dear " 
+    #     "Dear "
     #     + str(user.username)
     #     + ",\nYour user payment reports for "
     #     + f"{organization.title}"

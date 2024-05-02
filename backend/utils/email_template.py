@@ -1,8 +1,9 @@
 from users.models import User
-def send_email_template_with_attachment(subject,user_email,message):
-    
+
+
+def send_email_template_with_attachment(subject, user_email, message):
     user = User.objects.get(email=user_email)
-    
+
     style_string = """
             *{ margin: 0; 
             padding: 0;
@@ -49,7 +50,6 @@ def send_email_template_with_attachment(subject,user_email,message):
             }
     """
 
-
     html_code = f""" 
     <!DOCTYPE html>
                 <html lang="en">
@@ -94,5 +94,3 @@ def send_email_template_with_attachment(subject,user_email,message):
                 </html>
     """
     return html_code
-
-       

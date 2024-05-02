@@ -48,7 +48,6 @@ def send_email_with_url(user_email, attachment_url):
         # compiled_msg.attach("Generated Document", attachment_url, "text/plain")
         # compiled_msg.send()
 
-
         # email = EmailMessage(
         #     "Transliteration Logs",
         #     message,
