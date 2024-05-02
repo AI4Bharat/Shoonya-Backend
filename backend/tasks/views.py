@@ -155,8 +155,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         serializer = AnnotationSerializer(annotations, many=True)
         for i in serializer.data:
             if len(i["result"]) > 0:
-                if type(i["result"][0]["output"]) == type([]):
-                    i["result"][0]["output"] = i["result"][0]["output"][0]["value"]
+                if type(i["result"]) == type([]):
+                    if type(i["result"][0]["output"]) == type([]):
+                        i["result"][0]["output"] = i["result"][0]["output"][0]["value"]
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="predictions")
@@ -1358,7 +1359,8 @@ class AnnotationViewSet(
 
         auto_save = False
         if "auto_save" in request.data:
-            auto_save = True
+            if request.data["auto_save"] == True:
+                auto_save = True
 
         if annotation_obj.annotation_type == REVIEWER_ANNOTATION:
             is_revised = False
@@ -1389,7 +1391,8 @@ class AnnotationViewSet(
         )
         interaction_llm = False
         if "interaction_llm" in request.data:
-            interaction_llm = True
+            if request.data["interaction_llm"] == True:
+                interaction_llm = True
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
