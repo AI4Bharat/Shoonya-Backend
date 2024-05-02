@@ -1,8 +1,9 @@
 from celery import shared_task
 from datetime import datetime
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.conf import settings
+from utils.email_template import send_email_template_with_attachment
 from utils.blob_functions import (
     extract_account_key,
     extract_account_name,
@@ -29,14 +30,33 @@ def get_azure_credentials(connection_string):
 def send_email_with_url(user_email, attachment_url):
     try:
         message = "Here is the link to the generated document:"
-        email = EmailMessage(
+        compiled_msg_code = send_email_template_with_attachment(
             "Transliteration Logs",
+            user_email,
             message,
+        )
+        msg = EmailMultiAlternatives(
+            "Transliteration Logs",
+            compiled_msg_code,
             settings.DEFAULT_FROM_EMAIL,
             [user_email],
         )
-        email.attach("Generated Document", attachment_url, "text/plain")
-        email.send()
+        msg.attach_alternative(compiled_msg_code, "text/html")
+        # also attach the generated document
+        msg.attach("Generated Document", attachment_url, "text/plain")
+        msg.send()
+        # compiled_msg.attach("Generated Document", attachment_url, "text/plain")
+        # compiled_msg.send()
+
+
+        # email = EmailMessage(
+        #     "Transliteration Logs",
+        #     message,
+        #     settings.DEFAULT_FROM_EMAIL,
+        #     [user_email],
+        # )
+        # email.attach("Generated Document", attachment_url, "text/plain")
+        # email.send()
     except Exception as e:
         print(f"Failed to send email: {str(e)}")
         raise e

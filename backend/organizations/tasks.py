@@ -3,8 +3,9 @@ from dateutil.relativedelta import relativedelta
 from celery import shared_task
 import pandas as pd
 from django.conf import settings
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, EmailMultiAlternatives
 from tasks.views import SentenceOperationViewSet
+from utils.email_template import send_email_template_with_attachment
 
 from tasks.models import (
     Task,
@@ -529,31 +530,54 @@ def send_user_reports_mail_org(
     ]
     participation_types_string = ", ".join(participation_types)
 
-    message = (
-        "Dear "
-        + str(user.username)
-        + ",\nYour user payment reports for "
-        + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
-        + "\nParticipation Types: "
-        + f"{participation_types_string}"
-        + (
-            "\nStart Date: " + f"{start_date}" + "\nEnd Date: " + f"{end_date}"
-            if start_date
-            else ""
-        )
+    message = f"""
+    <p> Your user analysis reports for  AI4Bharat are now ready for review. Kindly check the attachment below            </p>
+    <ul style="font-size: 10px; padding-left: 20px;">
+        <li><strong>Project Type:</strong> {project_type}</li>
+        <li><strong>Participation Types:</strong>{participation_types_string}</li>
+        <li><strong>Start Date:</strong> {start_date}</li>
+        <li><strong>End Date:</strong> {end_date}</li>
+    </ul>
+"""
+    compiled_code = send_email_template_with_attachment(
+        "User Analytics Report",
+        user.email,
+        message
     )
-
-    email = EmailMessage(
-        f"{organization.title}" + " Payment Reports",
-        message,
+    msg = EmailMultiAlternatives(
+        "User Analytics Report",
+        compiled_code,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content, content_type)],
     )
-    email.send()
+    msg.attach_alternative(compiled_code, "text/html")
+    msg.attach(filename, content, content_type)
+    msg.send()
+    # message = (
+    #     "Dear " 
+    #     + str(user.username)
+    #     + ",\nYour user payment reports for "
+    #     + f"{organization.title}"
+    #     + " are ready.\n Thanks for contributing on Shoonya!"
+    #     + "\nProject Type: "
+    #     + f"{project_type}"
+    #     + "\nParticipation Types: "
+    #     + f"{participation_types_string}"
+    #     + (
+    #         "\nStart Date: " + f"{start_date}" + "\nEnd Date: " + f"{end_date}"
+    #         if start_date
+    #         else ""
+    #     )
+    # )
+
+    # email = EmailMessage(
+    #     f"{organization.title}" + " Payment Reports",
+    #     message,
+    #     settings.DEFAULT_FROM_EMAIL,
+    #     [user.email],
+    #     attachments=[(filename, content, content_type)],
+    # )
+    # email.send()
 
 
 def get_counts(
