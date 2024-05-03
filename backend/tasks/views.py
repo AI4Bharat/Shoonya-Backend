@@ -2605,6 +2605,7 @@ def get_celery_tasks(request):
     return JsonResponse(data["results"], safe=False)
 
 
+@api_view(["GET"])
 def stopping_celery_tasks(req):
     task_id = req.GET.get("task_id")
 
@@ -2624,3 +2625,39 @@ def stopping_celery_tasks(req):
     task.revoke(terminate=True)
 
     return JsonResponse({"message": "Task stopped successfully"}, status=200)
+
+
+@api_view(["GET"])
+def resume_celery_task(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None or task.state not in ["REVOKED", "FAILURE"]:
+        return JsonResponse(
+            {"message": "Task not found or cannot be resumed"}, status=400
+        )
+
+    task.revive()
+
+    return JsonResponse({"message": "Task resumed successfully"}, status=200)
+
+
+@api_view(["GET"])
+def delete_celery_task(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None:
+        return JsonResponse({"message": "Task not found"}, status=404)
+
+    task.forget()
+
+    return JsonResponse({"message": "Task deleted successfully"}, status=200)
