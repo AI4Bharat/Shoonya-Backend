@@ -305,7 +305,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         URL: /data/instances/<instance-id>/download/
         Accepted methods: GET
         """
-        export_type = request.GET.get("type", "csv")
+        export_type = request.GET.get("export_type", "csv").lower()
         try:
             # Get the dataset instance for the id
             dataset_instance = DatasetInstance.objects.get(instance_id=pk)
@@ -314,6 +314,19 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
         data_items = dataset_model.objects.filter(instance_id=pk)
+        field_names = set([field.name for field in dataset_model._meta.get_fields()])
+        for key, value in request.GET.items():
+            if key in field_names:
+                kwargs = {f"{key}__icontains": value}
+                data_items = data_items.filter(**kwargs)
+            elif key == "export_type":
+                continue
+            else:
+                return Response(
+                    {"message": "The corresponding column does not exist"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         dataset_resource = resources.RESOURCE_MAP[dataset_instance.dataset_type]
         exported_items = dataset_resource().export_as_generator(export_type, data_items)
         if export_type == "tsv":
