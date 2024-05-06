@@ -271,12 +271,10 @@ environment = {
     "AZURE_CONNECTION_STRING": {
         "help": "AZURE storage string",
         "default": "AZURE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=dummydeveloper;AccountKey=hello/Jm+uq4gvGgd5aloGrqVxYnRs/dgPHX0G6U4XmLCtZCIeKyNNK0n3Q9oRDNE+AStMDbqXg==;EndpointSuffix=core.windows.net",
-        
     },
     "LOGS_CONTAINER_NAME": {
         "help": "Logs container name",
         "default": "logs",
-        
     },
 }
 

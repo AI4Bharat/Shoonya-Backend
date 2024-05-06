@@ -5,12 +5,15 @@ import time
 import shutil
 import string
 import random
+
+
 def generate_secret_key(length=50):
     """
     Generate a random Django secret key.
     """
     characters = string.ascii_letters + string.digits + "!@#$%^&*(-_=+)"
-    return ''.join(random.choice(characters) for _ in range(length))
+    return "".join(random.choice(characters) for _ in range(length))
+
 
 def install_dependencies():
     # Create a virtual environment
@@ -29,7 +32,6 @@ def install_dependencies():
 def setup_env_file():
     # Copy .env.example to .env
     shutil.copy(".env.example", "./backend/.env")
-   
 
     # Generate a new secret key
     new_secret_key = generate_secret_key()
@@ -40,7 +42,6 @@ def setup_env_file():
 
 
 def run_celery_instances():
-
     # Activate the virtual environment
     if sys.platform == "win32":
         activate_script = os.path.join("venv", "Scripts", "activate.bat")
@@ -48,10 +49,8 @@ def run_celery_instances():
         activate_script = os.path.join("venv", "bin", "activate")
     subprocess.run([activate_script])
 
-
-    
     os.chdir("backend")
-    
+
     # Start Celery workers
     celery_worker_process = subprocess.Popen(
         [
