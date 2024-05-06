@@ -6,10 +6,6 @@ Repository for Shoonya's backend.
 
 The project was created using [Python 3.7](https://www.python.org/downloads/). All major dependencies along with the versions are listed in the `backend/deploy/requirements.txt` file.
 
-## Setup and Installation
-
-Please follow the below instructions for setup and installation. These steps have been verified on the following operating systems:
-
 
 | Systems   | Requirements |
 | --------- | ------------ |
@@ -18,80 +14,22 @@ Please follow the below instructions for setup and installation. These steps hav
 | Unix/Mac  | macOS 10.13 or later with at least 4GB of RAM. |
 
 
-The installation can be done in three ways, each with its own advantages:
 
-1. **Instruction-based prompt Interaction**: This is the latest, easiest, and most hassle-free installation method. All services will be run under Docker containers and volumes, ensuring a consistent environment and simplifying the setup process.
-
-2. **Using Docker by running all services in containers**: This method also uses Docker, but requires running a single compose file. While this method is also straightforward, it might throw errors if the compose file is not correctly configured or if there are issues with the Docker setup.
-
-3. **Traditional deployment using Django manage.py runserver default script**: This method involves running the services locally one by one (like Celery and Redis). While this method gives you the most control and visibility into each service, it is more complex and time-consuming. Also, asynchronous tasks won't work under Celery tasks in this setup.
-
-## Prerequisites
-
-### Create a Virtual Environment
-
-We recommend you to create a virtual environment to install all the dependencies required for the project.
-
-For **Ubuntu/Mac**:
-
-```bash
-python3 -m venv <YOUR-ENVIRONMENT-NAME>
-source <YOUR-ENVIRONMENT-NAME>/bin/activate
-```
-For **Windows**:
-```bash
-python -m venv <YOUR-ENVIRONMENT-NAME>
-<YOUR-ENVIRONMENT-NAME>\Scripts\activate
-```
-
-If you are choosing 1st or 2nd method then you need to install Docker on your system
-
-- **Docker Engine/Docker Desktop running** 
-    You may download Docker Desktop from the table given below 
-        
-  | Systems| Link |
-  | ---------- | ------ |
-  | Windows | https://docs.docker.com/desktop/install/windows-install/ |
-  | Ubuntu | https://docs.docker.com/desktop/install/ubuntu/ |
-  | Unix/Mac | https://docs.docker.com/desktop/install/mac-install/|
-- Python Version 3.7 or above 
-- An Azure account subscription.
-
-## Running the Setup Script
-
-To run the setup script:
-1. Clone this repository to your local machine.
-
-```bash
-git clone "https://github.com/AI4Bharat/Shoonya-Backend"
-```
-2. Navigate to the root directory of the project.
-```bash 
-cd Shoonya-Backend
-pip install -r ./backend/deploy/requirements.txt
-```
-
-Now choosing the best option for  Installation method (mentioned above) It is important to know brief about them 
-
-> Note : You may skip this section if you are already familiar with the concepts, but reviewing it could enhance your understanding of the backend setup.
-
-## Backend Components 
+## Backend Components and Services
 The whole backend setup is divided into mainly 5 Components 
 ```
-Backend Setup
+Backend Comopnents 
 |
-|-- 1. Database Setup
-|
-|-- 2. Default Components
+|-- 1. Default Components
 |   |-- a) Django
 |   |-- b) Celery
 |   |-- c) Redis
 |
-|-- 3. Elastic Logstash Kibana (ELK) & Flower Confirguration
+|-- 2. Elastic Logstash Kibana (ELK) & Flower Confirguration
 |
-|-- 4. Nginx-Certbot 
+|-- 3. Nginx-Certbot 
 |
-|-- 5. Additional Services
+|-- 4. Additional Services
 |   |-- a) Google Application Credentials
 |   |-- b) Ask_Dhruva
 |   |-- c) Indic_Trans_V2
@@ -102,26 +40,10 @@ Backend Setup
 
 > Note : There are some accordian so you need to expand 
 
-
 <details style="background-color: #ffff;  border-radius: 5px;
 ::after background-color:ffff"> 
 <summary style="background-color: #F5F5F5; color: black; padding: 5px; cursor:pointer;border-bottom:1px solid grey; padding: 5px"> 
-  1. Database Setup
-</summary>
-
-To set up a PostgreSQL container:
-- When prompted during the script execution, enter 'Y' to include PostgreSQL installation.
-- Alternatively, manually provide the following database variables in the `.env` file:
-  - `DB_NAME`
-  - `DB_USER`
-  - `DB_PASSWORD`
-  - `DB_HOST`
-</details>
-
-<details style="background-color: #ffff;  border-radius: 5px;
-::after background-color:ffff"> 
-<summary style="background-color: #F5F5F5; color: black; padding: 5px; cursor:pointer;border-bottom:1px solid grey; padding: 5px"> 
-  2. Default Components
+  1. Default Components
 </summary>
 
 This section outlines the essential setup needed for the application to function properly. It encompasses Docker deployments for Django, Celery, and Redis, which form the core components of our application infrastructure.
@@ -157,7 +79,7 @@ This section outlines the essential setup needed for the application to function
 <details style="background-color: #ffff;  border-radius: 5px;
 ::after background-color:ffff"> 
 <summary style="background-color: #F5F5F5; color: black; padding: 5px; cursor:pointer;border-bottom:1px solid grey; padding: 5px"> 
-  3. ELK & Flower configuration
+  2. ELK & Flower configuration
 </summary>
 
 
@@ -199,7 +121,7 @@ the `backend/directory`.
 <details style="background-color: #ffff;  border-radius: 5px;
 ::after background-color:ffff"> 
 <summary style="background-color: #F5F5F5; color: black; padding: 5px; cursor:pointer;border-bottom:1px solid grey; padding: 5px"> 
-  4. Nginx-Certbot
+  3. Nginx-Certbot
 </summary>
 
 This section contains Nginx and Certbot setup for serving HTTPS traffic.
@@ -217,7 +139,7 @@ This section contains Nginx and Certbot setup for serving HTTPS traffic.
 <details style="background-color: #ffff;  border-radius: 5px;
 ::after background-color:ffff"> 
 <summary style="background-color: #F5F5F5; color: black; padding: 5px; cursor:pointer;border-bottom:1px solid grey; padding: 5px"> 
-  5 Additional Services
+  4 Additional Services
 </summary>
 
 
@@ -279,21 +201,48 @@ logs.
 
 </details>
 
-### Now again resuming our setup installation 
+## Setup Instructions
 
-<details style="background-color: #ffff;  border-radius: 5px;
-::after background-color:ffff"> 
-<summary style="background-color: #F5F5F5; color: black; padding: 5px; cursor:pointer;border-bottom:1px solid grey; padding: 5px"> 
-Method 1 : Instruction-based prompt Interaction
-</summary>
+The installation can be done in two ways, each with its own advantages:
 
-Hope you have completed step 1 and 2 above 
+1. **Dockerize Installation**: This is the latest, easiest, and most hassle-free installation method. All services will be run under Docker containers and volumes, ensuring a consistent environment and simplifying the setup process.
 
-3. Run the following command: `python deploy.py` make sure the docker engine is running on your system
+2. **Default Installation (Without Docker)**: This method involves running the services locally one by one (like Celery and Redis). While this method gives you the most control and visibility into each service, it is more complex and time-consuming. Also, asynchronous tasks won't work under Celery tasks in this setup.
 
-4. Provide the details that has been asking in the prompt and it will automatically create & run  the docker containers, volumnes and processes 
+### 1. Dockerize Installation 
 
-3. Run the following command: `python deploy.py` make sure the docker engine is running on your system
+###  Pre-requisites
+ 
+If you are choosing dockerize method then you need to install following things
+
+- **Docker Engine/Docker Desktop running** 
+    You may download Docker Desktop from the table given below 
+        
+  | Systems| Link |
+  | ---------- | ------ |
+  | Windows | https://docs.docker.com/desktop/install/windows-install/ |
+  | Ubuntu | https://docs.docker.com/desktop/install/ubuntu/ |
+  | Unix/Mac | https://docs.docker.com/desktop/install/mac-install/|
+- Python Version 3.7 or above 
+- An Azure account subscription.
+- Google cloud subscriptions (mentioned above the backend components)
+
+
+### Running the Setup Script
+
+To run the setup script:
+1. Clone this repository to your local machine.
+
+    ```bash
+    git clone "https://github.com/AI4Bharat/Shoonya-Backend"
+    ```
+2. Navigate to the root directory of the project.
+    ```bash 
+    cd Shoonya-Backend
+    pip install -r ./backend/deploy/requirements.txt
+    ```
+
+3. Run the following command: `python docker-setup.py` make sure the docker engine is running on your system
 
     ![installation image](public/image.png)
 
@@ -302,7 +251,7 @@ Hope you have completed step 1 and 2 above
 
 5. Once everything has been asked it will start creating containers and volumes and the server will get started on `http://localhost:8000` all the respective services will run on the provided ports 
 
-#### What the script does?
+### What the script does?
 - Automatically creates a Docker network named `shoonya_backend`.
 - Prompts the user to choose whether to run the application in production mode.
 - Guides the user through setting up a PostgreSQL container if desired.
@@ -311,53 +260,41 @@ Hope you have completed step 1 and 2 above
 - Deploys Docker containers for selected components.
 - Provides feedback and error handling throughout the setup process.
 
-</details>
 
-<details style="background-color: #ffff;  border-radius: 5px;
-::after background-color:ffff"> 
-<summary style="background-color: #F5F5F5; color: black; padding: 5px; cursor:pointer;border-bottom:1px solid grey; padding: 5px"> 
-Method 2 : Using Docker by running all services in containers
-</summary>
+### 2. Default Installation (Without Docker) 
 
-3. To set up the environment variables needed for the project, run the following lines:
+###  Pre-requisites
 
-    ```bash
-    cp .env.example ./backend/.env
-    ```
-4. Optional : Create a new secret key, run the following commands (within the virtual environment):
-    ```bash
-      # Open a Python shell
-      python backend/manage.py shell
+#### Create a Virtual Environment
 
-      from django.core.management.utils import get_random_secret_key
-      get_random_secret_key()```
+We recommend you to create a virtual environment to install all the dependencies required for the project.
 
-  Paste the value you get there into the `.env` file.
+For **Ubuntu/Mac**:
 
-  This creates an `.env` file at the root of the project. It is needed to make sure that the project runs correctly. Please go through the file and set the parameters according to your installation.
+```bash
+python3 -m venv <YOUR-ENVIRONMENT-NAME>
+source <YOUR-ENVIRONMENT-NAME>/bin/activate
+```
+For **Windows**:
+```bash
+python -m venv <YOUR-ENVIRONMENT-NAME>
+<YOUR-ENVIRONMENT-NAME>\Scripts\activate
+```
 
-5. `cd` back to the root folder .Once inside, build the docker 
+#### Running the Setup Script
 
-    ```bash
-    docker-compose -f docker-compose-local.yml build
-    ```
+  1. Clone this repository to your local machine.
 
-    To run the containers:
+      ```bash
+      git clone "https://github.com/AI4Bharat/Shoonya-Backend"
+      ```
+  2. Navigate to the root directory of the project.
+      ```bash 
+      cd Shoonya-Backend
+      pip install -r ./backend/deploy/requirements.txt
+      ```
 
-    ```bash
-      docker-compose -f docker-compose-local.yml up -d
-    ```
-
-    To share the database with others, just share the postgres_data and the media folder with others.
-</details>
-
-<details style="background-color: #ffff;  border-radius: 5px;
-::after background-color:ffff"> 
-<summary style="background-color: #F5F5F5; color: black; padding: 5px; cursor:pointer;border-bottom:1px solid grey; padding: 5px"> 
-Method 3 : Traditional deployment using Django manage.py runserver default script
-</summary>
-
-  3. To set up the environment variables needed for the project, run the following lines:
+ 3. To set up the environment variables needed for the project, run the following lines:
 
       ```bash 
       cp .env.example ./backend/.env
@@ -369,11 +306,8 @@ Method 3 : Traditional deployment using Django manage.py runserver default scrip
     ```bash 
         python ./backend/manage.py runserver
     ```
-</details>
 
-
-
-#### Google Cloud Logging (Optional)
+### Google Cloud Logging (Optional)
 
 If Google Cloud Logging is being used, please follow these additional steps:
 
