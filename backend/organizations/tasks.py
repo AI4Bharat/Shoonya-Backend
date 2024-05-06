@@ -529,14 +529,16 @@ def send_user_reports_mail_org(
         for participation_type in participation_types
     ]
     participation_types_string = ", ".join(participation_types)
-
+    # Format the start_date and end_date
+    start_date = start_date.strftime("%Y-%m-%d %H:%M:%S %Z")
+    end_date = end_date.strftime("%Y-%m-%d %H:%M:%S %Z")
     message = f"""
     <p> Your {organization.title} Payments Report  under  AI4Bharat Organisation are now ready for review. Kindly check the attachment below            </p>
     <ul style="font-size: 10px; padding-left: 20px;">
         <li><strong>Project Type:</strong> {project_type}</li>
         <li><strong>Participation Types:</strong>{participation_types_string}</li>
-        <li><strong>Start Date:</strong> {start_date}</li>
-        <li><strong>End Date:</strong> {end_date}</li>
+        <li><strong>Start Date:</strong> {start_date} UTC</li>
+        <li><strong>End Date:</strong> {end_date} UTC </li>
     </ul>
 """
     compiled_code = send_email_template_with_attachment(
