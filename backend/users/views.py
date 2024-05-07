@@ -7,8 +7,10 @@ from azure.storage.blob import BlobClient
 from io import BytesIO
 import pathlib
 from wsgiref.util import request_uri
+from django.db import IntegrityError
 import jwt
 from jwt import DecodeError, InvalidSignatureError
+import requests
 from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
@@ -167,9 +169,12 @@ class InviteViewSet(viewsets.ViewSet):
                 + additional_message_for_invalid_emails
                 + additional_message_for_existing_emails
             }
-        users = User.objects.bulk_create(users)
-        Invite.create_invite(organization=org, users=users)
-        return Response(ret_dict, status=status.HTTP_201_CREATED)
+        try:
+            users = User.objects.bulk_create(users)
+            Invite.create_invite(organization=org, users=users)
+            return Response(ret_dict, status=status.HTTP_201_CREATED)
+        except IntegrityError as e:
+            return Response({"message":"Email Id already present in database"}, status=status.HTTP_400_BAD_REQUEST)
 
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @permission_classes((IsAuthenticated,))
@@ -287,10 +292,15 @@ class InviteViewSet(viewsets.ViewSet):
                 email, request.data.get("password")
             )
             serialized = UserSignUpSerializer(user, request.data, partial=True)
-        except:
-            return Response(
-                {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        except requests.exceptions.HTTPError as e:
+            if str(e).find("EMAIL_EXISTS")>=0:
+                return Response(
+                    {"message": "Email Id already present in firebase"}, status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                return Response(
+                    {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
+                )
 
         if serialized.is_valid():
             serialized.save()
