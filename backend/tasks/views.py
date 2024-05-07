@@ -2345,13 +2345,26 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
     # GET MODEL OUTPUT
     history = ann_result
     model = task.data["model"]
-    return get_model_output(
+    model_output = get_model_output(
         "We will be rendering your response on a frontend. so please add spaces or indentation or nextline chars or "
         "bullet or numberings etc. suitably for code or the text. wherever required.",
         prompt,
         history,
         model,
     )
+    return format_model_output(model_output)
+
+
+def format_model_output(model_output):
+    result = ""
+    if isinstance(model_output, list):
+        for o in model_output:
+            try:
+                result += o["value"]
+            except KeyError as k:
+                continue
+    else:
+        return model_output
 
 
 @swagger_auto_schema(
