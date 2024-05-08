@@ -174,7 +174,10 @@ class InviteViewSet(viewsets.ViewSet):
             Invite.create_invite(organization=org, users=users)
             return Response(ret_dict, status=status.HTTP_201_CREATED)
         except IntegrityError as e:
-            return Response({"message":"Email Id already present in database"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"message": "Email Id already present in database"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @permission_classes((IsAuthenticated,))
@@ -293,13 +296,15 @@ class InviteViewSet(viewsets.ViewSet):
             )
             serialized = UserSignUpSerializer(user, request.data, partial=True)
         except requests.exceptions.HTTPError as e:
-            if str(e).find("EMAIL_EXISTS")>=0:
+            if str(e).find("EMAIL_EXISTS") >= 0:
                 return Response(
-                    {"message": "Email Id already present in firebase"}, status=status.HTTP_400_BAD_REQUEST
+                    {"message": "Email Id already present in firebase"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             else:
                 return Response(
-                    {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
+                    {"message": "User signed up failed"},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
         if serialized.is_valid():
