@@ -1395,6 +1395,12 @@ class AnnotationViewSet(
         if "interaction_llm" in request.data:
             if request.data["interaction_llm"] == True:
                 interaction_llm = True
+        clear_conversation = False
+        if (
+            "clear_conversation" in request.data
+            and request.data["clear_conversation"] == True
+        ):
+            clear_conversation = True
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
@@ -1421,7 +1427,7 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        if not interaction_llm:
+                        if not interaction_llm and not clear_conversation:
                             output_result = get_llm_output(
                                 request.data["result"],
                                 annotation_obj.task,
@@ -1435,6 +1441,8 @@ class AnnotationViewSet(
                                     "output": output_result,
                                 }
                             )
+                        elif clear_conversation:
+                            annotation_obj.result = []
                         # remove this check when you store the check results also
                         if (
                             interaction_llm
@@ -1511,7 +1519,7 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if not interaction_llm:
+                    if not interaction_llm and not clear_conversation:
                         output_result = get_llm_output(
                             request.data["result"],
                             annotation_obj.task,
@@ -1522,6 +1530,8 @@ class AnnotationViewSet(
                         annotation_obj.result.append(
                             {"prompt": request.data["result"], "output": output_result}
                         )
+                    elif clear_conversation:
+                        annotation_obj.result = []
                     # remove this check when you store the check results also
                     if (
                         interaction_llm
@@ -1599,7 +1609,7 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        if not interaction_llm:
+                        if not interaction_llm and not clear_conversation:
                             output_result = get_llm_output(
                                 request.data["result"],
                                 annotation_obj.task,
@@ -1613,6 +1623,8 @@ class AnnotationViewSet(
                                     "output": output_result,
                                 }
                             )
+                        elif clear_conversation:
+                            annotation_obj.result = []
                         if (
                             interaction_llm
                             and isinstance(request.data["result"], list)
@@ -1727,7 +1739,7 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if not interaction_llm:
+                    if not interaction_llm and not clear_conversation:
                         output_result = get_llm_output(
                             request.data["result"],
                             annotation_obj.task,
@@ -1738,6 +1750,8 @@ class AnnotationViewSet(
                         annotation_obj.result.append(
                             {"prompt": request.data["result"], "output": output_result}
                         )
+                    elif clear_conversation:
+                        annotation_obj.result = []
                     if (
                         interaction_llm
                         and isinstance(request.data["result"], list)
@@ -1841,7 +1855,7 @@ class AnnotationViewSet(
                         annotation_obj.task.project_id.project_type
                         == "InstructionDrivenChat"
                     ):
-                        if not interaction_llm:
+                        if not interaction_llm and not clear_conversation:
                             output_result = get_llm_output(
                                 request.data["result"],
                                 annotation_obj.task,
@@ -1855,6 +1869,8 @@ class AnnotationViewSet(
                                     "output": output_result,
                                 }
                             )
+                        elif clear_conversation:
+                            annotation_obj.result = []
                         if (
                             interaction_llm
                             and isinstance(request.data["result"], list)
@@ -1960,7 +1976,7 @@ class AnnotationViewSet(
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if not interaction_llm:
+                    if not interaction_llm and not clear_conversation:
                         output_result = get_llm_output(
                             request.data["result"],
                             annotation_obj.task,
@@ -1971,6 +1987,8 @@ class AnnotationViewSet(
                         annotation_obj.result.append(
                             {"prompt": request.data["result"], "output": output_result}
                         )
+                    elif clear_conversation:
+                        annotation_obj.result = []
                     if (
                         interaction_llm
                         and isinstance(request.data["result"], list)

@@ -46,13 +46,18 @@ def compute_meta_stats_for_instruction_driven_chat(conversation_history):
         if isinstance(conversation_history, str)
         else conversation_history
     )
-    number_of_words = sum(
-        len(entry["prompt"].split())
-        for entry in conversation_history
-        if "prompt" in entry
-    )
-    number_of_turns = len(conversation_history)
-
+    try:
+        number_of_words = sum(
+            len(entry["prompt"].split())
+            for entry in conversation_history
+            if "prompt" in entry
+        )
+    except Exception as e:
+        number_of_words = 0
+    try:
+        number_of_turns = len(conversation_history)
+    except Exception as e:
+        number_of_turns = 0
     meta_stats = {
         "prompts_word_count": number_of_words,
         "number_of_turns": number_of_turns,
