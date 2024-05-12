@@ -1,10 +1,11 @@
 from celery import shared_task
 from datetime import datetime
 from azure.storage.blob import BlobServiceClient
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.conf import settings
 from django.core.exceptions import ValidationError
 import os
+from utils.email_template import send_email_template_with_attachment
 
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_CONNECTION_STRING")
 CONTAINER_NAME = os.getenv("CONTAINER_NAME")
@@ -62,14 +63,20 @@ def retrieve_logs(start_date_str, end_date_str):
 def send_email_with_url(user_email, attachment_url):
     try:
         message = "Here is the link to the generated document:"
-        email = EmailMessage(
+        compiled_msg_code = send_email_template_with_attachment(
             "Transliteration Logs",
+            user_email,
             message,
+        )
+        msg = EmailMultiAlternatives(
+            "Transliteration Logs",
+            compiled_msg_code,
             settings.DEFAULT_FROM_EMAIL,
             [user_email],
         )
-        email.attach("Generated Document", attachment_url, "text/plain")
-        email.send()
+        msg.attach_alternative(compiled_msg_code, "text/html")
+        msg.attach("Generated Document", attachment_url, "text/plain")
+        msg.send()
         return {"status": "success", "message": "Email sent successfully"}
     except ValidationError as ve:
         return {"status": "error", "message": f"Validation error: {str(ve)}"}

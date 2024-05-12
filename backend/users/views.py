@@ -54,13 +54,14 @@ from projects.utils import (
 from datetime import datetime
 import calendar
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import pyrebase
 from workspaces.views import WorkspaceusersViewSet
+from utils.email_template import send_email_template
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 load_dotenv()
@@ -738,21 +739,43 @@ class UserViewSet(viewsets.ViewSet):
 
             old_email_update_code = generate_random_string(10)
             new_email_verification_code = generate_random_string(10)
+            subject = "Email Verification"
+            message = f"<p>Your email verification code is:{old_email_update_code}</p>"
 
-            send_mail(
-                "Email Verification",
-                f"Your email verification code is:{old_email_update_code}",
+            compiled_code = send_email_template(subject, message)
+
+            msg = EmailMultiAlternatives(
+                subject,
+                message,
                 settings.DEFAULT_FROM_EMAIL,
                 [user.email],
             )
+            msg.attach_alternative(compiled_code, "text/html")
+            msg.send()
 
-            send_mail(
-                "Email Verification",
-                f"Your email verification code is:{new_email_verification_code}",
+            # send_mail(
+            #     "Email Verification",
+            #     f"Your email verification code is:{old_email_update_code}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [user.email],
+            # )
+
+            # send_mail(
+            #     "Email Verification",
+            #     f"Your email verification code is:{new_email_verification_code}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [unverified_email],
+            # )
+
+            message = f"Your email verification code is: {new_email_verification_code} "
+            msg1 = EmailMultiAlternatives(
+                subject,
+                message,
                 settings.DEFAULT_FROM_EMAIL,
                 [unverified_email],
             )
-
+            msg1.attach_alternative(compiled_code, "text/html")
+            msg1.send()
             user.unverified_email = unverified_email
             user.old_email_update_code = old_email_update_code
             user.new_email_verification_code = new_email_verification_code
