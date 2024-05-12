@@ -352,17 +352,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     #     link = f"{prefix}/#/forget-password/confirm/{key}/{sent_token}"
     #     try:
     #          subject = "Reset Password Link For Shoonya"
-            # message = f"<p> Hello! Please click on the following link to reset your password - {link} </p>"
+    # message = f"<p> Hello! Please click on the following link to reset your password - {link} </p>"
 
-            # compiled_code = send_email_template(subject, message)
-            # msg = EmailMultiAlternatives(
-            #     subject,
-            #     compiled_code,
-            #     settings.DEFAULT_FROM_EMAIL,
-            #     [email],
-            # )
-            # msg.attach_alternative(compiled_code, "text/html")
-            # msg.send()
+    # compiled_code = send_email_template(subject, message)
+    # msg = EmailMultiAlternatives(
+    #     subject,
+    #     compiled_code,
+    #     settings.DEFAULT_FROM_EMAIL,
+    #     [email],
+    # )
+    # msg.attach_alternative(compiled_code, "text/html")
+    # msg.send()
     #     except SMTPAuthenticationError:
     #         raise Exception(
     #             "Failed to authenticate with the SMTP server. Check your email settings."

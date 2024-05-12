@@ -3,7 +3,7 @@ from dateutil.relativedelta import relativedelta
 from celery import shared_task
 import pandas as pd
 from django.conf import settings
-from django.core.mail import EmailMessage,EmailMultiAlternatives
+from django.core.mail import EmailMessage, EmailMultiAlternatives
 from tasks.views import SentenceOperationViewSet
 from utils.email_template import send_email_template_with_attachment
 
@@ -1397,7 +1397,6 @@ def send_user_analytics_mail_org(
     content_type = "text/csv"
     filename = f"{organization.title}_user_analytics.csv"
 
-    
     project_progress_stage_name = "All Stage"
     if project_progress_stage == ANNOTATION_STAGE:
         project_progress_stage_name = "Annotation"
