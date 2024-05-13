@@ -1391,16 +1391,6 @@ class AnnotationViewSet(
             == "AcousticNormalisedTranscriptionEditing"
             else False
         )
-        interaction_llm = False
-        if "interaction_llm" in request.data:
-            if request.data["interaction_llm"] == True:
-                interaction_llm = True
-        clear_conversation = False
-        if (
-            "clear_conversation" in request.data
-            and request.data["clear_conversation"] == True
-        ):
-            clear_conversation = True
         # Base annotation update
         if annotation_obj.annotation_type == ANNOTATOR_ANNOTATION:
             if request.user not in task.annotation_users.all():
@@ -1411,57 +1401,36 @@ class AnnotationViewSet(
             is_IDC, output_result = False, ""
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at", "meta_stats"]
-                if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"],
-                        annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        == 1,
-                    )
-                else:
-                    if (
-                        annotation_obj.task.project_id.project_type
-                        == "InstructionDrivenChat"
-                    ):
-                        if not interaction_llm and not clear_conversation:
-                            output_result = get_llm_output(
-                                request.data["result"],
-                                annotation_obj.task,
-                                annotation_obj,
-                                annotation_obj.task.project_id.metadata_json,
-                            )
-                            # store the result of all checks as well
-                            annotation_obj.result.append(
-                                {
-                                    "prompt": request.data["result"],
-                                    "output": output_result,
-                                }
-                            )
-                        elif clear_conversation:
-                            annotation_obj.result = []
-                        # remove this check when you store the check results also
-                        if (
-                            interaction_llm
-                            and isinstance(request.data["result"], list)
-                            and isinstance(annotation_obj.result, list)
-                            and len(annotation_obj.result) < len(request.data["result"])
-                        ):
-                            annotation_obj.result = request.data["result"]
-                        annotation_obj.meta_stats = (
-                            compute_meta_stats_for_instruction_driven_chat(
-                                annotation_obj.result
-                            )
+
+                if (
+                    annotation_obj.task.project_id.project_type
+                    == "InstructionDrivenChat"
+                ):
+                    if isinstance(request.data["result"], str):
+                        output_result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
                         )
-                        if "clear_conversation" in request.data:
-                            if request.data["clear_conversation"] == True:
-                                annotation_obj.result = request.data["result"]
-                        is_IDC = True
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {
+                                "prompt": request.data["result"],
+                                "output": output_result,
+                            }
+                        )
+                    # to handle the delete last chat case
                     else:
                         annotation_obj.result = request.data["result"]
+                    annotation_obj.meta_stats = (
+                        compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
+                    )
+                    is_IDC = True
+                else:
+                    annotation_obj.result = request.data["result"]
                 if "annotation_notes" in dict(request.data):
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
@@ -1504,49 +1473,33 @@ class AnnotationViewSet(
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
-                if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"],
-                        annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        == 1,
-                    )
                 if (
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if not interaction_llm and not clear_conversation:
-                        output_result = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                            annotation_obj.task.project_id.metadata_json,
-                        )
-                        # store the result of all checks as well
-                        annotation_obj.result.append(
-                            {"prompt": request.data["result"], "output": output_result}
-                        )
-                    elif clear_conversation:
-                        annotation_obj.result = []
-                    # remove this check when you store the check results also
+                    if isinstance(request.data["result"], str):
+                        ret_dict = {
+                            "message": "Please send the result as list when you are not auto-saving."
+                        }
+                        ret_status = status.HTTP_400_BAD_REQUEST
+                        return Response(ret_dict, status=ret_status)
                     if (
-                        interaction_llm
-                        and isinstance(request.data["result"], list)
+                        isinstance(request.data["result"], list)
                         and isinstance(annotation_obj.result, list)
-                        and len(annotation_obj.result) < len(request.data["result"])
+                        and len(annotation_obj.result) > len(request.data["result"])
                     ):
-                        annotation_obj.result = request.data["result"]
-                    is_IDC = True
-                    request.data["result"] = annotation_obj.result
-                    request.data[
-                        "meta_stats"
-                    ] = compute_meta_stats_for_instruction_driven_chat(
-                        annotation_obj.result
-                    )
+                        request.data["result"] = annotation_obj.result
+                        request.data[
+                            "meta_stats"
+                        ] = compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
+                    else:
+                        request.data[
+                            "meta_stats"
+                        ] = compute_meta_stats_for_instruction_driven_chat(
+                            request.data["result"]
+                        )
                 annotation_response = super().partial_update(request)
                 if is_IDC:
                     annotation_response.data["output"] = output_result
@@ -1593,56 +1546,35 @@ class AnnotationViewSet(
             is_IDC, output_result = False, ""
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at", "meta_stats"]
-                if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"],
-                        annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 2,
-                    )
-                else:
-                    if (
-                        annotation_obj.task.project_id.project_type
-                        == "InstructionDrivenChat"
-                    ):
-                        if not interaction_llm and not clear_conversation:
-                            output_result = get_llm_output(
-                                request.data["result"],
-                                annotation_obj.task,
-                                annotation_obj,
-                                annotation_obj.task.project_id.metadata_json,
-                            )
-                            # store the result of all checks as well
-                            annotation_obj.result.append(
-                                {
-                                    "prompt": request.data["result"],
-                                    "output": output_result,
-                                }
-                            )
-                        elif clear_conversation:
-                            annotation_obj.result = []
-                        if (
-                            interaction_llm
-                            and isinstance(request.data["result"], list)
-                            and isinstance(annotation_obj.result, list)
-                            and len(annotation_obj.result) < len(request.data["result"])
-                        ):
-                            annotation_obj.result = request.data["result"]
-                        annotation_obj.meta_stats = (
-                            compute_meta_stats_for_instruction_driven_chat(
-                                annotation_obj.result
-                            )
+                if (
+                    annotation_obj.task.project_id.project_type
+                    == "InstructionDrivenChat"
+                ):
+                    if isinstance(request.data["result"], str):
+                        output_result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
                         )
-                        if "clear_conversation" in request.data:
-                            if request.data["clear_conversation"] == True:
-                                annotation_obj.result = request.data["result"]
-                        is_IDC = True
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {
+                                "prompt": request.data["result"],
+                                "output": output_result,
+                            }
+                        )
+                    # to handle the delete last chat case
                     else:
                         annotation_obj.result = request.data["result"]
+                    annotation_obj.meta_stats = (
+                        compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
+                    )
+                    is_IDC = True
+                else:
+                    annotation_obj.result = request.data["result"]
                 if "review_notes" in dict(request.data):
                     annotation_obj.review_notes = request.data["review_notes"]
                     update_fields_list.append("review_notes")
@@ -1724,48 +1656,33 @@ class AnnotationViewSet(
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
-                if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"],
-                        annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 2,
-                    )
                 if (
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if not interaction_llm and not clear_conversation:
-                        output_result = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                            annotation_obj.task.project_id.metadata_json,
-                        )
-                        # store the result of all checks as well
-                        annotation_obj.result.append(
-                            {"prompt": request.data["result"], "output": output_result}
-                        )
-                    elif clear_conversation:
-                        annotation_obj.result = []
+                    if isinstance(request.data["result"], str):
+                        ret_dict = {
+                            "message": "Please send the result as list when you are not auto-saving."
+                        }
+                        ret_status = status.HTTP_400_BAD_REQUEST
+                        return Response(ret_dict, status=ret_status)
                     if (
-                        interaction_llm
-                        and isinstance(request.data["result"], list)
+                        isinstance(request.data["result"], list)
                         and isinstance(annotation_obj.result, list)
-                        and len(annotation_obj.result) < len(request.data["result"])
+                        and len(annotation_obj.result) > len(request.data["result"])
                     ):
-                        annotation_obj.result = request.data["result"]
-                    is_IDC = True
-                    request.data["result"] = annotation_obj.result
-                    request.data[
-                        "meta_stats"
-                    ] = compute_meta_stats_for_instruction_driven_chat(
-                        annotation_obj.result
-                    )
+                        request.data["result"] = annotation_obj.result
+                        request.data[
+                            "meta_stats"
+                        ] = compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
+                    else:
+                        request.data[
+                            "meta_stats"
+                        ] = compute_meta_stats_for_instruction_driven_chat(
+                            request.data["result"]
+                        )
                 annotation_response = super().partial_update(request)
                 if is_IDC:
                     annotation_response.data["output"] = output_result
@@ -1839,56 +1756,35 @@ class AnnotationViewSet(
             is_IDC, output_result = False, ""
             if auto_save:
                 update_fields_list = ["result", "lead_time", "updated_at", "meta_stats"]
-                if "cl_format" in request.query_params:
-                    annotation_obj.result = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"],
-                        annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 3,
-                    )
-                else:
-                    if (
-                        annotation_obj.task.project_id.project_type
-                        == "InstructionDrivenChat"
-                    ):
-                        if not interaction_llm and not clear_conversation:
-                            output_result = get_llm_output(
-                                request.data["result"],
-                                annotation_obj.task,
-                                annotation_obj,
-                                annotation_obj.task.project_id.metadata_json,
-                            )
-                            # store the result of all checks as well
-                            annotation_obj.result.append(
-                                {
-                                    "prompt": request.data["result"],
-                                    "output": output_result,
-                                }
-                            )
-                        elif clear_conversation:
-                            annotation_obj.result = []
-                        if (
-                            interaction_llm
-                            and isinstance(request.data["result"], list)
-                            and isinstance(annotation_obj.result, list)
-                            and len(annotation_obj.result) < len(request.data["result"])
-                        ):
-                            annotation_obj.result = request.data["result"]
-                        annotation_obj.meta_stats = (
-                            compute_meta_stats_for_instruction_driven_chat(
-                                annotation_obj.result
-                            )
+                if (
+                    annotation_obj.task.project_id.project_type
+                    == "InstructionDrivenChat"
+                ):
+                    if isinstance(request.data["result"], str):
+                        output_result = get_llm_output(
+                            request.data["result"],
+                            annotation_obj.task,
+                            annotation_obj,
+                            annotation_obj.task.project_id.metadata_json,
                         )
-                        if "clear_conversation" in request.data:
-                            if request.data["clear_conversation"] == True:
-                                annotation_obj.result = request.data["result"]
-                        is_IDC = True
+                        # store the result of all checks as well
+                        annotation_obj.result.append(
+                            {
+                                "prompt": request.data["result"],
+                                "output": output_result,
+                            }
+                        )
+                    # to handle the delete last chat case
                     else:
                         annotation_obj.result = request.data["result"]
+                    annotation_obj.meta_stats = (
+                        compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
+                    )
+                    is_IDC = True
+                else:
+                    annotation_obj.result = request.data["result"]
                 if "supercheck_notes" in dict(request.data):
                     annotation_obj.supercheck_notes = request.data["supercheck_notes"]
                     update_fields_list.append("supercheck_notes")
@@ -1961,48 +1857,33 @@ class AnnotationViewSet(
                 if update_annotated_at:
                     annotation_obj.annotated_at = datetime.now(timezone.utc)
                     annotation_obj.save(update_fields=["annotated_at"])
-                if "cl_format" in request.query_params:
-                    request.data["result"] = self.convert_chitralekha_format_to_LSF(
-                        request.data["result"],
-                        annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 3,
-                    )
                 if (
                     annotation_obj.task.project_id.project_type
                     == "InstructionDrivenChat"
                 ):
-                    if not interaction_llm and not clear_conversation:
-                        output_result = get_llm_output(
-                            request.data["result"],
-                            annotation_obj.task,
-                            annotation_obj,
-                            annotation_obj.task.project_id.metadata_json,
-                        )
-                        # store the result of all checks as well
-                        annotation_obj.result.append(
-                            {"prompt": request.data["result"], "output": output_result}
-                        )
-                    elif clear_conversation:
-                        annotation_obj.result = []
+                    if isinstance(request.data["result"], str):
+                        ret_dict = {
+                            "message": "Please send the result as list when you are not auto-saving."
+                        }
+                        ret_status = status.HTTP_400_BAD_REQUEST
+                        return Response(ret_dict, status=ret_status)
                     if (
-                        interaction_llm
-                        and isinstance(request.data["result"], list)
+                        isinstance(request.data["result"], list)
                         and isinstance(annotation_obj.result, list)
-                        and len(annotation_obj.result) < len(request.data["result"])
+                        and len(annotation_obj.result) > len(request.data["result"])
                     ):
-                        annotation_obj.result = request.data["result"]
-                    is_IDC = True
-                    request.data["result"] = annotation_obj.result
-                    request.data[
-                        "meta_stats"
-                    ] = compute_meta_stats_for_instruction_driven_chat(
-                        annotation_obj.result
-                    )
+                        request.data["result"] = annotation_obj.result
+                        request.data[
+                            "meta_stats"
+                        ] = compute_meta_stats_for_instruction_driven_chat(
+                            annotation_obj.result
+                        )
+                    else:
+                        request.data[
+                            "meta_stats"
+                        ] = compute_meta_stats_for_instruction_driven_chat(
+                            request.data["result"]
+                        )
                 annotation_response = super().partial_update(request)
                 if is_IDC:
                     annotation_response.data["output"] = output_result
