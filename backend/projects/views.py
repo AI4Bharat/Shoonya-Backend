@@ -914,6 +914,50 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
+    elif (proj_type =="StandardisedTranscriptionEditing") :
+        # convert the prediction_json to a concatinated transcribed_json 
+        data_item = SpeechConversation.objects.get(pk=pk)
+        prediction_json = (
+            json.loads(data_item.prediction_json)
+            if isinstance(data_item.prediction_json, str)
+            else data_item.prediction_json
+        )
+        speakers_json = data_item.speakers_json
+        audio_duration = data_item.audio_duration
+        # converting prediction_json to result (wherever it exists) for every task.
+        if prediction_json == None:
+            return result
+        # Initialize variables
+        concatenated_text = ""
+        min_start_time = float('inf')
+        max_end_time = float('-inf')
+
+        for idx, val in enumerate(prediction_json):
+            # Concatenate the text
+            concatenated_text += val["text"] + " "
+
+            # Update the minimum start time and maximum end time
+            min_start_time = min(min_start_time, val["start"])
+            max_end_time = max(max_end_time, val["end"])
+
+        # Create a single dictionary to store the result
+        result_dict = {
+            "origin": "manual",
+            "to_name": "audio_url",
+            "from_name": "transcribed_json",
+            "original_length": audio_duration,
+            "id": f"shoonya_{generate_random_string(13)}",
+            "type": "textarea",
+            "value": {
+                "start": min_start_time,
+                "end": max_end_time,
+                "text": [concatenated_text],  # Remove trailing space
+            },
+        }
+
+        # Clear the result array and append the single result dictionary
+        result.clear()
+        result.append(result_dict)
     elif (
         proj_type == "OCRTranscriptionEditing"
         or proj_type == "OCRSegmentCategorizationEditing"
@@ -2365,6 +2409,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
                 "OCRSegmentCategorizationEditing",
+                "StandardisedTranscriptionEditing",
             ]:
                 try:
                     result = convert_prediction_json_to_annotation_result(
