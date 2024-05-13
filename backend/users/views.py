@@ -902,6 +902,19 @@ class UserViewSet(viewsets.ViewSet):
                     },
                     status=status.HTTP_200_OK,
                 )
+            else:
+                if is_active_payload is True:
+                    workspaces = Workspace.objects.filter(
+                        Q(members=user) | Q(managers=user)
+                    ).distinct()
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
+                for workspace in workspaces:
+                    workspaceusersviewset_obj.remove_frozen_user(
+                        request=request, pk=workspace.pk
+                    )
 
         if request.data["role"] != user.role:
             new_role = int(request.data["role"])
