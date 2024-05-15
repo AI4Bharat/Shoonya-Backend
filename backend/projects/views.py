@@ -1289,7 +1289,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all projects with some optimizations.
         """
         try:
-            # projects = self.queryset.filter(annotators=request.user)
+            projects = self.queryset.filter(annotators=request.user)
             if request.user.is_superuser:
                 projects = self.queryset
             elif request.user.role == User.ORGANIZATION_OWNER:
