@@ -164,6 +164,18 @@ ANNOTATION_REGISTRY_DICT = {
             "type": ["labels", "textarea", "textarea", "textarea"],
         },
     },
+    "StandardizedTranscriptionEditing": {
+        "transcribed_json": {
+            "to_name": "audio_url",
+            "from_name": [
+                "labels",
+                "verbatim_transcribed_json",
+                "acoustic_normalised_transcribed_json",
+                "standardised_transcription",
+            ],
+            "type": ["labels", "textarea", "textarea", "textarea"],
+        },
+    },
 }
 
 

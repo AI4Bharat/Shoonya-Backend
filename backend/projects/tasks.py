@@ -314,7 +314,7 @@ def filter_data_items(
 #### CELERY SHARED TASKS
 
 
-@shared_task
+# @shared_task
 def create_parameters_for_task_creation(
     project_type,
     dataset_instance_ids,
