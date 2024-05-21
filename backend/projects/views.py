@@ -2437,7 +2437,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ).count()
             if reviewer_anno_count == 0:
                 base_annotation_obj = Annotation_model(
-                    result=[],
+                    result=rec_ann[0].result,
                     task=task,
                     completed_by=cur_user,
                     annotation_status="unreviewed",
@@ -2664,7 +2664,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ).count()
             if superchecker_anno_count == 0:
                 base_annotation_obj = Annotation_model(
-                    result=[],
+                    result=rec_ann[0].result,
                     task=task,
                     completed_by=cur_user,
                     annotation_status="unvalidated",

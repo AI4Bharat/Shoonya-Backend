@@ -1001,16 +1001,71 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
 
     @swagger_auto_schema(
-        method="post",
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "user_id": openapi.Schema(type=openapi.TYPE_INTEGER),
-                "task_type": openapi.Schema(type=openapi.TYPE_STRING),
-            },
-            required=["user_id"],
-        ),
+        method="get",
         manual_parameters=[
+            openapi.Parameter(
+                "user_id",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the user id for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "task_type",
+                openapi.IN_QUERY,
+                description=(
+                    "A string refering to the task type for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_STRING,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Project ID",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the project id for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Task ID",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the task id for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Updated at",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the updated at time for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Annotated at",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the annotated at time for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                "search_Created at",
+                openapi.IN_QUERY,
+                description=(
+                    "A integer refering to the created at time for which tasks are to be fetched"
+                ),
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
             openapi.Parameter(
                 "page",
                 openapi.IN_QUERY,
