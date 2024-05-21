@@ -56,13 +56,14 @@ from projects.utils import (
 from datetime import datetime
 import calendar
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import pyrebase
 from workspaces.views import WorkspaceusersViewSet
+from utils.email_template import send_email_template
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 load_dotenv()
@@ -315,9 +316,6 @@ class InviteViewSet(viewsets.ViewSet):
                 {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-    # 1 add users to workspace - workspace name
-    # 2. Invite new users to {organisation name}
-    # function to list the users whose user.is_approved is false
     @permission_classes([IsAuthenticated])
     @swagger_auto_schema(responses={200: UsersPendingSerializer})
     @action(detail=False, methods=["get"], url_path="pending_users")
@@ -373,6 +371,14 @@ class InviteViewSet(viewsets.ViewSet):
             user = User.objects.get(id=user_id)
             organisation_id = user.organization_id
 
+            try:
+                organisation = Organization.objects.get(id=organisation_id)
+            except Organization.DoesNotExist:
+                return Response(
+                    {"message": "Organization not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             if user.is_approved == True:
                 return Response(
                     {"message": "User is already approved"},
@@ -383,8 +389,9 @@ class InviteViewSet(viewsets.ViewSet):
             user.save()
             # invite the user via mail now
             try:
-                users = [user]
-                Invite.create_invite(organization=organisation_id, users=users)
+                users = []
+                users.append(user)
+                Invite.create_invite(organization=organisation, users=users)
             except:
                 return Response(
                     {"message": "Error in sending invite"},
@@ -458,7 +465,7 @@ class InviteViewSet(viewsets.ViewSet):
             )
         if valid_user_emails:
             additional_message_for_valid_emails += (
-                f", Invites sent to : {','.join(valid_user_emails)}"
+                f", Requested users: {','.join(valid_user_emails)}"
             )
         if len(valid_user_emails) == 0:
             return Response(
@@ -471,13 +478,13 @@ class InviteViewSet(viewsets.ViewSet):
             )
         elif len(invalid_emails) == 0:
             ret_dict = {
-                "message": "Invites sent & request sent to workspace owner"
+                "The invites to this users will be sent after approval from the organization owner"
                 + additional_message_for_valid_emails
                 + additional_message_for_existing_emails
             }
         else:
             ret_dict = {
-                "message": f"Invites sent partially!"
+                "message": f"Request sent partially!"
                 + additional_message_for_valid_emails
                 + additional_message_for_invalid_emails
                 + additional_message_for_existing_emails
@@ -747,21 +754,43 @@ class UserViewSet(viewsets.ViewSet):
 
             old_email_update_code = generate_random_string(10)
             new_email_verification_code = generate_random_string(10)
+            subject = "Email Verification"
+            message = f"<p>Your email verification code is:{old_email_update_code}</p>"
 
-            send_mail(
-                "Email Verification",
-                f"Your email verification code is:{old_email_update_code}",
+            compiled_code = send_email_template(subject, message)
+
+            msg = EmailMultiAlternatives(
+                subject,
+                message,
                 settings.DEFAULT_FROM_EMAIL,
                 [user.email],
             )
+            msg.attach_alternative(compiled_code, "text/html")
+            msg.send()
 
-            send_mail(
-                "Email Verification",
-                f"Your email verification code is:{new_email_verification_code}",
+            # send_mail(
+            #     "Email Verification",
+            #     f"Your email verification code is:{old_email_update_code}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [user.email],
+            # )
+
+            # send_mail(
+            #     "Email Verification",
+            #     f"Your email verification code is:{new_email_verification_code}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [unverified_email],
+            # )
+
+            message = f"Your email verification code is: {new_email_verification_code} "
+            msg1 = EmailMultiAlternatives(
+                subject,
+                message,
                 settings.DEFAULT_FROM_EMAIL,
                 [unverified_email],
             )
-
+            msg1.attach_alternative(compiled_code, "text/html")
+            msg1.send()
             user.unverified_email = unverified_email
             user.old_email_update_code = old_email_update_code
             user.new_email_verification_code = new_email_verification_code
