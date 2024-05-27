@@ -1049,48 +1049,6 @@ def convert_annotation_result_to_formatted_json(
     acoustic_transcribed_json = []
     standardised_json_modified = []
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
-    if is_StandardisedTranscriptionEditing:
-        verbatim_transcribed_json = []
-        acoustic_normalised_transcribed_json = []
-        standardised_transcription = []
-
-        # for item in annotation_result:
-        #     if isinstance(item, str):
-        #         item = json.loads(item)
-        #     if "text" in item:
-        #         verbatim_transcribed_json.append(
-        #             {
-        #                 "speaker_id": item["speaker_id"],
-        #                 "start": convert_time_to_seconds(item["start_time"]),
-        #                 "end": convert_time_to_seconds(item["end_time"]),
-        #                 "text": item["text"],
-        #             }
-        #         )
-        #     if "acoustic_normalised_text" in item:
-        #         acoustic_normalised_transcribed_json.append(
-        #             {
-        #                 "speaker_id": item["speaker_id"],
-        #                 "start": convert_time_to_seconds(item["start_time"]),
-        #                 "end": convert_time_to_seconds(item["end_time"]),
-        #                 "text": item["acoustic_normalised_text"],
-        #             }
-        #         )
-        #     if "acoustic_standardized_text" in item:
-        #         standardised_transcription.append(
-        #             {
-        #                 "speaker_id": item["speaker_id"],
-        #                 "start": convert_time_to_seconds(item["start_time"]),
-        #                 "end": convert_time_to_seconds(item["end_time"]),
-        #                 "text": item["acoustic_standardized_text"],
-        #             }
-        #         )
-        #
-        # complete_json = {
-        #     "verbatim_transcribed_json": verbatim_transcribed_json,
-        #     "acoustic_normalised_transcribed_json": acoustic_normalised_transcribed_json,
-        #     "standardised_transcription": standardised_transcription,
-        # }
-        # transcribed_json.append(complete_json)
     if is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
