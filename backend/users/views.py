@@ -20,6 +20,7 @@ from .serializers import (
     UserLoginSerializer,
     UserProfileSerializer,
     UserSignUpSerializer,
+    UsersPendingSerializer,
     UserUpdateSerializer,
     LanguageSerializer,
     ChangePasswordSerializer,
@@ -59,7 +60,7 @@ from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import logging
-from workspaces.views import WorkspaceViewSet
+from workspaces.views import WorkspaceusersViewSet
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -107,11 +108,15 @@ class InviteViewSet(viewsets.ViewSet):
                         organization_id=org.id,
                         role=request.data.get("role"),
                     )
+                    user.is_approved = True
                     user.set_password(generate_random_string(10))
                     valid_user_emails.append(email)
                     users.append(user)
                 except:
-                    pass
+                    return Response(
+                        {"message": "Error in creating user"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             else:
                 invalid_emails.append(email)
         # setting error messages
@@ -259,6 +264,7 @@ class InviteViewSet(viewsets.ViewSet):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
+            user.is_approved = False
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
@@ -278,6 +284,190 @@ class InviteViewSet(viewsets.ViewSet):
         if serialized.is_valid():
             serialized.save()
             return Response({"message": "User signed up"}, status=status.HTTP_200_OK)
+
+    # 1 add users to workspace - workspace name
+    # 2. Invite new users to {organisation name}
+    # function to list the users whose user.is_approved is false
+    @permission_classes([IsAuthenticated])
+    @swagger_auto_schema(responses={200: UsersPendingSerializer})
+    @action(detail=False, methods=["get"], url_path="pending_users")
+    def pending_users(self, request):
+        """
+        List of users who have not accepted the invite yet in that organisation/workspace
+        """
+        organisation_id = request.query_params.get("organisation_id")
+        users = User.objects.filter(organization_id=organisation_id, is_approved=False)
+
+        # demo_user = User.objects.filter(id=1)
+        # filtered_user = demo_user.values_list("email", flat=True)
+        # # Convert QuerySet to list and get first element
+        # email = list(filtered_user)[0]
+        # print(email)
+        # print(request.user)
+        serialized = UsersPendingSerializer(users, many=True)
+
+        if serialized.data:
+            return Response(serialized.data, status=status.HTTP_200_OK)
+
+        return Response({"message": "No pending users"}, status=status.HTTP_200_OK)
+
+    # function to reject the user request to join the workspace by organiastion owner and delete the user from the table
+    @permission_classes([IsAuthenticated])
+    @is_organization_owner
+    @swagger_auto_schema(request_body=UsersPendingSerializer)
+    @action(detail=False, methods=["delete"], url_path="reject_user")
+    def reject_user(self, request):
+        """
+        Reject the user request to join the workspace
+        """
+        try:
+            user_id = request.query_params.get("userId", None)
+            user = User.objects.get(id=user_id)
+
+            if user.is_approved == True:
+                return Response(
+                    {"message": "User is already approved"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        user.delete()
+        return Response({"message": "User rejected"}, status=status.HTTP_200_OK)
+
+    # function to approve the user request to join the workspace by organiastion owner and update the user.is_approved to true
+    @permission_classes([IsAuthenticated])
+    @is_organization_owner
+    @swagger_auto_schema(request_body=UsersPendingSerializer)
+    @action(detail=False, methods=["post"], url_path="approve_user")
+    def approve_user(self, request):
+        """
+        Approve the user request to join the workspace
+        """
+        try:
+            user_id = request.query_params.get("userId", None)
+            user = User.objects.get(id=user_id)
+            organisation_id = user.organization_id
+
+            try:
+                organisation = Organization.objects.get(id=organisation_id)
+            except Organization.DoesNotExist:
+                return Response(
+                    {"message": "Organization not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            if user.is_approved == True:
+                return Response(
+                    {"message": "User is already approved"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            user.is_approved = True
+            user.save()
+            # invite the user via mail now
+            try:
+                users = []
+                users.append(user)
+                Invite.create_invite(organization=organisation, users=users)
+            except Exception as e:
+                return Response(
+                    {"message": f"Error in sending invite: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response({"message": "User approved"}, status=status.HTTP_200_OK)
+
+    # function to request workspace owner to add the users to the workspace by workspace manager
+    @permission_classes([IsAuthenticated])
+    @swagger_auto_schema(request_body=InviteGenerationSerializer)
+    @action(detail=False, methods=["post"], url_path="request_user")
+    def request_user(self, request):
+        """
+        Request the workspace owner to add the user to the workspace from manager
+        """
+        all_emails = request.data.get("emails")
+        distinct_emails = list(set(all_emails))
+        organization_id = request.data.get("organization_id")
+        users = []
+
+        try:
+            org = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        already_existing_emails = []
+        valid_user_emails = []
+        invalid_emails = []
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
+
+        for email in distinct_emails:
+            # Checking if the email is in valid format.
+            if re.fullmatch(regex, email):
+                if email in existing_emails_set:
+                    already_existing_emails.append(email)
+                    continue
+                try:
+                    user = User(
+                        username=generate_random_string(12),
+                        email=email.lower(),
+                        organization_id=org.id,
+                        role=request.data.get("role"),
+                        has_accepted_invite=False,
+                        is_approved=False,
+                    )
+                    user.set_password(generate_random_string(10))
+                    valid_user_emails.append(email)
+                    users.append(user)
+                except:
+                    pass
+            else:
+                invalid_emails.append(email)
+        # setting error messages
+        (
+            additional_message_for_existing_emails,
+            additional_message_for_invalid_emails,
+        ) = ("", "")
+        additional_message_for_valid_emails = ""
+        if already_existing_emails:
+            additional_message_for_existing_emails += (
+                f", Invites already sent to: {','.join(already_existing_emails)}"
+            )
+        if invalid_emails:
+            additional_message_for_invalid_emails += (
+                f", Invalid emails: {','.join(invalid_emails)}"
+            )
+        if valid_user_emails:
+            additional_message_for_valid_emails += (
+                f", Requested users : {','.join(valid_user_emails)}"
+            )
+        if len(valid_user_emails) == 0:
+            return Response(
+                {
+                    "message": "No Requests sent"
+                    + additional_message_for_invalid_emails
+                    + additional_message_for_existing_emails
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        elif len(invalid_emails) == 0:
+            ret_dict = {
+                "message": "The invites to this users will be sent after approval from the organization owner"
+                + additional_message_for_valid_emails
+                + additional_message_for_existing_emails
+            }
+        else:
+            ret_dict = {
+                "message": f"Request sent partially!"
+                + additional_message_for_valid_emails
+                + additional_message_for_invalid_emails
+                + additional_message_for_existing_emails
+            }
+        users = User.objects.bulk_create(users)
+        return Response(ret_dict, status=status.HTTP_201_CREATED)
 
 
 class AuthViewSet(viewsets.ViewSet):
@@ -683,23 +873,48 @@ class UserViewSet(viewsets.ViewSet):
             pass
         else:
             if is_active_payload is False:
+                if user.enable_mail:
+                    user.enable_mail = False
+                    user.save()
                 workspaces = Workspace.objects.filter(
                     Q(members=user) | Q(managers=user)
-                )
-                workspace_view = WorkspaceViewSet()
+                ).distinct()
+
+                workspacecustomviewset_obj = WorkspaceCustomViewSet()
+                request.data["ids"] = [user.id]
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
                 for workspace in workspaces:
-                    workspace_view.unassign_manager(
-                        request, pk=workspace.pk, ids=[user.id]
+                    workspacecustomviewset_obj.unassign_manager(
+                        request=request, pk=workspace.pk
                     )
-                    workspace_view.remove_members(
-                        request, pk=workspace.pk, user_id=user.id
+
+                    workspaceusersviewset_obj.remove_members(
+                        request=request, pk=workspace.pk
                     )
+                user.is_active = False
+                user.save()
                 return Response(
                     {
                         "message": "User removed from all workspaces both as workspace member and workspace manager"
                     },
                     status=status.HTTP_200_OK,
                 )
+            else:
+                if is_active_payload is True:
+                    workspaces = Workspace.objects.filter(
+                        Q(members=user) | Q(managers=user)
+                    ).distinct()
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
+                for workspace in workspaces:
+                    workspaceusersviewset_obj.remove_frozen_user(
+                        request=request, pk=workspace.pk
+                    )
 
         if request.data["role"] != user.role:
             new_role = int(request.data["role"])
