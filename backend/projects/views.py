@@ -1047,57 +1047,65 @@ def convert_annotation_result_to_formatted_json(
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
-    standardised_transcription = ""
+    standardised_json_modified = []
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
     if is_StandardisedTranscriptionEditing:
         verbatim_transcribed_json = []
         acoustic_normalised_transcribed_json = []
         standardised_transcription = []
 
-        for item in annotation_result:
-            if isinstance(item, str):
-                item = json.loads(item)
-            if "text" in item:
-                verbatim_transcribed_json.append(
-                    {
-                        "speaker_id": item["speaker_id"],
-                        "start": convert_time_to_seconds(item["start_time"]),
-                        "end": convert_time_to_seconds(item["end_time"]),
-                        "text": item["text"],
-                    }
-                )
-            if "acoustic_normalised_text" in item:
-                acoustic_normalised_transcribed_json.append(
-                    {
-                        "speaker_id": item["speaker_id"],
-                        "start": convert_time_to_seconds(item["start_time"]),
-                        "end": convert_time_to_seconds(item["end_time"]),
-                        "text": item["acoustic_normalised_text"],
-                    }
-                )
-            if "acoustic_standardized_text" in item:
-                standardised_transcription.append(
-                    {
-                        "speaker_id": item["speaker_id"],
-                        "start": convert_time_to_seconds(item["start_time"]),
-                        "end": convert_time_to_seconds(item["end_time"]),
-                        "text": item["acoustic_standardized_text"],
-                    }
-                )
-
-        complete_json = {
-            "verbatim_transcribed_json": verbatim_transcribed_json,
-            "acoustic_normalised_transcribed_json": acoustic_normalised_transcribed_json,
-            "standardised_transcription": standardised_transcription,
-        }
-        transcribed_json.append(complete_json)
-    elif is_SpeechConversation:
+        # for item in annotation_result:
+        #     if isinstance(item, str):
+        #         item = json.loads(item)
+        #     if "text" in item:
+        #         verbatim_transcribed_json.append(
+        #             {
+        #                 "speaker_id": item["speaker_id"],
+        #                 "start": convert_time_to_seconds(item["start_time"]),
+        #                 "end": convert_time_to_seconds(item["end_time"]),
+        #                 "text": item["text"],
+        #             }
+        #         )
+        #     if "acoustic_normalised_text" in item:
+        #         acoustic_normalised_transcribed_json.append(
+        #             {
+        #                 "speaker_id": item["speaker_id"],
+        #                 "start": convert_time_to_seconds(item["start_time"]),
+        #                 "end": convert_time_to_seconds(item["end_time"]),
+        #                 "text": item["acoustic_normalised_text"],
+        #             }
+        #         )
+        #     if "acoustic_standardized_text" in item:
+        #         standardised_transcription.append(
+        #             {
+        #                 "speaker_id": item["speaker_id"],
+        #                 "start": convert_time_to_seconds(item["start_time"]),
+        #                 "end": convert_time_to_seconds(item["end_time"]),
+        #                 "text": item["acoustic_standardized_text"],
+        #             }
+        #         )
+        #
+        # complete_json = {
+        #     "verbatim_transcribed_json": verbatim_transcribed_json,
+        #     "acoustic_normalised_transcribed_json": acoustic_normalised_transcribed_json,
+        #     "standardised_transcription": standardised_transcription,
+        # }
+        # transcribed_json.append(complete_json)
+    if is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
+            if (
+                "id" in annotation_result[idx1]
+                and annotation_result[idx1]["id"] in ids_formatted
+            ):
+                continue
             formatted_result_dict = {}
             labels_dict = {}
             text_dict = {}
             acoustic_text_dict = {}
+            st_labels_dict = {}
+            st_text_dict = {}
+            st_formatted_result_dict = {}
             if isinstance(annotation_result[idx1], str):
                 annotation_result[idx1] = json.loads(annotation_result[idx1])
             if annotation_result[idx1]["from_name"] == "labels":
@@ -1110,11 +1118,7 @@ def convert_annotation_result_to_formatted_json(
                     annotation_result[idx1], ensure_ascii=False
                 )
                 acoustic_text_dict = annotation_result[idx1]
-            elif annotation_result[idx1]["from_name"] == "standardised_transcription":
-                standardised_transcription = annotation_result[idx1]["value"]["text"][0]
-                continue
             else:
-                text_dict = json.dumps(annotation_result[idx1], ensure_ascii=False)
                 text_dict = annotation_result[idx1]
             for idx2 in range(idx1 + 1, len(annotation_result)):
                 if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
@@ -1131,50 +1135,93 @@ def convert_annotation_result_to_formatted_json(
                         text_dict = json.dumps(
                             annotation_result[idx2], ensure_ascii=False
                         )
-                    if not is_acoustic or (
-                        labels_dict and acoustic_text_dict and text_dict
+                    if not is_StandardisedTranscriptionEditing:
+                        if not is_acoustic or (
+                            labels_dict and acoustic_text_dict and text_dict
+                        ):
+                            break
+                elif is_StandardisedTranscriptionEditing:
+                    if (
+                        annotation_result[idx2]["from_name"] == "labels"
+                        and (idx2 + 1) < len(annotation_result)
+                        and annotation_result[idx2 + 1]["from_name"]
+                        == "acoustic_standardised_transcribed_json"
                     ):
-                        break
+                        st_labels_dict = annotation_result[idx2]
+                    elif (
+                        annotation_result[idx2]["from_name"]
+                        == "acoustic_standardised_transcribed_json"
+                    ):
+                        st_text_dict = annotation_result[idx2]
 
-            if annotation_result[idx1]["id"] not in ids_formatted:
-                ids_formatted[annotation_result[idx1]["id"]] = "formatted"
-                if not labels_dict:
+            ids_formatted[annotation_result[idx1]["id"]] = "formatted"
+            if not labels_dict:
+                formatted_result_dict["speaker_id"] = None
+            else:
+                try:
+                    formatted_result_dict["speaker_id"] = next(
+                        speaker
+                        for speaker in speakers_json
+                        if speaker["name"] == labels_dict["value"]["labels"][0]
+                    )["speaker_id"]
+                except (KeyError, StopIteration):
                     formatted_result_dict["speaker_id"] = None
+                formatted_result_dict["start"] = labels_dict["value"]["start"]
+                formatted_result_dict["end"] = labels_dict["value"]["end"]
+
+            if not text_dict:
+                formatted_result_dict["text"] = ""
+            else:
+                text_dict_json = (
+                    json.loads(text_dict) if isinstance(text_dict, str) else text_dict
+                )
+                formatted_result_dict["text"] = text_dict_json["value"]["text"][0]
+                formatted_result_dict["start"] = text_dict_json["value"]["start"]
+                formatted_result_dict["end"] = text_dict_json["value"]["end"]
+
+            transcribed_json.append(formatted_result_dict)
+
+            if is_StandardisedTranscriptionEditing:
+                if not st_labels_dict:
+                    st_formatted_result_dict["speaker_id"] = None
                 else:
                     try:
-                        formatted_result_dict["speaker_id"] = next(
+                        st_formatted_result_dict["speaker_id"] = next(
                             speaker
                             for speaker in speakers_json
-                            if speaker["name"] == labels_dict["value"]["labels"][0]
+                            if speaker["name"] == st_labels_dict["value"]["labels"][0]
                         )["speaker_id"]
                     except (KeyError, StopIteration):
-                        formatted_result_dict["speaker_id"] = None
-                    formatted_result_dict["start"] = labels_dict["value"]["start"]
-                    formatted_result_dict["end"] = labels_dict["value"]["end"]
+                        st_formatted_result_dict["speaker_id"] = None
+                    st_formatted_result_dict["start"] = st_labels_dict["value"]["start"]
+                    st_formatted_result_dict["end"] = st_labels_dict["value"]["end"]
 
-                if not text_dict:
-                    formatted_result_dict["text"] = ""
+                if not st_text_dict:
+                    st_formatted_result_dict["text"] = ""
                 else:
-                    text_dict_json = json.loads(text_dict)
-                    formatted_result_dict["text"] = text_dict_json["value"]["text"][0]
-                    formatted_result_dict["start"] = text_dict_json["value"]["start"]
-                    formatted_result_dict["end"] = text_dict_json["value"]["end"]
-
-                transcribed_json.append(formatted_result_dict)
-
-                if is_acoustic:
-                    acoustic_formatted_result_dict = deepcopy(formatted_result_dict)
-                    acoustic_dict_json = (
-                        json.loads(acoustic_text_dict)
-                        if isinstance(acoustic_text_dict, str)
-                        else acoustic_text_dict
+                    text_dict_json = (
+                        json.loads(st_text_dict)
+                        if isinstance(st_text_dict, str)
+                        else st_text_dict
                     )
-                    acoustic_formatted_result_dict["text"] = (
-                        acoustic_dict_json["value"]["text"][0]
-                        if acoustic_dict_json
-                        else ""
-                    )
-                    acoustic_transcribed_json.append(acoustic_formatted_result_dict)
+                    st_formatted_result_dict["text"] = text_dict_json["value"]["text"][
+                        0
+                    ]
+                    st_formatted_result_dict["start"] = text_dict_json["value"]["start"]
+                    st_formatted_result_dict["end"] = text_dict_json["value"]["end"]
+                standardised_json_modified.append(st_formatted_result_dict)
+
+            if is_acoustic:
+                acoustic_formatted_result_dict = deepcopy(formatted_result_dict)
+                acoustic_dict_json = (
+                    json.loads(acoustic_text_dict)
+                    if isinstance(acoustic_text_dict, str)
+                    else acoustic_text_dict
+                )
+                acoustic_formatted_result_dict["text"] = (
+                    acoustic_dict_json["value"]["text"][0] if acoustic_dict_json else ""
+                )
+                acoustic_transcribed_json.append(acoustic_formatted_result_dict)
         if acoustic_transcribed_json:
             acoustic_transcribed_json_modified = json.dumps(
                 acoustic_transcribed_json, ensure_ascii=False
@@ -1240,12 +1287,21 @@ def convert_annotation_result_to_formatted_json(
                 )
             transcribed_json.append(formatted_result_dict)
     transcribed_json_modified = json.dumps(transcribed_json, ensure_ascii=False)
+    standardised_json_modified = json.dumps(
+        standardised_json_modified, ensure_ascii=False
+    )
 
     if is_acoustic:
+        if is_StandardisedTranscriptionEditing:
+            return {
+                "verbatim_transcribed_json": transcribed_json_modified,
+                "acoustic_normalised_transcribed_json": acoustic_transcribed_json_modified,
+                "standardised_transcription": standardised_json_modified,
+            }
         return {
             "verbatim_transcribed_json": transcribed_json_modified,
             "acoustic_normalised_transcribed_json": acoustic_transcribed_json_modified,
-            "standardised_transcription": standardised_transcription,
+            "standardised_transcription": [],
         }
 
     return transcribed_json_modified

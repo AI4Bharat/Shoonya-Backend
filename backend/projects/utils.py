@@ -435,7 +435,7 @@ def process_speech_results(
             speakers_json,
             True,
             False,
-            False,
+            True,
             True,
         )
         task["data"]["transcribed_json"] = task["data"]["final_transcribed_json"]
