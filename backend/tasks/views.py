@@ -1758,6 +1758,14 @@ class AnnotationViewSet(
             == "AcousticNormalisedTranscriptionEditing"
             else False
         )
+
+        is_StandardizedTranscriptionEditing = (
+            True
+            if annotation_obj.task.project_id.project_type
+            == "StandardizedTranscriptionEditing"
+            else False
+        )
+
         is_ocr_sc_or_sce = (
             True
             if annotation_obj.task.project_id.project_type
@@ -1789,12 +1797,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        == 1,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 1
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1845,12 +1856,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        == 1,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 1
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -1918,12 +1932,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 2,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 2
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -2013,12 +2030,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 2,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 2
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -2113,12 +2133,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 3,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 3
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -2199,12 +2222,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 3,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 3
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     if empty_flag == True and annotation_status in [
                         LABELED,
@@ -2324,19 +2350,33 @@ class AnnotationViewSet(
         if result == None or len(result) == 0:
             return modified_result, empty_text_flag
         for idx, val in enumerate(result):
-            if "standardised_transcription" in val:
+            if "acoustic_standardized_text" in val:
                 if acoustic_enabled:
                     standardised_dict = {
                         "id": f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}",
                         "origin": "manual",
                         "to_name": "audio_url",
-                        "from_name": "standardised_transcription",
+                        "from_name": "acoustic_standardised_transcribed_json",
                         "original_length": audio_duration,
                         "type": "textarea",
                         "value": {
-                            "text": [val["standardised_transcription"]],
+                            "start": self.convert_formatted_time_to_fractional(
+                                val["start_time"]
+                            ),
+                            "end": self.convert_formatted_time_to_fractional(
+                                val["end_time"]
+                            ),
+                            "text": [val["acoustic_standardized_text"]],
                         },
                     }
+                    label_dict_st = deepcopy(standardised_dict)
+                    label_dict_st["type"] = "labels"
+                    del label_dict_st["value"]["text"]
+                    label_dict_st["value"]["labels"] = (
+                        [val["speaker_id"]] if "speaker_id" in val else []
+                    )
+                    label_dict_st["from_name"] = "labels"
+                    modified_result.append(label_dict_st)
                     modified_result.append(standardised_dict)
                 continue
             if "type" in val or "value" in val:

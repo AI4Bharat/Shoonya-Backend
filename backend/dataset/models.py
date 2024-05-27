@@ -488,8 +488,11 @@ class SpeechConversation(DatasetBase):
         verbose_name="final_transcribed_json",
         null=True,
         blank=True,
-        help_text=("Field where data from this standardised_transcription_editing type will be exported."),
+        help_text=(
+            "Field where data from this standardised_transcription_editing type will be exported."
+        ),
     )
+
     def __str__(self):
         return str(self.id)
 

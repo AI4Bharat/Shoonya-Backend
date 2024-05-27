@@ -20,8 +20,8 @@ def create_memory(result):
             memory[key]["labels_dict_idx"] = i
         elif dict_type == "acoustic_normalised_transcribed_json":
             memory[key]["acoustic_text_dict_idx"] = i
-        elif dict_type == "standardised_transcription":
-            memory["standardised_transcription"] = i
+        elif dict_type == "acoustic_standardised_transcribed_json":
+            memory[key]["acoustic_standardised_transcribed_json"] = i
         else:
             memory[key]["text_dict_idx"] = i
     return memory
@@ -49,10 +49,11 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
             speaker_id = "Speaker 0"
             seen.add(text_dict_idx)
         elif text_dict_idx == -1:
-            print(
-                f"The data is corrupt for annotation id-{ann_id}, data id- {result[i]['id']}. "
-                f"It does not contain a corresponding text dictionary."
-            )
+            if project_type != "StandardizedTranscriptionEditing":
+                print(
+                    f"The data is corrupt for annotation id-{ann_id}, data id- {result[i]['id']}. "
+                    f"It does not contain a corresponding text dictionary."
+                )
             continue
         else:
             label_dict = result[labels_dict_idx]
@@ -96,19 +97,30 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
     modified_result = (
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
-    if (
-        project_type == "AcousticNormalisedTranscriptionEditing"
-        and "standardised_transcription" in memory.keys()
-        and result[memory["standardised_transcription"]]["value"]["text"]
-    ):
-        modified_result.append(
-            {
-                "standardised_transcription": result[
-                    memory["standardised_transcription"]
-                ]["value"]["text"][0]
-            }
-        )
-
+    if project_type == "StandardizedTranscriptionEditing":
+        standard_chitra_dict = {}
+        for i in range(len(result)):
+            if result[i]["id"] in memory:
+                if "acoustic_standardised_transcribed_json" in memory[result[i]["id"]]:
+                    st_dict = result[
+                        memory[result[i]["id"]][
+                            "acoustic_standardised_transcribed_json"
+                        ]
+                    ]
+                    if not standard_chitra_dict:
+                        lb_dict = result[memory[result[i]["id"]]["labels_dict_idx"]]
+                        standard_chitra_dict = {
+                            "acoustic_standardized_text": st_dict["value"]["text"][0],
+                            "end_time": convert_fractional_time_to_formatted(
+                                st_dict["value"]["end"], ann_id, st_dict["id"]
+                            ),
+                            "speaker_id": lb_dict["value"]["labels"][0],
+                            "start_time": convert_fractional_time_to_formatted(
+                                st_dict["value"]["start"], ann_id, st_dict["id"]
+                            ),
+                            "id": count,
+                        }
+                        modified_result.append(standard_chitra_dict)
     return modified_result
 
 

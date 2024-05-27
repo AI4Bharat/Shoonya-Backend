@@ -13,7 +13,7 @@ from tasks.models import Annotation as Annotation_model
 from users.models import User
 from django.forms import model_to_dict
 
-from dataset.models import Conversation
+from dataset.models import Conversation, SpeechConversation
 from tasks.models import (
     Annotation,
     ANNOTATED,
@@ -419,10 +419,26 @@ def process_speech_results(
 ):
     from projects.views import convert_annotation_result_to_formatted_json
 
+    is_StandardizedTranscriptionEditing = (
+        project_type == "StandardizedTranscriptionEditing"
+    )
+
     if is_audio_segmentation:
         task["data"]["prediction_json"] = convert_annotation_result_to_formatted_json(
             annotation_result, speakers_json, True, False, False
         )
+    elif is_StandardizedTranscriptionEditing:
+        task["data"][
+            "final_transcribed_json"
+        ] = convert_annotation_result_to_formatted_json(
+            annotation_result,
+            speakers_json,
+            True,
+            False,
+            False,
+            True,
+        )
+        task["data"]["transcribed_json"] = task["data"]["final_transcribed_json"]
     else:
         task["data"]["transcribed_json"] = convert_annotation_result_to_formatted_json(
             annotation_result,
@@ -516,3 +532,71 @@ def process_task(
         task_dict["data"] = data
 
     return OrderedDict(task_dict)
+
+
+def convert_time_to_seconds(time_str):
+    # Split the time string into hours, minutes, seconds, and milliseconds
+    hours, minutes, seconds_milliseconds = time_str.split(":")
+    seconds, milliseconds = seconds_milliseconds.split(".")
+
+    # Convert each component to integers
+    hours = int(hours)
+    minutes = int(minutes)
+    seconds = int(seconds)
+    milliseconds = int(milliseconds)
+
+    # Calculate the total time in seconds
+    total_seconds = (hours * 3600) + (minutes * 60) + seconds + (milliseconds / 1000.0)
+
+    return total_seconds
+
+
+def parse_json_for_ste(input_data_id):
+    data_item = SpeechConversation.objects.get(pk=input_data_id)
+    input_data = (
+        json.loads(data_item.transcribed_json)
+        if isinstance(data_item.transcribed_json, str)
+        else data_item.transcribed_json
+    )
+    if not input_data:
+        return []
+    acoustic_normalised = json.loads(input_data["acoustic_normalised_transcribed_json"])
+    standardised_transcription = json.loads(input_data["standardised_transcription"])
+    result = []
+    id_counter = 1
+
+    # Function to convert float seconds to hh:mm:ss.ms format
+    def format_time(seconds):
+        td = datetime.timedelta(seconds=seconds)
+        return str(td)
+
+    # Combine all transcriptions into one list
+    for item in acoustic_normalised:
+        result.append(
+            {
+                "text": item["text"],
+                "end_time": format_time(item["end"]),
+                "speaker_id": f"{item['speaker_id']}",
+                "start_time": format_time(item["start"]),
+                "id": id_counter,
+                "acoustic_normalised_text": item["text"],
+            }
+        )
+        id_counter += 1
+
+    for item in standardised_transcription:
+        result.append(
+            {
+                "acoustic_standardized_text": item["text"],
+                "end_time": format_time(item["end"]),
+                "speaker_id": f"Speaker {item['speaker_id']}",
+                "start_time": format_time(item["start"]),
+                "id": id_counter,
+            }
+        )
+        id_counter += 1
+
+    # Sort the result by start_time and then by the presence of 'acoustic_normalised_text'
+    result.sort(key=lambda x: (x["id"], "acoustic_normalised_text" not in x))
+
+    return result

@@ -416,5 +416,5 @@ Audio:
         save_type: in_place 
         fields: 
           annotations: 
-            - transcribed_json
+            - final_transcribed_json
 

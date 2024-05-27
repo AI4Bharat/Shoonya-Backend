@@ -25,6 +25,8 @@ from .utils import (
     process_speech_tasks,
     process_ocr_tasks,
     process_task,
+    convert_time_to_seconds,
+    parse_json_for_ste,
 )
 from django.http import HttpResponse, JsonResponse
 from rest_framework import status, viewsets
@@ -914,46 +916,48 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
-    elif proj_type == "StandardisedTranscriptionEditing":
-        # convert the prediction_json to a concatinated transcribed_json
-        data_item = SpeechConversation.objects.get(pk=pk)
-        prediction_json = (
-            json.loads(data_item.prediction_json)
-            if isinstance(data_item.prediction_json, str)
-            else data_item.prediction_json
-        )
-        speakers_json = data_item.speakers_json
-        audio_duration = data_item.audio_duration
-        # converting prediction_json to result (wherever it exists) for every task.
-        if prediction_json == None:
-            return result
-        # Initialize variables
-        concatenated_text = ""
-        min_start_time = float("inf")
-        max_end_time = float("-inf")
-
-        for idx, val in enumerate(prediction_json):
-            # Concatenate the text
-            concatenated_text += val["text"] + " "
-
-            # Update the minimum start time and maximum end time
-            min_start_time = min(min_start_time, val["start"])
-            max_end_time = max(max_end_time, val["end"])
-
-        # Create a single dictionary to store the result
-        result_dict = {
-            "origin": "manual",
-            "to_name": "audio_url",
-            "from_name": "transcribed_json",
-            "original_length": audio_duration,
-            "id": f"shoonya_{generate_random_string(13)}",
-            "type": "textarea",
-            "value": {
-                "start": min_start_time,
-                "end": max_end_time,
-                "text": [concatenated_text],  # Remove trailing space
-            },
-        }
+        # elif proj_type == "StandardisedTranscriptionEditing":
+        #     # convert the prediction_json to a concatinated transcribed_json
+        #     data_item = SpeechConversation.objects.get(pk=pk)
+        #     prediction_json = (
+        #         json.loads(data_item.prediction_json)
+        #         if isinstance(data_item.prediction_json, str)
+        #         else data_item.prediction_json
+        #     )
+        #     speakers_json = data_item.speakers_json
+        #     audio_duration = data_item.audio_duration
+        #     # converting prediction_json to result (wherever it exists) for every task.
+        #     if prediction_json == None:
+        #         return result
+        #     # Initialize variables
+        #     concatenated_text = ""
+        #     min_start_time = float("inf")
+        #     max_end_time = float("-inf")
+        #
+        #     for idx, val in enumerate(prediction_json):
+        #         # Concatenate the text
+        #         concatenated_text += val["text"] + " "
+        #
+        #         # Update the minimum start time and maximum end time
+        #         min_start_time = min(min_start_time, val["start"])
+        #         max_end_time = max(max_end_time, val["end"])
+        #     if concatenated_text:
+        #         concatenated_text.strip()
+        #
+        #     # Create a single dictionary to store the result
+        #     result_dict = {
+        #         "origin": "manual",
+        #         "to_name": "audio_url",
+        #         "from_name": "transcribed_json",
+        #         "original_length": audio_duration,
+        #         "id": f"shoonya_{generate_random_string(13)}",
+        #         "type": "textarea",
+        #         "value": {
+        #             "start": min_start_time,
+        #             "end": max_end_time,
+        #             "text": [concatenated_text],  # Remove trailing space
+        #         },
+        #     }
 
         # Clear the result array and append the single result dictionary
         result.clear()
@@ -1045,7 +1049,49 @@ def convert_annotation_result_to_formatted_json(
     acoustic_transcribed_json = []
     standardised_transcription = ""
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
-    if is_SpeechConversation:
+    if is_StandardisedTranscriptionEditing:
+        verbatim_transcribed_json = []
+        acoustic_normalised_transcribed_json = []
+        standardised_transcription = []
+
+        for item in annotation_result:
+            if isinstance(item, str):
+                item = json.loads(item)
+            if "text" in item:
+                verbatim_transcribed_json.append(
+                    {
+                        "speaker_id": item["speaker_id"],
+                        "start": convert_time_to_seconds(item["start_time"]),
+                        "end": convert_time_to_seconds(item["end_time"]),
+                        "text": item["text"],
+                    }
+                )
+            if "acoustic_normalised_text" in item:
+                acoustic_normalised_transcribed_json.append(
+                    {
+                        "speaker_id": item["speaker_id"],
+                        "start": convert_time_to_seconds(item["start_time"]),
+                        "end": convert_time_to_seconds(item["end_time"]),
+                        "text": item["acoustic_normalised_text"],
+                    }
+                )
+            if "acoustic_standardized_text" in item:
+                standardised_transcription.append(
+                    {
+                        "speaker_id": item["speaker_id"],
+                        "start": convert_time_to_seconds(item["start_time"]),
+                        "end": convert_time_to_seconds(item["end_time"]),
+                        "text": item["acoustic_standardized_text"],
+                    }
+                )
+
+        complete_json = {
+            "verbatim_transcribed_json": verbatim_transcribed_json,
+            "acoustic_normalised_transcribed_json": acoustic_normalised_transcribed_json,
+            "standardised_transcription": standardised_transcription,
+        }
+        transcribed_json.append(complete_json)
+    elif is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
             formatted_result_dict = {}
@@ -1133,37 +1179,6 @@ def convert_annotation_result_to_formatted_json(
             acoustic_transcribed_json_modified = json.dumps(
                 acoustic_transcribed_json, ensure_ascii=False
             )
-
-    elif is_StandardisedTranscriptionEditing:
-        '''
-            in need to convert in this format 
-                text": "dummy format",
-                "end_time": "00:00:10.448",
-                "speaker_id": "Speaker 0",
-                "start_time": "00:00:00.000",
-                "id": 1,
-                "acoustic_normalised_text : text
-        '''
-
-        for idx1 in range(0, len(annotation_result), 2):
-            formatted_result_dict = {}
-            text_dict = {}
-            acoustic_text_dict = {}
-            if isinstance(annotation_result[idx1], str):
-                annotation_result[idx1] = json.loads(annotation_result[idx1])
-            if isinstance(annotation_result[idx1 + 1], str):
-                annotation_result[idx1 + 1] = json.loads(annotation_result[idx1 + 1])
-            text_dict = annotation_result[idx1]
-            acoustic_text_dict = annotation_result[idx1 + 1]
-            formatted_result_dict["text"] = text_dict["value"]["text"][0]
-            formatted_result_dict["start_time"] = text_dict["value"]["start"]
-            formatted_result_dict["end_time"] = text_dict["value"]["end"]
-            formatted_result_dict["speaker_id"] = text_dict["value"]["speaker_id"]
-            formatted_result_dict["id"] = text_dict["id"]
-            formatted_result_dict["acoustic_normalised_text"] = acoustic_text_dict["value"]["text"][0]
-            transcribed_json.append(formatted_result_dict)
-
-        
     else:
         dicts = 2 if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing else 3
         for idx1 in range(0, len(annotation_result), dicts):
@@ -1231,13 +1246,6 @@ def convert_annotation_result_to_formatted_json(
             "verbatim_transcribed_json": transcribed_json_modified,
             "acoustic_normalised_transcribed_json": acoustic_transcribed_json_modified,
             "standardised_transcription": standardised_transcription,
-        }
-    
-    if is_StandardisedTranscriptionEditing: 
-        return {
-            "verbatim_transcribed_json": transcribed_json_modified,
-            "acoustic_normalised_transcribed_json": acoustic_transcribed_json_modified,
-            "standardised_transcription": standardised_transcription,            
         }
 
     return transcribed_json_modified
@@ -2227,7 +2235,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             proj.save()
 
             # Function call to create the paramters for the sampling and filtering of sentences
-            create_parameters_for_task_creation(
+            create_parameters_for_task_creation.delay(
                 project_type=project_type,
                 dataset_instance_ids=dataset_instance_ids,
                 filter_string=filter_string,
@@ -2448,14 +2456,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
                 "OCRSegmentCategorizationEditing",
-                "StandardisedTranscriptionEditing",
-            ]:  
-                
-                if project.project_type == "StandardisedTranscriptionEditing":
+                "StandardizedTranscriptionEditing",
+            ]:
+                if project.project_type == "StandardizedTranscriptionEditing":
                     try:
-                        #gather trascribed_json
-                        result = convert_annotation_result_to_formatted_json(
-                            task.input_data.id, project.project_type, is_StandardisedTranscriptionEditing=True
+                        # gather trascribed_json
+                        result = parse_json_for_ste(task.input_data.id)
+                    except Exception as e:
+                        print(
+                            f"The prediction json of the data item-{task.input_data.id} is corrupt."
+                        )
+                        task.delete()
+                        continue
+                else:
+                    try:
+                        result = convert_prediction_json_to_annotation_result(
+                            task.input_data.id, project.project_type
                         )
                     except Exception as e:
                         print(
@@ -2463,16 +2479,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         )
                         task.delete()
                         continue
-                try:
-                    result = convert_prediction_json_to_annotation_result(
-                        task.input_data.id, project.project_type
-                    )
-                except Exception as e:
-                    print(
-                        f"The prediction json of the data item-{task.input_data.id} is corrupt."
-                    )
-                    task.delete()
-                    continue
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
             ).count()
@@ -4189,7 +4195,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type == "OCRSegmentCategorizationEditing"
             )
             is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
-            is_StandardizedTranscriptionEditing = project_type = "StandardizedTranscriptionEditing"
             for task in tasks:
                 curr_task = process_task(
                     task,
@@ -4208,9 +4213,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         is_ConversationTranslation,
                         is_ConversationVerification,
                     )
-                elif is_StandardizedTranscriptionEditing:
-                    pass 
-
                 elif dataset_type in ["SpeechConversation", "OCRDocument"]:
                     is_SpeechConversation = dataset_type == "SpeechConversation"
                     if is_SpeechConversation:
