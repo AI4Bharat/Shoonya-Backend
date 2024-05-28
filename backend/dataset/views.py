@@ -6,7 +6,8 @@ from urllib.parse import parse_qsl
 
 from django.apps import apps
 from django.db.models import Q
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, JsonResponse, HttpResponse
+from django.forms.models import model_to_dict
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
 from users.serializers import UserFetchSerializer
@@ -302,7 +303,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         URL: /data/instances/<instance-id>/download/
         Accepted methods: GET
         """
-        export_type = request.GET.get("type", "csv")
+        export_type = request.GET.get("export_type", "csv")
+        print(f"Export type: {export_type}")
         try:
             # Get the dataset instance for the id
             dataset_instance = DatasetInstance.objects.get(instance_id=pk)
@@ -313,10 +315,20 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         data_items = dataset_model.objects.filter(instance_id=pk)
         dataset_resource = resources.RESOURCE_MAP[dataset_instance.dataset_type]
         exported_items = dataset_resource().export_as_generator(export_type, data_items)
-        if export_type == "tsv":
+        if export_type == "TSV":
             content_type = "text/tsv"
-        else:
+        elif export_type == "CSV":
             content_type = "text/csv"
+        else:
+            content_type = "application/json"
+            # Convert each data item to a dictionary dynamically
+            exported_items = [model_to_dict(item) for item in data_items]
+            json_data = json.dumps(exported_items, default=str)
+        
+            # Create a StreamingHttpResponse with the JSON data
+            response = HttpResponse(json_data, content_type='application/json')
+            response['Content-Disposition'] = 'attachment; filename="data.json"'
+            return response
         return StreamingHttpResponse(
             exported_items, status=status.HTTP_200_OK, content_type=content_type
         )
