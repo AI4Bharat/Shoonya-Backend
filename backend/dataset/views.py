@@ -325,9 +325,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             json_data = json.dumps(exported_items, default=str)
             # Create a StreamingHttpResponse with the JSON data
             response = StreamingHttpResponse(json_data, content_type="application/json")
-            response["Content-Disposition"] = (
-                f'attachment; filename="{dataset_instance}.json"'
-            )
+            response[
+                "Content-Disposition"
+            ] = f'attachment; filename="{dataset_instance}.json"'
             return response
         return StreamingHttpResponse(
             exported_items, status=status.HTTP_200_OK, content_type=content_type
