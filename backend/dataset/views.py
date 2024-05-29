@@ -304,7 +304,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         Accepted methods: GET
         """
         export_type = request.GET.get("export_type", "csv")
-        print(f"Export type: {export_type}")
         try:
             # Get the dataset instance for the id
             dataset_instance = DatasetInstance.objects.get(instance_id=pk)
@@ -312,7 +311,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
-        data_items = dataset_model.objects.filter(instance_id=pk)
+        data_items = dataset_model.objects.filter(instance_id=pk)        
         dataset_resource = resources.RESOURCE_MAP[dataset_instance.dataset_type]
         exported_items = dataset_resource().export_as_generator(export_type, data_items)
         if export_type == "TSV":
@@ -324,10 +323,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             # Convert each data item to a dictionary dynamically
             exported_items = [model_to_dict(item) for item in data_items]
             json_data = json.dumps(exported_items, default=str)
-
             # Create a StreamingHttpResponse with the JSON data
-            response = HttpResponse(json_data, content_type="application/json")
-            response["Content-Disposition"] = 'attachment; filename="data.json"'
+            response = StreamingHttpResponse(json_data, content_type="application/json")
+            response["Content-Disposition"] = f'attachment; filename="{dataset_instance}.json"'
             return response
         return StreamingHttpResponse(
             exported_items, status=status.HTTP_200_OK, content_type=content_type
