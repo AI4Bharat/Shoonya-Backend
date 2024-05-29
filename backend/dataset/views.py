@@ -311,7 +311,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
-        data_items = dataset_model.objects.filter(instance_id=pk)        
+        data_items = dataset_model.objects.filter(instance_id=pk)
         dataset_resource = resources.RESOURCE_MAP[dataset_instance.dataset_type]
         exported_items = dataset_resource().export_as_generator(export_type, data_items)
         if export_type == "TSV":
@@ -325,7 +325,9 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             json_data = json.dumps(exported_items, default=str)
             # Create a StreamingHttpResponse with the JSON data
             response = StreamingHttpResponse(json_data, content_type="application/json")
-            response["Content-Disposition"] = f'attachment; filename="{dataset_instance}.json"'
+            response["Content-Disposition"] = (
+                f'attachment; filename="{dataset_instance}.json"'
+            )
             return response
         return StreamingHttpResponse(
             exported_items, status=status.HTTP_200_OK, content_type=content_type
