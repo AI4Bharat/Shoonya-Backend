@@ -324,10 +324,10 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             # Convert each data item to a dictionary dynamically
             exported_items = [model_to_dict(item) for item in data_items]
             json_data = json.dumps(exported_items, default=str)
-        
+
             # Create a StreamingHttpResponse with the JSON data
-            response = HttpResponse(json_data, content_type='application/json')
-            response['Content-Disposition'] = 'attachment; filename="data.json"'
+            response = HttpResponse(json_data, content_type="application/json")
+            response["Content-Disposition"] = 'attachment; filename="data.json"'
             return response
         return StreamingHttpResponse(
             exported_items, status=status.HTTP_200_OK, content_type=content_type
