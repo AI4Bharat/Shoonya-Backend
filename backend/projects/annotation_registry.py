@@ -171,7 +171,7 @@ ANNOTATION_REGISTRY_DICT = {
                 "labels",
                 "verbatim_transcribed_json",
                 "acoustic_normalised_transcribed_json",
-                "standardised_transcription",
+                "acoustic_standardised_transcribed_json",
             ],
             "type": ["labels", "textarea", "textarea", "textarea"],
         },
