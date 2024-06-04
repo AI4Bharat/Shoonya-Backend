@@ -18,7 +18,12 @@ from utils.monolingual.sentence_splitter import split_sentences
 from dataset.models import DatasetInstance
 from .models import *
 from .registry_helper import ProjectRegistry
-from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
+from .utils import (
+    conversation_wordcount,
+    no_of_words,
+    conversation_sentence_count,
+    ann_result_for_ste,
+)
 from .annotation_registry import *
 
 # Celery logger settings
@@ -379,7 +384,7 @@ def create_parameters_for_task_creation(
     tasks = create_tasks_from_dataitems(sampled_items, project)
 
 
-# @shared_task
+@shared_task
 def export_project_in_place(
     annotation_fields, project_id, project_type, get_request_data
 ) -> None:
@@ -452,9 +457,6 @@ def export_project_in_place(
     is_AcousticNormalisedTranscriptionEditing = (
         project_type == "AcousticNormalisedTranscriptionEditing"
     )
-    is_StandardizedTranscriptionEditing = (
-        project_type == "StandardizedTranscriptionEditing"
-    )
     is_ConversationVerification = project.project_type == "ConversationVerification"
     bboxes_relation_json = []
     annotated_document_details_json = {}
@@ -467,20 +469,14 @@ def export_project_in_place(
                 print(error)
                 export_excluded_task_ids.append(task.id)
                 continue
-            if (
-                is_AcousticNormalisedTranscriptionEditing
-                or is_StandardizedTranscriptionEditing
-            ):
+            if is_AcousticNormalisedTranscriptionEditing:
                 try:
                     ta_transcribed_json = json.loads(ta["verbatim_transcribed_json"])
                 except json.JSONDecodeError:
                     ta_transcribed_json = [ta["verbatim_transcribed_json"]]
                 except KeyError:
                     ta_transcribed_json = len(ta_labels) * [""]
-                if (
-                    len(ta_labels) != len(ta_transcribed_json)
-                    and not is_StandardizedTranscriptionEditing
-                ):
+                if len(ta_labels) != len(ta_transcribed_json):
                     export_excluded_task_ids.append(task.id)
                     continue
                 try:
@@ -493,23 +489,9 @@ def export_project_in_place(
                     ]
                 except KeyError:
                     ta_acoustic_transcribed_json = len(ta_labels) * [""]
-                if (
-                    len(ta_labels) != len(ta_acoustic_transcribed_json)
-                    and not is_StandardizedTranscriptionEditing
-                ):
+                if len(ta_labels) != len(ta_acoustic_transcribed_json):
                     export_excluded_task_ids.append(task.id)
                     continue
-                if is_StandardizedTranscriptionEditing:
-                    try:
-                        ta_st_transcribed_json = json.loads(
-                            ta["acoustic_standardised_transcribed_json"]
-                        )
-                    except json.JSONDecodeError:
-                        ta_st_transcribed_json = [
-                            ta["acoustic_standardised_transcribed_json"]
-                        ]
-                    except KeyError:
-                        ta_st_transcribed_json = len(ta_labels) * [""]
             else:
                 try:
                     ta_transcribed_json = json.loads(ta["transcribed_json"])
@@ -530,11 +512,7 @@ def export_project_in_place(
                 # We need to store the rating in integer format
                 if field == "rating":
                     setattr(data_item, field, int(ta[field]))
-                elif (
-                    field == "transcribed_json"
-                    or field == "prediction_json"
-                    or field == "final_transcribed_json"
-                ):
+                elif field == "transcribed_json" or field == "prediction_json":
                     speakers_details = data_item.speakers_json
                     for idx in range(len(ta_transcribed_json)):
                         ta_labels[idx]["text"] = ta_transcribed_json[idx]
@@ -549,42 +527,14 @@ def export_project_in_place(
                             temp = deepcopy(ta_labels[idx])
                             temp["text"] = ta_acoustic_transcribed_json[idx]
                             ta_acoustic_transcribed_json[idx] = temp
-                    if is_StandardizedTranscriptionEditing:
-                        for jdx in range(idx + 1, len(ta_labels)):
-                            temp2 = deepcopy(ta_labels[jdx])
-                            temp2["text"] = (
-                                ta_st_transcribed_json[jdx - 1]
-                                if 0 <= jdx - 1 < len(ta_st_transcribed_json)
-                                else ""
-                            )
-                            speaker_id = next(
-                                speaker
-                                for speaker in speakers_details
-                                if speaker["name"] == ta_labels[jdx]["labels"][0]
-                            )["speaker_id"]
-                            temp2["speaker_id"] = speaker_id
-                            del temp2["labels"]
-                            ta_st_transcribed_json[jdx - 1] = (
-                                temp2
-                                if 0 <= jdx - 1 < len(ta_st_transcribed_json)
-                                else []
-                            )
-                            ta_transcribed_json = {
-                                "verbatim_transcribed_json": ta_labels,
-                                "acoustic_normalised_transcribed_json": ta_acoustic_transcribed_json,
-                                "standardised_transcription": ta_st_transcribed_json,
-                            }
-                            setattr(
-                                data_item, "final_transcribed_json", ta_transcribed_json
-                            )
                     if is_AcousticNormalisedTranscriptionEditing:
                         ta_transcribed_json = {
                             "verbatim_transcribed_json": ta_labels,
                             "acoustic_normalised_transcribed_json": ta_acoustic_transcribed_json,
-                            "standardised_transcription": ta_st_transcribed_json,
+                            "standardised_transcription": "",
                         }
                         setattr(data_item, field, ta_transcribed_json)
-                    elif not is_StandardizedTranscriptionEditing:
+                    else:
                         setattr(data_item, field, ta_labels)
                 elif field == "conversation_json":
                     if is_ConversationVerification:
@@ -703,6 +653,11 @@ def export_project_in_place(
                     if bboxes_relation_json:
                         setattr(data_item, "bboxes_relation_json", bboxes_relation_json)
                     setattr(data_item, field, ta_ocr_transcribed_json)
+                elif field == "final_transcribed_json":
+                    ta_transcribed_json = ann_result_for_ste(
+                        task.correct_annotation.result
+                    )
+                    setattr(data_item, field, ta_transcribed_json)
                 else:
                     setattr(data_item, field, ta[field])
             data_items.append(data_item)
@@ -713,8 +668,6 @@ def export_project_in_place(
         annotation_fields.append("bboxes_relation_json")
     if annotated_document_details_json:
         annotation_fields.append("annotated_document_details_json")
-    if ta_st_transcribed_json:
-        annotation_fields.append("final_transcribed_json")
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 
     tasks = tasks.exclude(id__in=export_excluded_task_ids)
