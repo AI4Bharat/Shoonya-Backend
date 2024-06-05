@@ -564,7 +564,7 @@ def parse_json_for_ste(input_data_id):
     if not data:
         return []
     matched_items = {}
-    total_duration = data.audio_duration
+    total_duration = data_item.audio_duration
     for item in data["verbatim_transcribed_json"]:
         start_end = (item["start"], item["end"])
         if start_end not in matched_items:
