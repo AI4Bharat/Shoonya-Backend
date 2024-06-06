@@ -557,9 +557,9 @@ def convert_time_to_seconds(time_str):
 def parse_json_for_ste(input_data_id):
     data_item = SpeechConversation.objects.get(pk=input_data_id)
     data = (
-        json.loads(data_item.final_transcribed_json)
-        if isinstance(data_item.final_transcribed_json, str)
-        else data_item.final_transcribed_json
+        json.loads(data_item.transcribed_json)
+        if isinstance(data_item.transcribed_json, str)
+        else data_item.transcribed_json
     )
     if not data:
         return []
