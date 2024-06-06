@@ -686,7 +686,7 @@ def parse_json_for_ste(input_data_id):
                     "type": "textarea",
                     "value": {
                         "end": end,
-                        "text": [item["standardised_transcription"]],
+                        "text": item["standardised_transcription"],
                         "start": start,
                     },
                     "origin": "manual",
