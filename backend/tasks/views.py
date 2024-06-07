@@ -1756,7 +1756,8 @@ class AnnotationViewSet(
         is_ocr_sc_or_sce = (
             True
             if annotation_obj.task.project_id.project_type
-            in ["OCRSegmentCategorization", "OCRSegmentCategorizationEditing"]
+            in ["OCRSegmentCategorization", "OCRSegmentCategorizationEditing",
+            "OCRSegmentRelationMappingEditing"]
             else False
         )
         if is_ocr_sc_or_sce and (

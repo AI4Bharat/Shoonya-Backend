@@ -283,7 +283,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 pass
     elif (
         proj_type == "OCRTranscriptionEditing"
-        or proj_type == "OCRSegmentCategorizationEditing"
+        or proj_type == "OCRSegmentCategorizationEditing" or proj_type == "OCRSegmentRelationMappingEditing" #The new prject type alco checked
     ):
         for anno in total_rev_annos_accepted:
             total_word_count_list.append(ocr_word_count(anno.result))
@@ -402,6 +402,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "OCRTranscription",
             "OCRSegmentCategorization",
             "OCRSegmentCategorizationEditing",
+            "OCRSegmentRelationMappingEditing" #The new project type added
         ]:
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
@@ -650,6 +651,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "OCRTranscription",
         "OCRSegmentCategorization",
         "OCRSegmentCategorizationEditing",
+        "OCRSegmentRelationMappingEditing",
     ]:
         result["Validated Word Count"] = validated_word_count
         result["Validated With Changes Word Count"] = validated_with_changes_word_count
@@ -2365,6 +2367,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
                 "OCRSegmentCategorizationEditing",
+                # "OCRSegmentRelationMappingEditing",
             ]:
                 try:
                     result = convert_prediction_json_to_annotation_result(
@@ -4091,6 +4094,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type == "OCRSegmentCategorizationEditing"
             )
             is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
+            is_OCRSegmentRelationMappingEditing = (
+            project_type == "OCRSegmentRelationMappingEditing"  # Added the new project 
+        )
             for task in tasks:
                 curr_task = process_task(
                     task,
@@ -4120,6 +4126,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             curr_task,
                             is_OCRSegmentCategorization,
                             is_OCRSegmentCategorizationEditing,
+                            is_OCRSegmentRelationMappingEditing,
                         )
                 tasks_list.append(curr_task)
             download_resources = True
