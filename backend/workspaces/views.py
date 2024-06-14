@@ -320,7 +320,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                     workspace.workspace_password = ""
                     g_flag = True
             workspace.save()
-            if not p_flag and g_flag:
+            if not p_flag and not g_flag:
                 return Response(
                     {"message": "Please send either a password or a guest workspace."},
                     status=status.HTTP_400_BAD_REQUEST,
