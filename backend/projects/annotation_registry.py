@@ -152,6 +152,17 @@ ANNOTATION_REGISTRY_DICT = {
             "type": ["textarea", "labels", "textarea"],
         },
     },
+    "OCRSegmentCategorisationRelationMappingEditing": {
+        "ocr_transcribed_json": {
+            "to_name": "image_url",
+            "from_name": [
+                "annotation_bboxes",
+                "annotation_labels",
+                "annotation_transcripts",
+            ],
+            "type": ["textarea", "labels", "textarea"],
+        },
+    },
     "AcousticNormalisedTranscriptionEditing": {
         "transcribed_json": {
             "to_name": "audio_url",

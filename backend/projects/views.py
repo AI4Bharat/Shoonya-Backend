@@ -916,56 +916,11 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
-        # elif proj_type == "StandardisedTranscriptionEditing":
-        #     # convert the prediction_json to a concatinated transcribed_json
-        #     data_item = SpeechConversation.objects.get(pk=pk)
-        #     prediction_json = (
-        #         json.loads(data_item.prediction_json)
-        #         if isinstance(data_item.prediction_json, str)
-        #         else data_item.prediction_json
-        #     )
-        #     speakers_json = data_item.speakers_json
-        #     audio_duration = data_item.audio_duration
-        #     # converting prediction_json to result (wherever it exists) for every task.
-        #     if prediction_json == None:
-        #         return result
-        #     # Initialize variables
-        #     concatenated_text = ""
-        #     min_start_time = float("inf")
-        #     max_end_time = float("-inf")
-        #
-        #     for idx, val in enumerate(prediction_json):
-        #         # Concatenate the text
-        #         concatenated_text += val["text"] + " "
-        #
-        #         # Update the minimum start time and maximum end time
-        #         min_start_time = min(min_start_time, val["start"])
-        #         max_end_time = max(max_end_time, val["end"])
-        #     if concatenated_text:
-        #         concatenated_text.strip()
-        #
-        #     # Create a single dictionary to store the result
-        #     result_dict = {
-        #         "origin": "manual",
-        #         "to_name": "audio_url",
-        #         "from_name": "transcribed_json",
-        #         "original_length": audio_duration,
-        #         "id": f"shoonya_{generate_random_string(13)}",
-        #         "type": "textarea",
-        #         "value": {
-        #             "start": min_start_time,
-        #             "end": max_end_time,
-        #             "text": [concatenated_text],  # Remove trailing space
-        #         },
-        #     }
-
-        # Clear the result array and append the single result dictionary
-        result.clear()
-        result.append(result_dict)
-    elif (
-        proj_type == "OCRTranscriptionEditing"
-        or proj_type == "OCRSegmentCategorizationEditing"
-    ):
+    elif proj_type in [
+        "OCRTranscriptionEditing",
+        "OCRSegmentCategorizationEditing",
+        "OCRSegmentCategorisationRelationMappingEditing",
+    ]:
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = (
             json.loads(data_item.ocr_prediction_json)
@@ -974,6 +929,10 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
         )
         if ocr_prediction_json == None:
             return result
+        is_OCRSegmentCategorisationRelationMappingEditing = (
+            proj_type == "OCRSegmentCategorisationRelationMappingEditing"
+        )
+        id_set = set()
         for idx, val in enumerate(ocr_prediction_json):
             image_rotation = (
                 ocr_prediction_json["image_rotation"]
@@ -981,6 +940,8 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 else 0
             )
             custom_id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+            if is_OCRSegmentCategorisationRelationMappingEditing:
+                id_set.add(custom_id)
             # creating values
             common_value = {
                 "x": val["x"],
@@ -1033,7 +994,15 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             result.append(rectangle_dict)
             result.append(label_dict)
             result.append(text_dict)
-
+        bboxes_relation_prediction_json = (
+            json.loads(data_item.bboxes_relation_prediction_json)
+            if isinstance(data_item.bboxes_relation_prediction_json, str)
+            else data_item.bboxes_relation_prediction_json
+        )
+        for b in bboxes_relation_prediction_json:
+            if "from_id" in b and "to_id" in b:
+                if b["from_id"] in id_set and b["to_id"] in id_set:
+                    result.append(b)
     return result
 
 
