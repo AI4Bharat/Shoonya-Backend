@@ -90,6 +90,7 @@ from .utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
+    ann_result_for_ste,
 )
 
 from users.utils import generate_random_string
@@ -1047,23 +1048,17 @@ def convert_annotation_result_to_formatted_json(
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
-    standardised_json_modified = []
+    standardised_transcription = ""
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
-    if is_SpeechConversation:
+    if is_StandardisedTranscriptionEditing:
+        transcribed_json = ann_result_for_ste(annotation_result)
+    elif is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
-            if (
-                "id" in annotation_result[idx1]
-                and annotation_result[idx1]["id"] in ids_formatted
-            ):
-                continue
             formatted_result_dict = {}
             labels_dict = {}
             text_dict = {}
             acoustic_text_dict = {}
-            st_labels_dict = {}
-            st_text_dict = {}
-            st_formatted_result_dict = {}
             if isinstance(annotation_result[idx1], str):
                 annotation_result[idx1] = json.loads(annotation_result[idx1])
             if annotation_result[idx1]["from_name"] == "labels":
@@ -1077,6 +1072,7 @@ def convert_annotation_result_to_formatted_json(
                 )
                 acoustic_text_dict = annotation_result[idx1]
             else:
+                text_dict = json.dumps(annotation_result[idx1], ensure_ascii=False)
                 text_dict = annotation_result[idx1]
             for idx2 in range(idx1 + 1, len(annotation_result)):
                 if annotation_result[idx1]["id"] == annotation_result[idx2]["id"]:
@@ -1093,93 +1089,50 @@ def convert_annotation_result_to_formatted_json(
                         text_dict = json.dumps(
                             annotation_result[idx2], ensure_ascii=False
                         )
-                    if not is_StandardisedTranscriptionEditing:
-                        if not is_acoustic or (
-                            labels_dict and acoustic_text_dict and text_dict
-                        ):
-                            break
-                elif is_StandardisedTranscriptionEditing:
-                    if (
-                        annotation_result[idx2]["from_name"] == "labels"
-                        and (idx2 + 1) < len(annotation_result)
-                        and annotation_result[idx2 + 1]["from_name"]
-                        == "acoustic_standardised_transcribed_json"
+                    if not is_acoustic or (
+                        labels_dict and acoustic_text_dict and text_dict
                     ):
-                        st_labels_dict = annotation_result[idx2]
-                    elif (
-                        annotation_result[idx2]["from_name"]
-                        == "acoustic_standardised_transcribed_json"
-                    ):
-                        st_text_dict = annotation_result[idx2]
+                        break
 
-            ids_formatted[annotation_result[idx1]["id"]] = "formatted"
-            if not labels_dict:
-                formatted_result_dict["speaker_id"] = None
-            else:
-                try:
-                    formatted_result_dict["speaker_id"] = next(
-                        speaker
-                        for speaker in speakers_json
-                        if speaker["name"] == labels_dict["value"]["labels"][0]
-                    )["speaker_id"]
-                except (KeyError, StopIteration):
+            if annotation_result[idx1]["id"] not in ids_formatted:
+                ids_formatted[annotation_result[idx1]["id"]] = "formatted"
+                if not labels_dict:
                     formatted_result_dict["speaker_id"] = None
-                formatted_result_dict["start"] = labels_dict["value"]["start"]
-                formatted_result_dict["end"] = labels_dict["value"]["end"]
-
-            if not text_dict:
-                formatted_result_dict["text"] = ""
-            else:
-                text_dict_json = (
-                    json.loads(text_dict) if isinstance(text_dict, str) else text_dict
-                )
-                formatted_result_dict["text"] = text_dict_json["value"]["text"][0]
-                formatted_result_dict["start"] = text_dict_json["value"]["start"]
-                formatted_result_dict["end"] = text_dict_json["value"]["end"]
-
-            transcribed_json.append(formatted_result_dict)
-
-            if is_StandardisedTranscriptionEditing:
-                if not st_labels_dict:
-                    st_formatted_result_dict["speaker_id"] = None
                 else:
                     try:
-                        st_formatted_result_dict["speaker_id"] = next(
+                        formatted_result_dict["speaker_id"] = next(
                             speaker
                             for speaker in speakers_json
-                            if speaker["name"] == st_labels_dict["value"]["labels"][0]
+                            if speaker["name"] == labels_dict["value"]["labels"][0]
                         )["speaker_id"]
                     except (KeyError, StopIteration):
-                        st_formatted_result_dict["speaker_id"] = None
-                    st_formatted_result_dict["start"] = st_labels_dict["value"]["start"]
-                    st_formatted_result_dict["end"] = st_labels_dict["value"]["end"]
+                        formatted_result_dict["speaker_id"] = None
+                    formatted_result_dict["start"] = labels_dict["value"]["start"]
+                    formatted_result_dict["end"] = labels_dict["value"]["end"]
 
-                if not st_text_dict:
-                    st_formatted_result_dict["text"] = ""
+                if not text_dict:
+                    formatted_result_dict["text"] = ""
                 else:
-                    text_dict_json = (
-                        json.loads(st_text_dict)
-                        if isinstance(st_text_dict, str)
-                        else st_text_dict
-                    )
-                    st_formatted_result_dict["text"] = text_dict_json["value"]["text"][
-                        0
-                    ]
-                    st_formatted_result_dict["start"] = text_dict_json["value"]["start"]
-                    st_formatted_result_dict["end"] = text_dict_json["value"]["end"]
-                standardised_json_modified.append(st_formatted_result_dict)
+                    text_dict_json = json.loads(text_dict)
+                    formatted_result_dict["text"] = text_dict_json["value"]["text"][0]
+                    formatted_result_dict["start"] = text_dict_json["value"]["start"]
+                    formatted_result_dict["end"] = text_dict_json["value"]["end"]
 
-            if is_acoustic:
-                acoustic_formatted_result_dict = deepcopy(formatted_result_dict)
-                acoustic_dict_json = (
-                    json.loads(acoustic_text_dict)
-                    if isinstance(acoustic_text_dict, str)
-                    else acoustic_text_dict
-                )
-                acoustic_formatted_result_dict["text"] = (
-                    acoustic_dict_json["value"]["text"][0] if acoustic_dict_json else ""
-                )
-                acoustic_transcribed_json.append(acoustic_formatted_result_dict)
+                transcribed_json.append(formatted_result_dict)
+
+                if is_acoustic:
+                    acoustic_formatted_result_dict = deepcopy(formatted_result_dict)
+                    acoustic_dict_json = (
+                        json.loads(acoustic_text_dict)
+                        if isinstance(acoustic_text_dict, str)
+                        else acoustic_text_dict
+                    )
+                    acoustic_formatted_result_dict["text"] = (
+                        acoustic_dict_json["value"]["text"][0]
+                        if acoustic_dict_json
+                        else ""
+                    )
+                    acoustic_transcribed_json.append(acoustic_formatted_result_dict)
         if acoustic_transcribed_json:
             acoustic_transcribed_json_modified = json.dumps(
                 acoustic_transcribed_json, ensure_ascii=False
@@ -1245,21 +1198,12 @@ def convert_annotation_result_to_formatted_json(
                 )
             transcribed_json.append(formatted_result_dict)
     transcribed_json_modified = json.dumps(transcribed_json, ensure_ascii=False)
-    standardised_json_modified = json.dumps(
-        standardised_json_modified, ensure_ascii=False
-    )
 
     if is_acoustic:
-        if is_StandardisedTranscriptionEditing:
-            return {
-                "verbatim_transcribed_json": transcribed_json_modified,
-                "acoustic_normalised_transcribed_json": acoustic_transcribed_json_modified,
-                "standardised_transcription": standardised_json_modified,
-            }
         return {
             "verbatim_transcribed_json": transcribed_json_modified,
             "acoustic_normalised_transcribed_json": acoustic_transcribed_json_modified,
-            "standardised_transcription": [],
+            "standardised_transcription": standardised_transcription,
         }
 
     return transcribed_json_modified
@@ -2238,7 +2182,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 proj.metadata_json[
                     "automatic_annotation_creation_mode"
                 ] = automatic_annotation_creation_mode
-            if proj.project_type == "AcousticNormalisedTranscriptionEditing":
+            if proj.project_type in [
+                "AcousticNormalisedTranscriptionEditing",
+                "StandardizedTranscriptionEditing",
+            ]:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
                 proj.metadata_json["acoustic_enabled_stage"] = (
@@ -2478,7 +2425,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         result = parse_json_for_ste(task.input_data.id)
                     except Exception as e:
                         print(
-                            f"The prediction json of the data item-{task.input_data.id} is corrupt."
+                            f"The final_transcribed_json json of the data item-{task.input_data.id} is corrupt."
                         )
                         task.delete()
                         continue
