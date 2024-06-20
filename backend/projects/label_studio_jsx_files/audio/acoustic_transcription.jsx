@@ -24,7 +24,7 @@
   </View>
   <View style="display: none;">
     <TextArea name="acoustic_normalised_transcribed_json" toName="audio_url" perRegion="true" className="ignore_assertion" />
-    <TextArea name="standardised_transcription" toName="audio_url" className="ignore_assertion"/>
+    <TextArea name="acoustic_standardised_transcribed_json" toName="audio_url" className="ignore_assertion"/>
   </View>
   {reference_raw_transcript ? <Header value="Reference Transcript" /> 
    <Text name="reference_raw_transcript" 
