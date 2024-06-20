@@ -636,10 +636,10 @@ class GoogleLogin(viewsets.ViewSet):
             photoUrl = fire_user["users"][0]["photoUrl"]
             name = str(fire_user["users"][0]["displayName"]).rsplit(" ", 1)
             fName = name[0]
-            lName = name[1]
-        except:
+            lName = name[1] if len(name) > 1 else ""
+        except Exception as e:
             return Response(
-                {"message": "Authentication failed."},
+                {"message": "Authentication failed.", "error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
