@@ -4125,6 +4125,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type == "OCRSegmentCategorizationEditing"
             )
             is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
+            is_OCRSegmentCategorisationRelationMappingEditing = (
+                project_type == "OCRSegmentCategorisationRelationMappingEditing"
+            )
             for task in tasks:
                 curr_task = process_task(
                     task,
@@ -4154,6 +4157,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             curr_task,
                             is_OCRSegmentCategorization,
                             is_OCRSegmentCategorizationEditing,
+                            is_OCRSegmentCategorisationRelationMappingEditing,
                         )
                 tasks_list.append(curr_task)
             download_resources = True
