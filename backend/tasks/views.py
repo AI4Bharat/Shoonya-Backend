@@ -11,6 +11,11 @@ from tasks.utils import Queued_Task_name
 from django.utils import timezone
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import json
+from celery import Celery
+
+# from flower.api import Flower
+# flower_app = Flower()
+celery_app = Celery()
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import StreamingHttpResponse, FileResponse
@@ -1753,6 +1758,14 @@ class AnnotationViewSet(
             == "AcousticNormalisedTranscriptionEditing"
             else False
         )
+
+        is_StandardizedTranscriptionEditing = (
+            True
+            if annotation_obj.task.project_id.project_type
+            == "StandardizedTranscriptionEditing"
+            else False
+        )
+
         is_ocr_sc_or_sce = (
             True
             if annotation_obj.task.project_id.project_type
@@ -1784,12 +1797,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        == 1,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 1
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1840,12 +1856,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        == 1,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 1
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -1913,12 +1932,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 2,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 2
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -2008,12 +2030,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 2,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 2
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -2108,12 +2133,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 3,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 3
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -2194,12 +2222,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 3,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
+                        (
+                            is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 3
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     if empty_flag == True and annotation_status in [
                         LABELED,
@@ -2319,19 +2350,33 @@ class AnnotationViewSet(
         if result == None or len(result) == 0:
             return modified_result, empty_text_flag
         for idx, val in enumerate(result):
-            if "standardised_transcription" in val:
+            if "acoustic_standardized_text" in val:
                 if acoustic_enabled:
                     standardised_dict = {
                         "id": f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}",
                         "origin": "manual",
                         "to_name": "audio_url",
-                        "from_name": "standardised_transcription",
+                        "from_name": "acoustic_standardised_transcribed_json",
                         "original_length": audio_duration,
                         "type": "textarea",
                         "value": {
-                            "text": [val["standardised_transcription"]],
+                            "start": self.convert_formatted_time_to_fractional(
+                                val["start_time"]
+                            ),
+                            "end": self.convert_formatted_time_to_fractional(
+                                val["end_time"]
+                            ),
+                            "text": [val["acoustic_standardized_text"]],
                         },
                     }
+                    label_dict_st = deepcopy(standardised_dict)
+                    label_dict_st["type"] = "labels"
+                    del label_dict_st["value"]["text"]
+                    label_dict_st["value"]["labels"] = (
+                        [val["speaker_id"]] if "speaker_id" in val else []
+                    )
+                    label_dict_st["from_name"] = "labels"
+                    modified_result.append(label_dict_st)
                     modified_result.append(standardised_dict)
                 continue
             if "type" in val or "value" in val:
@@ -2589,3 +2634,61 @@ def get_celery_tasks(request):
     page_size = int(request.GET.get("page_size", 10))
     data = paginate_queryset(filtered_tasks, page_number, page_size)
     return JsonResponse(data["results"], safe=False)
+
+
+@api_view(["GET"])
+def stopping_celery_tasks(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None or task.state == "PENDING":
+        return JsonResponse({"message": "Task not found or not running"}, status=404)
+
+    if task.state in ["SUCCESS", "FAILURE", "REVOKED"]:
+        return JsonResponse(
+            {"message": "Task already completed or revoked"}, status=400
+        )
+
+    task.revoke(terminate=True)
+
+    return JsonResponse({"message": "Task stopped successfully"}, status=200)
+
+
+@api_view(["GET"])
+def resume_celery_task(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None or task.state not in ["REVOKED", "FAILURE"]:
+        return JsonResponse(
+            {"message": "Task not found or cannot be resumed"}, status=400
+        )
+
+    task.revive()
+
+    return JsonResponse({"message": "Task resumed successfully"}, status=200)
+
+
+@api_view(["GET"])
+def delete_celery_task(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None:
+        return JsonResponse({"message": "Task not found"}, status=404)
+
+    task.forget()
+
+    return JsonResponse({"message": "Task deleted successfully"}, status=200)

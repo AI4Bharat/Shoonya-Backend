@@ -18,7 +18,12 @@ from utils.monolingual.sentence_splitter import split_sentences
 from dataset.models import DatasetInstance
 from .models import *
 from .registry_helper import ProjectRegistry
-from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
+from .utils import (
+    conversation_wordcount,
+    no_of_words,
+    conversation_sentence_count,
+    ann_result_for_ste,
+)
 from .annotation_registry import *
 
 # Celery logger settings
@@ -523,20 +528,10 @@ def export_project_in_place(
                             temp["text"] = ta_acoustic_transcribed_json[idx]
                             ta_acoustic_transcribed_json[idx] = temp
                     if is_AcousticNormalisedTranscriptionEditing:
-                        try:
-                            standardised_transcription = json.loads(
-                                ta["standardised_transcription"]
-                            )
-                        except json.JSONDecodeError:
-                            standardised_transcription = ta[
-                                "standardised_transcription"
-                            ]
-                        except KeyError:
-                            standardised_transcription = ""
                         ta_transcribed_json = {
                             "verbatim_transcribed_json": ta_labels,
                             "acoustic_normalised_transcribed_json": ta_acoustic_transcribed_json,
-                            "standardised_transcription": standardised_transcription,
+                            "standardised_transcription": "",
                         }
                         setattr(data_item, field, ta_transcribed_json)
                     else:
@@ -658,6 +653,11 @@ def export_project_in_place(
                     if bboxes_relation_json:
                         setattr(data_item, "bboxes_relation_json", bboxes_relation_json)
                     setattr(data_item, field, ta_ocr_transcribed_json)
+                elif field == "final_transcribed_json":
+                    ta_transcribed_json = ann_result_for_ste(
+                        task.correct_annotation.result
+                    )
+                    setattr(data_item, field, ta_transcribed_json)
                 else:
                     setattr(data_item, field, ta[field])
             data_items.append(data_item)

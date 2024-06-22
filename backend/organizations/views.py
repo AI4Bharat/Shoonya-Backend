@@ -2713,6 +2713,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 "AudioSegmentation",
                 "AudioTranscription",
                 "AudioTranscriptionEditing",
+                "StandardisedTranscriptionEditing",
                 "ContextualSentenceVerification",
                 "ContextualSentenceVerificationAndDomainClassification",
                 "ContextualTranslationEditing",

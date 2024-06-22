@@ -25,6 +25,8 @@ from .utils import (
     process_speech_tasks,
     process_ocr_tasks,
     process_task,
+    convert_time_to_seconds,
+    parse_json_for_ste,
 )
 from django.http import HttpResponse, JsonResponse
 from rest_framework import status, viewsets
@@ -88,6 +90,7 @@ from .utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
+    ann_result_for_ste,
 )
 
 from users.utils import generate_random_string
@@ -914,6 +917,52 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             # mainly label_dict and text_dict are sent as result
             result.append(label_dict)
             result.append(text_dict)
+        # elif proj_type == "StandardisedTranscriptionEditing":
+        #     # convert the prediction_json to a concatinated transcribed_json
+        #     data_item = SpeechConversation.objects.get(pk=pk)
+        #     prediction_json = (
+        #         json.loads(data_item.prediction_json)
+        #         if isinstance(data_item.prediction_json, str)
+        #         else data_item.prediction_json
+        #     )
+        #     speakers_json = data_item.speakers_json
+        #     audio_duration = data_item.audio_duration
+        #     # converting prediction_json to result (wherever it exists) for every task.
+        #     if prediction_json == None:
+        #         return result
+        #     # Initialize variables
+        #     concatenated_text = ""
+        #     min_start_time = float("inf")
+        #     max_end_time = float("-inf")
+        #
+        #     for idx, val in enumerate(prediction_json):
+        #         # Concatenate the text
+        #         concatenated_text += val["text"] + " "
+        #
+        #         # Update the minimum start time and maximum end time
+        #         min_start_time = min(min_start_time, val["start"])
+        #         max_end_time = max(max_end_time, val["end"])
+        #     if concatenated_text:
+        #         concatenated_text.strip()
+        #
+        #     # Create a single dictionary to store the result
+        #     result_dict = {
+        #         "origin": "manual",
+        #         "to_name": "audio_url",
+        #         "from_name": "transcribed_json",
+        #         "original_length": audio_duration,
+        #         "id": f"shoonya_{generate_random_string(13)}",
+        #         "type": "textarea",
+        #         "value": {
+        #             "start": min_start_time,
+        #             "end": max_end_time,
+        #             "text": [concatenated_text],  # Remove trailing space
+        #         },
+        #     }
+
+        # Clear the result array and append the single result dictionary
+        result.clear()
+        result.append(result_dict)
     elif (
         proj_type == "OCRTranscriptionEditing"
         or proj_type == "OCRSegmentCategorizationEditing"
@@ -995,12 +1044,15 @@ def convert_annotation_result_to_formatted_json(
     is_SpeechConversation,
     is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing,
     is_acoustic=False,
+    is_StandardisedTranscriptionEditing=False,
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
     standardised_transcription = ""
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
-    if is_SpeechConversation:
+    if is_StandardisedTranscriptionEditing:
+        transcribed_json = ann_result_for_ste(annotation_result)
+    elif is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
             formatted_result_dict = {}
@@ -1019,9 +1071,6 @@ def convert_annotation_result_to_formatted_json(
                     annotation_result[idx1], ensure_ascii=False
                 )
                 acoustic_text_dict = annotation_result[idx1]
-            elif annotation_result[idx1]["from_name"] == "standardised_transcription":
-                standardised_transcription = annotation_result[idx1]["value"]["text"][0]
-                continue
             else:
                 text_dict = json.dumps(annotation_result[idx1], ensure_ascii=False)
                 text_dict = annotation_result[idx1]
@@ -2133,7 +2182,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 proj.metadata_json[
                     "automatic_annotation_creation_mode"
                 ] = automatic_annotation_creation_mode
-            if proj.project_type == "AcousticNormalisedTranscriptionEditing":
+            if proj.project_type in [
+                "AcousticNormalisedTranscriptionEditing",
+                "StandardizedTranscriptionEditing",
+            ]:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
                 proj.metadata_json["acoustic_enabled_stage"] = (
@@ -2365,20 +2417,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
                 "OCRSegmentCategorizationEditing",
+                "StandardizedTranscriptionEditing",
             ]:
-                try:
-                    result = convert_prediction_json_to_annotation_result(
-                        task.input_data.id, project.project_type
-                    )
-                except Exception as e:
-                    print(
-                        f"The prediction json of the data item-{task.input_data.id} is corrupt."
-                    )
-                    task.delete()
-                    continue
+                if project.project_type == "StandardizedTranscriptionEditing":
+                    try:
+                        # gather trascribed_json
+                        result = parse_json_for_ste(task.input_data.id)
+                    except Exception as e:
+                        print(
+                            f"The final_transcribed_json json of the data item-{task.input_data.id} is corrupt."
+                        )
+                        task.delete()
+                        continue
+                else:
+                    try:
+                        result = convert_prediction_json_to_annotation_result(
+                            task.input_data.id, project.project_type
+                        )
+                    except Exception as e:
+                        print(
+                            f"The prediction json of the data item-{task.input_data.id} is corrupt."
+                        )
+                        task.delete()
+                        continue
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
             ).count()
+
             if annotator_anno_count < project.required_annotators_per_task:
                 cur_user_anno_count = Annotation_model.objects.filter(
                     task_id=task,
