@@ -25,4 +25,3 @@ class TransliterationLogSerializer(serializers.Serializer):
     edited_romanised_text = serializers.CharField(required=False)
     language = serializers.CharField()
     uuid = serializers.UUIDField(default=uuid.uuid4, read_only=True)
-

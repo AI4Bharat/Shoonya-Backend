@@ -171,8 +171,8 @@ class TransliterationLogView(APIView):
             current_time = datetime.datetime.now().isoformat()
             data_with_timestamp = {**data, "timestamp": current_time}
 
-            print('azure string here : ', AZURE_STORAGE_CONNECTION_STRING)
-            print('container name here : ', INDIC_ROMANISED_LOGS)
+            print("azure string here : ", AZURE_STORAGE_CONNECTION_STRING)
+            print("container name here : ", INDIC_ROMANISED_LOGS)
             # Azure Blob Storage setup
             blob_service_client = BlobServiceClient.from_connection_string(
                 AZURE_STORAGE_CONNECTION_STRING
@@ -190,15 +190,15 @@ class TransliterationLogView(APIView):
             #     INDIC_ROMANISED_LOGS
             # )
             # print('container client',container_client)
-            # create a single log file which contains logs of all transliterations 
+            # create a single log file which contains logs of all transliterations
 
-            log_file_name= "main_transliteration.log"
+            log_file_name = "main_transliteration.log"
             blob_client = container_client.get_blob_client(log_file_name)
-            print('the code is at 199')
+            print("the code is at 199")
             print(blob_client.exists())
             if not blob_client.exists():
                 blob_client.upload_blob("[]", overwrite=True)
-            print('code at 203 line')
+            print("code at 203 line")
             existing_data = blob_client.download_blob().readall().decode("utf-8")
             existing_json_data = json.loads(existing_data)
             existing_json_data.append(data_with_timestamp)
