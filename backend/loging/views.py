@@ -161,7 +161,10 @@ class TransliterationLogView(APIView):
             # Process the valid data here
             data = serializer.validated_data
             self.log_transliteration(data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(
+                {"message": "Data stored in Azure Blob successfully"},
+                status=status.HTTP_201_CREATED,
+            )
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -172,6 +175,9 @@ class TransliterationLogView(APIView):
             data_with_timestamp = {**data, "timestamp": current_time}
 
             # Azure Blob Storage setup
+            current_date = datetime.date.today()
+            log_file_name = f"{current_date.isoformat()}.log"
+
             blob_service_client = BlobServiceClient.from_connection_string(
                 AZURE_STORAGE_CONNECTION_STRING
             )
@@ -180,7 +186,7 @@ class TransliterationLogView(APIView):
                 INDIC_ROMANISED_LOGS
             )
 
-            log_file_name = "romanised_transliteration.log"
+            # log_file_name = "romanised_transliteration.log"
             blob_client = container_client.get_blob_client(log_file_name)
 
             if not blob_client.exists():
@@ -190,8 +196,33 @@ class TransliterationLogView(APIView):
             existing_data = blob_client.download_blob().readall().decode("utf-8")
             existing_json_data = json.loads(existing_data)
             existing_json_data.append(data_with_timestamp)
-            updated_content = json.dumps(existing_json_data, indent=2)
+
+            updated_content = json.dumps(existing_json_data, cls=CustomJSONEncoder)
             blob_client.upload_blob(updated_content, overwrite=True)
+
+            create_empty_log_for_next_day(container_client)
+
+            main_transliteration_blob_client = container_client.get_blob_client(
+                "romanised_transliteration.log"
+            )
+
+            if not main_transliteration_blob_client.exists():
+                main_transliteration_blob_client.upload_blob("[]", overwrite=True)
+
+            main_transliteration_data = (
+                main_transliteration_blob_client.download_blob()
+                .readall()
+                .decode("utf-8")
+            )
+            main_transliteration_json_data = json.loads(main_transliteration_data)
+            main_transliteration_json_data.append(data_with_timestamp)
+            main_updated_content = json.dumps(
+                main_transliteration_json_data, cls=CustomJSONEncoder
+            )
+            main_transliteration_blob_client.upload_blob(
+                main_updated_content, overwrite=True
+            )
+
             print("Logged transliteration data successfully")
         except Exception as e:
             print(f"Failed to log transliteration data: {str(e)}")
