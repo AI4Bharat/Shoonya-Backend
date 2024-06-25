@@ -4234,6 +4234,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def set_password(self, request, pk=None):
         try:
             project = Project.objects.get(pk=pk)
+
+            if "password" not in request.data:
+                return Response(
+                    {"error": "Password key is missing"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             password = request.data.get("password")
 
             if not password:
@@ -4242,7 +4249,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            project.set_project_password(password)
+            try:
+                project.set_project_password(password)
+
+            except Exception as e:
+                return Response(
+                    {"error": f"Failed to set the password : {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
             return Response(
                 {"message": "Password set Successfully"}, status=status.HTTP_200_OK
             )
@@ -4269,6 +4284,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
     ):
         try:
             project = Project.objects.get(pk=pk)
+
+            if "password" not in request.data:
+                return Response(
+                    {"error": "Password key is missing"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             password = request.data.get("password")
 
             if not password:
@@ -4276,15 +4298,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"error": "Password not provided"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            try:
+                if project.check_project_password(password):
+                    return Response(
+                        {"message": "Authentication Successful"},
+                        status=status.HTTP_200_OK,
+                    )
 
-            if project.check_project_password(password):
+                else:
+                    return Response(
+                        {"error": "Authentication Failed"},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+            except Exception as e:
                 return Response(
-                    {"message": "Authentication Successful"}, status=status.HTTP_200_OK
-                )
-            else:
-                return Response(
-                    {"error": "Authentication Failed"},
-                    status=status.HTTP_401_UNAUTHORIZED,
+                    {"error": f"Failed to authenticate project : {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         except Project.DoesNotExist:
