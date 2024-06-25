@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('users', '0035_auto_20240426_1126'),
+        ("users", "0035_auto_20240426_1126"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='user',
-            name='is_approved',
-            field=models.BooleanField(default=False, help_text='Indicates whether user is approved by the admin or not.', verbose_name='is_approved'),
+            model_name="user",
+            name="is_approved",
+            field=models.BooleanField(
+                default=False,
+                help_text="Indicates whether user is approved by the admin or not.",
+                verbose_name="is_approved",
+            ),
         ),
     ]
