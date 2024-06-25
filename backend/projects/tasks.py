@@ -672,41 +672,41 @@ def export_project_new_record(
             data_item = dataset_model()
             data_item.instance_id = export_dataset_instance
 
-            if project_type == "InstructionDrivenChat":
-                extra_data = get_attributes_for_IDC(project, task)
-                tl["data"].update(extra_data)
+        if project_type == "InstructionDrivenChat":
+            extra_data = get_attributes_for_IDC(project, task)
+            tl["data"].update(extra_data)
+            assign_attributes_and_save_dataitem(
+                annotation_fields,
+                task_annotation_fields,
+                data_item,
+                tl["data"],
+                task,
+                project_type,
+            )
+
+        elif project_type == "ModelInteractionEvaluation":
+            item_data_list = get_attributes_for_ModelInteractionEvaluation(task, True)
+            for item in range(len(item_data_list)):
+                data_item = dataset_model()
+                data_item.instance_id = export_dataset_instance
                 assign_attributes_and_save_dataitem(
                     annotation_fields,
                     task_annotation_fields,
                     data_item,
-                    tl["data"],
+                    item_data_list[item],
                     task,
                     project_type,
                 )
 
-            elif project_type == "ModelInteractionEvaluation":
-                item_data_list = get_attributes_for_ModelInteractionEvaluation(task)
-                for item in range(len(item_data_list)):
-                    data_item = dataset_model()
-                    data_item.instance_id = export_dataset_instance
-                    assign_attributes_and_save_dataitem(
-                        annotation_fields,
-                        task_annotation_fields,
-                        data_item,
-                        item_data_list[item],
-                        task,
-                        project_type,
-                    )
-
-            else:
-                assign_attributes_and_save_dataitem(
-                    annotation_fields,
-                    task_annotation_fields,
-                    data_item,
-                    tl["data"],
-                    task,
-                    project_type,
-                )
+        else:
+            assign_attributes_and_save_dataitem(
+                annotation_fields,
+                task_annotation_fields,
+                data_item,
+                tl["data"],
+                task,
+                project_type,
+            )
 
     """
     download_resources = True
