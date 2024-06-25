@@ -4225,3 +4225,74 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "language field of task data succesfully updated!"},
             status=status.HTTP_200_OK,
         )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_name="set_password",
+    )
+    def set_password(self, request, pk=None):
+        try:
+            project = Project.objects.get(pk=pk)
+            password = request.data.get("password")
+
+            if not password:
+                return Response(
+                    {"error": "Password not provided"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            project.set_project_password(password)
+            return Response(
+                {"message": "Password set Successfully"}, status=status.HTTP_200_OK
+            )
+
+        except Project.DoesNotExist:
+            return Response(
+                {"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_name="verify_password",
+    )
+    def verify_password(
+        self,
+        request,
+        pk=None,
+    ):
+        try:
+            project = Project.objects.get(pk=pk)
+            password = request.data.get("password")
+
+            if not password:
+                return Response(
+                    {"error": "Password not provided"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if project.check_project_password(password):
+                return Response(
+                    {"message": "Authentication Successful"}, status=status.HTTP_200_OK
+                )
+            else:
+                return Response(
+                    {"error": "Authentication Failed"},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+        except Project.DoesNotExist:
+            return Response(
+                {"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
