@@ -47,7 +47,7 @@ django-smtp-ssl==1.0
 django-templated-mail==1.1.1
 django-timezone-field==4.2.3
 django-user-agents==0.4.0
-djangorestframework==3.13.1
+djangorestframework==3.15.2
 djangorestframework-simplejwt==4.8.0
 djoser==2.1.0
 docopt==0.6.2
