@@ -245,14 +245,16 @@ def get_correct_annotation_obj(task):
 
 def get_attributes_for_IDC(project, task):
     correct_ann_obj = get_correct_annotation_obj(task)
-    return {
+    result_dict = {
         "interactions_json": correct_ann_obj.result,
-        "no_of_turns": correct_ann_obj.meta_stats["number_of_turns"],
         "language": project.tgt_language,
         "datetime": correct_ann_obj.annotated_at,
         "instruction_id": Instruction.objects.get(id=task.data["instruction_id"]),
         "time_taken": 0.0,
     }
+    if correct_ann_obj.meta_stats and "number_of_turns" in correct_ann_obj.meta_stats:
+        result_dict["no_of_turns"] = correct_ann_obj.meta_stats["number_of_turns"]
+    return result_dict
 
 
 def get_prompt_output_by_id(prompt_output_pair_id, task_data_dict):
