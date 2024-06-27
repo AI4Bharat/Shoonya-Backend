@@ -1000,6 +1000,11 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             if isinstance(data_item.bboxes_relation_prediction_json, str)
             else data_item.bboxes_relation_prediction_json
         )
+        bboxes_relation_prediction_json = (
+            []
+            if bboxes_relation_prediction_json is None
+            else bboxes_relation_prediction_json
+        )
         for b in bboxes_relation_prediction_json:
             if "from_id" in b and "to_id" in b:
                 if b["from_id"] in id_set and b["to_id"] in id_set:
@@ -2387,6 +2392,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "OCRTranscriptionEditing",
                 "OCRSegmentCategorizationEditing",
                 "StandardizedTranscriptionEditing",
+                "OCRSegmentCategorisationRelationMappingEditing",
             ]:
                 if project.project_type == "StandardizedTranscriptionEditing":
                     try:
