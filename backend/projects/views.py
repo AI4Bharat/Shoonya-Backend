@@ -2109,6 +2109,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task_pull_count = project.tasks_pull_count_per_batch
         tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
+        if project.max_pull_count_per_user != -1:
+            tasks_to_be_assigned = min(
+                tasks_to_be_assigned, project.max_pull_count_per_user
+            )
+
         lock_set = False
         while lock_set == False:
             if project.is_locked(ANNOTATION_LOCK):

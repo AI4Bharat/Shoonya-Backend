@@ -265,6 +265,14 @@ class Project(models.Model):
         ),
     )
 
+    max_pull_count_per_user = models.IntegerField(
+        verbose_name="max pull count per user",
+        default=-1,
+        help_text=(
+            "Maximum number of tasks that can be assigned to a user. Default is -1, which means all tasks can be assigned"
+        ),
+    )
+
     def clear_expired_lock(self):
         self.lock.filter(expires_at__lt=now()).delete()
 
