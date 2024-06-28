@@ -196,7 +196,6 @@ class TransliterationLogView(APIView):
             existing_data = blob_client.download_blob().readall().decode("utf-8")
             existing_json_data = json.loads(existing_data)
             existing_json_data.append(data_with_timestamp)
-
             updated_content = json.dumps(existing_json_data, cls=CustomJSONEncoder)
             blob_client.upload_blob(updated_content, overwrite=True)
 
@@ -222,7 +221,6 @@ class TransliterationLogView(APIView):
             main_transliteration_blob_client.upload_blob(
                 main_updated_content, overwrite=True
             )
-
             print("Logged transliteration data successfully")
         except Exception as e:
             print(f"Failed to log transliteration data: {str(e)}")
