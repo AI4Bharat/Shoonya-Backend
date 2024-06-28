@@ -154,6 +154,26 @@ OCR:
         fields:
           annotations:
             - ocr_transcribed_json
+    OCRSegmentCategorisationRelationMappingEditing:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
+      input_dataset:
+        class: OCRDocument
+        fields:
+          - language
+          - image_url
+          - ocr_domain
+        display_fields:
+          - language
+          - image_url
+          - ocr_domain
+        prediction: ocr_prediction_json
+      output_dataset:
+        class: OCRDocument
+        save_type: in_place
+        fields:
+          annotations:
+            - ocr_transcribed_json
 Monolingual:
   description: "Monolingual Data Collection"
   project_types:
