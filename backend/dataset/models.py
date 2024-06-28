@@ -311,6 +311,10 @@ class OCRDocument(DatasetBase):
         verbose_name="bboxes_relation_json", null=True, blank=True
     )
 
+    bboxes_relation_prediction_json = models.JSONField(
+        verbose_name="bboxes_relation_prediction_json", null=True, blank=True
+    )
+
     annotated_document_details_json = models.JSONField(
         verbose_name="annotated_document_details_json", null=True, blank=True
     )
@@ -483,6 +487,14 @@ class SpeechConversation(DatasetBase):
         null=True,
         blank=True,
         help_text=("Prepopulated prediction for the implemented models"),
+    )
+    final_transcribed_json = models.JSONField(
+        verbose_name="final_transcribed_json",
+        null=True,
+        blank=True,
+        help_text=(
+            "Field where data from this standardised_transcription_editing type will be exported."
+        ),
     )
 
     def __str__(self):
