@@ -58,6 +58,7 @@ from rapidfuzz.distance import Levenshtein
 import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
+from django.db import IntegrityError
 
 # Create your views here.
 
@@ -1813,11 +1814,14 @@ class AnnotationViewSet(
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(update_fields=update_fields_list)
-                annotation_response = Response(
-                    AnnotationSerializer(annotation_obj).data
-                )
-                response_message = "Success"
+                try:
+                    annotation_obj.save(update_fields=update_fields_list)
+                    annotation_response = Response(
+                        AnnotationSerializer(annotation_obj).data
+                    )
+                    response_message = "Success"
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
             else:
                 if "annotation_status" in dict(request.data) and request.data[
                     "annotation_status"
@@ -1881,7 +1885,10 @@ class AnnotationViewSet(
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                annotation_response = super().partial_update(request)
+                try:
+                    annotation_response = super().partial_update(request)
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
                 task = annotation.task
@@ -1948,11 +1955,14 @@ class AnnotationViewSet(
                     annotation_obj.review_notes = request.data["review_notes"]
                     update_fields_list.append("review_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(update_fields=update_fields_list)
-                annotation_response = Response(
-                    AnnotationSerializer(annotation_obj).data
-                )
-                response_message = "Success"
+                try:
+                    annotation_obj.save(update_fields=update_fields_list)
+                    annotation_response = Response(
+                        AnnotationSerializer(annotation_obj).data
+                    )
+                    response_message = "Success"
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
 
             else:
                 if "annotation_status" in dict(request.data) and request.data[
@@ -2055,7 +2065,10 @@ class AnnotationViewSet(
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                annotation_response = super().partial_update(request)
+                try:
+                    annotation_response = super().partial_update(request)
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
                 task = annotation.task
@@ -2149,11 +2162,14 @@ class AnnotationViewSet(
                     annotation_obj.supercheck_notes = request.data["supercheck_notes"]
                     update_fields_list.append("supercheck_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(update_fields=update_fields_list)
-                annotation_response = Response(
-                    AnnotationSerializer(annotation_obj).data
-                )
-                response_message = "Success"
+                try:
+                    annotation_obj.save(update_fields=update_fields_list)
+                    annotation_response = Response(
+                        AnnotationSerializer(annotation_obj).data
+                    )
+                    response_message = "Success"
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
 
             else:
                 if "annotation_status" in dict(request.data) and request.data[
@@ -2246,7 +2262,10 @@ class AnnotationViewSet(
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                annotation_response = super().partial_update(request)
+                try:
+                    annotation_response = super().partial_update(request)
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
 
