@@ -45,6 +45,7 @@ from .utils import (
     get_task_ids,
     get_user_from_query_params,
     ocr_word_count,
+    get_attributes_for_ModelInteractionEvaluation,
 )
 
 from dataset.models import (
@@ -3911,6 +3912,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         else annotation_result
                     )
                     task["data"]["interactions_json"] = annotation_result
+                    del task["annotations"]
+            elif dataset_type == "Interaction":
+                for task in tasks_list:
+                    item_data_list = get_attributes_for_ModelInteractionEvaluation(
+                        task, False
+                    )
+                    for it in item_data_list:
+                        for key, value in it.items():
+                            task["data"][key] = value
                     del task["annotations"]
             return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:

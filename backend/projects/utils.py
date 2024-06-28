@@ -1,4 +1,5 @@
 import ast
+import json
 from typing import Tuple
 from dateutil.parser import parse as date_parse
 import re
@@ -244,14 +245,16 @@ def get_correct_annotation_obj(task):
 
 def get_attributes_for_IDC(project, task):
     correct_ann_obj = get_correct_annotation_obj(task)
-    return {
+    result_dict = {
         "interactions_json": correct_ann_obj.result,
-        "no_of_turns": correct_ann_obj.meta_stats["number_of_turns"],
         "language": project.tgt_language,
         "datetime": correct_ann_obj.annotated_at,
         "instruction_id": Instruction.objects.get(id=task.data["instruction_id"]),
         "time_taken": 0.0,
     }
+    if correct_ann_obj.meta_stats and "number_of_turns" in correct_ann_obj.meta_stats:
+        result_dict["no_of_turns"] = correct_ann_obj.meta_stats["number_of_turns"]
+    return result_dict
 
 
 def get_prompt_output_by_id(prompt_output_pair_id, task_data_dict):
@@ -261,31 +264,55 @@ def get_prompt_output_by_id(prompt_output_pair_id, task_data_dict):
     return None, None
 
 
-def get_attributes_for_ModelInteractionEvaluation(task):
-    correct_ann_obj = get_correct_annotation_obj(task)
+def get_attributes_for_ModelInteractionEvaluation(task, correction_annotation_present):
     res = []
-    annotation_result_json = correct_ann_obj.result
-
-    interaction_id = Interaction.objects.get(id=task.data["interaction_id"])
-
-    model = interaction_id.model
-    language = interaction_id.language
-    for obj in annotation_result_json:
-        prompt_output_pair = get_prompt_output_by_id(
-            obj["prompt_output_pair_id"], task.data
+    if correction_annotation_present:
+        correct_ann_obj = get_correct_annotation_obj(task)
+        annotation_result_json = correct_ann_obj.result
+        interaction = Interaction.objects.get(id=task.data["interaction_id"])
+        try:
+            prompt_output_pair = get_prompt_output_by_id(
+                annotation_result_json["prompt_output_pair_id"], task.data
+            )
+        except Exception as e:
+            prompt_output_pair = ["", ""]
+    else:
+        annotation_result_json = task["annotations"][0]["result"]
+        annotation_result_json = (
+            json.loads(annotation_result_json)
+            if isinstance(annotation_result_json, str)
+            else annotation_result_json
         )
-        temp_attributes_obj = {
-            "interaction_id": interaction_id,
-            "eval_form_output_json": obj["form_output_json"],
-            "eval_output_likert_score": obj["output_likert_score"],
-            "eval_time_taken": obj["time_taken"],
-            "model": model,
-            "language": language,
-            "prompt": prompt_output_pair[0],
-            "output": prompt_output_pair[1],
-        }
-        print(temp_attributes_obj)
-        res.append(temp_attributes_obj)
+        interaction = Interaction.objects.get(id=task["data"]["interaction_id"])
+        try:
+            prompt_output_pair = [
+                annotation_result_json["prompt"],
+                annotation_result_json["output"],
+            ]
+        except Exception as e:
+            prompt_output_pair = ["", ""]
+
+    model = interaction.model
+    language = interaction.language
+
+    temp_attributes_obj = {
+        "interaction_id": interaction,
+        "model": model,
+        "language": language,
+        "prompt": prompt_output_pair[0],
+        "output": prompt_output_pair[1],
+    }
+    if "questions_response" in annotation_result_json:
+        temp_attributes_obj["eval_form_output_json"] = annotation_result_json[
+            "questions_response"
+        ]
+    if "rating" in annotation_result_json:
+        temp_attributes_obj["eval_output_likert_score"] = annotation_result_json[
+            "rating"
+        ]
+    if "time_taken" in annotation_result_json:
+        temp_attributes_obj["eval_time_taken"] = annotation_result_json["time_taken"]
+    res.append(temp_attributes_obj)
 
     return res
 
@@ -294,14 +321,11 @@ def assign_attributes_and_save_dataitem(
     annotation_fields, task_annotation_fields, data_item, task_data, task, project_type
 ):
     for field in annotation_fields:
-        setattr(data_item, field, task_data[field])
+        if field in task_data:
+            setattr(data_item, field, task_data[field])
     for field in task_annotation_fields:
-        setattr(data_item, field, task_data[field])
-    if project_type == "ModelInteractionEvaluation":
-        setattr(data_item, "prompt", task_data["prompt"])
-        setattr(data_item, "output", task_data["output"])
-        setattr(data_item, "model", task_data["model"])
-        setattr(data_item, "language", task_data["language"])
+        if field in task_data:
+            setattr(data_item, field, task_data[field])
     data_item.save()
     task.output_data = data_item
     task.save()
