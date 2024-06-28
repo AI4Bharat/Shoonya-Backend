@@ -22,7 +22,7 @@ def delete_excess_Notification(user):
     return 0
 
 
-# @shared_task
+# @shared_task(queue: "default")
 def create_notification_handler(
     title, notification_type, users_ids, project_id=None, task_id=None
 ):
