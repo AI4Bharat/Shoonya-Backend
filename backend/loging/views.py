@@ -1,12 +1,16 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from loging.serializers import TransliterationSerializer
+from loging.serializers import TransliterationSerializer, TransliterationLogSerializer
 from azure.storage.blob import BlobServiceClient
 from .tasks import retrieve_logs_and_send_through_email
 from users.models import User
 from rest_framework.permissions import IsAuthenticated
 from utils.blob_functions import test_container_connection
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import permission_classes
+from rest_framework.decorators import action
 
 import os
 import json
@@ -140,3 +144,50 @@ class TransliterationSelectionViewSet(APIView):
                 {"message": "Failed to retrieve logs", "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class TransliterationLogView(APIView):
+    def post(self, request):
+        # Validate that the payload contains exactly three words
+        if len(request.data) != 3:
+            return Response(
+                {"error": "Payload must contain exactly three words."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = TransliterationLogSerializer(data=request.data)
+        if serializer.is_valid():
+            # Process the valid data here
+            data = serializer.validated_data
+            self.log_transliteration(data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def log_transliteration(self, data):
+        try:
+            current_time = datetime.datetime.now().isoformat()
+            data_with_timestamp = {**data, "timestamp": current_time}
+
+            # Azure Blob Storage setup
+            blob_service_client = BlobServiceClient.from_connection_string(
+                self.AZURE_STORAGE_CONNECTION_STRING
+            )
+            container_client = blob_service_client.get_container_client(
+                self.TRANSLITERATION_CONTAINER_NAME
+            )
+            current_date = datetime.date.today().isoformat()
+            log_file_name = f"{current_date}.log"
+            blob_client = container_client.get_blob_client(log_file_name)
+
+            if not blob_client.exists():
+                blob_client.upload_blob("[]", overwrite=True)
+
+            existing_data = blob_client.download_blob().readall().decode("utf-8")
+            existing_json_data = json.loads(existing_data)
+            existing_json_data.append(data_with_timestamp)
+
+            updated_content = json.dumps(existing_json_data, indent=2)
+            blob_client.upload_blob(updated_content, overwrite=True)
+        except Exception as e:
+            print(f"Failed to log transliteration data: {str(e)}")

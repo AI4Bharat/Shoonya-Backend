@@ -15,3 +15,9 @@ class TransliterationSerializer(serializers.Serializer):
     source = serializers.CharField()
     language = serializers.CharField()
     steps = SelectionSerializer(many=True)
+
+
+class TransliterationLogSerializer(serializers.Serializer):
+    source_text = serializers.CharField()
+    target_text = serializers.CharField()
+    transliterated_text = serializers.CharField()
