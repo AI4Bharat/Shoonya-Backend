@@ -2376,6 +2376,7 @@ def format_model_output(model_output):
                 result += o["value"]
             except KeyError as k:
                 continue
+        return result
     else:
         return model_output
 
