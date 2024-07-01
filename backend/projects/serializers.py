@@ -46,7 +46,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "revision_loop_count",
             "k_value",
             "metadata_json",
-            "max_pull_count_per_user",
+            "max_tasks_per_user",
         ]
 
 
