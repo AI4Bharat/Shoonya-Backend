@@ -39,6 +39,10 @@ ModelOutputEvaluation:
             - eval_form_output_json
             - eval_output_likert_score
             - eval_time_taken
+            - model
+            - prompt
+            - output
+            - language
 Chat:
   description: "Instruction Driven Chat"
   project_types:

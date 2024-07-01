@@ -45,6 +45,7 @@ from .utils import (
     get_task_ids,
     get_user_from_query_params,
     ocr_word_count,
+    get_attributes_for_ModelInteractionEvaluation,
 )
 
 from dataset.models import (
@@ -3917,6 +3918,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                     task["data"]["interactions_json"] = annotation_result
                     del task["annotations"]
+            elif dataset_type == "Interaction":
+                for task in tasks_list:
+                    item_data_list = get_attributes_for_ModelInteractionEvaluation(
+                        task, False
+                    )
+                    for it in item_data_list:
+                        for key, value in it.items():
+                            task["data"][key] = value
+                    del task["annotations"]
             return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
@@ -4230,3 +4240,103 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "language field of task data succesfully updated!"},
             status=status.HTTP_200_OK,
         )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_name="set_password",
+    )
+    def set_password(self, request, pk=None):
+        try:
+            project = Project.objects.get(pk=pk)
+
+            if "password" not in request.data:
+                return Response(
+                    {"error": "Password key is missing"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            password = request.data.get("password")
+
+            if not password:
+                return Response(
+                    {"error": "Password not provided"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                project.set_project_password(password)
+
+            except Exception as e:
+                return Response(
+                    {"error": f"Failed to set the password : {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            return Response(
+                {"message": "Password set Successfully"}, status=status.HTTP_200_OK
+            )
+
+        except Project.DoesNotExist:
+            return Response(
+                {"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_name="verify_password",
+    )
+    def verify_password(
+        self,
+        request,
+        pk=None,
+    ):
+        try:
+            project = Project.objects.get(pk=pk)
+
+            if "password" not in request.data:
+                return Response(
+                    {"error": "Password key is missing"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            password = request.data.get("password")
+
+            if not password:
+                return Response(
+                    {"error": "Password not provided"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                if project.check_project_password(password):
+                    return Response(
+                        {"message": "Authentication Successful"},
+                        status=status.HTTP_200_OK,
+                    )
+
+                else:
+                    return Response(
+                        {"error": "Authentication Failed"},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+            except Exception as e:
+                return Response(
+                    {"error": f"Failed to authenticate project : {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        except Project.DoesNotExist:
+            return Response(
+                {"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

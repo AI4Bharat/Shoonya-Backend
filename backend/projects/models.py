@@ -8,6 +8,7 @@ from .registry_helper import ProjectRegistry
 from django.utils.timezone import now
 from datetime import datetime, timedelta
 from users.models import LANG_CHOICES
+from django.contrib.auth.hashers import make_password, check_password
 
 # from dataset import LANG_CHOICES
 
@@ -315,6 +316,20 @@ class Project(models.Model):
         help_text=("Target language of the project"),
         verbose_name="Target Language",
     )
+
+    project_password = models.CharField(
+        max_length=128,
+        null=True,
+        blank=True,
+        help_text=("Password for the Project"),
+    )
+
+    def set_project_password(self, raw_password):
+        self.project_password = make_password(raw_password)
+        self.save()
+
+    def check_project_password(self, raw_password):
+        return check_password(raw_password, self.project_password)
 
     def __str__(self):
         return str(self.title)
