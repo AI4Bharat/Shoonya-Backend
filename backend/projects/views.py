@@ -1369,6 +1369,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 projects = projects.order_by(F("published_at").desc(nulls_last=True))
 
+            if "guest_workspace_filter" in request.query_params:
+                projects = projects.filter(workspace_id__guest_workspace=True)
+            if "guest_view" in request.query_params:
+                included_projects = projects.exclude(annotators=request.user)
+                excluded_projects = projects.filter(annotators=request.user)
+                included_projects_serialized = ProjectSerializerOptimized(
+                    included_projects, many=True
+                )
+                excluded_projects_serialized = ProjectSerializerOptimized(
+                    excluded_projects, many=True
+                )
+                combined_data = {
+                    "included_projects": included_projects_serialized.data,
+                    "excluded_projects": excluded_projects_serialized.data,
+                }
+                return Response(combined_data, status=status.HTTP_200_OK)
             projects_json = ProjectSerializerOptimized(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
