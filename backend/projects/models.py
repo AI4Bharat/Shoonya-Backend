@@ -266,7 +266,7 @@ class Project(models.Model):
         ),
     )
 
-    max_pull_count_per_user = models.IntegerField(
+    max_tasks_per_user = models.IntegerField(
         verbose_name="max pull count per user",
         default=-1,
         help_text=(

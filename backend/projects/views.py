@@ -2106,14 +2106,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         if "num_tasks" in dict(request.data):
             task_pull_count = request.data["num_tasks"]
-        else:
-            task_pull_count = project.tasks_pull_count_per_batch
-        tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
-
-        if project.max_pull_count_per_user != -1:
-            tasks_to_be_assigned = min(
-                tasks_to_be_assigned, project.max_pull_count_per_user
-            )
+            tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
         lock_set = False
         while lock_set == False:
@@ -2143,7 +2136,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "No tasks left for assignment in this project"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        tasks = tasks[:tasks_to_be_assigned]
+        max_task_that_can_be_assigned = 0
+        if project.max_tasks_per_user != -1:
+            tasks_assigned_to_user = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .count()
+            )
+            if tasks_assigned_to_user >= project.max_tasks_per_user:
+                return Response(
+                    {
+                        "message": f"You are only allowed a total of {project.max_tasks_per_user} tasks"
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                max_task_that_can_be_assigned = min(
+                    project.max_tasks_per_user - tasks_assigned_to_user,
+                    tasks_to_be_assigned,
+                )
+        if max_task_that_can_be_assigned:
+            tasks = tasks[:max_task_that_can_be_assigned]
+        else:
+            tasks = tasks[:tasks_to_be_assigned]
         # tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
