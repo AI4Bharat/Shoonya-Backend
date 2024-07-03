@@ -1372,8 +1372,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if "guest_workspace_filter" in request.query_params:
                 projects = projects.filter(workspace_id__guest_workspace=True)
             if "guest_view" in request.query_params:
-                included_projects = projects.exclude(annotators=request.user)
-                excluded_projects = projects.filter(annotators=request.user)
+                included_projects = projects.filter(annotators=request.user)
+                excluded_projects = projects.exclude(annotators=request.user)
                 included_projects_serialized = ProjectSerializerOptimized(
                     included_projects, many=True
                 )
