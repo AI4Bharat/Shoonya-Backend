@@ -31,6 +31,7 @@ from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
 from users.models import LANG_CHOICES, User, CustomPeriodicTask
 from rest_framework.decorators import action
+from utils.email_template import send_email_template
 from tasks.models import (
     Task,
     ANNOTATOR_ANNOTATION,
@@ -54,12 +55,13 @@ from projects.utils import (
 from datetime import datetime
 import calendar
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import logging
+from workspaces.views import WorkspaceusersViewSet
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -676,19 +678,43 @@ class UserViewSet(viewsets.ViewSet):
             old_email_update_code = generate_random_string(10)
             new_email_verification_code = generate_random_string(10)
 
-            send_mail(
-                "Email Verification",
-                f"Your email verification code is:{old_email_update_code}",
+            subject = "Email Verification"
+            message = f"<p>Your email verification code is:{old_email_update_code}</p>"
+
+            compiled_code = send_email_template(subject, message)
+
+            msg = EmailMultiAlternatives(
+                subject,
+                message,
                 settings.DEFAULT_FROM_EMAIL,
                 [user.email],
             )
+            msg.attach_alternative(compiled_code, "text/html")
+            msg.send()
 
-            send_mail(
-                "Email Verification",
-                f"Your email verification code is:{new_email_verification_code}",
+            # send_mail(
+            #     "Email Verification",
+            #     f"Your email verification code is:{old_email_update_code}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [user.email],
+            # )
+
+            # send_mail(
+            #     "Email Verification",
+            #     f"Your email verification code is:{new_email_verification_code}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [unverified_email],
+            # )
+
+            message = f"Your email verification code is: {new_email_verification_code} "
+            msg1 = EmailMultiAlternatives(
+                subject,
+                message,
                 settings.DEFAULT_FROM_EMAIL,
                 [unverified_email],
             )
+            msg1.attach_alternative(compiled_code, "text/html")
+            msg1.send()
 
             user.unverified_email = unverified_email
             user.old_email_update_code = old_email_update_code
@@ -864,6 +890,56 @@ class UserViewSet(viewsets.ViewSet):
             )
         user = User.objects.get(id=pk)
         serializer = UserUpdateSerializer(user, request.data, partial=True)
+
+        existing_is_active = user.is_active
+        is_active_payload = request.data.get("is_active", None)
+
+        if existing_is_active == is_active_payload:
+            pass
+        else:
+            if is_active_payload is False:
+                if user.enable_mail:
+                    user.enable_mail = False
+                    user.save()
+                workspaces = Workspace.objects.filter(
+                    Q(members=user) | Q(managers=user)
+                ).distinct()
+
+                workspacecustomviewset_obj = WorkspaceCustomViewSet()
+                request.data["ids"] = [user.id]
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
+                for workspace in workspaces:
+                    workspacecustomviewset_obj.unassign_manager(
+                        request=request, pk=workspace.pk
+                    )
+
+                    workspaceusersviewset_obj.remove_members(
+                        request=request, pk=workspace.pk
+                    )
+                user.is_active = False
+                user.save()
+                return Response(
+                    {
+                        "message": "User removed from all workspaces both as workspace member and workspace manager"
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                if is_active_payload is True:
+                    workspaces = Workspace.objects.filter(
+                        Q(members=user) | Q(managers=user)
+                    ).distinct()
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
+                for workspace in workspaces:
+                    workspaceusersviewset_obj.remove_frozen_user(
+                        request=request, pk=workspace.pk
+                    )
 
         if request.data["role"] != user.role:
             new_role = int(request.data["role"])
