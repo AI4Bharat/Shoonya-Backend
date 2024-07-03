@@ -4357,6 +4357,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             try:
                 if project.check_project_password(password):
+                    current_user = User.objects.filter(id=request.user.id)
+                    project.annotators.add(current_user)
                     return Response(
                         {"message": "Authentication Successful"},
                         status=status.HTTP_200_OK,
