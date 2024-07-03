@@ -4357,7 +4357,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             try:
                 if project.check_project_password(password):
-                    current_user = User.objects.filter(id=request.user.id)
+                    current_user = request.data.get("user_id")
                     project.annotators.add(current_user)
                     project.save()
                     return Response(
