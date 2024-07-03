@@ -1292,43 +1292,44 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             if "guest_view" not in request.query_params:
                 projects = self.queryset.filter(annotators=request.user)
-            if request.user.is_superuser:
-                projects = self.queryset
-            elif request.user.role == User.ORGANIZATION_OWNER:
-                projects = self.queryset.filter(
-                    organization_id=request.user.organization
-                )
-            elif request.user.role == User.WORKSPACE_MANAGER:
-                projects = (
-                    self.queryset.filter(
-                        workspace_id__in=Workspace.objects.filter(
-                            managers=request.user
-                        ).values_list("id", flat=True)
+                if request.user.is_superuser:
+                    projects = self.queryset
+                elif request.user.role == User.ORGANIZATION_OWNER:
+                    projects = self.queryset.filter(
+                        organization_id=request.user.organization
                     )
-                    | self.queryset.filter(annotators=request.user)
-                    | self.queryset.filter(annotation_reviewers=request.user)
-                )
-            elif request.user.role == User.SUPER_CHECKER:
-                projects = (
-                    self.queryset.filter(annotators=request.user)
-                    | self.queryset.filter(annotation_reviewers=request.user)
-                    | self.queryset.filter(review_supercheckers=request.user)
-                )
-                projects = projects.filter(is_published=True).filter(is_archived=False)
-            elif request.user.role == User.REVIEWER:
-                projects = self.queryset.filter(
-                    annotators=request.user
-                ) | self.queryset.filter(annotation_reviewers=request.user)
-                projects = projects.filter(is_published=True).filter(is_archived=False)
-            elif request.user.role == User.ANNOTATOR:
-                projects = self.queryset.filter(annotators=request.user)
-                projects = projects.filter(is_published=True).filter(is_archived=False)
+                elif request.user.role == User.WORKSPACE_MANAGER:
+                    projects = (
+                        self.queryset.filter(
+                            workspace_id__in=Workspace.objects.filter(
+                                managers=request.user
+                            ).values_list("id", flat=True)
+                        )
+                        | self.queryset.filter(annotators=request.user)
+                        | self.queryset.filter(annotation_reviewers=request.user)
+                    )
+                elif request.user.role == User.SUPER_CHECKER:
+                    projects = (
+                        self.queryset.filter(annotators=request.user)
+                        | self.queryset.filter(annotation_reviewers=request.user)
+                        | self.queryset.filter(review_supercheckers=request.user)
+                    )
+                    projects = projects.filter(is_published=True).filter(is_archived=False)
+                elif request.user.role == User.REVIEWER:
+                    projects = self.queryset.filter(
+                        annotators=request.user
+                    ) | self.queryset.filter(annotation_reviewers=request.user)
+                    projects = projects.filter(is_published=True).filter(is_archived=False)
+                elif request.user.role == User.ANNOTATOR:
+                    projects = self.queryset.filter(annotators=request.user)
+                    projects = projects.filter(is_published=True).filter(is_archived=False)
+                    
             if "guest_workspace_filter" in request.query_params:
                 projects = self.queryset.filter(workspace_id__guest_workspace=True).filter(
                         workspace_id__in=Workspace.objects.filter(
                             members=request.user
                         ).values_list("id", flat=True)
-                    )
+                    ).filter(is_published=True).filter(is_archived=False)
 
             if "project_user_type" in request.query_params:
                 project_user_type = request.query_params["project_user_type"]
