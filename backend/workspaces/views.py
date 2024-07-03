@@ -262,14 +262,14 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             workspace.members.add(request.user)
             workspace.save()
 
-            #projects = Project.objects.filter(workspace_id=workspace.id)
-            #for project in projects:
-            #   project.annotators.add(request.user)
-            #   project.save()
+            projects = Project.objects.filter(workspace_id=workspace.id)
+            for project in projects:
+                project.annotators.add(request.user)
+                project.save()
 
             return Response(
                 {
-                    "message": "User added to the workspace."
+                    "message": "User added to the workspace and projects as an annotator."
                 },
                 status=status.HTTP_200_OK,
             )
