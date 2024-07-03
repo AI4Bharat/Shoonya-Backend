@@ -249,7 +249,6 @@ class Project(models.Model):
             "Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks"
         ),
     )
-
     # enable_task_reviews = models.BooleanField(
     #     verbose_name="enable_task_reviews",
     #     default=False,
