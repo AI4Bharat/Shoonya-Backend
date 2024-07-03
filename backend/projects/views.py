@@ -1290,7 +1290,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all projects with some optimizations.
         """
         try:
-            projects = self.queryset.filter(annotators=request.user)
+            if "guest_view" not in request.query_params:
+                projects = self.queryset.filter(annotators=request.user)
             if request.user.is_superuser:
                 projects = self.queryset
             elif request.user.role == User.ORGANIZATION_OWNER:
@@ -1322,6 +1323,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             elif request.user.role == User.ANNOTATOR:
                 projects = self.queryset.filter(annotators=request.user)
                 projects = projects.filter(is_published=True).filter(is_archived=False)
+            if "guest_workspace_filter" in request.query_params:
+                projects = self.queryset.filter(workspace_id__guest_workspace=True).filter(
+                        workspace_id__in=Workspace.objects.filter(
+                            members=request.user
+                        ).values_list("id", flat=True)
+                    )
 
             if "project_user_type" in request.query_params:
                 project_user_type = request.query_params["project_user_type"]
@@ -1369,11 +1376,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 projects = projects.order_by(F("published_at").desc(nulls_last=True))
 
-            if "guest_workspace_filter" in request.query_params:
-                projects = projects.filter(workspace_id__guest_workspace=True)
             if "guest_view" in request.query_params:
-                included_projects = projects.exclude(annotators=request.user)
-                excluded_projects = projects.filter(annotators=request.user)
+                included_projects = projects.filter(annotators=request.user)
+                excluded_projects = projects.exclude(annotators=request.user)
                 included_projects_serialized = ProjectSerializerOptimized(
                     included_projects, many=True
                 )
