@@ -1290,6 +1290,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all projects with some optimizations.
         """
         try:
+            
             projects = self.queryset.filter(annotators=request.user)
             if request.user.is_superuser:
                 projects = self.queryset
@@ -1300,9 +1301,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             elif request.user.role == User.WORKSPACE_MANAGER:
                 projects = (
                     self.queryset.filter(
-                        workspace_id__in=Workspace.objects.filter(
+                            workspace_id__in=Workspace.objects.filter(
                             managers=request.user
-                        ).values_list("id", flat=True)
+                            ).values_list("id", flat=True)
                     )
                     | self.queryset.filter(annotators=request.user)
                     | self.queryset.filter(annotation_reviewers=request.user)
@@ -1322,6 +1323,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
             elif request.user.role == User.ANNOTATOR:
                 projects = self.queryset.filter(annotators=request.user)
                 projects = projects.filter(is_published=True).filter(is_archived=False)
+            if "guest_view" in request.query_params:
+                projects = self.queryset.filter(
+                        workspace_id__in=Workspace.objects.filter(
+                            members=request.user
+                        ).values_list("id", flat=True)
+                    ).filter(is_published=True).filter(is_archived=False)
+            if "guest_workspace_filter" in request.query_params:
+                projects = self.queryset.filter(workspace_id__guest_workspace=True).filter(
+                        workspace_id__in=Workspace.objects.filter(
+                            members=request.user
+                        ).values_list("id", flat=True)
+                    ).filter(is_published=True).filter(is_archived=False)
 
             if "project_user_type" in request.query_params:
                 project_user_type = request.query_params["project_user_type"]
@@ -1369,11 +1382,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 projects = projects.order_by(F("published_at").desc(nulls_last=True))
 
-            if "guest_workspace_filter" in request.query_params:
-                projects = projects.filter(workspace_id__guest_workspace=True)
             if "guest_view" in request.query_params:
-                included_projects = projects.exclude(annotators=request.user)
-                excluded_projects = projects.filter(annotators=request.user)
+                included_projects = projects.filter(annotators=request.user)
+                excluded_projects = projects.exclude(annotators=request.user)
                 included_projects_serialized = ProjectSerializerOptimized(
                     included_projects, many=True
                 )
@@ -4346,6 +4357,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             try:
                 if project.check_project_password(password):
+                    current_user = request.data.get("user_id")
+                    project.annotators.add(current_user)
+                    project.save()
                     return Response(
                         {"message": "Authentication Successful"},
                         status=status.HTTP_200_OK,
