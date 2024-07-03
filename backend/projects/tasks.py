@@ -319,7 +319,7 @@ def filter_data_items(
 #### CELERY SHARED TASKS
 
 
-@shared_task
+@shared_task(queue="default")
 def create_parameters_for_task_creation(
     project_type,
     dataset_instance_ids,
@@ -384,7 +384,7 @@ def create_parameters_for_task_creation(
     tasks = create_tasks_from_dataitems(sampled_items, project)
 
 
-@shared_task
+@shared_task(queue="default")
 def export_project_in_place(
     annotation_fields, project_id, project_type, get_request_data
 ) -> None:
@@ -676,7 +676,7 @@ def export_project_in_place(
     return f"Exported {len(data_items)} items."
 
 
-@shared_task
+@shared_task(queue="default")
 def export_project_new_record(
     annotation_fields,
     project_id,
@@ -823,7 +823,7 @@ def export_project_new_record(
     tasks.update(task_status=EXPORTED)
 
 
-@shared_task
+@shared_task(queue="default")
 def add_new_data_items_into_project(project_id, items):
     """Function to pull the dataitems into the project
 
