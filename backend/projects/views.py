@@ -1290,40 +1290,45 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all projects with some optimizations.
         """
         try:
-            if "guest_view" not in request.query_params:
+            
+            projects = self.queryset.filter(annotators=request.user)
+            if request.user.is_superuser:
+                projects = self.queryset
+            elif request.user.role == User.ORGANIZATION_OWNER:
+                projects = self.queryset.filter(
+                    organization_id=request.user.organization
+                )
+            elif request.user.role == User.WORKSPACE_MANAGER:
+                projects = (
+                    self.queryset.filter(
+                            workspace_id__in=Workspace.objects.filter(
+                            managers=request.user
+                            ).values_list("id", flat=True)
+                    )
+                    | self.queryset.filter(annotators=request.user)
+                    | self.queryset.filter(annotation_reviewers=request.user)
+                )
+            elif request.user.role == User.SUPER_CHECKER:
+                projects = (
+                    self.queryset.filter(annotators=request.user)
+                    | self.queryset.filter(annotation_reviewers=request.user)
+                    | self.queryset.filter(review_supercheckers=request.user)
+                )
+                projects = projects.filter(is_published=True).filter(is_archived=False)
+            elif request.user.role == User.REVIEWER:
+                projects = self.queryset.filter(
+                    annotators=request.user
+                ) | self.queryset.filter(annotation_reviewers=request.user)
+                projects = projects.filter(is_published=True).filter(is_archived=False)
+            elif request.user.role == User.ANNOTATOR:
                 projects = self.queryset.filter(annotators=request.user)
-                if request.user.is_superuser:
-                    projects = self.queryset
-                elif request.user.role == User.ORGANIZATION_OWNER:
-                    projects = self.queryset.filter(
-                        organization_id=request.user.organization
-                    )
-                elif request.user.role == User.WORKSPACE_MANAGER:
-                    projects = (
-                        self.queryset.filter(
-                                workspace_id__in=Workspace.objects.filter(
-                                managers=request.user
-                                ).values_list("id", flat=True)
-                        )
-                        | self.queryset.filter(annotators=request.user)
-                        | self.queryset.filter(annotation_reviewers=request.user)
-                    )
-                elif request.user.role == User.SUPER_CHECKER:
-                    projects = (
-                        self.queryset.filter(annotators=request.user)
-                        | self.queryset.filter(annotation_reviewers=request.user)
-                        | self.queryset.filter(review_supercheckers=request.user)
-                    )
-                    projects = projects.filter(is_published=True).filter(is_archived=False)
-                elif request.user.role == User.REVIEWER:
-                    projects = self.queryset.filter(
-                        annotators=request.user
-                    ) | self.queryset.filter(annotation_reviewers=request.user)
-                    projects = projects.filter(is_published=True).filter(is_archived=False)
-                elif request.user.role == User.ANNOTATOR:
-                    projects = self.queryset.filter(annotators=request.user)
-                    projects = projects.filter(is_published=True).filter(is_archived=False)
-                    
+                projects = projects.filter(is_published=True).filter(is_archived=False)
+            if "guest_view" in request.query_params:
+                projects = self.queryset.filter(
+                        workspace_id__in=Workspace.objects.filter(
+                            members=request.user
+                        ).values_list("id", flat=True)
+                    ).filter(is_published=True).filter(is_archived=False)
             if "guest_workspace_filter" in request.query_params:
                 projects = self.queryset.filter(workspace_id__guest_workspace=True).filter(
                         workspace_id__in=Workspace.objects.filter(
@@ -1379,16 +1384,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
             if "guest_view" in request.query_params:
                 included_projects = projects.filter(annotators=request.user)
-                #excluded_projects = projects.exclude(annotators=request.user)
+                excluded_projects = projects.exclude(annotators=request.user)
                 included_projects_serialized = ProjectSerializerOptimized(
                     included_projects, many=True
                 )
-                #excluded_projects_serialized = ProjectSerializerOptimized(
-                #    excluded_projects, many=True
-                #)
+                excluded_projects_serialized = ProjectSerializerOptimized(
+                    excluded_projects, many=True
+                )
                 combined_data = {
                     "included_projects": included_projects_serialized.data,
-                    #"excluded_projects": excluded_projects_serialized.data,
+                    "excluded_projects": excluded_projects_serialized.data,
                 }
                 return Response(combined_data, status=status.HTTP_200_OK)
             projects_json = ProjectSerializerOptimized(projects, many=True)
