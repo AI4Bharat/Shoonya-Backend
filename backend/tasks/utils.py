@@ -30,39 +30,52 @@ Queued_Task_name = {
     "workspaces.tasks.send_user_reports_mail_ws": "Send User Payment Reports Mail At Workspace Level",
 }
 
+import json
+
 
 def compute_meta_stats_for_instruction_driven_chat(conversation_history):
     """
     Calculate meta stats for instruction-driven chat.
 
     Args:
-        conversation_history (list): List of dicts, each containing 'prompt' and 'output'.
+        conversation_history (list or str): List of dicts or JSON string, each containing 'prompt' and 'output'.
 
     Returns:
-        dict: Meta statistics JSON with 'prompts_word_count' and 'number_of_turns'.
+        dict: Meta statistics JSON with 'prompts_word_count', 'number_of_turns',
+              'avg_word_count_per_prompt', and 'avg_word_count_per_output'.
     """
-    conversation_history = (
-        json.loads(conversation_history)
-        if isinstance(conversation_history, str)
-        else conversation_history
-    )
-    try:
-        number_of_words = sum(
-            len(entry["prompt"].split())
-            for entry in conversation_history
-            if "prompt" in entry
-        )
-    except Exception as e:
-        number_of_words = 0
-    try:
-        number_of_turns = len(conversation_history)
-    except Exception as e:
-        number_of_turns = 0
-    meta_stats = {
-        "prompts_word_count": number_of_words,
-        "number_of_turns": number_of_turns,
-    }
+    # Parse conversation history
+    if isinstance(conversation_history, str):
+        try:
+            conversation_history = json.loads(conversation_history)
+        except json.JSONDecodeError:
+            return {"error": "Invalid JSON format"}
+    elif not isinstance(conversation_history, list):
+        return {"error": "Invalid input format"}
 
+    total_prompt_words = 0
+    total_output_words = 0
+    number_of_turns = len(conversation_history)
+
+    for entry in conversation_history:
+        if "prompt" in entry:
+            total_prompt_words += len(entry["prompt"].split())
+        if "output" in entry:
+            total_output_words += len(entry["output"].split())
+
+    avg_word_count_per_prompt = (
+        total_prompt_words / number_of_turns if number_of_turns else 0
+    )
+    avg_word_count_per_output = (
+        total_output_words / number_of_turns if number_of_turns else 0
+    )
+
+    meta_stats = {
+        "prompts_word_count": total_prompt_words,
+        "number_of_turns": number_of_turns,
+        "avg_word_count_per_prompt": avg_word_count_per_prompt,
+        "avg_word_count_per_output": avg_word_count_per_output,
+    }
     return meta_stats
 
 
