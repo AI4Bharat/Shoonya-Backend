@@ -2209,12 +2209,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             if metainfo == "true" or metainfo == "True":
                 metainfo = True
         project_types = [
-            "ContextualTranslationEditing",
-            "ContextualSentenceVerification",
-            "SemanticTextualSimilarity_Scale5",
-            "AudioTranscriptionEditing",
-            "AudioTranscription",
-            "AudioSegmentation",
+            "InstructionDrivenChat",
+            "ModelInteractionEvaluation",
+            "ModelOutputEvaluation",
         ]
         if "project_type" in dict(request.query_params):
             project_type = request.query_params["project_type"]

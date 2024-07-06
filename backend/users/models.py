@@ -9,7 +9,7 @@ import socket
 import jwt
 from datetime import datetime, timedelta
 
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 
 from .utils import hash_upload
 from .managers import UserManager
+from utils.email_template import send_email_template
 
 # List of Indic languages
 LANG_CHOICES = (
@@ -284,6 +285,19 @@ class User(AbstractBaseUser, PermissionsMixin):
             "Indicates whether user prefers Chitralekha UI for audio transcription tasks or not."
         ),
     )
+    is_approved = models.BooleanField(
+        verbose_name="is_approved",
+        default=False,
+        help_text=("Indicates whether user is approved by the admin or not."),
+    )
+
+    invited_by = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        default=2,
+    )
 
     class Meta:
         db_table = "user"
@@ -337,12 +351,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     #     prefix = os.getenv("FRONTEND_URL_FOR_RESET_PASSWORD")
     #     link = f"{prefix}/#/forget-password/confirm/{key}/{sent_token}"
     #     try:
-    #         send_mail(
-    #             "Reset password link for Anudesh",
-    #             f"Hello! Please click on the following link to reset your password - {link}",
-    #             settings.DEFAULT_FROM_EMAIL,
-    #             [email],
-    #         )
+    #          subject = "Reset Password Link For Shoonya"
+    # message = f"<p> Hello! Please click on the following link to reset your password - {link} </p>"
+
+    # compiled_code = send_email_template(subject, message)
+    # msg = EmailMultiAlternatives(
+    #     subject,
+    #     compiled_code,
+    #     settings.DEFAULT_FROM_EMAIL,
+    #     [email],
+    # )
+    # msg.attach_alternative(compiled_code, "text/html")
+    # msg.send()
     #     except SMTPAuthenticationError:
     #         raise Exception(
     #             "Failed to authenticate with the SMTP server. Check your email settings."

@@ -712,7 +712,10 @@ class Interaction(DatasetBase):
     )
     interactions_json = models.JSONField(verbose_name="Interactions JSON")
     no_of_turns = models.IntegerField(
-        verbose_name="Number of Turns", help_text="Number of turns in the interaction"
+        verbose_name="Number of Turns",
+        help_text="Number of turns in the interaction",
+        null=True,
+        blank=True,
     )
     language = models.CharField(
         max_length=20,

@@ -818,12 +818,6 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
             result_ann_meta_stats,
             result_rev_meta_stats,
             result_sup_meta_stats,
-            average_ann_vs_rev_CED,
-            average_ann_vs_rev_WER,
-            average_rev_vs_sup_CED,
-            average_rev_vs_sup_WER,
-            average_ann_vs_sup_CED,
-            average_ann_vs_sup_WER,
         ) = get_stats_definitions()
         for ann_obj in annotations:
             if ann_obj.annotation_type == ANNOTATOR_ANNOTATION:
@@ -836,12 +830,6 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         result_ann_meta_stats,
                         ann_obj,
                         project_type,
-                        average_ann_vs_rev_CED,
-                        average_ann_vs_rev_WER,
-                        average_rev_vs_sup_CED,
-                        average_rev_vs_sup_WER,
-                        average_ann_vs_sup_CED,
-                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -855,12 +843,6 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         result_rev_meta_stats,
                         ann_obj,
                         project_type,
-                        average_ann_vs_rev_CED,
-                        average_ann_vs_rev_WER,
-                        average_rev_vs_sup_CED,
-                        average_rev_vs_sup_WER,
-                        average_ann_vs_sup_CED,
-                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -874,12 +856,6 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         result_sup_meta_stats,
                         ann_obj,
                         project_type,
-                        average_ann_vs_rev_CED,
-                        average_ann_vs_rev_WER,
-                        average_rev_vs_sup_CED,
-                        average_rev_vs_sup_WER,
-                        average_ann_vs_sup_CED,
-                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -893,12 +869,6 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
             anno_stats,
             meta_stats,
             complete_stats,
-            average_ann_vs_rev_CED,
-            average_ann_vs_rev_WER,
-            average_rev_vs_sup_CED,
-            average_rev_vs_sup_WER,
-            average_ann_vs_sup_CED,
-            average_ann_vs_sup_WER,
             proj.id,
             user,
         )
@@ -934,122 +904,84 @@ def get_stats_definitions():
     }
     result_ann_meta_stats = {
         "unlabeled": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "skipped": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "draft": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "labeled": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "to_be_revised": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
     }
     result_rev_meta_stats = {
         "unreviewed": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "skipped": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "draft": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "to_be_revised": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "accepted": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "accepted_with_minor_changes": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "accepted_with_major_changes": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "rejected": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
     }
     result_sup_meta_stats = {
         "unvalidated": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "skipped": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "draft": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "validated": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "validated_with_changes": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
         "rejected": {
-            "Raw Audio Duration": 0,
-            "Segment Duration": 0,
-            "Not Null Segment Duration": 0,
-            "Word Count": 0,
+            "Total_Words_in_Prompts": 0,
+            "Number_of_Prompt-Output_Pairs": 0,
         },
     }
     return (
@@ -1059,12 +991,6 @@ def get_stats_definitions():
         result_ann_meta_stats,
         result_rev_meta_stats,
         result_sup_meta_stats,
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
     )
 
 
@@ -1078,12 +1004,6 @@ def get_modified_stats_result(
     anno_stats,
     meta_stats,
     complete_stats,
-    average_ann_vs_rev_CED,
-    average_ann_vs_rev_WER,
-    average_rev_vs_sup_CED,
-    average_rev_vs_sup_WER,
-    average_ann_vs_sup_CED,
-    average_ann_vs_sup_WER,
     proj_id,
     user,
 ):
@@ -1098,12 +1018,6 @@ def get_modified_stats_result(
                 f"Superchecker - {key.replace('_', ' ').title()} Annotations"
             ] = value
     if meta_stats or complete_stats:
-        for key, stats in result_ann_meta_stats.items():
-            update_stats(stats)
-        for key, stats in result_rev_meta_stats.items():
-            update_stats(stats)
-        for key, stats in result_sup_meta_stats.items():
-            update_stats(stats)
         for key, value in result_ann_meta_stats.items():
             for sub_key in value.keys():
                 result[
@@ -1120,24 +1034,6 @@ def get_modified_stats_result(
                     f"Superchecker - {key.replace('_', ' ').title()} {sub_key}"
                 ] = value[sub_key]
 
-        result[
-            "Average Annotator VS Reviewer Character Edit Distance"
-        ] = "{:.2f}".format(get_average_of_a_list(average_ann_vs_rev_CED))
-        result["Average Annotator VS Reviewer Word Error Rate"] = "{:.2f}".format(
-            get_average_of_a_list(average_ann_vs_rev_WER)
-        )
-        result[
-            "Average Reviewer VS Superchecker Character Edit Distance"
-        ] = "{:.2f}".format(get_average_of_a_list(average_rev_vs_sup_CED))
-        result["Average Reviewer VS Superchecker Word Error Rate"] = "{:.2f}".format(
-            get_average_of_a_list(average_rev_vs_sup_WER)
-        )
-        result[
-            "Average Annotator VS Superchecker Character Edit Distance"
-        ] = "{:.2f}".format(get_average_of_a_list(average_ann_vs_sup_CED))
-        result["Average Annotator VS Superchecker Word Error Rate"] = "{:.2f}".format(
-            get_average_of_a_list(average_ann_vs_sup_WER)
-        )
     # adding unassigned tasks count
     result["Annotator - Unassigned Tasks"] = get_task_count_unassigned(proj_id, user)
     result["Reviewer - Unassigned Tasks"] = (
@@ -1156,19 +1052,6 @@ def get_modified_stats_result(
         .count()
     )
     return result
-
-
-def update_stats(stats):
-    raw_audio_duration = stats["Raw Audio Duration"]
-    segment_duration = stats["Segment Duration"]
-    not_null_segment_duration = stats["Not Null Segment Duration"]
-    converted_duration_rad = convert_seconds_to_hours(raw_audio_duration)
-    converted_duration_sd = convert_seconds_to_hours(segment_duration)
-    converted_duration_nsd = convert_seconds_to_hours(not_null_segment_duration)
-    stats["Raw Audio Duration"] = converted_duration_rad
-    stats["Segment Duration"] = converted_duration_sd
-    stats["Not Null Segment Duration"] = converted_duration_nsd
-    return 0
 
 
 def get_average_of_a_list(arr):
@@ -1195,7 +1078,7 @@ def get_proj_objs(
 ):
     if workspace_level_reports:
         if project_type:
-            if language != "NULL":
+            if language not in ["NULL", "None", None]:
                 proj_objs = Project.objects.filter(
                     workspace_id=wid,
                     project_type=project_type,
@@ -1209,7 +1092,7 @@ def get_proj_objs(
             proj_objs = Project.objects.filter(workspace_id=wid)
     elif organization_level_reports:
         if project_type:
-            if language != "NULL":
+            if language != ["NULL", "None", None]:
                 proj_objs = Project.objects.filter(
                     organization_id=oid,
                     project_type=project_type,
@@ -1223,7 +1106,7 @@ def get_proj_objs(
             proj_objs = Project.objects.filter(organization_id=oid)
     elif dataset_level_reports:
         if project_type:
-            if language != "NULL":
+            if language != ["NULL", "None", None]:
                 proj_objs = Project.objects.filter(
                     dataset_id=did,
                     project_type=project_type,
@@ -1248,14 +1131,7 @@ def get_stats_helper(
     result_meta_stats,
     ann_obj,
     project_type,
-    average_ann_vs_rev_CED,
-    average_ann_vs_rev_WER,
-    average_rev_vs_sup_CED,
-    average_rev_vs_sup_WER,
-    average_ann_vs_sup_CED,
-    average_ann_vs_sup_WER,
 ):
-    ced_project_type_choices = ["ContextualTranslationEditing"]
     task_obj = ann_obj.task
     task_data = task_obj.data
 
@@ -1268,113 +1144,7 @@ def get_stats_helper(
         ann_obj,
         task_data,
         project_type,
-        ced_project_type_choices,
     )
-    if task_obj.task_status == REVIEWED:
-        if ann_obj.annotation_type == REVIEWER_ANNOTATION:
-            if project_type in ced_project_type_choices:
-                try:
-                    average_ann_vs_rev_CED.append(
-                        get_average_of_a_list(
-                            calculate_ced_between_two_annotations(
-                                get_most_recent_annotation(ann_obj.parent_annotation),
-                                get_most_recent_annotation(ann_obj),
-                            )
-                        )
-                    )
-                except Exception as error:
-                    pass
-            elif project_type in get_audio_project_types():
-                try:
-                    # we pass the reviewer first has the reference sentence and annotator second which
-                    # has the hypothesis sentence.
-                    # A higher grade has the reference sentence and the lower has the hypothesis sentence
-                    average_ann_vs_rev_WER.append(
-                        calculate_wer_between_two_annotations(
-                            get_most_recent_annotation(ann_obj).result,
-                            get_most_recent_annotation(
-                                ann_obj.parent_annotation
-                            ).result,
-                        )
-                    )
-                except Exception as error:
-                    pass
-    elif task_obj.task_status == SUPER_CHECKED:
-        if ann_obj.annotation_type == SUPER_CHECKER_ANNOTATION:
-            if project_type in ced_project_type_choices:
-                try:
-                    average_ann_vs_rev_CED.append(
-                        get_average_of_a_list(
-                            calculate_ced_between_two_annotations(
-                                get_most_recent_annotation(
-                                    ann_obj.parent_annotation.parent_annotation
-                                ),
-                                get_most_recent_annotation(ann_obj.parent_annotation),
-                            )
-                        )
-                    )
-                except Exception as error:
-                    pass
-                try:
-                    average_rev_vs_sup_CED.append(
-                        get_average_of_a_list(
-                            calculate_ced_between_two_annotations(
-                                get_most_recent_annotation(ann_obj.parent_annotation),
-                                get_most_recent_annotation(ann_obj),
-                            )
-                        )
-                    )
-                except Exception as error:
-                    pass
-                try:
-                    average_ann_vs_sup_CED.append(
-                        get_average_of_a_list(
-                            calculate_ced_between_two_annotations(
-                                get_most_recent_annotation(
-                                    ann_obj.parent_annotation.parent_annotation
-                                ),
-                                get_most_recent_annotation(ann_obj),
-                            )
-                        )
-                    )
-                except Exception as error:
-                    pass
-            elif project_type in get_audio_project_types():
-                try:
-                    average_ann_vs_rev_WER.append(
-                        calculate_wer_between_two_annotations(
-                            get_most_recent_annotation(
-                                ann_obj.parent_annotation
-                            ).result,
-                            get_most_recent_annotation(
-                                ann_obj.parent_annotation.parent_annotation
-                            ).result,
-                        )
-                    )
-                except Exception as error:
-                    pass
-                try:
-                    average_rev_vs_sup_WER.append(
-                        calculate_wer_between_two_annotations(
-                            get_most_recent_annotation(ann_obj).result,
-                            get_most_recent_annotation(
-                                ann_obj.parent_annotation
-                            ).result,
-                        )
-                    )
-                except Exception as error:
-                    pass
-                try:
-                    average_ann_vs_sup_WER.append(
-                        calculate_wer_between_two_annotations(
-                            get_most_recent_annotation(ann_obj).result,
-                            get_most_recent_annotation(
-                                ann_obj.parent_annotation.parent_annotation
-                            ).result,
-                        )
-                    )
-                except Exception as error:
-                    pass
     return 0
 
 
@@ -1383,30 +1153,16 @@ def update_anno_stats(result_anno_stats, ann_obj, anno_stats):
     return 0 if anno_stats else None
 
 
-def update_meta_stats(
-    result_meta_stats, ann_obj, task_data, project_type, ced_project_type_choices
-):
-    if project_type in ced_project_type_choices:
-        try:
-            result_meta_stats[ann_obj.annotation_status]["Word Count"] += task_data[
-                "word_count"
-            ]
-        except Exception as e:
-            return 0
-    elif "OCRTranscription" in project_type:
-        result_meta_stats[ann_obj.annotation_status]["Word Count"] += ocr_word_count(
-            ann_obj.result
-        )
-    elif project_type in get_audio_project_types():
-        result_meta_stats[ann_obj.annotation_status]["Raw Audio Duration"] += task_data[
-            "audio_duration"
-        ]
-        result_meta_stats[ann_obj.annotation_status][
-            "Segment Duration"
-        ] += get_audio_transcription_duration(ann_obj.result)
-        result_meta_stats[ann_obj.annotation_status][
-            "Not Null Segment Duration"
-        ] += get_not_null_audio_transcription_duration(ann_obj.result, ann_obj.id)
+def update_meta_stats(result_meta_stats, ann_obj, task_data, project_type):
+    if "InstructionDrivenChat" in project_type:
+        result_meta_stats_ann = ann_obj.meta_stats
+        if result_meta_stats_ann:
+            result_meta_stats[ann_obj.annotation_status][
+                "Total_Words_in_Prompts"
+            ] += result_meta_stats_ann["prompts_word_count"]
+            result_meta_stats[ann_obj.annotation_status][
+                "Number_of_Prompt-Output_Pairs"
+            ] += result_meta_stats_ann["number_of_turns"]
 
 
 def calculate_ced_between_two_annotations(annotation1, annotation2):

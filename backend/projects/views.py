@@ -45,6 +45,7 @@ from .utils import (
     get_task_ids,
     get_user_from_query_params,
     ocr_word_count,
+    get_attributes_for_ModelInteractionEvaluation,
 )
 
 from dataset.models import (
@@ -1289,7 +1290,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         List all projects with some optimizations.
         """
         try:
-            # projects = self.queryset.filter(annotators=request.user)
+            
+            projects = self.queryset.filter(annotators=request.user)
             if request.user.is_superuser:
                 projects = self.queryset
             elif request.user.role == User.ORGANIZATION_OWNER:
@@ -1299,9 +1301,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             elif request.user.role == User.WORKSPACE_MANAGER:
                 projects = (
                     self.queryset.filter(
-                        workspace_id__in=Workspace.objects.filter(
+                            workspace_id__in=Workspace.objects.filter(
                             managers=request.user
-                        ).values_list("id", flat=True)
+                            ).values_list("id", flat=True)
                     )
                     | self.queryset.filter(annotators=request.user)
                     | self.queryset.filter(annotation_reviewers=request.user)
@@ -1321,6 +1323,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
             elif request.user.role == User.ANNOTATOR:
                 projects = self.queryset.filter(annotators=request.user)
                 projects = projects.filter(is_published=True).filter(is_archived=False)
+            if "guest_view" in request.query_params:
+                projects = self.queryset.filter(
+                        workspace_id__in=Workspace.objects.filter(
+                            members=request.user
+                        ).values_list("id", flat=True)
+                    ).filter(is_published=True).filter(is_archived=False)
+            if "guest_workspace_filter" in request.query_params:
+                projects = self.queryset.filter(workspace_id__guest_workspace=True).filter(
+                        workspace_id__in=Workspace.objects.filter(
+                            members=request.user
+                        ).values_list("id", flat=True)
+                    ).filter(is_published=True).filter(is_archived=False)
 
             if "project_user_type" in request.query_params:
                 project_user_type = request.query_params["project_user_type"]
@@ -1368,6 +1382,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 projects = projects.order_by(F("published_at").desc(nulls_last=True))
 
+            if "guest_view" in request.query_params:
+                included_projects = projects.filter(annotators=request.user)
+                excluded_projects = projects.exclude(annotators=request.user)
+                included_projects_serialized = ProjectSerializerOptimized(
+                    included_projects, many=True
+                )
+                excluded_projects_serialized = ProjectSerializerOptimized(
+                    excluded_projects, many=True
+                )
+                combined_data = {
+                    "included_projects": included_projects_serialized.data,
+                    "excluded_projects": excluded_projects_serialized.data,
+                }
+                return Response(combined_data, status=status.HTTP_200_OK)
             projects_json = ProjectSerializerOptimized(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
         except Exception:
@@ -2105,9 +2133,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         if "num_tasks" in dict(request.data):
             task_pull_count = request.data["num_tasks"]
-        else:
-            task_pull_count = project.tasks_pull_count_per_batch
-        tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
+            tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
         lock_set = False
         while lock_set == False:
@@ -2137,7 +2163,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 {"message": "No tasks left for assignment in this project"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        tasks = tasks[:tasks_to_be_assigned]
+        max_task_that_can_be_assigned = 0
+        if project.max_tasks_per_user != -1:
+            tasks_assigned_to_user = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .count()
+            )
+            if tasks_assigned_to_user >= project.max_tasks_per_user:
+                return Response(
+                    {
+                        "message": f"You are only allowed a total of {project.max_tasks_per_user} tasks"
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                max_task_that_can_be_assigned = min(
+                    project.max_tasks_per_user - tasks_assigned_to_user,
+                    tasks_to_be_assigned,
+                )
+        if max_task_that_can_be_assigned:
+            tasks = tasks[:max_task_that_can_be_assigned]
+        else:
+            tasks = tasks[:tasks_to_be_assigned]
         # tasks = tasks.order_by("id")
         for task in tasks:
             task.annotation_users.add(cur_user)
@@ -2437,7 +2485,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ).count()
             if reviewer_anno_count == 0:
                 base_annotation_obj = Annotation_model(
-                    result=[],
+                    result=rec_ann[0].result,
                     task=task,
                     completed_by=cur_user,
                     annotation_status="unreviewed",
@@ -2664,7 +2712,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ).count()
             if superchecker_anno_count == 0:
                 base_annotation_obj = Annotation_model(
-                    result=[],
+                    result=rec_ann[0].result,
                     task=task,
                     completed_by=cur_user,
                     annotation_status="unvalidated",
@@ -3912,6 +3960,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                     task["data"]["interactions_json"] = annotation_result
                     del task["annotations"]
+            elif dataset_type == "Interaction":
+                for task in tasks_list:
+                    item_data_list = get_attributes_for_ModelInteractionEvaluation(
+                        task, False
+                    )
+                    for it in item_data_list:
+                        for key, value in it.items():
+                            task["data"][key] = value
+                    del task["annotations"]
             return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
@@ -4225,3 +4282,106 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "language field of task data succesfully updated!"},
             status=status.HTTP_200_OK,
         )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_name="set_password",
+    )
+    def set_password(self, request, pk=None):
+        try:
+            project = Project.objects.get(pk=pk)
+
+            if "password" not in request.data:
+                return Response(
+                    {"error": "Password key is missing"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            password = request.data.get("password")
+
+            if not password:
+                return Response(
+                    {"error": "Password not provided"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                project.set_project_password(password)
+
+            except Exception as e:
+                return Response(
+                    {"error": f"Failed to set the password : {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+            return Response(
+                {"message": "Password set Successfully"}, status=status.HTTP_200_OK
+            )
+
+        except Project.DoesNotExist:
+            return Response(
+                {"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_name="verify_password",
+    )
+    def verify_password(
+        self,
+        request,
+        pk=None,
+    ):
+        try:
+            project = Project.objects.get(pk=pk)
+
+            if "password" not in request.data:
+                return Response(
+                    {"error": "Password key is missing"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            password = request.data.get("password")
+
+            if not password:
+                return Response(
+                    {"error": "Password not provided"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                if project.check_project_password(password):
+                    current_user = request.data.get("user_id")
+                    project.annotators.add(current_user)
+                    project.save()
+                    return Response(
+                        {"message": "Authentication Successful"},
+                        status=status.HTTP_200_OK,
+                    )
+
+                else:
+                    return Response(
+                        {"error": "Authentication Failed"},
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
+            except Exception as e:
+                return Response(
+                    {"error": f"Failed to authenticate project : {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        except Project.DoesNotExist:
+            return Response(
+                {"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

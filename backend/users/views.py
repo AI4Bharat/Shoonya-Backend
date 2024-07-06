@@ -7,8 +7,10 @@ from azure.storage.blob import BlobClient
 from io import BytesIO
 import pathlib
 from wsgiref.util import request_uri
+from django.db import IntegrityError
 import jwt
 from jwt import DecodeError, InvalidSignatureError
+import requests
 from rest_framework import viewsets, status
 import re
 from rest_framework.response import Response
@@ -20,6 +22,7 @@ from .serializers import (
     UserLoginSerializer,
     UserProfileSerializer,
     UserSignUpSerializer,
+    UsersPendingSerializer,
     UserUpdateSerializer,
     LanguageSerializer,
     ChangePasswordSerializer,
@@ -53,13 +56,14 @@ from projects.utils import (
 from datetime import datetime
 import calendar
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from workspaces.views import WorkspaceCustomViewSet
 from .utils import generate_random_string, get_role_name
 from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import pyrebase
-from workspaces.views import WorkspaceViewSet
+from workspaces.views import WorkspaceusersViewSet
+from utils.email_template import send_email_template
 
 regex = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
 load_dotenv()
@@ -115,11 +119,15 @@ class InviteViewSet(viewsets.ViewSet):
                         organization_id=org.id,
                         role=request.data.get("role"),
                     )
+                    user.is_approved = True
                     user.set_password(generate_random_string(10))
                     valid_user_emails.append(email)
                     users.append(user)
                 except:
-                    pass
+                    return Response(
+                        {"message": "Error in creating user"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             else:
                 invalid_emails.append(email)
         # setting error messages
@@ -162,9 +170,15 @@ class InviteViewSet(viewsets.ViewSet):
                 + additional_message_for_invalid_emails
                 + additional_message_for_existing_emails
             }
-        users = User.objects.bulk_create(users)
-        Invite.create_invite(organization=org, users=users)
-        return Response(ret_dict, status=status.HTTP_201_CREATED)
+        try:
+            users = User.objects.bulk_create(users)
+            Invite.create_invite(organization=org, users=users)
+            return Response(ret_dict, status=status.HTTP_201_CREATED)
+        except IntegrityError as e:
+            return Response(
+                {"message": "Email Id already present in database"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     @swagger_auto_schema(request_body=InviteGenerationSerializer)
     @permission_classes((IsAuthenticated,))
@@ -282,10 +296,17 @@ class InviteViewSet(viewsets.ViewSet):
                 email, request.data.get("password")
             )
             serialized = UserSignUpSerializer(user, request.data, partial=True)
-        except:
-            return Response(
-                {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        except requests.exceptions.HTTPError as e:
+            if str(e).find("EMAIL_EXISTS") >= 0:
+                return Response(
+                    {"message": "Email Id already present in firebase"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            else:
+                return Response(
+                    {"message": "User signed up failed"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         if serialized.is_valid():
             serialized.save()
@@ -294,6 +315,182 @@ class InviteViewSet(viewsets.ViewSet):
             return Response(
                 {"message": "User signed up failed"}, status=status.HTTP_400_BAD_REQUEST
             )
+
+    @permission_classes([IsAuthenticated])
+    @swagger_auto_schema(responses={200: UsersPendingSerializer})
+    @action(detail=False, methods=["get"], url_path="pending_users")
+    def pending_users(self, request):
+        """
+        List of users who have not accepted the invite yet in that organisation/workspace
+        """
+        organisation_id = request.query_params.get("organisation_id")
+        users = User.objects.filter(organization_id=organisation_id, is_approved=False)
+        serialized = UsersPendingSerializer(users, many=True)
+
+        if serialized.data:
+            return Response(serialized.data, status=status.HTTP_200_OK)
+
+        return Response({"message": "No pending users"}, status=status.HTTP_200_OK)
+
+    # function to reject the user request to join the workspace by organiastion owner and delete the user from the table
+    @permission_classes([IsAuthenticated])
+    @is_organization_owner
+    @swagger_auto_schema(request_body=UsersPendingSerializer)
+    @action(detail=False, methods=["delete"], url_path="reject_user")
+    def reject_user(self, request):
+        """
+        Reject the user request to join the workspace
+        """
+        try:
+            user_id = request.query_params.get("userId", None)
+            user = User.objects.get(id=user_id)
+
+            if user.is_approved == True:
+                return Response(
+                    {"message": "User is already approved"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        user.delete()
+        return Response({"message": "User rejected"}, status=status.HTTP_200_OK)
+
+    # function to approve the user request to join the workspace by organiastion owner and update the user.is_approved to true
+    @permission_classes([IsAuthenticated])
+    @is_organization_owner
+    @swagger_auto_schema(request_body=UsersPendingSerializer)
+    @action(detail=False, methods=["patch"], url_path="approve_user")
+    def approve_user(self, request):
+        """
+        Approve the user request to join the workspace
+        """
+        try:
+            user_id = request.query_params.get("userId", None)
+            user = User.objects.get(id=user_id)
+            organisation_id = user.organization_id
+
+            try:
+                organisation = Organization.objects.get(id=organisation_id)
+            except Organization.DoesNotExist:
+                return Response(
+                    {"message": "Organization not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if user.is_approved == True:
+                return Response(
+                    {"message": "User is already approved"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user.is_approved = True
+            user.save()
+            # invite the user via mail now
+            try:
+                users = []
+                users.append(user)
+                Invite.create_invite(organization=organisation, users=users)
+            except:
+                return Response(
+                    {"message": "Error in sending invite"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        return Response({"message": "User approved"}, status=status.HTTP_200_OK)
+
+    # function to request workspace owner to add the users to the workspace by workspace manager
+    @permission_classes([IsAuthenticated])
+    @swagger_auto_schema(request_body=InviteGenerationSerializer)
+    @action(detail=False, methods=["post"], url_path="request_user")
+    def request_user(self, request):
+        """
+        Request the workspace owner to add the user to the workspace from manager
+        """
+        all_emails = request.data.get("emails")
+        distinct_emails = list(set(all_emails))
+        organization_id = request.data.get("organization_id")
+        users = []
+
+        try:
+            org = Organization.objects.get(id=organization_id)
+        except Organization.DoesNotExist:
+            return Response(
+                {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        already_existing_emails = []
+        valid_user_emails = []
+        invalid_emails = []
+        existing_emails_set = set(Invite.objects.values_list("user__email", flat=True))
+
+        for email in distinct_emails:
+            # Checking if the email is in valid format.
+            if re.fullmatch(regex, email):
+                if email in existing_emails_set:
+                    already_existing_emails.append(email)
+                    continue
+                try:
+                    user = User(
+                        username=generate_random_string(12),
+                        email=email.lower(),
+                        organization_id=org.id,
+                        role=request.data.get("role"),
+                        has_accepted_invite=False,
+                        is_approved=False,
+                    )
+                    user.set_password(generate_random_string(10))
+                    valid_user_emails.append(email)
+                    users.append(user)
+                except:
+                    pass
+            else:
+                invalid_emails.append(email)
+        # setting error messages
+        (
+            additional_message_for_existing_emails,
+            additional_message_for_invalid_emails,
+        ) = ("", "")
+        additional_message_for_valid_emails = ""
+        if already_existing_emails:
+            additional_message_for_existing_emails += (
+                f", Invites already sent to: {','.join(already_existing_emails)}"
+            )
+        if invalid_emails:
+            additional_message_for_invalid_emails += (
+                f", Invalid emails: {','.join(invalid_emails)}"
+            )
+        if valid_user_emails:
+            additional_message_for_valid_emails += (
+                f", Requested users: {','.join(valid_user_emails)}"
+            )
+        if len(valid_user_emails) == 0:
+            return Response(
+                {
+                    "message": "No invites sent"
+                    + additional_message_for_invalid_emails
+                    + additional_message_for_existing_emails
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        elif len(invalid_emails) == 0:
+            ret_dict = {
+                "The invites to this users will be sent after approval from the organization owner"
+                + additional_message_for_valid_emails
+                + additional_message_for_existing_emails
+            }
+        else:
+            ret_dict = {
+                "message": f"Request sent partially!"
+                + additional_message_for_valid_emails
+                + additional_message_for_invalid_emails
+                + additional_message_for_existing_emails
+            }
+        users = User.objects.bulk_create(users)
+        return Response(ret_dict, status=status.HTTP_201_CREATED)
 
 
 class AuthViewSet(viewsets.ViewSet):
@@ -439,10 +636,10 @@ class GoogleLogin(viewsets.ViewSet):
             photoUrl = fire_user["users"][0]["photoUrl"]
             name = str(fire_user["users"][0]["displayName"]).rsplit(" ", 1)
             fName = name[0]
-            lName = name[1]
-        except:
+            lName = name[1] if len(name) > 1 else ""
+        except Exception as e:
             return Response(
-                {"message": "Authentication failed."},
+                {"message": "Authentication failed.", "error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -557,21 +754,43 @@ class UserViewSet(viewsets.ViewSet):
 
             old_email_update_code = generate_random_string(10)
             new_email_verification_code = generate_random_string(10)
+            subject = "Email Verification"
+            message = f"<p>Your email verification code is:{old_email_update_code}</p>"
 
-            send_mail(
-                "Email Verification",
-                f"Your email verification code is:{old_email_update_code}",
+            compiled_code = send_email_template(subject, message)
+
+            msg = EmailMultiAlternatives(
+                subject,
+                message,
                 settings.DEFAULT_FROM_EMAIL,
                 [user.email],
             )
+            msg.attach_alternative(compiled_code, "text/html")
+            msg.send()
 
-            send_mail(
-                "Email Verification",
-                f"Your email verification code is:{new_email_verification_code}",
+            # send_mail(
+            #     "Email Verification",
+            #     f"Your email verification code is:{old_email_update_code}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [user.email],
+            # )
+
+            # send_mail(
+            #     "Email Verification",
+            #     f"Your email verification code is:{new_email_verification_code}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [unverified_email],
+            # )
+
+            message = f"Your email verification code is: {new_email_verification_code} "
+            msg1 = EmailMultiAlternatives(
+                subject,
+                message,
                 settings.DEFAULT_FROM_EMAIL,
                 [unverified_email],
             )
-
+            msg1.attach_alternative(compiled_code, "text/html")
+            msg1.send()
             user.unverified_email = unverified_email
             user.old_email_update_code = old_email_update_code
             user.new_email_verification_code = new_email_verification_code
@@ -754,23 +973,48 @@ class UserViewSet(viewsets.ViewSet):
             pass
         else:
             if is_active_payload is False:
+                if user.enable_mail:
+                    user.enable_mail = False
+                    user.save()
                 workspaces = Workspace.objects.filter(
                     Q(members=user) | Q(managers=user)
-                )
-                workspace_view = WorkspaceViewSet()
+                ).distinct()
+
+                workspacecustomviewset_obj = WorkspaceCustomViewSet()
+                request.data["ids"] = [user.id]
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
                 for workspace in workspaces:
-                    workspace_view.unassign_manager(
-                        request, pk=workspace.pk, ids=[user.id]
+                    workspacecustomviewset_obj.unassign_manager(
+                        request=request, pk=workspace.pk
                     )
-                    workspace_view.remove_members(
-                        request, pk=workspace.pk, user_id=user.id
+
+                    workspaceusersviewset_obj.remove_members(
+                        request=request, pk=workspace.pk
                     )
+                user.is_active = False
+                user.save()
                 return Response(
                     {
                         "message": "User removed from all workspaces both as workspace member and workspace manager"
                     },
                     status=status.HTTP_200_OK,
                 )
+            else:
+                if is_active_payload is True:
+                    workspaces = Workspace.objects.filter(
+                        Q(members=user) | Q(managers=user)
+                    ).distinct()
+
+                workspaceusersviewset_obj = WorkspaceusersViewSet()
+                request.data["user_id"] = user.id
+
+                for workspace in workspaces:
+                    workspaceusersviewset_obj.remove_frozen_user(
+                        request=request, pk=workspace.pk
+                    )
 
         if request.data["role"] != user.role:
             new_role = int(request.data["role"])

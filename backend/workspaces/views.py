@@ -262,14 +262,14 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             workspace.members.add(request.user)
             workspace.save()
 
-            projects = Project.objects.filter(workspace_id=workspace.id)
-            for project in projects:
-                project.annotators.add(request.user)
-                project.save()
+            #projects = Project.objects.filter(workspace_id=workspace.id)
+            #for project in projects:
+            #   project.annotators.add(request.user)
+            #   project.save()
 
             return Response(
                 {
-                    "message": "User added to the workspace and projects as an annotator."
+                    "message": "User added to the workspace."
                 },
                 status=status.HTTP_200_OK,
             )
@@ -282,11 +282,11 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["PATCH"],
-        name="change_workspace_password",
-        url_name="change_workspace_password",
+        name="edit_workspace",
+        url_name="edit_workspace",
     )
     @is_particular_workspace_manager
-    def change_workspace_password(self, request, pk=None):
+    def edit_workspace(self, request, pk=None):
         try:
             try:
                 workspace = Workspace.objects.get(id=pk)
@@ -295,19 +295,60 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                     {"message": "No such workspace found."},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            if not workspace.guest_workspace:
-                return Response(
-                    {"message": "This is not a guest workspace."},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            new_password = request.data.get(
-                "workspace_password", workspace.workspace_password
-            )
-            workspace.set_workspace_password(new_password)
+            p_flag, g_flag = False, False
+            if "workspace_password" in request.data:
+                if request.data.get("workspace_password") in [
+                    None,
+                    "Null",
+                    "None",
+                    "",
+                    " ",
+                ]:
+                    workspace.workspace_password = ""
+                else:
+                    new_password = request.data.get(
+                        "workspace_password", workspace.workspace_password
+                    )
+                    workspace.set_workspace_password(new_password)
+                p_flag = True
+            if "guest_workspace" in request.data and request.data[
+                "guest_workspace"
+            ] in ["true", "True", True, 1, "1", "t", "T"]:
+                workspace.guest_workspace = True
+                g_flag = True
+            else:
+                if not workspace.guest_workspace:
+                    return Response(
+                        {"message": "This is not a guest workspace."},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                if "guest_workspace" in request.data and request.data[
+                    "guest_workspace"
+                ] in ["false", "False", False, 0, "0", "f", "F"]:
+                    workspace.guest_workspace = False
+                    workspace.workspace_password = ""
+                    g_flag = True
             workspace.save()
-            return Response(
-                {"message": f"Password changed for {workspace.workspace_name}"}
-            )
+            if not p_flag and not g_flag:
+                return Response(
+                    {"message": "Please send either a password or a guest workspace."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            elif p_flag and g_flag:
+                return Response(
+                    {"message": f"Both fields updated for {workspace.workspace_name}"},
+                    status=status.HTTP_200_OK,
+                )
+            elif p_flag:
+                return Response(
+                    {"message": f"Password changed for {workspace.workspace_name}"},
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                return Response(
+                    {"message": "Workspace updated"}, status=status.HTTP_200_OK
+                )
+
         except Workspace.DoesNotExist:
             return Response(
                 {"message": "Workspace not found."}, status=status.HTTP_404_NOT_FOUND
