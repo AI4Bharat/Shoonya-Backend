@@ -216,17 +216,20 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
                 {"message": "Only guest users can enter this workspace."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
-        serializer = self.get_serializer(
-            data=request.data, context={"workspace": workspace}
-        )
-        if not serializer.is_valid(raise_exception=True) or not serializer.validate(
-            request.data
+        if not (
+            workspace.workspace_password == ""
+            and request.data["workspace_password"] == ""
         ):
-            return Response(
-                {"message": "Authentication failed!"},
-                status=status.HTTP_400_BAD_REQUEST,
+            serializer = self.get_serializer(
+                data=request.data, context={"workspace": workspace}
             )
+            if not serializer.is_valid(raise_exception=True) or not serializer.validate(
+                request.data
+            ):
+                return Response(
+                    {"message": "Authentication failed!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         response = self.enter_workspace(request, pk=pk)
         if response.status_code != 200:
@@ -262,15 +265,13 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             workspace.members.add(request.user)
             workspace.save()
 
-            #projects = Project.objects.filter(workspace_id=workspace.id)
-            #for project in projects:
+            # projects = Project.objects.filter(workspace_id=workspace.id)
+            # for project in projects:
             #   project.annotators.add(request.user)
             #   project.save()
 
             return Response(
-                {
-                    "message": "User added to the workspace."
-                },
+                {"message": "User added to the workspace."},
                 status=status.HTTP_200_OK,
             )
 
