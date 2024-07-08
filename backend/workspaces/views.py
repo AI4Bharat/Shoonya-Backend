@@ -3202,7 +3202,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         project_type = request.data.get("project_type")
 
-        send_user_reports_mail_ws.delay(
+        send_user_reports_mail_ws(
             ws_id=workspace.id,
             user_id=user_id,
             project_type=project_type,

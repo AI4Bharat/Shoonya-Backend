@@ -13,6 +13,11 @@ from tasks.models import (
     ANNOTATOR_ANNOTATION,
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
+    ACCEPTED,
+    ACCEPTED_WITH_MINOR_CHANGES,
+    ACCEPTED_WITH_MAJOR_CHANGES,
+    VALIDATED,
+    VALIDATED_WITH_CHANGES,
 )
 from .models import Workspace
 from users.models import User
@@ -66,6 +71,45 @@ def get_all_annotation_reports(
             completed_by=userid,
             updated_at__range=[start_date, end_date],
         )
+    number_of_tasks_contributed_for_ar_wer, number_of_tasks_contributed_for_as_wer = (
+        0,
+        0,
+    )
+    ar_wer_score, as_wer_score = 0, 0
+    for ann in submitted_tasks:
+        all_annotations = Annotation.objects.filter(task_id=ann.task_id)
+        ar_done, as_done = False, False  # for duplicate annotations
+        for a in all_annotations:
+            rev_ann, sup_ann = "", ""
+            if a.annotation_type == REVIEWER_ANNOTATION and a.annotation_status in [
+                ACCEPTED,
+                ACCEPTED_WITH_MINOR_CHANGES,
+                ACCEPTED_WITH_MAJOR_CHANGES,
+            ]:
+                rev_ann = a
+            elif (
+                a.annotation_type == SUPER_CHECKER_ANNOTATION
+                and a.annotation_status in [VALIDATED, VALIDATED_WITH_CHANGES]
+            ):
+                sup_ann = a
+            if rev_ann and not ar_done:
+                try:
+                    ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        rev_ann.result, ann.result
+                    )
+                    number_of_tasks_contributed_for_ar_wer += 1
+                    ar_done = True
+                except Exception as e:
+                    pass
+            if sup_ann and not as_done:
+                try:
+                    as_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        sup_ann.result, ann.result
+                    )
+                    number_of_tasks_contributed_for_as_wer += 1
+                    as_done = True
+                except Exception as e:
+                    pass
 
     submitted_tasks_count = submitted_tasks.count()
 
@@ -120,6 +164,20 @@ def get_all_annotation_reports(
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
+        "Average Word Error Rate Annotator Vs Reviewer": ar_wer_score
+        / number_of_tasks_contributed_for_ar_wer
+        if number_of_tasks_contributed_for_ar_wer
+        else 0,
+        "Cumulative Word Error Rate Annotator Vs Reviewer": ar_wer_score
+        if number_of_tasks_contributed_for_ar_wer
+        else 0,
+        "Average Word Error Rate Annotator Vs Superchecker": as_wer_score
+        / number_of_tasks_contributed_for_as_wer
+        if number_of_tasks_contributed_for_as_wer
+        else 0,
+        "Cumulative Word Error Rate Annotator Vs Superchecker": as_wer_score
+        if number_of_tasks_contributed_for_as_wer
+        else 0,
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
@@ -187,7 +245,27 @@ def get_all_review_reports(
             annotation_type=REVIEWER_ANNOTATION,
             updated_at__range=[start_date, end_date],
         )
-
+    number_of_tasks_contributed_for_rs_wer = 0
+    rs_wer_score = 0
+    for ann in submitted_tasks:
+        all_annotations = Annotation.objects.filter(task_id=ann.task_id)
+        rs_done = False  # for duplicate annotations
+        for a in all_annotations:
+            sup_ann = ""
+            if (
+                a.annotation_type == SUPER_CHECKER_ANNOTATION
+                and a.annotation_status in [VALIDATED, VALIDATED_WITH_CHANGES]
+            ):
+                sup_ann = a
+            if sup_ann and not rs_done:
+                try:
+                    rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        sup_ann.result, ann.result
+                    )
+                    number_of_tasks_contributed_for_rs_wer += 1
+                    rs_done = True
+                except Exception as e:
+                    pass
     submitted_tasks_count = submitted_tasks.count()
 
     project_type_lower = project_type.lower()
@@ -240,6 +318,13 @@ def get_all_review_reports(
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
+        "Average Word Error Rate Annotator Vs Superchecker": rs_wer_score
+        / number_of_tasks_contributed_for_rs_wer
+        if number_of_tasks_contributed_for_rs_wer
+        else 0,
+        "Cumulative Word Error Rate Annotator Vs Superchecker": rs_wer_score
+        if number_of_tasks_contributed_for_rs_wer
+        else 0,
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
@@ -369,7 +454,7 @@ def get_all_supercheck_reports(
     return result
 
 
-@shared_task(queue="reports")
+# @shared_task(queue="reports")
 def send_user_reports_mail_ws(
     ws_id,
     user_id,
@@ -509,6 +594,7 @@ def send_user_reports_mail_ws(
     final_reports = sorted(final_reports, key=lambda x: x["Name"], reverse=False)
 
     df = pd.DataFrame.from_dict(final_reports)
+    df = df.fillna("NA")
 
     content = df.to_csv(index=False)
     content_type = "text/csv"
