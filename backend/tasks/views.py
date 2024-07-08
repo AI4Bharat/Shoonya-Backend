@@ -2110,7 +2110,9 @@ class AnnotationViewSet(
                                 supercheck_annotation.save()
                         except:
                             pass
-                    parent.save(update_fields=["review_notes", "annotation_status", "result"])
+                    parent.save(
+                        update_fields=["review_notes", "annotation_status", "result"]
+                    )
                     task.save()
 
                 if review_status in [
@@ -2296,7 +2298,13 @@ class AnnotationViewSet(
                         task.revision_loop_count = rev_loop_count
                     else:
                         task.task_status = SUPER_CHECKED
-                    parent.save(update_fields=["supercheck_notes", "annotation_status", "result"])
+                    parent.save(
+                        update_fields=[
+                            "supercheck_notes",
+                            "annotation_status",
+                            "result",
+                        ]
+                    )
                     task.save()
 
                 if supercheck_status in [
