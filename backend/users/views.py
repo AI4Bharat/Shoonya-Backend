@@ -29,7 +29,7 @@ from .serializers import (
 from organizations.models import Invite, Organization
 from organizations.serializers import InviteGenerationSerializer
 from organizations.decorators import is_organization_owner
-from users.models import LANG_CHOICES, User, CustomPeriodicTask
+from users.models import User, CustomPeriodicTask
 from rest_framework.decorators import action
 from utils.email_template import send_email_template
 from tasks.models import (
@@ -62,6 +62,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from dotenv import load_dotenv
 import logging
 from workspaces.views import WorkspaceusersViewSet
+from utils.constants import LANG_CHOICES
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
