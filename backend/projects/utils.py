@@ -213,7 +213,7 @@ def audio_word_count(annotation_result):
 
 
 def calculate_word_error_rate_between_two_audio_transcription_annotation(
-    annotation_result1, annotation_result2, project_type
+    annotation_result1, annotation_result2
 ):
     if "end" in annotation_result1[0]["value"]:
         annotation_result1 = sorted(
@@ -228,47 +228,19 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
 
     for result in annotation_result1:
         if "type" in result and result["type"] == "textarea":
-            if project_type in [
-                "AcousticNormalisedTranscriptionEditing",
-                "StandardizedTranscriptionEditing",
-            ]:
-                if (
-                    "from_name" in result
-                    and result["from_name"] == "verbatim_transcribed_json"
-                ):
-                    try:
-                        for s in result["value"]["text"]:
-                            annotation_result1_text += s
-                    except:
-                        pass
-            else:
-                try:
-                    for s in result["value"]["text"]:
-                        annotation_result1_text += s
-                except:
-                    pass
+            try:
+                for s in result["value"]["text"]:
+                    annotation_result1_text += s
+            except:
+                pass
 
     for result in annotation_result2:
         if "type" in result and result["type"] == "textarea":
-            if project_type in [
-                "AcousticNormalisedTranscriptionEditing",
-                "StandardizedTranscriptionEditing",
-            ]:
-                if (
-                    "from_name" in result
-                    and result["from_name"] == "verbatim_transcribed_json"
-                ):
-                    try:
-                        for s in result["value"]["text"]:
-                            annotation_result1_text += s
-                    except:
-                        pass
-            else:
-                try:
-                    for s in result["value"]["text"]:
-                        annotation_result1_text += s
-                except:
-                    pass
+            try:
+                for s in result["value"]["text"]:
+                    annotation_result2_text += s
+            except:
+                pass
     if len(annotation_result1_text) == 0 or len(annotation_result2_text) == 0:
         return 0
     return wer(annotation_result1_text, annotation_result2_text)

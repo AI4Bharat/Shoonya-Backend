@@ -95,7 +95,7 @@ def get_all_annotation_reports(
             if rev_ann and not ar_done:
                 try:
                     ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        rev_ann.result, ann.result, project_type
+                        rev_ann.result, ann.result
                     )
                     number_of_tasks_contributed_for_ar_wer += 1
                     ar_done = True
@@ -104,7 +104,7 @@ def get_all_annotation_reports(
             if sup_ann and not as_done:
                 try:
                     as_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        sup_ann.result, ann.result, project_type
+                        sup_ann.result, ann.result
                     )
                     number_of_tasks_contributed_for_as_wer += 1
                     as_done = True
@@ -260,7 +260,7 @@ def get_all_review_reports(
             if sup_ann and not rs_done:
                 try:
                     rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        sup_ann.result, ann.result, project_type
+                        sup_ann.result, ann.result
                     )
                     number_of_tasks_contributed_for_rs_wer += 1
                     rs_done = True
@@ -318,11 +318,11 @@ def get_all_review_reports(
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
-        "Average Word Error Rate Reviewer Vs Superchecker": rs_wer_score
+        "Average Word Error Rate Annotator Vs Superchecker": rs_wer_score
         / number_of_tasks_contributed_for_rs_wer
         if number_of_tasks_contributed_for_rs_wer
         else 0,
-        "Cumulative Word Error Rate Reviewer Vs Superchecker": rs_wer_score
+        "Cumulative Word Error Rate Annotator Vs Superchecker": rs_wer_score
         if number_of_tasks_contributed_for_rs_wer
         else 0,
     }
@@ -844,7 +844,6 @@ def send_project_analysis_reports_mail_ws(
                             calculate_word_error_rate_between_two_audio_transcription_annotation(
                                 review_annotation.result,
                                 review_annotation.parent_annotation.result,
-                                project_type,
                             )
                         )
                     except:
@@ -879,7 +878,6 @@ def send_project_analysis_reports_mail_ws(
                             calculate_word_error_rate_between_two_audio_transcription_annotation(
                                 supercheck_annotation.result,
                                 supercheck_annotation.parent_annotation.result,
-                                project_type,
                             )
                         )
                     except:
@@ -1192,7 +1190,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                 try:
                     total_word_error_rate_rs_list.append(
                         calculate_word_error_rate_between_two_audio_transcription_annotation(
-                            anno.result, anno.parent_annotation.result, project_type
+                            anno.result, anno.parent_annotation.result
                         )
                     )
                     total_raw_audio_duration_list.append(
@@ -1204,7 +1202,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                 try:
                     total_word_error_rate_rs_list.append(
                         calculate_word_error_rate_between_two_audio_transcription_annotation(
-                            anno.result, anno.parent_annotation.result, project_type
+                            anno.result, anno.parent_annotation.result
                         )
                     )
                 except:
@@ -1471,7 +1469,7 @@ def get_review_reports(
                     )
                     total_word_error_rate_ar_list.append(
                         calculate_word_error_rate_between_two_audio_transcription_annotation(
-                            anno.result, anno.parent_annotation.result, project_type
+                            anno.result, anno.parent_annotation.result
                         )
                     )
                 except:
@@ -1480,7 +1478,7 @@ def get_review_reports(
                 try:
                     total_word_error_rate_rs_list.append(
                         calculate_word_error_rate_between_two_audio_transcription_annotation(
-                            anno.result, anno.parent_annotation.result, project_type
+                            anno.result, anno.parent_annotation.result
                         )
                     )
                 except:

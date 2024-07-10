@@ -1038,7 +1038,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                                 calculate_word_error_rate_between_two_audio_transcription_annotation(
                                     review_annotation.result,
                                     review_annotation.parent_annotation.result,
-                                    project_type,
                                 )
                             )
                         except:
@@ -1068,7 +1067,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                                 calculate_word_error_rate_between_two_audio_transcription_annotation(
                                     supercheck_annotation.result,
                                     supercheck_annotation.parent_annotation.result,
-                                    project_type,
                                 )
                             )
                         except:

@@ -300,7 +300,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             try:
                 total_word_error_rate_rs_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        anno.result, anno.parent_annotation.result, proj_type
+                        anno.result, anno.parent_annotation.result
                     )
                 )
             except:
@@ -309,7 +309,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             try:
                 total_word_error_rate_ar_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        anno.result, anno.parent_annotation.result, proj_type
+                        anno.result, anno.parent_annotation.result
                     )
                 )
             except:
@@ -603,7 +603,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
             try:
                 total_word_error_rate_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        anno.result, anno.parent_annotation.result, proj_type
+                        anno.result, anno.parent_annotation.result
                     )
                 )
             except:
@@ -3370,7 +3370,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     try:
                         total_word_error_rate_ar_list.append(
                             calculate_word_error_rate_between_two_audio_transcription_annotation(
-                                anno.result, anno.parent_annotation.result, project_type
+                                anno.result, anno.parent_annotation.result
                             )
                         )
                     except:
