@@ -804,7 +804,7 @@ class UserViewSet(viewsets.ViewSet):
     @swagger_auto_schema(responses={200: UserProfileSerializer, 403: "Not Authorized"})
     @action(detail=False, methods=["get"], url_path="user_details")
     def user_details(self, request):
-        if request.user.role == User.ADMIN:
+        if request.user.role in [User.ADMIN, User.ORGANIZATION_OWNER]:
             user_details = User.objects.all()
             serializer = UserProfileSerializer(user_details, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -858,7 +858,7 @@ class UserViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=UserUpdateSerializer)
     @action(detail=True, methods=["patch"], url_path="edit_user_details")
     def user_details_update(self, request, pk=None):
-        if request.user.role != User.ADMIN:
+        if request.user.role not in [User.ADMIN, User.ORGANIZATION_OWNER]:
             return Response(
                 {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
             )

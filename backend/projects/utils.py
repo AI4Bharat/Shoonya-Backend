@@ -215,14 +215,19 @@ def audio_word_count(annotation_result):
 def calculate_word_error_rate_between_two_audio_transcription_annotation(
     annotation_result1, annotation_result2
 ):
-    annotation_result1 = sorted(annotation_result1, key=lambda i: (i["value"]["end"]))
-    annotation_result2 = sorted(annotation_result2, key=lambda i: (i["value"]["end"]))
+    if "end" in annotation_result1[0]["value"]:
+        annotation_result1 = sorted(
+            annotation_result1, key=lambda i: (i["value"]["end"])
+        )
+        annotation_result2 = sorted(
+            annotation_result2, key=lambda i: (i["value"]["end"])
+        )
 
     annotation_result1_text = ""
     annotation_result2_text = ""
 
     for result in annotation_result1:
-        if result["from_name"] in ["transcribed_json", "verbatim_transcribed_json"]:
+        if "type" in result and result["type"] == "textarea":
             try:
                 for s in result["value"]["text"]:
                     annotation_result1_text += s
@@ -230,7 +235,7 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
                 pass
 
     for result in annotation_result2:
-        if result["from_name"] in ["transcribed_json", "verbatim_transcribed_json"]:
+        if "type" in result and result["type"] == "textarea":
             try:
                 for s in result["value"]["text"]:
                     annotation_result2_text += s
