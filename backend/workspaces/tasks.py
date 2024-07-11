@@ -78,9 +78,9 @@ def get_all_annotation_reports(
     ar_wer_score, as_wer_score = 0, 0
     for ann in submitted_tasks:
         all_annotations = Annotation.objects.filter(task_id=ann.task_id)
-        ar_done, as_done = False, False  # for duplicate annotations
+        ar_done, as_done = False, False
+        ann_ann, rev_ann, sup_ann = "", "", ""
         for a in all_annotations:
-            rev_ann, sup_ann = "", ""
             if a.annotation_type == REVIEWER_ANNOTATION and a.annotation_status in [
                 ACCEPTED,
                 ACCEPTED_WITH_MINOR_CHANGES,
@@ -92,19 +92,21 @@ def get_all_annotation_reports(
                 and a.annotation_status in [VALIDATED, VALIDATED_WITH_CHANGES]
             ):
                 sup_ann = a
-            if rev_ann and not ar_done:
+            elif a.annotation_type == ANNOTATOR_ANNOTATION:
+                ann_ann = a
+            if ann_ann and rev_ann and not ar_done:
                 try:
                     ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        rev_ann.result, ann.result, project_type
+                        rev_ann.result, ann_ann.result, project_type
                     )
                     number_of_tasks_contributed_for_ar_wer += 1
                     ar_done = True
                 except Exception as e:
                     pass
-            if sup_ann and not as_done:
+            if ann_ann and sup_ann and not as_done:
                 try:
                     as_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        sup_ann.result, ann.result, project_type
+                        sup_ann.result, ann_ann.result, project_type
                     )
                     number_of_tasks_contributed_for_as_wer += 1
                     as_done = True
@@ -250,17 +252,19 @@ def get_all_review_reports(
     for ann in submitted_tasks:
         all_annotations = Annotation.objects.filter(task_id=ann.task_id)
         rs_done = False  # for duplicate annotations
+        sup_ann, rev_ann = "", ""
         for a in all_annotations:
-            sup_ann = ""
             if (
                 a.annotation_type == SUPER_CHECKER_ANNOTATION
                 and a.annotation_status in [VALIDATED, VALIDATED_WITH_CHANGES]
             ):
                 sup_ann = a
-            if sup_ann and not rs_done:
+            elif a.annotation_type == REVIEWER_ANNOTATION:
+                rev_ann = a
+            if rev_ann and sup_ann and not rs_done:
                 try:
                     rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        sup_ann.result, ann.result, project_type
+                        sup_ann.result, rev_ann.result, project_type
                     )
                     number_of_tasks_contributed_for_rs_wer += 1
                     rs_done = True

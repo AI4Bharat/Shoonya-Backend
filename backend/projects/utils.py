@@ -228,20 +228,10 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
 
     for result in annotation_result1:
         if "type" in result and result["type"] == "textarea":
-            if project_type in [
-                "AcousticNormalisedTranscriptionEditing",
-                "StandardizedTranscriptionEditing",
-            ]:
-                if (
-                    "from_name" in result
-                    and result["from_name"] == "verbatim_transcribed_json"
-                ):
-                    try:
-                        for s in result["value"]["text"]:
-                            annotation_result1_text += s
-                    except:
-                        pass
-            else:
+            if (
+                "from_name" in result
+                and result["from_name"] != "acoustic_normalised_transcribed_json"
+            ):
                 try:
                     for s in result["value"]["text"]:
                         annotation_result1_text += s
@@ -250,23 +240,13 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
 
     for result in annotation_result2:
         if "type" in result and result["type"] == "textarea":
-            if project_type in [
-                "AcousticNormalisedTranscriptionEditing",
-                "StandardizedTranscriptionEditing",
-            ]:
-                if (
-                    "from_name" in result
-                    and result["from_name"] == "verbatim_transcribed_json"
-                ):
-                    try:
-                        for s in result["value"]["text"]:
-                            annotation_result1_text += s
-                    except:
-                        pass
-            else:
+            if (
+                "from_name" in result
+                and result["from_name"] != "acoustic_normalised_transcribed_json"
+            ):
                 try:
                     for s in result["value"]["text"]:
-                        annotation_result1_text += s
+                        annotation_result2_text += s
                 except:
                     pass
     if len(annotation_result1_text) == 0 or len(annotation_result2_text) == 0:
