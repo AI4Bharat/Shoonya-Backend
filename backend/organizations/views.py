@@ -2768,7 +2768,6 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
             annotationTaskCount = cursor.fetchall()
 
-            print(annotationTaskCount)
 
             # * Fetch Reviewed Task Count
 
@@ -2793,7 +2792,6 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
             reviewedTaskCount = cursor.fetchall()
 
-            print(reviewedTaskCount)
 
             taskCountInfo = defaultdict(list)
 
@@ -2813,7 +2811,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 if len(val)==2:
                     review_count = val[0]
                     ann_count = val[1]
-                    
+
                 result = {
                     "language": lang,
                     "ann_cumulative_tasks_count": ann_count,
@@ -2823,6 +2821,85 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 taskCountResponse.append(result)
 
             final_result_for_all_types[project_types[0]] = taskCountResponse
+
+        elif len(project_types)>1:
+
+            for project_type in project_types:
+
+                # * Fetch Annotated Task Count
+
+                fetchAnnotationTaskCountQuery = f"""
+                                                SELECT
+                                                    pjt.tgt_language,
+                                                    count(tsk.id)
+                                                FROM
+                                                    tasks_task AS tsk,
+                                                    projects_project AS pjt
+                                                WHERE
+                                                    tsk.project_id_id = pjt.id
+                                                    AND pjt.organization_id_id = {pk}
+                                                    AND tsk.task_status in('reviewed', 'annotated', 'exported', 'super_checked')
+                                                    AND pjt.project_type = '{project_type}'
+                                                GROUP BY
+                                                    pjt.tgt_language;
+                                                """
+                cursor.execute(fetchAnnotationTaskCountQuery)
+
+                annotationTaskCount = cursor.fetchall()
+
+
+                # * Fetch Reviewed Task Count
+
+                fetchReviewedTaskCountQuery = f"""
+                                                SELECT
+                                                    pjt.tgt_language,
+                                                    count(tsk.id)
+                                                FROM
+                                                    tasks_task AS tsk,
+                                                    projects_project AS pjt
+                                                WHERE
+                                                    tsk.project_id_id = pjt.id
+                                                    AND pjt.organization_id_id = {pk}
+                                                    AND pjt.project_stage in{str(tuple([REVIEW_STAGE,SUPERCHECK_STAGE]))}
+                                                    AND tsk.task_status in('reviewed', 'exported', 'super_checked')
+                                                    AND pjt.project_type = '{project_type}'
+                                                GROUP BY
+                                                    pjt.tgt_language;
+                                                """
+
+                cursor.execute(fetchReviewedTaskCountQuery)
+
+                reviewedTaskCount = cursor.fetchall()
+
+
+                taskCountInfo = defaultdict(list)
+
+                for lang, val in reviewedTaskCount:
+                    taskCountInfo[lang].append(val)
+
+                for lang, val in annotationTaskCount:
+                    taskCountInfo[lang].append(val)
+
+                taskCountResponse = []
+
+                for lang, val in taskCountInfo.items():
+
+                    ann_count = 0
+                    review_count = 0
+
+                    if len(val)==2:
+                        review_count = val[0]
+                        ann_count = val[1]
+
+                    result = {
+                        "language": lang,
+                        "ann_cumulative_tasks_count": ann_count,
+                        "rew_cumulative_tasks_count": review_count,
+                    }
+
+                    taskCountResponse.append(result)
+
+                final_result_for_all_types[project_type] = taskCountResponse
 
         # for project_type in project_types:
         #     proj_objs = []
