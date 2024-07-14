@@ -2784,7 +2784,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                                                 AND pjt.organization_id_id = {pk}
                                                 AND pjt.project_stage in{str(tuple([REVIEW_STAGE,SUPERCHECK_STAGE]))}
                                                 AND tsk.task_status in('reviewed', 'exported', 'super_checked')
-                                                AND pjt.project_type = 'ContextualTranslationEditing'
+                                                AND pjt.project_type = '{project_types[0]}'
                                             GROUP BY
                                                 pjt.tgt_language;
                                             """
@@ -2807,10 +2807,17 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
             for lang, val in taskCountInfo.items():
 
+                ann_count = 0
+                review_count = 0
+
+                if len(val)==2:
+                    review_count = val[0]
+                    ann_count = val[1]
+                    
                 result = {
                     "language": lang,
-                    "ann_cumulative_tasks_count": val[1],
-                    "rew_cumulative_tasks_count": val[0],
+                    "ann_cumulative_tasks_count": ann_count,
+                    "rew_cumulative_tasks_count": review_count,
                 }
 
                 taskCountResponse.append(result)
