@@ -55,6 +55,8 @@ from .tasks import (
 
 from django.db import connection
 
+from collections import defaultdict
+
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
     annotated_tasks = Task.objects.filter(
@@ -2714,24 +2716,24 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
         if "project_type_filter" in dict(request.query_params):
             project_types = [request.query_params["project_type_filter"]]
-        # else:
-        #     project_types = [
-        #         "AcousticNormalisedTranscriptionEditing",
-        #         "AudioSegmentation",
-        #         "AudioTranscription",
-        #         "AudioTranscriptionEditing",
-        #         "ContextualSentenceVerification",
-        #         "ContextualSentenceVerificationAndDomainClassification",
-        #         "ContextualTranslationEditing",
-        #         "ConversationTranslation",
-        #         "ConversationTranslationEditing",
-        #         "ConversationVerification",
-        #         "MonolingualTranslation",
-        #         "OCRTranscriptionEditing",
-        #         "SemanticTextualSimilarity_Scale5",
-        #         "SentenceSplitting",
-        #         "TranslationEditing",
-        #     ]
+        else:
+            project_types = [
+                "AcousticNormalisedTranscriptionEditing",
+                "AudioSegmentation",
+                "AudioTranscription",
+                "AudioTranscriptionEditing",
+                "ContextualSentenceVerification",
+                "ContextualSentenceVerificationAndDomainClassification",
+                "ContextualTranslationEditing",
+                "ConversationTranslation",
+                "ConversationTranslationEditing",
+                "ConversationVerification",
+                "MonolingualTranslation",
+                "OCRTranscriptionEditing",
+                "SemanticTextualSimilarity_Scale5",
+                "SentenceSplitting",
+                "TranslationEditing",
+            ]
         if "project_type" in dict(request.query_params):
             project_type = request.query_params["project_type"]
             project_types = [project_type]
@@ -2742,53 +2744,78 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
         cursor = connection.cursor()
 
-        # * Fetch Annotated Task Count
+        # ? If Project Type Filter and No Meta
 
-        fetchAnnotationTaskCountQuery = f"""
-                                        SELECT
-                                            pjt.tgt_language,
-                                            count(tsk.id)
-                                        FROM
-                                            tasks_task AS tsk,
-                                            projects_project AS pjt
-                                        WHERE
-                                            tsk.project_id_id = pjt.id
-                                            AND pjt.organization_id_id = {pk}
-                                            AND tsk.task_status in('reviewed', 'annotated', 'exported', 'super_checked')
-                                            AND pjt.project_type = '{project_types[0]}'
-                                        GROUP BY
-                                            pjt.tgt_language;
-                                        """
-        cursor.execute(fetchAnnotationTaskCountQuery)
+        if "project_type_filter" in dict(request.query_params) and metainfo == False:
+            # * Fetch Annotated Task Count
 
-        annotationTaskCount = cursor.fetchall()
+            fetchAnnotationTaskCountQuery = f"""
+                                            SELECT
+                                                pjt.tgt_language,
+                                                count(tsk.id)
+                                            FROM
+                                                tasks_task AS tsk,
+                                                projects_project AS pjt
+                                            WHERE
+                                                tsk.project_id_id = pjt.id
+                                                AND pjt.organization_id_id = {pk}
+                                                AND tsk.task_status in('reviewed', 'annotated', 'exported', 'super_checked')
+                                                AND pjt.project_type = '{project_types[0]}'
+                                            GROUP BY
+                                                pjt.tgt_language;
+                                            """
+            cursor.execute(fetchAnnotationTaskCountQuery)
 
-        print(annotationTaskCount)
+            annotationTaskCount = cursor.fetchall()
 
-        # * Fetch Reviewed Task Count
+            print(annotationTaskCount)
 
-        fetchReviewedTaskCountQuery = f"""
-                                        SELECT
-                                            pjt.tgt_language,
-                                            count(tsk.id)
-                                        FROM
-                                            tasks_task AS tsk,
-                                            projects_project AS pjt
-                                        WHERE
-                                            tsk.project_id_id = pjt.id
-                                            AND pjt.organization_id_id = {pk}
-                                            AND pjt.project_stage in{str(tuple([REVIEW_STAGE,SUPERCHECK_STAGE]))}
-                                            AND tsk.task_status in('reviewed', 'exported', 'super_checked')
-                                            AND pjt.project_type = 'ContextualTranslationEditing'
-                                        GROUP BY
-                                            pjt.tgt_language;
-                                        """
+            # * Fetch Reviewed Task Count
 
-        cursor.execute(fetchReviewedTaskCountQuery)
+            fetchReviewedTaskCountQuery = f"""
+                                            SELECT
+                                                pjt.tgt_language,
+                                                count(tsk.id)
+                                            FROM
+                                                tasks_task AS tsk,
+                                                projects_project AS pjt
+                                            WHERE
+                                                tsk.project_id_id = pjt.id
+                                                AND pjt.organization_id_id = {pk}
+                                                AND pjt.project_stage in{str(tuple([REVIEW_STAGE,SUPERCHECK_STAGE]))}
+                                                AND tsk.task_status in('reviewed', 'exported', 'super_checked')
+                                                AND pjt.project_type = 'ContextualTranslationEditing'
+                                            GROUP BY
+                                                pjt.tgt_language;
+                                            """
 
-        reviewedTaskCount = cursor.fetchall()
+            cursor.execute(fetchReviewedTaskCountQuery)
 
-        print(reviewedTaskCount)
+            reviewedTaskCount = cursor.fetchall()
+
+            print(reviewedTaskCount)
+
+            taskCountInfo = defaultdict(list)
+
+            for lang, val in reviewedTaskCount:
+                taskCountInfo[lang].append(val)
+
+            for lang, val in annotationTaskCount:
+                taskCountInfo[lang].append(val)
+
+            taskCountResponse = []
+
+            for lang, val in taskCountInfo.items():
+
+                result = {
+                    "language": lang,
+                    "ann_cumulative_tasks_count": val[1],
+                    "rew_cumulative_tasks_count": val[0],
+                }
+
+                taskCountResponse.append(result)
+
+            final_result_for_all_types[project_types[0]] = taskCountResponse
 
         # for project_type in project_types:
         #     proj_objs = []
