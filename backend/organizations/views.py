@@ -2746,10 +2746,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
         # ? If Project Type Filter and No Meta
 
-        if "project_type_filter" in dict(request.query_params) and metainfo == False:
-            # * Fetch Annotated Task Count
-
-            fetchAnnotationTaskCountQuery = f"""
+        fetchAnnotationTaskCountQuery = """
                                             SELECT
                                                 pjt.tgt_language,
                                                 count(tsk.id)
@@ -2760,18 +2757,12 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                                                 tsk.project_id_id = pjt.id
                                                 AND pjt.organization_id_id = {pk}
                                                 AND tsk.task_status in('reviewed', 'annotated', 'exported', 'super_checked')
-                                                AND pjt.project_type = '{project_types[0]}'
+                                                AND pjt.project_type = '{project_type}'
                                             GROUP BY
                                                 pjt.tgt_language;
                                             """
-            cursor.execute(fetchAnnotationTaskCountQuery)
 
-            annotationTaskCount = cursor.fetchall()
-
-
-            # * Fetch Reviewed Task Count
-
-            fetchReviewedTaskCountQuery = f"""
+        fetchReviewedTaskCountQuery = """
                                             SELECT
                                                 pjt.tgt_language,
                                                 count(tsk.id)
@@ -2781,17 +2772,31 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                                             WHERE
                                                 tsk.project_id_id = pjt.id
                                                 AND pjt.organization_id_id = {pk}
-                                                AND pjt.project_stage in{str(tuple([REVIEW_STAGE,SUPERCHECK_STAGE]))}
+                                                AND pjt.project_stage in(2,3)
                                                 AND tsk.task_status in('reviewed', 'exported', 'super_checked')
-                                                AND pjt.project_type = '{project_types[0]}'
+                                                AND pjt.project_type = '{project_type}'
                                             GROUP BY
                                                 pjt.tgt_language;
                                             """
 
-            cursor.execute(fetchReviewedTaskCountQuery)
+        if "project_type_filter" in dict(request.query_params) and metainfo == False:
+            # * Fetch Annotated Task Count
+
+            cursor.execute(
+                fetchAnnotationTaskCountQuery.format(
+                    pk=pk, project_type=project_types[0]
+                )
+            )
+
+            annotationTaskCount = cursor.fetchall()
+
+            # * Fetch Reviewed Task Count
+
+            cursor.execute(
+                fetchReviewedTaskCountQuery.format(pk=pk, project_type=project_types[0])
+            )
 
             reviewedTaskCount = cursor.fetchall()
-
 
             taskCountInfo = defaultdict(list)
 
@@ -2808,7 +2813,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 ann_count = 0
                 review_count = 0
 
-                if len(val)==2:
+                if len(val) == 2:
                     review_count = val[0]
                     ann_count = val[1]
 
@@ -2817,60 +2822,33 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     "ann_cumulative_tasks_count": ann_count,
                     "rew_cumulative_tasks_count": review_count,
                 }
+                if ann_count != 0 or review_count != 0:
 
-                taskCountResponse.append(result)
+                    taskCountResponse.append(result)
 
             final_result_for_all_types[project_types[0]] = taskCountResponse
 
-        elif len(project_types)>1:
+        elif len(project_types) > 1:
 
             for project_type in project_types:
 
                 # * Fetch Annotated Task Count
 
-                fetchAnnotationTaskCountQuery = f"""
-                                                SELECT
-                                                    pjt.tgt_language,
-                                                    count(tsk.id)
-                                                FROM
-                                                    tasks_task AS tsk,
-                                                    projects_project AS pjt
-                                                WHERE
-                                                    tsk.project_id_id = pjt.id
-                                                    AND pjt.organization_id_id = {pk}
-                                                    AND tsk.task_status in('reviewed', 'annotated', 'exported', 'super_checked')
-                                                    AND pjt.project_type = '{project_type}'
-                                                GROUP BY
-                                                    pjt.tgt_language;
-                                                """
-                cursor.execute(fetchAnnotationTaskCountQuery)
+                cursor.execute(
+                    fetchAnnotationTaskCountQuery.format(
+                        pk=pk, project_type=project_type
+                    )
+                )
 
                 annotationTaskCount = cursor.fetchall()
 
-
                 # * Fetch Reviewed Task Count
 
-                fetchReviewedTaskCountQuery = f"""
-                                                SELECT
-                                                    pjt.tgt_language,
-                                                    count(tsk.id)
-                                                FROM
-                                                    tasks_task AS tsk,
-                                                    projects_project AS pjt
-                                                WHERE
-                                                    tsk.project_id_id = pjt.id
-                                                    AND pjt.organization_id_id = {pk}
-                                                    AND pjt.project_stage in{str(tuple([REVIEW_STAGE,SUPERCHECK_STAGE]))}
-                                                    AND tsk.task_status in('reviewed', 'exported', 'super_checked')
-                                                    AND pjt.project_type = '{project_type}'
-                                                GROUP BY
-                                                    pjt.tgt_language;
-                                                """
-
-                cursor.execute(fetchReviewedTaskCountQuery)
+                cursor.execute(
+                    fetchReviewedTaskCountQuery.format(pk=pk, project_type=project_type)
+                )
 
                 reviewedTaskCount = cursor.fetchall()
-
 
                 taskCountInfo = defaultdict(list)
 
@@ -2887,7 +2865,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     ann_count = 0
                     review_count = 0
 
-                    if len(val)==2:
+                    if len(val) == 2:
                         review_count = val[0]
                         ann_count = val[1]
 
@@ -2897,7 +2875,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         "rew_cumulative_tasks_count": review_count,
                     }
 
-                    taskCountResponse.append(result)
+                    if ann_count != 0 or review_count != 0:
+
+                        taskCountResponse.append(result)
 
                 final_result_for_all_types[project_type] = taskCountResponse
 
