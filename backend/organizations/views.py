@@ -3291,4 +3291,5 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
         #         pass
         #     else:
         #         final_result_for_all_types[project_type] = final_result
+        cursor.close()
         return Response(final_result_for_all_types)
