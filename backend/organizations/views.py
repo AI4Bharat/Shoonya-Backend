@@ -2881,6 +2881,200 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
                 final_result_for_all_types[project_type] = taskCountResponse
 
+        # * If Meta Analytics is Requested
+
+        elif "project_type_filter" in dict(request.query_params) and metainfo == True:
+
+            # * Fetch meta analytics data if audio type project
+            # if project_types[0] in get_audio_project_types():
+
+            #     # * Define Queries for Annotated and Reviewed Duration Queries
+            #     getAnnotatedRawDurationQuery = """
+            #                             SELECT
+            #                                 pjt.tgt_language as language,sum(cast(data -> 'audio_duration' as float)) AS raw_duration
+            #                             FROM
+            #                                 tasks_task AS tsk,
+            #                                 projects_project AS pjt,
+            #                                 tasks_annotation AS tan
+            #                             WHERE
+            #                                 tsk.project_id_id = pjt.id
+            #                                 AND tan.task_id = tsk.id
+            #                                 AND pjt.organization_id_id = {pk}
+            #                                 AND tsk.task_status in('reviewed', 'annotated', 'exported', 'super_checked')
+            #                                 AND pjt.project_type = '{project_type}'
+            #                             GROUP BY pjt.tgt_language
+            #                             """
+
+            #     getAnnotatedTotalDurationQuery = """
+            #                                 WITH expanded AS (
+            #                                     SELECT
+            #                                         pjt.tgt_language,
+            #                                         (cast(elem -> 'value' ->> 'end' AS float) - cast(elem -> 'value' ->> 'start' AS float)) AS duration
+            #                                     FROM
+            #                                         tasks_task AS tsk
+            #                                         JOIN projects_project AS pjt ON tsk.project_id_id = pjt.id
+            #                                         JOIN tasks_annotation AS tan ON tan.task_id = tsk.id,
+            #                                         LATERAL jsonb_array_elements(tan.result) AS elem
+            #                                     WHERE
+            #                                         pjt.organization_id_id = {pk}
+            #                                         AND tsk.task_status IN ('reviewed', 'annotated', 'exported', 'super_checked')
+            #                                         AND pjt.project_type = '{project_type}'
+            #                                         AND jsonb_typeof(tan.result) = 'array'
+            #                                 )
+            #                                 SELECT
+            #                                     tgt_language,
+            #                                     SUM(duration) AS total_duration
+            #                                 FROM
+            #                                     expanded
+            #                                 GROUP BY
+            #                                     tgt_language;
+            #                                 """
+
+            #     getReviewedRawDurationQuery = """
+            #                             SELECT
+            #                                 pjt.tgt_language as language,sum(cast(data -> 'audio_duration' as float)) AS raw_duration
+            #                             FROM
+            #                                 tasks_task AS tsk,
+            #                                 projects_project AS pjt,
+            #                                 tasks_annotation AS tan
+            #                             WHERE
+            #                                 tsk.project_id_id = pjt.id
+            #                                 AND tan.task_id = tsk.id
+            #                                 AND pjt.organization_id_id = {pk}
+            #                                 AND tsk.task_status in('reviewed', 'exported', 'super_checked')
+            #                                 AND pjt.project_stage in(2,3)
+            #                                 AND pjt.project_type = '{project_type}'
+            #                             GROUP BY pjt.tgt_language
+            #                             """
+
+            #     getReviewedTotalDurationQuery = """
+            #                                 WITH expanded AS (
+            #                                     SELECT
+            #                                         pjt.tgt_language,
+            #                                         (cast(elem -> 'value' ->> 'end' AS float) - cast(elem -> 'value' ->> 'start' AS float)) AS duration
+            #                                     FROM
+            #                                         tasks_task AS tsk
+            #                                         JOIN projects_project AS pjt ON tsk.project_id_id = pjt.id
+            #                                         JOIN tasks_annotation AS tan ON tan.task_id = tsk.id,
+            #                                         LATERAL jsonb_array_elements(tan.result) AS elem
+            #                                     WHERE
+            #                                         pjt.organization_id_id = {pk}
+            #                                         AND tsk.task_status IN ('reviewed', 'exported', 'super_checked')
+            #                                         AND pjt.project_stage in(2,3)
+            #                                         AND pjt.project_type = '{project_type}'
+            #                                         AND jsonb_typeof(tan.result) = 'array'
+            #                                 )
+            #                                 SELECT
+            #                                     tgt_language,
+            #                                     SUM(duration) AS total_duration
+            #                                 FROM
+            #                                     expanded
+            #                                 GROUP BY
+            #                                     tgt_language;
+            #                                 """
+
+            #     # * Execute the above queries and fetch results
+
+            #     cursor.execute(
+            #         getAnnotatedRawDurationQuery.format(
+            #             pk=pk, project_type=project_types[0]
+            #         )
+            #     )
+
+            #     annotatedRawDuration = cursor.fetchall()
+
+            #     cursor.execute(
+            #         getAnnotatedTotalDurationQuery.format(
+            #             pk=pk, project_type=project_types[0]
+            #         )
+            #     )
+
+            #     annotatedTotalDuration = cursor.fetchall()
+
+            #     cursor.execute(
+            #         getReviewedRawDurationQuery.format(
+            #             pk=pk, project_type=project_types[0]
+            #         )
+            #     )
+
+            #     reviewedRawDuration = cursor.fetchall()
+
+            #     cursor.execute(
+            #         getReviewedTotalDurationQuery.format(
+            #             pk=pk, project_type=project_types[0]
+            #         )
+            #     )
+
+            #     reviewedTotalDuration = cursor.fetchall()
+
+            if project_types[0] in get_translation_dataset_project_types():
+
+                getAnnotatedWordCountQuery = """
+                                                SELECT
+                                                    pjt.tgt_language,sum(cast(data->>'word_count' as integer)) 
+                                                FROM
+                                                    tasks_task AS tsk,
+                                                    projects_project AS pjt
+                                                WHERE
+                                                    tsk.project_id_id = pjt.id
+                                                    AND pjt.organization_id_id = {pk}
+                                                    AND tsk.task_status in('reviewed', 'annotated','exported', 'super_checked')
+                                                    AND pjt.project_type = '{project_type}'
+                                                    GROUP BY pjt.tgt_language
+                                                """
+
+                getReviewedWordCountQuery = """
+                                                SELECT
+                                                    pjt.tgt_language,sum(cast(data->>'word_count' as integer)) 
+                                                FROM
+                                                    tasks_task AS tsk,
+                                                    projects_project AS pjt
+                                                WHERE
+                                                    tsk.project_id_id = pjt.id
+                                                    AND pjt.organization_id_id = {pk}
+                                                    AND pjt.project_stage in(2, 3)
+                                                    AND tsk.task_status in('reviewed', 'exported', 'super_checked')
+                                                    AND pjt.project_type = '{project_type}'
+                                                    GROUP BY pjt.tgt_language
+                                                """
+
+                cursor.execute(
+                    getAnnotatedWordCountQuery.format(
+                        pk=pk, project_type=project_types[0]
+                    )
+                )
+
+                annotatedWordCount = cursor.fetchall()
+
+                cursor.execute(
+                    getReviewedWordCountQuery.format(
+                        pk=pk, project_type=project_types[0]
+                    )
+                )
+
+                reviewedWordCount = cursor.fetchall()
+
+                wordCountInfo = defaultdict(list)
+
+                for lang, val in annotatedWordCount:
+                    wordCountInfo[lang].append(val)
+
+                for lang, val in reviewedWordCount:
+                    wordCountInfo[lang].append(val)
+
+                metaInfoResponse = []
+
+                for lang, val in wordCountInfo.items():
+                    result = {
+                        "language": lang,
+                        "ann_cumulative_word_count": val[0],
+                        "rew_cumulative_word_count": val[1],
+                    }
+
+                    metaInfoResponse.append(result)
+
+                final_result_for_all_types[project_types[0]] = metaInfoResponse
+
         # for project_type in project_types:
         #     proj_objs = []
         #     proj_objs = Project.objects.filter(
