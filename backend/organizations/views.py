@@ -3006,7 +3006,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             #     )
 
             #     reviewedTotalDuration = cursor.fetchall()
-
+            # * Check if Project Type is a Translation Dataset Project
             if project_types[0] in get_translation_dataset_project_types():
 
                 getAnnotatedWordCountQuery = """
