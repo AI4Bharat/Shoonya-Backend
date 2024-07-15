@@ -439,7 +439,7 @@ def get_all_review_reports(
         "Cumulative Word Error Rate Reviewer Vs Superchecker": rs_wer_score
         if number_of_tasks_contributed_for_rs_wer
         else 0,
-        "Average Bleu Score  Reviewer Vs Superchecker": rs_bleu_score
+        "Average Bleu Score Reviewer Vs Superchecker": rs_bleu_score
         / number_of_tasks_contributed_for_rs_bleu
         if number_of_tasks_contributed_for_rs_bleu
         else 0,
