@@ -1527,6 +1527,10 @@ class AnnotationViewSet(
                             annotation_obj,
                             annotation_obj.task.project_id.metadata_json,
                         )
+                        if output_result == -1:
+                            ret_dict = {"message": "Either prompt or output is None."}
+                            ret_status = status.HTTP_403_FORBIDDEN
+                            return Response(ret_dict, status=ret_status)
                         # store the result of all checks as well
                         annotation_obj.result.append(
                             {
@@ -2328,6 +2332,8 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
         if isinstance(project_metadata_json, str)
         else project_metadata_json
     )
+    if prompt in [None, "Null", 0, "None", "", " "]:
+        return -1
     intentDomain_test, lang_test, duplicate_test = False, False, False
     if project_metadata:
         if (
@@ -2365,6 +2371,9 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
         history,
         model,
     )
+    res = format_model_output(model_output)
+    if res in [None, "Null", 0, "None", "", " "]:
+        return -1
     return format_model_output(model_output)
 
 
