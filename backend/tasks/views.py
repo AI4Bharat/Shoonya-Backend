@@ -2374,7 +2374,7 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
     res = format_model_output(model_output)
     if res in [None, "Null", 0, "None", "", " "]:
         return -1
-    return format_model_output(model_output)
+    return res
 
 
 def format_model_output(model_output):
