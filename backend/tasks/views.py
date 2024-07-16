@@ -1528,7 +1528,9 @@ class AnnotationViewSet(
                             annotation_obj.task.project_id.metadata_json,
                         )
                         if output_result == -1:
-                            ret_dict = {"message": "Either prompt or output is None."}
+                            ret_dict = {
+                                "message": "Please make sure you have entered a prompt and the system has responded with an answer"
+                            }
                             ret_status = status.HTTP_403_FORBIDDEN
                             return Response(ret_dict, status=ret_status)
                         # store the result of all checks as well
@@ -1675,6 +1677,12 @@ class AnnotationViewSet(
                             annotation_obj,
                             annotation_obj.task.project_id.metadata_json,
                         )
+                        if output_result == -1:
+                            ret_dict = {
+                                "message": "Please make sure you have entered a prompt and the system has responded with an answer"
+                            }
+                            ret_status = status.HTTP_403_FORBIDDEN
+                            return Response(ret_dict, status=ret_status)
                         # store the result of all checks as well
                         annotation_obj.result.append(
                             {
@@ -1885,6 +1893,12 @@ class AnnotationViewSet(
                             annotation_obj,
                             annotation_obj.task.project_id.metadata_json,
                         )
+                        if output_result == -1:
+                            ret_dict = {
+                                "message": "Please make sure you have entered a prompt and the system has responded with an answer"
+                            }
+                            ret_status = status.HTTP_403_FORBIDDEN
+                            return Response(ret_dict, status=ret_status)
                         # store the result of all checks as well
                         annotation_obj.result.append(
                             {
