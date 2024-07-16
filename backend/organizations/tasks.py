@@ -78,14 +78,12 @@ def get_all_annotation_reports(
         number_of_tasks_contributed_for_ar_wer,
         number_of_tasks_contributed_for_as_wer,
         number_of_tasks_contributed_for_ar_bleu,
-        number_of_tasks_contributed_for_as_bleu,
     ) = (
         0,
         0,
         0,
-        0,
     )
-    ar_wer_score, as_wer_score, ar_bleu_score, as_bleu_score = 0, 0, 0, 0
+    ar_wer_score, as_wer_score, ar_bleu_score = 0, 0, 0
     tasks_and_rejection_count_map_ar, number_of_tasks_that_has_review_annotations = (
         {},
         0,
@@ -134,9 +132,9 @@ def get_all_annotation_reports(
                         "annotation_result1": rev_ann.result,
                         "annotation_result2": ann_ann.result,
                     }
-                    ar_bleu_score += s1.calculate_bleu_score(sampleRequest).data[
-                        "bleu_score"
-                    ]
+                    ar_bleu_score += float(
+                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                    )
                     number_of_tasks_contributed_for_ar_bleu += 1
                 except Exception as e:
                     pass
@@ -147,18 +145,6 @@ def get_all_annotation_reports(
                     )
                     number_of_tasks_contributed_for_as_wer += 1
                     as_done = True
-                except Exception as e:
-                    pass
-                try:
-                    s1 = SentenceOperationViewSet()
-                    sampleRequest = {
-                        "annotation_result1": sup_ann.result,
-                        "annotation_result2": ann_ann.result,
-                    }
-                    as_bleu_score += s1.calculate_bleu_score(sampleRequest).data[
-                        "bleu_score"
-                    ]
-                    number_of_tasks_contributed_for_as_bleu += 1
                 except Exception as e:
                     pass
 
@@ -235,10 +221,6 @@ def get_all_annotation_reports(
         "Average Bleu Score Annotator Vs Reviewer": ar_bleu_score
         / number_of_tasks_contributed_for_ar_bleu
         if number_of_tasks_contributed_for_ar_bleu
-        else 0,
-        "Average Bleu Score Annotator Vs Superchecker": as_bleu_score
-        / number_of_tasks_contributed_for_as_bleu
-        if number_of_tasks_contributed_for_as_bleu
         else 0,
         "Average Rejection Count Annotator Vs Reviewer": cumulative_rejection_score_ar
         / number_of_tasks_that_has_review_annotations
@@ -366,9 +348,9 @@ def get_all_review_reports(
                         "annotation_result1": sup_ann.result,
                         "annotation_result2": rev_ann.result,
                     }
-                    rs_bleu_score += s1.calculate_bleu_score(sampleRequest).data[
-                        "bleu_score"
-                    ]
+                    rs_bleu_score += float(
+                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                    )
                     number_of_tasks_contributed_for_rs_bleu += 1
                 except Exception as e:
                     pass
