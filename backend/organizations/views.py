@@ -2744,6 +2744,11 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
         cursor = connection.cursor()
 
+        class DataPair:
+            def __init__(self):
+                self.val1 = 0
+                self.val2 = 0
+
         # ? If Project Type Filter and No Meta
 
         fetchAnnotationTaskCountQuery = """
@@ -2798,33 +2803,25 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
             reviewedTaskCount = cursor.fetchall()
 
-            taskCountInfo = defaultdict(list)
+            taskCountInfo = defaultdict(DataPair)
 
             for lang, val in reviewedTaskCount:
-                taskCountInfo[lang].append(val)
+                taskCountInfo[lang].val1 = val
 
             for lang, val in annotationTaskCount:
-                taskCountInfo[lang].append(val)
+                taskCountInfo[lang].val2 = val
 
             taskCountResponse = []
 
-            for lang, val in taskCountInfo.items():
-
-                ann_count = 0
-                review_count = 0
-
-                if len(val) == 2:
-                    review_count = val[0]
-                    ann_count = val[1]
+            for lang, data_pair in taskCountInfo.items():
 
                 result = {
-                    "language": lang,
-                    "ann_cumulative_tasks_count": ann_count,
-                    "rew_cumulative_tasks_count": review_count,
+                    "language": lang if lang != None else "Others",
+                    "ann_cumulative_tasks_count": data_pair.val2,
+                    "rew_cumulative_tasks_count": data_pair.val1,
                 }
-                if ann_count != 0 or review_count != 0:
 
-                    taskCountResponse.append(result)
+                taskCountResponse.append(result)
 
             final_result_for_all_types[project_types[0]] = taskCountResponse
 
@@ -2850,34 +2847,25 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
                 reviewedTaskCount = cursor.fetchall()
 
-                taskCountInfo = defaultdict(list)
+                taskCountInfo = defaultdict(DataPair)
 
                 for lang, val in reviewedTaskCount:
-                    taskCountInfo[lang].append(val)
+                    taskCountInfo[lang].val1 = val
 
                 for lang, val in annotationTaskCount:
-                    taskCountInfo[lang].append(val)
+                    taskCountInfo[lang].val2 = val
 
                 taskCountResponse = []
 
-                for lang, val in taskCountInfo.items():
-
-                    ann_count = 0
-                    review_count = 0
-
-                    if len(val) == 2:
-                        review_count = val[0]
-                        ann_count = val[1]
+                for lang, data_pair in taskCountInfo.items():
 
                     result = {
-                        "language": lang,
-                        "ann_cumulative_tasks_count": ann_count,
-                        "rew_cumulative_tasks_count": review_count,
+                        "language": lang if lang != None else "Others",
+                        "ann_cumulative_tasks_count": data_pair.val2,
+                        "rew_cumulative_tasks_count": data_pair.val1,
                     }
 
-                    if ann_count != 0 or review_count != 0:
-
-                        taskCountResponse.append(result)
+                    taskCountResponse.append(result)
 
                 final_result_for_all_types[project_type] = taskCountResponse
 
@@ -3007,7 +2995,10 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
             #     reviewedTotalDuration = cursor.fetchall()
             # * Check if Project Type is a Translation Dataset Project
-            if project_types[0] in get_translation_dataset_project_types():
+            if (
+                project_types[0] in get_translation_dataset_project_types()
+                or project_types[0] == "ConversationTranslation"
+            ):
 
                 getAnnotatedWordCountQuery = """
                                                 SELECT
@@ -3054,26 +3045,103 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
                 reviewedWordCount = cursor.fetchall()
 
-                wordCountInfo = defaultdict(list)
+                wordCountInfo = defaultdict(DataPair)
 
                 for lang, val in annotatedWordCount:
-                    wordCountInfo[lang].append(val)
+                    wordCountInfo[lang].val1 = val
 
                 for lang, val in reviewedWordCount:
-                    wordCountInfo[lang].append(val)
+                    wordCountInfo[lang].val2 = val
 
                 metaInfoResponse = []
 
-                for lang, val in wordCountInfo.items():
-                    result = {
-                        "language": lang,
-                        "ann_cumulative_word_count": val[0],
-                        "rew_cumulative_word_count": val[1],
-                    }
+                if project_types[0] == "ContextualTranslationEditing":
 
-                    metaInfoResponse.append(result)
+                    for lang, data_pair in wordCountInfo.items():
+                        result = {
+                            "language": lang if lang != None else "Others",
+                            "ann_cumulative_word_count": data_pair.val1,
+                            "rew_cumulative_word_count": data_pair.val2,
+                        }
 
-                final_result_for_all_types[project_types[0]] = metaInfoResponse
+                        metaInfoResponse.append(result)
+
+                    final_result_for_all_types[project_types[0]] = metaInfoResponse
+
+                else:
+                    getAnnotatedSentenceCountQuery = """
+                                                        SELECT
+                                                            pjt.tgt_language AS
+                                                            language,
+                                                            sum(cast(data -> 'sentence_count' AS integer)) AS sentence_count
+                                                        FROM
+                                                            tasks_task AS tsk,
+                                                            projects_project AS pjt
+                                                        WHERE
+                                                            tsk.project_id_id = pjt.id
+                                                            AND pjt.organization_id_id = {pk}
+                                                            AND pjt.project_stage in(2, 3)
+                                                            AND tsk.task_status in('reviewed', 'exported', 'super_checked')
+                                                            AND pjt.project_type = '{project_type}'
+                                                        GROUP BY
+                                                            pjt.tgt_language
+                                                        """
+
+                    getReviewedSentenceCountQuery = """
+                                                        SELECT
+                                                            pjt.tgt_language AS
+                                                            language,
+                                                            sum(cast(data -> 'sentence_count' AS integer)) AS sentence_count
+                                                        FROM
+                                                            tasks_task AS tsk,
+                                                            projects_project AS pjt
+                                                        WHERE
+                                                            tsk.project_id_id = pjt.id
+                                                            AND pjt.organization_id_id = {pk}
+                                                            AND tsk.task_status in('reviewed', 'annotated', 'exported', 'super_checked')
+                                                            AND pjt.project_type = '{project_type}'
+                                                        GROUP BY
+                                                            pjt.tgt_language
+                                                        """
+
+                    cursor.execute(
+                        getAnnotatedSentenceCountQuery.format(
+                            pk=pk, project_type=project_types[0]
+                        )
+                    )
+
+                    annotatedSentenceCount = cursor.fetchall()
+
+                    cursor.execute(
+                        getReviewedSentenceCountQuery.format(
+                            pk=pk, project_type=project_types[0]
+                        )
+                    )
+
+                    reviewedSentenceCount = cursor.fetchall()
+
+                    sentenceCountInfo = defaultdict(DataPair)
+
+                    for lang, val in annotatedSentenceCount:
+                        sentenceCountInfo[lang].val1 = val
+                    for lang, val in reviewedSentenceCount:
+                        sentenceCountInfo[lang].val2 = val
+
+                    langs = list(sentenceCountInfo.keys())
+
+                    for lang in langs:
+                        print(lang)
+                        result = {
+                            "language": lang,
+                            "ann_cumulative_word_count": wordCountInfo[lang].val1,
+                            "rew_cumulative_word_count": wordCountInfo[lang].val2,
+                            "total_rev_sentance_count": sentenceCountInfo[lang].val1,
+                            "total_ann_sentance_count": sentenceCountInfo[lang].val2,
+                        }
+
+                        metaInfoResponse.append(result)
+
+                    final_result_for_all_types[project_types[0]] = metaInfoResponse
 
         # for project_type in project_types:
         #     proj_objs = []
