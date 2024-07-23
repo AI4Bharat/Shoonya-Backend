@@ -2457,8 +2457,10 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                             "ann_cumulative_word_count": ann_word_count,
                             "rew_cumulative_word_count": rew_word_count,
                         }
-
-                general_lang.append(other_language)
+                    else:
+                        other_language= None
+                if other_language:
+                     general_lang.append(other_language)
             try:
                 final_result = sorted(
                     general_lang, key=lambda x: x["language"], reverse=False
