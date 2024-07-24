@@ -74,13 +74,31 @@ def get_all_annotation_reports(
             completed_by=userid,
             updated_at__range=[start_date, end_date],
         )
-    number_of_tasks_contributed_for_ar_wer, number_of_tasks_contributed_for_as_wer = (
+    (
+        number_of_tasks_contributed_for_ar_wer,
+        number_of_tasks_contributed_for_as_wer,
+        number_of_tasks_contributed_for_ar_bleu,
+    ) = (
+        0,
         0,
         0,
     )
-    ar_wer_score, as_wer_score = 0, 0
+    ar_wer_score, as_wer_score, ar_bleu_score = 0, 0, 0
+    tasks_and_rejection_count_map_ar, number_of_tasks_that_has_review_annotations = (
+        {},
+        0,
+    )
     for ann in submitted_tasks:
         all_annotations = Annotation.objects.filter(task_id=ann.task_id)
+        try:
+            task = ann.task
+            revision_loop_count = task.revision_loop_count
+            r_count = revision_loop_count["review_count"]
+            tasks_and_rejection_count_map_ar[r_count] = (
+                tasks_and_rejection_count_map_ar.get(r_count, 0) + 1
+            )
+        except Exception as e:
+            pass
         ar_done, as_done = False, False
         ann_ann, rev_ann, sup_ann = "", "", ""
         for a in all_annotations:
@@ -97,6 +115,8 @@ def get_all_annotation_reports(
                 sup_ann = a
             elif a.annotation_type == ANNOTATOR_ANNOTATION:
                 ann_ann = a
+            if a.annotation_type == REVIEWER_ANNOTATION:
+                number_of_tasks_that_has_review_annotations += 1
             if ann_ann and rev_ann and not ar_done:
                 try:
                     ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
@@ -104,6 +124,18 @@ def get_all_annotation_reports(
                     )
                     number_of_tasks_contributed_for_ar_wer += 1
                     ar_done = True
+                except Exception as e:
+                    pass
+                try:
+                    s1 = SentenceOperationViewSet()
+                    sampleRequest = {
+                        "annotation_result1": rev_ann.result,
+                        "annotation_result2": ann_ann.result,
+                    }
+                    ar_bleu_score += float(
+                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                    )
+                    number_of_tasks_contributed_for_ar_bleu += 1
                 except Exception as e:
                     pass
             if ann_ann and sup_ann and not as_done:
@@ -157,7 +189,10 @@ def get_all_annotation_reports(
     total_raw_audio_duration = convert_seconds_to_hours(
         sum(total_raw_audio_duration_list)
     )
-
+    cumulative_rejection_score_ar = 0
+    if tasks_and_rejection_count_map_ar:
+        for task, rc in tasks_and_rejection_count_map_ar.items():
+            cumulative_rejection_score_ar += task * rc
     result = {
         "Name": userName,
         "Email": email,
@@ -182,6 +217,14 @@ def get_all_annotation_reports(
         else 0,
         "Cumulative Word Error Rate Annotator Vs Superchecker": as_wer_score
         if number_of_tasks_contributed_for_as_wer
+        else 0,
+        "Average Bleu Score Annotator Vs Reviewer": ar_bleu_score
+        / number_of_tasks_contributed_for_ar_bleu
+        if number_of_tasks_contributed_for_ar_bleu
+        else 0,
+        "Average Rejection Count Annotator Vs Reviewer": cumulative_rejection_score_ar
+        / number_of_tasks_that_has_review_annotations
+        if number_of_tasks_that_has_review_annotations
         else 0,
     }
 
@@ -250,10 +293,34 @@ def get_all_review_reports(
             annotation_type=REVIEWER_ANNOTATION,
             updated_at__range=[start_date, end_date],
         )
-    number_of_tasks_contributed_for_rs_wer = 0
-    rs_wer_score = 0
+    number_of_tasks_contributed_for_rs_wer, number_of_tasks_contributed_for_rs_bleu = (
+        0,
+        0,
+    )
+    rs_wer_score, rs_bleu_score = 0, 0
+    (
+        tasks_and_rejection_count_map_ar,
+        tasks_and_rejection_count_map_rs,
+        number_of_tasks_that_has_sup_annotations,
+    ) = ({}, {}, 0)
     for ann in submitted_tasks:
         all_annotations = Annotation.objects.filter(task_id=ann.task_id)
+        task = ann.task
+        revision_loop_count = task.revision_loop_count
+        try:
+            r_count = revision_loop_count["review_count"]
+            tasks_and_rejection_count_map_ar[r_count] = (
+                tasks_and_rejection_count_map_ar.get(r_count, 0) + 1
+            )
+        except Exception as e:
+            pass
+        try:
+            s_count = revision_loop_count["super_check_count"]
+            tasks_and_rejection_count_map_rs[s_count] = (
+                tasks_and_rejection_count_map_rs.get(s_count, 0) + 1
+            )
+        except Exception as e:
+            pass
         rs_done = False  # for duplicate annotations
         sup_ann, rev_ann = "", ""
         for a in all_annotations:
@@ -264,6 +331,8 @@ def get_all_review_reports(
                 sup_ann = a
             elif a.annotation_type == REVIEWER_ANNOTATION:
                 rev_ann = a
+            if a.annotation_type == SUPER_CHECKER_ANNOTATION:
+                number_of_tasks_that_has_sup_annotations += 1
             if rev_ann and sup_ann and not rs_done:
                 try:
                     rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
@@ -271,6 +340,18 @@ def get_all_review_reports(
                     )
                     number_of_tasks_contributed_for_rs_wer += 1
                     rs_done = True
+                except Exception as e:
+                    pass
+                try:
+                    s1 = SentenceOperationViewSet()
+                    sampleRequest = {
+                        "annotation_result1": sup_ann.result,
+                        "annotation_result2": rev_ann.result,
+                    }
+                    rs_bleu_score += float(
+                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                    )
+                    number_of_tasks_contributed_for_rs_bleu += 1
                 except Exception as e:
                     pass
     submitted_tasks_count = submitted_tasks.count()
@@ -314,6 +395,15 @@ def get_all_review_reports(
     total_raw_audio_duration = convert_seconds_to_hours(
         sum(total_raw_audio_duration_list)
     )
+    cumulative_rejection_score_ar = 0
+    if tasks_and_rejection_count_map_ar:
+        for task, rc in tasks_and_rejection_count_map_ar.items():
+            cumulative_rejection_score_ar += task * rc
+
+    cumulative_rejection_score_rs = 0
+    if tasks_and_rejection_count_map_rs:
+        for task, rc in tasks_and_rejection_count_map_rs.items():
+            cumulative_rejection_score_rs += task * rc
 
     result = {
         "Name": userName,
@@ -332,6 +422,18 @@ def get_all_review_reports(
         else 0,
         "Cumulative Word Error Rate Reviewer Vs Superchecker": rs_wer_score
         if number_of_tasks_contributed_for_rs_wer
+        else 0,
+        "Average Bleu Score Reviewer Vs Superchecker": rs_bleu_score
+        / number_of_tasks_contributed_for_rs_bleu
+        if number_of_tasks_contributed_for_rs_bleu
+        else 0,
+        "Average Rejection Count Annotator Vs Reviewer": cumulative_rejection_score_ar
+        / submitted_tasks_count
+        if submitted_tasks_count
+        else 0,
+        "Average Rejection Count Reviewer Vs Superchecker": cumulative_rejection_score_rs
+        / number_of_tasks_that_has_sup_annotations
+        if number_of_tasks_that_has_sup_annotations
         else 0,
     }
 
@@ -385,7 +487,17 @@ def get_all_supercheck_reports(
             annotation_type=SUPER_CHECKER_ANNOTATION,
             updated_at__range=[start_date, end_date],
         )
-
+    tasks_and_rejection_count_map_rs = {}
+    for ann in submitted_tasks:
+        task = ann.task
+        revision_loop_count = task.revision_loop_count
+        try:
+            s_count = revision_loop_count["super_check_count"]
+            tasks_and_rejection_count_map_rs[s_count] = (
+                tasks_and_rejection_count_map_rs.get(s_count, 0) + 1
+            )
+        except Exception as e:
+            pass
     submitted_tasks_count = submitted_tasks.count()
 
     project_type_lower = project_type.lower()
@@ -431,6 +543,10 @@ def get_all_supercheck_reports(
     validated_raw_audio_duration = convert_seconds_to_hours(
         sum(validated_raw_audio_duration_list)
     )
+    cumulative_rejection_score_rs = 0
+    if tasks_and_rejection_count_map_rs:
+        for task, rc in tasks_and_rejection_count_map_rs.items():
+            cumulative_rejection_score_rs += task * rc
 
     result = {
         "Name": userName,
@@ -443,6 +559,10 @@ def get_all_supercheck_reports(
         "Word Count": validated_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
+        "Average Rejection Count Reviewer Vs Superchecker": cumulative_rejection_score_rs
+        / submitted_tasks_count
+        if submitted_tasks_count
+        else 0,
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
