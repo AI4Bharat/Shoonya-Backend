@@ -43,6 +43,8 @@ import os
 import os
 import openai
 import requests
+from rest_framework import status
+from rest_framework.response import Response
 
 
 def process_history(history):
@@ -67,18 +69,31 @@ def get_gpt4_output(system_prompt, user_prompt, history):
     messages.extend(history)
     messages.append({"role": "user", "content": user_prompt})
 
-    response = openai.ChatCompletion.create(
-        engine=engine,
-        messages=messages,
-        temperature=0.7,
-        max_tokens=700,
-        top_p=0.95,
-        frequency_penalty=0,
-        presence_penalty=0,
-        stop=None,
+    try:
+        response = openai.ChatCompletion.create(
+            engine=engine,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=700,
+            top_p=0.95,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stop=None,
+        )
+        return response["choices"][0]["message"]["content"].strip()
+    except openai.InvalidRequestError as e:
+        message = "Prompt violates LLM policy. Please enter a new prompt."
+        st = status.HTTP_400_BAD_REQUEST
+    except KeyError as e:
+        message = "Invalid response from the LLM"
+        st = status.HTTP_500_INTERNAL_SERVER_ERROR
+    except Exception as e:
+        message = "An error occurred while interacting with LLM."
+        st = status.HTTP_500_INTERNAL_SERVER_ERROR
+    return Response(
+        {"message": message},
+        status=st,
     )
-
-    return response["choices"][0]["message"]["content"].strip()
 
 
 def get_gpt3_output(system_prompt, user_prompt, history):
@@ -92,19 +107,31 @@ def get_gpt3_output(system_prompt, user_prompt, history):
     messages = [{"role": "system", "content": system_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_prompt})
-
-    response = openai.ChatCompletion.create(
-        engine=engine,
-        messages=messages,
-        temperature=0.7,
-        max_tokens=700,
-        top_p=0.95,
-        frequency_penalty=0,
-        presence_penalty=0,
-        stop=None,
+    try:
+        response = openai.ChatCompletion.create(
+            engine=engine,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=700,
+            top_p=0.95,
+            frequency_penalty=0,
+            presence_penalty=0,
+            stop=None,
+        )
+        return response["choices"][0]["message"]["content"].strip()
+    except openai.InvalidRequestError as e:
+        message = "Prompt violates LLM policy. Please enter a new prompt."
+        st = status.HTTP_400_BAD_REQUEST
+    except KeyError as e:
+        message = "Invalid response from the LLM"
+        st = status.HTTP_500_INTERNAL_SERVER_ERROR
+    except Exception as e:
+        message = "An error occurred while interacting with LLM."
+        st = status.HTTP_500_INTERNAL_SERVER_ERROR
+    return Response(
+        {"message": message},
+        status=st,
     )
-
-    return response["choices"][0]["message"]["content"].strip()
 
 
 def get_llama2_output(system_prompt, conv_history, user_prompt):
