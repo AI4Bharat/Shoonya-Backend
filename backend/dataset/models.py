@@ -788,12 +788,6 @@ class PromptAnswer(DatasetBase):
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
-    eval_output_likert_score = models.IntegerField(
-        verbose_name="evaluation_prompt_response_rating",
-        null=True,
-        blank=True,
-        help_text=("Rating of the prompt response"),
-    )
     eval_form_output_json = models.JSONField(
         verbose_name="evaluation_form_output",
         null=True,
@@ -805,6 +799,12 @@ class PromptAnswer(DatasetBase):
         null=True,
         blank=True,
         help_text=("Time taken to complete the prompt response"),
+    )
+    prompt_output_pair_id = models.CharField(
+        verbose_name="prompt_output_pair_id",
+        max_length=16,
+        help_text=("prompt_output_pair_id"),
+        null=True,
     )
 
     def __str__(self):
