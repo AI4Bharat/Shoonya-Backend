@@ -303,7 +303,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             try:
                 total_word_error_rate_rs_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        anno.result, anno.parent_annotation.result
+                        anno.result, anno.parent_annotation.result, proj_type
                     )
                 )
             except:
@@ -312,7 +312,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             try:
                 total_word_error_rate_ar_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        anno.result, anno.parent_annotation.result
+                        anno.result, anno.parent_annotation.result, proj_type
                     )
                 )
             except:
@@ -606,7 +606,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
             try:
                 total_word_error_rate_list.append(
                     calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        anno.result, anno.parent_annotation.result
+                        anno.result, anno.parent_annotation.result, proj_type
                     )
                 )
             except:
@@ -3410,7 +3410,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     try:
                         total_word_error_rate_ar_list.append(
                             calculate_word_error_rate_between_two_audio_transcription_annotation(
-                                anno.result, anno.parent_annotation.result
+                                anno.result, anno.parent_annotation.result, project_type
                             )
                         )
                     except:
@@ -4135,36 +4135,38 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 project_type == "OCRSegmentCategorisationRelationMappingEditing"
             )
             for task in tasks:
-                curr_task = process_task(
-                    task,
-                    export_type,
-                    include_input_data_metadata_json,
-                    dataset_model,
-                    is_audio_project_type,
-                )
-                if (
-                    is_ConversationTranslation
-                    or is_ConversationTranslationEditing
-                    or is_ConversationVerification
-                ):
-                    process_conversation_tasks(
-                        curr_task,
-                        is_ConversationTranslation,
-                        is_ConversationVerification,
+                try:
+                    curr_task = process_task(
+                        task,
+                        export_type,
+                        include_input_data_metadata_json,
+                        dataset_model,
+                        is_audio_project_type,
                     )
-                elif dataset_type in ["SpeechConversation", "OCRDocument"]:
-                    is_SpeechConversation = dataset_type == "SpeechConversation"
-                    if is_SpeechConversation:
-                        process_speech_tasks(
-                            curr_task, is_AudioSegmentation, project_type
-                        )
-                    else:
-                        process_ocr_tasks(
+                    if (
+                        is_ConversationTranslation
+                        or is_ConversationTranslationEditing
+                        or is_ConversationVerification
+                    ):
+                        process_conversation_tasks(
                             curr_task,
-                            is_OCRSegmentCategorization,
-                            is_OCRSegmentCategorizationEditing,
-                            is_OCRSegmentCategorisationRelationMappingEditing,
+                            is_ConversationTranslation,
+                            is_ConversationVerification,
                         )
+                    elif dataset_type in ["SpeechConversation", "OCRDocument"]:
+                        is_SpeechConversation = dataset_type == "SpeechConversation"
+                        if is_SpeechConversation:
+                            process_speech_tasks(
+                                curr_task, is_AudioSegmentation, project_type
+                            )
+                        else:
+                            process_ocr_tasks(
+                                curr_task,
+                                is_OCRSegmentCategorization,
+                                is_OCRSegmentCategorizationEditing,
+                            )
+                except Exception as e:
+                    continue
                 tasks_list.append(curr_task)
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(

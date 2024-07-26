@@ -1372,6 +1372,7 @@ def get_stats_helper(
                             get_most_recent_annotation(
                                 ann_obj.parent_annotation
                             ).result,
+                            project_type,
                         )
                     )
                 except Exception as error:
@@ -1426,6 +1427,7 @@ def get_stats_helper(
                             get_most_recent_annotation(
                                 ann_obj.parent_annotation.parent_annotation
                             ).result,
+                            project_type,
                         )
                     )
                 except Exception as error:
@@ -1437,6 +1439,7 @@ def get_stats_helper(
                             get_most_recent_annotation(
                                 ann_obj.parent_annotation
                             ).result,
+                            project_type,
                         )
                     )
                 except Exception as error:
@@ -1448,6 +1451,7 @@ def get_stats_helper(
                             get_most_recent_annotation(
                                 ann_obj.parent_annotation.parent_annotation
                             ).result,
+                            project_type,
                         )
                     )
                 except Exception as error:
@@ -1519,10 +1523,10 @@ def calculate_ced_between_two_annotations(annotation1, annotation2):
     return ced_list
 
 
-def calculate_wer_between_two_annotations(annotation1, annotation2):
+def calculate_wer_between_two_annotations(annotation1, annotation2, project_type):
     try:
         return calculate_word_error_rate_between_two_audio_transcription_annotation(
-            annotation1, annotation2
+            annotation1, annotation2, project_type
         )
     except Exception as e:
         return 0
