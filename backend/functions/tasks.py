@@ -29,7 +29,7 @@ from tasks.models import (
     ANNOTATED,
 )
 from tasks.views import SentenceOperationViewSet
-from users.models import User, LANG_CHOICES
+from users.models import User
 from django.core.mail import EmailMessage
 
 from utils.blob_functions import (
@@ -56,6 +56,7 @@ import os
 import tempfile
 
 from shoonya_backend.locks import Lock
+from utils.constants import LANG_CHOICES
 
 import logging
 
