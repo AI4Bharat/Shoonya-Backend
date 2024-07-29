@@ -16,14 +16,8 @@ from django.urls import path
 # from rest_framework.urlpatterns import format_suffix_patterns
 from .views import *
 from .permissions import *
-
-# urlpatterns = [
-#     path("read_project_permission/", read_project_permission, name="read_project_permission"),
-#     path("delete_project_permission/", delete_project_permission, name="delete_project_permission")
-# ]
-
 from django.urls import path
-from .permissions import ProjectPermissionView, DatasetPermissionView
+
 
 urlpatterns = [
     path(
