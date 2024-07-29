@@ -13,7 +13,57 @@ load_dotenv()
 
 from django.conf import settings
 
+
 # Create your models here.
+def default_permissions():
+    return {
+        "PROJECT_PERMISSIONS": {
+            "can_view_add_annotators_to_project": ["org_owner", "workspace_manager"],
+            "can_use_add_annotators_to_project": ["org_owner", "workspace_manager"],
+            "can_view_add_reviewers_to_project": ["org_owner", "workspace_manager"],
+            "can_use_add_reviewers_to_project": ["org_owner", "workspace_manager"],
+            "can_view_add_superchecker_to_project": ["org_owner", "workspace_manager"],
+            "can_use_add_superchecker_to_project": ["org_owner", "workspace_manager"],
+            "can_view_basic_project_settings": ["org_owner", "workspace_manager"],
+            "can_use_basic_project_settings": ["org_owner", "workspace_manager"],
+            "can_view_publish_project": ["org_owner", "workspace_manager"],
+            "can_use_publish_project": ["org_owner", "workspace_manager"],
+            "can_view_archive_project": ["org_owner", "workspace_manager"],
+            "can_use_archive_project": ["org_owner", "workspace_manager"],
+            "can_view_export_project_into_dataset": ["org_owner", "workspace_manager"],
+            "can_use_export_project_into_dataset": ["org_owner", "workspace_manager"],
+            "can_view_pull_new_data_items_from_source_dataset": [
+                "org_owner",
+                "workspace_manager",
+            ],
+            "can_use_pull_new_data_items_from_source_dataset": [
+                "org_owner",
+                "workspace_manager",
+            ],
+            "can_view_download_project": ["org_owner", "workspace_manager"],
+            "can_use_download_project": ["org_owner", "workspace_manager"],
+            "can_view_delete_project_tasks": ["org_owner", "workspace_manager"],
+            "can_use_delete_project_tasks": ["org_owner", "workspace_manager"],
+            "can_view_deallocate_user_tasks": ["org_owner", "workspace_manager"],
+            "can_use_deallocate_user_tasks": ["org_owner", "workspace_manager"],
+            "can_view_project_stage": ["org_owner", "workspace_manager"],
+            "can_use_project_stage": ["org_owner", "workspace_manager"],
+            "can_view_supercheck_settings": ["org_owner", "workspace_manager"],
+            "can_use_supercheck_settings": ["org_owner", "workspace_manager"],
+        },
+        "DATASET_PERMISSIONS": {
+            "can_view_basic_dataset_settings": ["org_owner", "workspace_manager"],
+            "can_use_basic_dataset_settings": ["org_owner", "workspace_manager"],
+            "can_view_download_dataset": ["org_owner", "workspace_manager"],
+            "can_use_download_dataset": ["org_owner", "workspace_manager"],
+            "can_view_upload_dataset": ["org_owner", "workspace_manager"],
+            "can_use_upload_dataset": ["org_owner", "workspace_manager"],
+            "can_view_delete_data_item": ["org_owner", "workspace_manager"],
+            "can_use_delete_data_item": ["org_owner", "workspace_manager"],
+            "can_view_deduplicate_data_items": ["org_owner", "workspace_manager"],
+            "can_use_deduplicate_data_items": ["org_owner", "workspace_manager"],
+        },
+    }
 
 
 class Organization(models.Model):
@@ -47,6 +97,13 @@ class Organization(models.Model):
 
     created_at = models.DateTimeField(verbose_name="created_at", auto_now_add=True)
     updated_at = models.DateTimeField(verbose_name="updated_at", auto_now=True)
+    permission_json = models.JSONField(
+        verbose_name="permission json",
+        null=True,
+        blank=True,
+        default=default_permissions,
+        help_text=("Permissions for user role"),
+    )
 
     def __str__(self):
         return self.title + ", id=" + str(self.pk)

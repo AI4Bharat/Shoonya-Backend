@@ -2,6 +2,7 @@ from users.models import User
 from rest_framework.response import Response
 from .models import Organization
 from functools import wraps
+from django.http import HttpResponse
 
 PERMISSION_ERROR = {
     "message": "You do not have enough permissions to access this view!"
@@ -42,5 +43,17 @@ def is_particular_organization_owner(f):
             return f(self, request, pk, *args, **kwargs)
         else:
             return Response(PERMISSION_ERROR, status=403)
+
+    return wrapper
+
+
+def is_admin(f):
+    @wraps(f)
+    def wrapper(self, request, *args, **kwargs):
+        if request.user.is_authenticated and (
+            request.user.role == User.ADMIN or request.user.is_superuser
+        ):
+            return f(self, request, *args, **kwargs)
+        return Response("Permission Denied", status=403)
 
     return wrapper
