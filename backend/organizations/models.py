@@ -50,6 +50,14 @@ def default_permissions():
             "can_use_project_stage": ["org_owner", "workspace_manager"],
             "can_view_supercheck_settings": ["org_owner", "workspace_manager"],
             "can_use_supercheck_settings": ["org_owner", "workspace_manager"],
+            "can_view_user_profile_details_of_other_users": [
+                "org_owner",
+                "workspace_manager",
+            ],
+            "can_access_user_profile_details_of_other_users": [
+                "org_owner",
+                "workspace_manager",
+            ],
         },
         "DATASET_PERMISSIONS": {
             "can_view_basic_dataset_settings": ["org_owner", "workspace_manager"],
