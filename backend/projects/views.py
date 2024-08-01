@@ -3968,15 +3968,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                     task["data"]["interactions_json"] = annotation_result
                     del task["annotations"]
-            elif dataset_type == "Interaction":
-                for task in tasks_list:
-                    item_data_list = get_attributes_for_ModelInteractionEvaluation(
-                        task, False
-                    )
-                    for it in item_data_list:
-                        for key, value in it.items():
-                            task["data"][key] = value
-                    del task["annotations"]
             return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}

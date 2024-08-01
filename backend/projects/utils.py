@@ -228,23 +228,8 @@ def ocr_word_count(annotation_result):
     return word_count
 
 
-# function to obtain the correct annotation object
-def get_correct_annotation_obj(task):
-    annotation = Annotation.objects.filter(task=task)
-    correct_ann_obj = annotation[0]
-    if len(annotation) == 2:
-        for ann in annotation:
-            if ann.annotation_type == REVIEWER_ANNOTATION:
-                correct_ann_obj = ann
-    elif len(annotation) == 3:
-        for ann in annotation:
-            if ann.annotation_type == SUPER_CHECKER_ANNOTATION:
-                correct_ann_obj = ann
-    return correct_ann_obj
-
-
 def get_attributes_for_IDC(project, task):
-    correct_ann_obj = get_correct_annotation_obj(task)
+    correct_ann_obj = task.correct_annotation
     result_dict = {
         "interactions_json": correct_ann_obj.result,
         "language": project.tgt_language,
@@ -264,55 +249,50 @@ def get_prompt_output_by_id(prompt_output_pair_id, task_data_dict):
     return None, None
 
 
-def get_attributes_for_ModelInteractionEvaluation(task, correction_annotation_present):
+def get_attributes_for_ModelInteractionEvaluation(task):
     res = []
-    if correction_annotation_present:
-        correct_ann_obj = get_correct_annotation_obj(task)
+    if task.correct_annotation:
+        correct_ann_obj = task.correct_annotation
         annotation_result_json = correct_ann_obj.result
         interaction = Interaction.objects.get(id=task.data["interaction_id"])
-        try:
-            prompt_output_pair = get_prompt_output_by_id(
-                annotation_result_json["prompt_output_pair_id"], task.data
-            )
-        except Exception as e:
-            prompt_output_pair = ["", ""]
     else:
-        annotation_result_json = task["annotations"][0]["result"]
+        annotation_result_json = Annotation.objects.filter(task=task)[0].result
         annotation_result_json = (
             json.loads(annotation_result_json)
             if isinstance(annotation_result_json, str)
             else annotation_result_json
         )
-        interaction = Interaction.objects.get(id=task["data"]["interaction_id"])
+        interaction = Interaction.objects.get(id=task.data["interaction_id"])
+    for a in annotation_result_json:
         try:
-            prompt_output_pair = [
-                annotation_result_json["prompt"],
-                annotation_result_json["output"],
-            ]
+            prompt_output_pair = get_prompt_output_by_id(
+                a["prompt_output_pair_id"], task.data
+            )
         except Exception as e:
-            prompt_output_pair = ["", ""]
+            try:
+                prompt_output_pair = [
+                    annotation_result_json["prompt"],
+                    annotation_result_json["output"],
+                ]
+            except Exception as e:
+                prompt_output_pair = ["", ""]
+        model = interaction.model
+        language = interaction.language
 
-    model = interaction.model
-    language = interaction.language
-
-    temp_attributes_obj = {
-        "interaction_id": interaction,
-        "model": model,
-        "language": language,
-        "prompt": prompt_output_pair[0],
-        "output": prompt_output_pair[1],
-    }
-    if "questions_response" in annotation_result_json:
-        temp_attributes_obj["eval_form_output_json"] = annotation_result_json[
-            "questions_response"
-        ]
-    if "rating" in annotation_result_json:
-        temp_attributes_obj["eval_output_likert_score"] = annotation_result_json[
-            "rating"
-        ]
-    if "time_taken" in annotation_result_json:
-        temp_attributes_obj["eval_time_taken"] = annotation_result_json["time_taken"]
-    res.append(temp_attributes_obj)
+        temp_attributes_obj = {
+            "interaction_id": interaction,
+            "model": model,
+            "language": language,
+            "prompt": prompt_output_pair[0],
+            "output": prompt_output_pair[1],
+        }
+        if "prompt_output_pair_id" in a:
+            temp_attributes_obj["prompt_output_pair_id"] = a["prompt_output_pair_id"]
+        if "questions_response" in a:
+            temp_attributes_obj["eval_form_output_json"] = a["questions_response"]
+        if "time_taken" in a:
+            temp_attributes_obj["eval_time_taken"] = a["time_taken"]
+        res.append(temp_attributes_obj)
 
     return res
 

@@ -37,7 +37,7 @@ ModelOutputEvaluation:
             id: interaction_id
           annotations:
             - eval_form_output_json
-            - eval_output_likert_score
+            - prompt_output_pair_id
             - eval_time_taken
             - model
             - prompt
