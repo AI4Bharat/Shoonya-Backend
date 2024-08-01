@@ -1527,6 +1527,12 @@ class AnnotationViewSet(
                             annotation_obj,
                             annotation_obj.task.project_id.metadata_json,
                         )
+                        if output_result == -1:
+                            ret_dict = {
+                                "message": "Please make sure you have entered a prompt and the system has responded with an answer"
+                            }
+                            ret_status = status.HTTP_403_FORBIDDEN
+                            return Response(ret_dict, status=ret_status)
                         # store the result of all checks as well
                         annotation_obj.result.append(
                             {
@@ -1671,6 +1677,12 @@ class AnnotationViewSet(
                             annotation_obj,
                             annotation_obj.task.project_id.metadata_json,
                         )
+                        if output_result == -1:
+                            ret_dict = {
+                                "message": "Please make sure you have entered a prompt and the system has responded with an answer"
+                            }
+                            ret_status = status.HTTP_403_FORBIDDEN
+                            return Response(ret_dict, status=ret_status)
                         # store the result of all checks as well
                         annotation_obj.result.append(
                             {
@@ -1881,6 +1893,12 @@ class AnnotationViewSet(
                             annotation_obj,
                             annotation_obj.task.project_id.metadata_json,
                         )
+                        if output_result == -1:
+                            ret_dict = {
+                                "message": "Please make sure you have entered a prompt and the system has responded with an answer"
+                            }
+                            ret_status = status.HTTP_403_FORBIDDEN
+                            return Response(ret_dict, status=ret_status)
                         # store the result of all checks as well
                         annotation_obj.result.append(
                             {
@@ -2328,6 +2346,8 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
         if isinstance(project_metadata_json, str)
         else project_metadata_json
     )
+    if prompt in [None, "Null", 0, "None", "", " "]:
+        return -1
     intentDomain_test, lang_test, duplicate_test = False, False, False
     if project_metadata:
         if (
@@ -2365,7 +2385,10 @@ def get_llm_output(prompt, task, annotation, project_metadata_json):
         history,
         model,
     )
-    return format_model_output(model_output)
+    res = format_model_output(model_output)
+    if res in [None, "Null", 0, "None", "", " "]:
+        return -1
+    return res
 
 
 def format_model_output(model_output):
