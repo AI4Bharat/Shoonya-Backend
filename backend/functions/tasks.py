@@ -906,82 +906,120 @@ def get_stats_definitions():
         "unlabeled": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "skipped": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "draft": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "labeled": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "to_be_revised": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
     }
     result_rev_meta_stats = {
         "unreviewed": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "skipped": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "draft": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "to_be_revised": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "accepted": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "accepted_with_minor_changes": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "accepted_with_major_changes": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "rejected": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
     }
     result_sup_meta_stats = {
         "unvalidated": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "skipped": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "draft": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "validated": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "validated_with_changes": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
         "rejected": {
             "Total_Words_in_Prompts": 0,
             "Number_of_Prompt-Output_Pairs": 0,
+            "Avg_Word_Count_Per_Prompt": 0,
+            "Avg_Word_Count_Per_Output": 0,
         },
     }
     return (
@@ -1142,7 +1180,6 @@ def get_stats_helper(
     update_meta_stats(
         result_meta_stats,
         ann_obj,
-        task_data,
         project_type,
     )
     return 0
@@ -1153,16 +1190,36 @@ def update_anno_stats(result_anno_stats, ann_obj, anno_stats):
     return 0 if anno_stats else None
 
 
-def update_meta_stats(result_meta_stats, ann_obj, task_data, project_type):
+def update_meta_stats(result_meta_stats, ann_obj, project_type):
     if "InstructionDrivenChat" in project_type:
         result_meta_stats_ann = ann_obj.meta_stats
         if result_meta_stats_ann:
-            result_meta_stats[ann_obj.annotation_status][
-                "Total_Words_in_Prompts"
-            ] += result_meta_stats_ann["prompts_word_count"]
+            result_meta_stats[ann_obj.annotation_status]["Total_Words_in_Prompts"] += (
+                result_meta_stats_ann["prompts_word_count"]
+                if "prompts_word_count" in result_meta_stats_ann
+                else 0
+            )
             result_meta_stats[ann_obj.annotation_status][
                 "Number_of_Prompt-Output_Pairs"
-            ] += result_meta_stats_ann["number_of_turns"]
+            ] += (
+                result_meta_stats_ann["number_of_turns"]
+                if "number_of_turns" in result_meta_stats_ann
+                else 0
+            )
+            result_meta_stats[ann_obj.annotation_status][
+                "Avg_Word_Count_Per_Prompt"
+            ] += (
+                result_meta_stats_ann["avg_word_count_per_prompt"]
+                if "avg_word_count_per_prompt" in result_meta_stats_ann
+                else 0
+            )
+            result_meta_stats[ann_obj.annotation_status][
+                "Avg_Word_Count_Per_Output"
+            ] += (
+                result_meta_stats_ann["avg_word_count_per_output"]
+                if "avg_word_count_per_output" in result_meta_stats_ann
+                else 0
+            )
 
 
 def calculate_ced_between_two_annotations(annotation1, annotation2):
