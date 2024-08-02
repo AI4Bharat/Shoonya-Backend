@@ -253,3 +253,15 @@ class ProjectRegistry:
                     )
 
         return True
+
+    def get_project_name_from_dataset(self, dataset_name: str):
+        for project_key, project_type in self.project_types.items():
+            input_dataset = project_type.get("input_dataset", {})
+            output_dataset = project_type.get("output_dataset", {})
+
+            if (
+                input_dataset.get("class") == dataset_name
+                or output_dataset.get("class") == dataset_name
+            ):
+                return project_key
+        return None

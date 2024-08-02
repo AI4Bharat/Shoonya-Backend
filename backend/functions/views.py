@@ -274,6 +274,10 @@ def schedule_sentence_text_translate_job(request):
     automate_missing_data_items = request.data.get(
         "automate_missing_data_items", "true"
     )
+    filter_string = request.data.get("filter_string")
+    sampling_mode = request.data.get("sampling_mode")
+    sampling_parameters = request.data.get("sampling_parameters_json")
+    variable_parameters = request.data.get("variable_parameters")
 
     # Convert checks for languages into boolean
     checks_for_particular_languages = checks_for_particular_languages.lower() == "true"
@@ -311,6 +315,10 @@ def schedule_sentence_text_translate_job(request):
         input_dataset_instance_id=input_dataset_instance_id,
         output_dataset_instance_id=output_dataset_instance_id,
         batch_size=batch_size,
+        filter_string=filter_string,
+        sampling_mode=sampling_mode,
+        sampling_parameters=sampling_parameters,
+        variable_parameters=variable_parameters,
         api_type=api_type,
         checks_for_particular_languages=checks_for_particular_languages,
         automate_missing_data_items=automate_missing_data_items,
@@ -537,7 +545,10 @@ def schedule_ocr_prediction_json_population(request):
     except KeyError:
         automate_missing_data_items = True
 
-    # Calling a function asynchronously to create ocr predictions.
+    filter_string = request.data.get("filter_string")
+    sampling_mode = request.data.get("sampling_mode")
+    sampling_parameters = request.data.get("sampling_parameters_json")
+    variable_parameters = request.data.get("variable_parameters")
 
     uid = request.user.id
 
@@ -546,6 +557,10 @@ def schedule_ocr_prediction_json_population(request):
         user_id=uid,
         api_type=api_type,
         automate_missing_data_items=automate_missing_data_items,
+        filter_string=filter_string,
+        sampling_mode=sampling_mode,
+        sampling_parameters=sampling_parameters,
+        variable_parameters=variable_parameters,
     )
 
     # Returning response
@@ -574,8 +589,20 @@ def schedule_draft_data_json_population(request):
     pk = request.data["dataset_instance_id"]
 
     uid = request.user.id
+    filter_string = request.data.get("filter_string")
+    sampling_mode = request.data.get("sampling_mode")
+    sampling_parameters = request.data.get("sampling_parameters_json")
+    variable_parameters = request.data.get("variable_parameters")
 
-    populate_draft_data_json.delay(pk=pk, user_id=uid, fields_list=fields_list)
+    populate_draft_data_json(
+        pk=pk,
+        user_id=uid,
+        fields_list=fields_list,
+        filter_string=filter_string,
+        sampling_mode=sampling_mode,
+        sampling_parameters=sampling_parameters,
+        variable_parameters=variable_parameters,
+    )
 
     ret_dict = {"message": "draft_data_json population started"}
     ret_status = status.HTTP_200_OK
@@ -624,7 +651,10 @@ def schedule_asr_prediction_json_population(request):
     except KeyError:
         automate_missing_data_items = True
 
-    # Calling a function asynchronously to create ocr predictions.
+    filter_string = request.data.get("filter_string")
+    sampling_mode = request.data.get("sampling_mode")
+    sampling_parameters = request.data.get("sampling_parameters_json")
+    variable_parameters = request.data.get("variable_parameters")
 
     uid = request.user.id
 
@@ -633,6 +663,10 @@ def schedule_asr_prediction_json_population(request):
         user_id=uid,
         api_type=api_type,
         automate_missing_data_items=automate_missing_data_items,
+        filter_string=filter_string,
+        sampling_mode=sampling_mode,
+        sampling_parameters=sampling_parameters,
+        variable_parameters=variable_parameters,
     )
 
     ret_dict = {"message": "Generating ASR Predictions"}
