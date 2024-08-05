@@ -27,34 +27,10 @@ from dotenv import load_dotenv
 from .utils import hash_upload
 from .managers import UserManager
 from utils.email_template import send_email_template
+from utils.constants import LANG_CHOICES
 
 # List of Indic languages
-LANG_CHOICES = (
-    ("English", "English"),
-    ("Assamese", "Assamese"),
-    ("Bengali", "Bengali"),
-    ("Bodo", "Bodo"),
-    ("Dogri", "Dogri"),
-    ("Gujarati", "Gujarati"),
-    ("Hindi", "Hindi"),
-    ("Kannada", "Kannada"),
-    ("Kashmiri", "Kashmiri"),
-    ("Konkani", "Konkani"),
-    ("Maithili", "Maithili"),
-    ("Malayalam", "Malayalam"),
-    ("Manipuri", "Manipuri"),
-    ("Marathi", "Marathi"),
-    ("Nepali", "Nepali"),
-    ("Odia", "Odia"),
-    ("Punjabi", "Punjabi"),
-    ("Sanskrit", "Sanskrit"),
-    ("Santali", "Santali"),
-    ("Sindhi", "Sindhi"),
-    ("Sinhala", "Sinhala"),
-    ("Tamil", "Tamil"),
-    ("Telugu", "Telugu"),
-    ("Urdu", "Urdu"),
-)
+
 load_dotenv()
 # Create your models here.
 # class Language(models.Model):

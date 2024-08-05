@@ -7,7 +7,7 @@ from dataset.models import DatasetInstance
 from .registry_helper import ProjectRegistry
 from django.utils.timezone import now
 from datetime import datetime, timedelta
-from users.models import LANG_CHOICES
+from utils.constants import LANG_CHOICES
 
 # from dataset import LANG_CHOICES
 

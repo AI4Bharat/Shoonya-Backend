@@ -2091,6 +2091,7 @@ class AnnotationViewSet(
                     parent.review_notes = annotation.review_notes
                     if review_status == TO_BE_REVISED:
                         parent.annotation_status = TO_BE_REVISED
+                        parent.result = annotation.result
                         task.task_status = INCOMPLETE
                         rev_loop_count = task.revision_loop_count
                         if not is_revised:
@@ -2109,7 +2110,9 @@ class AnnotationViewSet(
                                 supercheck_annotation.save()
                         except:
                             pass
-                    parent.save(update_fields=["review_notes", "annotation_status"])
+                    parent.save(
+                        update_fields=["review_notes", "annotation_status", "result"]
+                    )
                     task.save()
 
                 if review_status in [
@@ -2285,6 +2288,7 @@ class AnnotationViewSet(
                     parent.supercheck_notes = annotation.supercheck_notes
                     if supercheck_status == REJECTED:
                         parent.annotation_status = REJECTED
+                        parent.result = annotation.result
                         task.task_status = ANNOTATED
                         rev_loop_count = task.revision_loop_count
                         if not is_rejected:
@@ -2294,7 +2298,13 @@ class AnnotationViewSet(
                         task.revision_loop_count = rev_loop_count
                     else:
                         task.task_status = SUPER_CHECKED
-                    parent.save(update_fields=["supercheck_notes", "annotation_status"])
+                    parent.save(
+                        update_fields=[
+                            "supercheck_notes",
+                            "annotation_status",
+                            "result",
+                        ]
+                    )
                     task.save()
 
                 if supercheck_status in [
@@ -2581,11 +2591,18 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 sentence1 = request["sentence1"]
                 sentence2 = request["sentence2"]
             except:
-                return Response(
-                    {"message": "Invalid parameters in request body!"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
+                try:
+                    annotation_result1 = request.data.get["annotation_result1"]
+                    annotation_result2 = request.data.get["annotation_result2"]
+                except:
+                    try:
+                        annotation_result1 = request["annotation_result1"]
+                        annotation_result2 = request["annotation_result2"]
+                    except:
+                        return Response(
+                            {"message": "Invalid parameters in request body!"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
         try:
             sentence1 = [sentence1]
             sentence2 = [[sentence2]]
@@ -2599,10 +2616,56 @@ class SentenceOperationViewSet(viewsets.ViewSet):
                 status=status.HTTP_200_OK,
             )
         except:
-            return Response(
-                {"message": "Invalid parameters in request body!"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            try:
+                if "end" in annotation_result1[0]["value"]:
+                    annotation_result1 = sorted(
+                        annotation_result1, key=lambda i: (i["value"]["end"])
+                    )
+                    annotation_result2 = sorted(
+                        annotation_result2, key=lambda i: (i["value"]["end"])
+                    )
+
+                annotation_result1_text = ""
+                annotation_result2_text = ""
+
+                for result in annotation_result1:
+                    if "type" in result and result["type"] == "textarea":
+                        if (
+                            "from_name" in result
+                            and result["from_name"]
+                            != "acoustic_normalised_transcribed_json"
+                        ):
+                            try:
+                                for s in result["value"]["text"]:
+                                    annotation_result1_text += s
+                            except:
+                                pass
+
+                for result in annotation_result2:
+                    if "type" in result and result["type"] == "textarea":
+                        if (
+                            "from_name" in result
+                            and result["from_name"]
+                            != "acoustic_normalised_transcribed_json"
+                        ):
+                            try:
+                                for s in result["value"]["text"]:
+                                    annotation_result2_text += s
+                            except:
+                                pass
+                bleu = sacrebleu.corpus_bleu(
+                    [annotation_result1_text], [[annotation_result2_text]]
+                )
+                bleu_score = bleu.score
+                return Response(
+                    {"bleu_score": str(bleu_score)},
+                    status=status.HTTP_200_OK,
+                )
+            except:
+                return Response(
+                    {"message": "Invalid parameters in request body!"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
 
 @swagger_auto_schema(

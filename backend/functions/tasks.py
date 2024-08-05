@@ -29,7 +29,7 @@ from tasks.models import (
     ANNOTATED,
 )
 from tasks.views import SentenceOperationViewSet
-from users.models import User, LANG_CHOICES
+from users.models import User
 from django.core.mail import EmailMessage
 
 from utils.blob_functions import (
@@ -56,6 +56,7 @@ import os
 import tempfile
 
 from shoonya_backend.locks import Lock
+from utils.constants import LANG_CHOICES
 
 import logging
 
@@ -1371,6 +1372,7 @@ def get_stats_helper(
                             get_most_recent_annotation(
                                 ann_obj.parent_annotation
                             ).result,
+                            project_type,
                         )
                     )
                 except Exception as error:
@@ -1425,6 +1427,7 @@ def get_stats_helper(
                             get_most_recent_annotation(
                                 ann_obj.parent_annotation.parent_annotation
                             ).result,
+                            project_type,
                         )
                     )
                 except Exception as error:
@@ -1436,6 +1439,7 @@ def get_stats_helper(
                             get_most_recent_annotation(
                                 ann_obj.parent_annotation
                             ).result,
+                            project_type,
                         )
                     )
                 except Exception as error:
@@ -1447,6 +1451,7 @@ def get_stats_helper(
                             get_most_recent_annotation(
                                 ann_obj.parent_annotation.parent_annotation
                             ).result,
+                            project_type,
                         )
                     )
                 except Exception as error:
@@ -1518,10 +1523,10 @@ def calculate_ced_between_two_annotations(annotation1, annotation2):
     return ced_list
 
 
-def calculate_wer_between_two_annotations(annotation1, annotation2):
+def calculate_wer_between_two_annotations(annotation1, annotation2, project_type):
     try:
         return calculate_word_error_rate_between_two_audio_transcription_annotation(
-            annotation1, annotation2
+            annotation1, annotation2, project_type
         )
     except Exception as e:
         return 0
