@@ -274,10 +274,10 @@ def schedule_sentence_text_translate_job(request):
     automate_missing_data_items = request.data.get(
         "automate_missing_data_items", "true"
     )
-    filter_string = request.data.get("filter_string")
-    sampling_mode = request.data.get("sampling_mode")
-    sampling_parameters = request.data.get("sampling_parameters_json")
-    variable_parameters = request.data.get("variable_parameters")
+    filter_string = request.data.get("filter_string", None)
+    sampling_mode = request.data.get("sampling_mode", None)
+    sampling_parameters = request.data.get("sampling_parameters_json", None)
+    variable_parameters = request.data.get("variable_parameters", None)
 
     # Convert checks for languages into boolean
     checks_for_particular_languages = checks_for_particular_languages.lower() == "true"

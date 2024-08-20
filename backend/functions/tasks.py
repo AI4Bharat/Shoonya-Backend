@@ -125,13 +125,14 @@ def sentence_text_translate_and_save_translation_pairs(
             "metadata_json",
         )
     )
-    input_sentences = get_filtered_items(
-        "SentenceText",
-        input_dataset_instance_id,
-        filter_string,
-        sampling_mode,
-        sampling_parameters,
-    )
+    if filter_string and sampling_mode and sampling_parameters:
+        input_sentences = get_filtered_items(
+            "SentenceText",
+            input_dataset_instance_id,
+            filter_string,
+            sampling_mode,
+            sampling_parameters,
+        )
 
     # Convert the input_sentences list into a dataframe
     input_sentences_complete_df = pd.DataFrame(
@@ -463,14 +464,14 @@ def generate_ocr_prediction_json(
         )
     except Exception as e:
         ocr_data_items = []
-
-    ocr_data_items = get_filtered_items(
-        "OCRDocument",
-        dataset_instance_id,
-        filter_string,
-        sampling_mode,
-        sampling_parameters,
-    )
+    if filter_string and sampling_mode and sampling_parameters:
+        ocr_data_items = get_filtered_items(
+            "OCRDocument",
+            dataset_instance_id,
+            filter_string,
+            sampling_mode,
+            sampling_parameters,
+        )
     # converting the dataset_instance to pandas dataframe.
     ocr_data_items_df = pd.DataFrame(
         ocr_data_items,
@@ -631,13 +632,14 @@ def generate_asr_prediction_json(
         )
     except Exception as e:
         asr_data_items = []
-    asr_data_items = get_filtered_items(
-        "SpeechConversation",
-        dataset_instance_id,
-        filter_string,
-        sampling_mode,
-        sampling_parameters,
-    )
+    if filter_string and sampling_mode and sampling_parameters:
+        asr_data_items = get_filtered_items(
+            "SpeechConversation",
+            dataset_instance_id,
+            filter_string,
+            sampling_mode,
+            sampling_parameters,
+        )
     # converting the dataset_instance to pandas dataframe.
     asr_data_items_df = pd.DataFrame(
         asr_data_items,
@@ -769,9 +771,10 @@ def populate_draft_data_json(
     dataset_type = dataset_instance.dataset_type
     dataset_model = apps.get_model("dataset", dataset_type)
     dataset_items = dataset_model.objects.filter(instance_id=dataset_instance)
-    dataset_items = get_filtered_items(
-        dataset_type, pk, filter_string, sampling_mode, sampling_parameters
-    )
+    if filter_string and sampling_mode and sampling_parameters:
+        dataset_items = get_filtered_items(
+            dataset_type, pk, filter_string, sampling_mode, sampling_parameters
+        )
     cnt = 0
     for dataset_item in dataset_items:
         new_draft_data_json = {}
