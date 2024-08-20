@@ -1,7 +1,16 @@
 import os
+import re
 from requests import RequestException
 import requests
 from dotenv import load_dotenv
+from functions.tasks import update_meta_stats
+from projects.utils import (
+    no_of_words,
+    get_audio_project_types,
+    get_audio_transcription_duration,
+    get_not_null_audio_transcription_duration,
+)
+
 
 Queued_Task_name = {
     "dataset.tasks.deduplicate_dataset_instance_items": "Deduplicate Dataset Instance Items",
@@ -60,3 +69,98 @@ def query_flower(filters=None):
             return {"error": "Failed to retrieve tasks from Flower"}
     except RequestException as e:
         return {"error": f" failed to connect to flower API, {str(e)}"}
+
+
+def compute_meta_stats_for_annotation(ann_obj, project_type):
+    task_obj = ann_obj.task
+    task_data = task_obj.data
+    ced_project_type_choices = ["ContextualTranslationEditing"]
+    result_meta_stats = {}
+    result = ann_obj.result
+    if project_type == "AcousticNormalisedTranscriptionEditing":
+        (
+            acousticNormalisedWordCount,
+            verbatimWordCount,
+            acousticNormalisedDuration,
+            verbatimDuration,
+        ) = (0, 0, 0, 0)
+        for r in result:
+            if r["from_name"] == "acoustic_normalised_transcribed_json":
+                acousticNormalisedWordCount += calculateWordCount(ann_obj.result)
+                acousticNormalisedDuration += calculateAudioDuration(ann_obj.result)
+            elif r["from_name"] == "verbatim_transcribed_json":
+                verbatimWordCount += calculateWordCount(ann_obj.result)
+                verbatimDuration += calculateAudioDuration(ann_obj.result)
+            # elif r["from_name"] == "transcribed_json":
+        return {
+            "acousticNormalisedWordCount": acousticNormalisedWordCount,
+            "verbatimWordCount": verbatimWordCount,
+            "acousticNormalisedDuration": acousticNormalisedDuration,
+            "verbatimDuration": verbatimDuration,
+        }
+    elif project_type in ["AudioTranscription", "AudioTranscriptionEditing"]:
+        wordCount, transcribedDuration = 0, 0
+        for r in result:
+            if r["from_name"] == "transcribed_json":
+                wordCount += calculateWordCount(ann_obj.result)
+                transcribedDuration += calculateAudioDuration(ann_obj.result)
+        return {"wordCount": wordCount, "transcribedDuration": transcribedDuration}
+    elif project_type in [
+        "ContextualSentenceVerification",
+        "ContextualSentenceVerificationAndDomainClassification",
+        "ContextualTranslationEditing",
+        "TranslationEditing",
+    ]:
+        wordCount = 0
+        for r in result:
+            if r["type"] == "textarea":
+                wordCount += calculateWordCount(ann_obj.result)
+        return {"wordCount": wordCount}
+    elif project_type in [
+        "ConversationTranslation",
+        "ConversationTranslationEditing",
+        "ConversationVerification",
+    ]:
+        wordCount, sentenceCount = 0, 0
+        for r in result:
+            if r["type"] == "textarea":
+                wordCount += calculateWordCount(ann_obj.result)
+                sentenceCount += calculateSentenceCount(
+                    ann_obj.result["value"]["text"][0]
+                )
+
+        return {"wordCount": wordCount, "sentenceCount": sentenceCount}
+    elif project_type in [
+        "OCRTranscription",
+        "OCRTranscriptionEditing",
+        "OCRSegmentCategorizationEditing",
+    ]:
+        wordCount = 0
+        for r in result:
+            if r["from_name"] == "ocr_transcribed_json":
+                wordCount += calculateWordCount(ann_obj.result)
+        return {"wordCount": wordCount}
+
+
+def calculateWordCount(annotation_result):
+    word_count = 0
+    try:
+        word_count = no_of_words(annotation_result["value"]["text"][0])
+    except:
+        pass
+    return word_count
+
+
+def calculateAudioDuration(annotation_result):
+    try:
+        start = annotation_result["value"]["start"]
+        end = annotation_result["value"]["end"]
+    except:
+        start, end = 0, 0
+        pass
+    return abs(end - start)
+
+
+def calculateSentenceCount(text):
+    sentences = re.split(r"[.!?]+", text)
+    return len([sentence for sentence in sentences if sentence.strip()])
