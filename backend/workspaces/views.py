@@ -1669,9 +1669,9 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             project_types = [request.query_params["project_type_filter"]]
         else:
             project_types = [
-               "InstructionDrivenChat",
-               "ModelInteractionEvaluation",
-               "ModelOutputEvaluation",
+                "InstructionDrivenChat",
+                "ModelInteractionEvaluation",
+                "ModelOutputEvaluation",
             ]
         if "project_type" in dict(request.query_params):
             project_type = request.query_params["project_type"]
