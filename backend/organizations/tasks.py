@@ -119,27 +119,41 @@ def get_all_annotation_reports(
             if a.annotation_type == REVIEWER_ANNOTATION:
                 number_of_tasks_that_has_review_annotations += 1
             if ann_ann and rev_ann and not ar_done:
-                try:
-                    ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        rev_ann.result, ann_ann.result, project_type
-                    )
+                meta_stats = rev_ann.meta_stats
+                if "word_error_rate" in meta_stats:
+                    ar_wer_score += meta_stats["word_error_rate"]
                     number_of_tasks_contributed_for_ar_wer += 1
                     ar_done = True
-                except Exception as e:
-                    pass
-                try:
-                    s1 = SentenceOperationViewSet()
-                    sampleRequest = {
-                        "annotation_result1": rev_ann.result,
-                        "annotation_result2": ann_ann.result,
-                    }
-                    ar_bleu_score += float(
-                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
-                    )
-                    number_of_tasks_contributed_for_ar_bleu += 1
-                except Exception as e:
-                    pass
+                else:
+                    try:
+                        ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            rev_ann.result, ann_ann.result, project_type
+                        )
+                        number_of_tasks_contributed_for_ar_wer += 1
+                        ar_done = True
+                    except Exception as e:
+                        pass
+                if "bleu_score" in meta_stats:
+                    ar_bleu_score += meta_stats["bleu_score"]
+                else:
+                    try:
+                        s1 = SentenceOperationViewSet()
+                        sampleRequest = {
+                            "annotation_result1": rev_ann.result,
+                            "annotation_result2": ann_ann.result,
+                        }
+                        ar_bleu_score += float(
+                            s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                        )
+                        number_of_tasks_contributed_for_ar_bleu += 1
+                    except Exception as e:
+                        pass
             if ann_ann and sup_ann and not as_done:
+                meta_stats = sup_ann.meta_stats
+                if "word_error_rate" in meta_stats:
+                    as_wer_score += meta_stats["word_error_rate"]
+                    number_of_tasks_contributed_for_as_wer += 1
+                    as_done = True
                 try:
                     as_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
                         sup_ann.result, ann_ann.result, project_type
@@ -164,24 +178,44 @@ def get_all_annotation_reports(
     only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
-            try:
-                total_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                total_word_count_list.append(meta_stats["word_count"])
+            else:
+                try:
+                    total_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
-            total_word_count_list.append(ocr_word_count(anno.result))
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                total_word_count_list.append(meta_stats["word_count"])
+            else:
+                total_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
-            try:
-                total_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
-                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
-            except:
-                pass
+            meta_stats = anno.meta_stats
+            if "total_audio_duration" in meta_stats:
+                total_audio_duration_list.append(meta_stats["total_audio_duration"])
+            else:
+                try:
+                    total_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
+            if "raw_audio_duration" in meta_stats:
+                total_raw_audio_duration_list.append(meta_stats["raw_audio_duration"])
+            else:
+                try:
+                    total_raw_audio_duration_list.append(
+                        anno.task.data["audio_duration"]
+                    )
+                except:
+                    pass
     else:
         only_tasks = True
 
@@ -335,26 +369,35 @@ def get_all_review_reports(
             if a.annotation_type == SUPER_CHECKER_ANNOTATION:
                 number_of_tasks_that_has_sup_annotations += 1
             if rev_ann and sup_ann and not rs_done:
-                try:
-                    rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        sup_ann.result, rev_ann.result, project_type
-                    )
+                meta_stats = sup_ann.meta_stats
+                if "word_error_rate" in meta_stats:
+                    rs_wer_score += meta_stats["word_error_rate"]
                     number_of_tasks_contributed_for_rs_wer += 1
                     rs_done = True
-                except Exception as e:
-                    pass
-                try:
-                    s1 = SentenceOperationViewSet()
-                    sampleRequest = {
-                        "annotation_result1": sup_ann.result,
-                        "annotation_result2": rev_ann.result,
-                    }
-                    rs_bleu_score += float(
-                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
-                    )
-                    number_of_tasks_contributed_for_rs_bleu += 1
-                except Exception as e:
-                    pass
+                else:
+                    try:
+                        rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            sup_ann.result, rev_ann.result, project_type
+                        )
+                        number_of_tasks_contributed_for_rs_wer += 1
+                        rs_done = True
+                    except Exception as e:
+                        pass
+                if "bleu_score" in meta_stats:
+                    rs_bleu_score += meta_stats["bleu_score"]
+                else:
+                    try:
+                        s1 = SentenceOperationViewSet()
+                        sampleRequest = {
+                            "annotation_result1": sup_ann.result,
+                            "annotation_result2": rev_ann.result,
+                        }
+                        rs_bleu_score += float(
+                            s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                        )
+                        number_of_tasks_contributed_for_rs_bleu += 1
+                    except Exception as e:
+                        pass
     submitted_tasks_count = submitted_tasks.count()
 
     project_type_lower = project_type.lower()
@@ -370,24 +413,44 @@ def get_all_review_reports(
     only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
-            try:
-                total_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                total_word_count_list.append(meta_stats["word_count"])
+            else:
+                try:
+                    total_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
-            total_word_count_list.append(ocr_word_count(anno.result))
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                total_word_count_list.append(meta_stats["word_count"])
+            else:
+                total_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
-            try:
-                total_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
-                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
-            except:
-                pass
+            meta_stats = anno.meta_stats
+            if "total_audio_duration" in meta_stats:
+                total_audio_duration_list.append(meta_stats["total_audio_duration"])
+            else:
+                try:
+                    total_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
+            if "raw_audio_duration" in meta_stats:
+                total_raw_audio_duration_list.append(meta_stats["raw_audio_duration"])
+            else:
+                try:
+                    total_raw_audio_duration_list.append(
+                        anno.task.data["audio_duration"]
+                    )
+                except:
+                    pass
     else:
         only_tasks = True
 
@@ -514,26 +577,46 @@ def get_all_supercheck_reports(
     only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
-            try:
-                validated_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                validated_word_count_list.append(meta_stats["word_count"])
+            else:
+                try:
+                    validated_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
-            validated_word_count_list.append(ocr_word_count(anno.result))
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                validated_word_count_list.append(meta_stats["word_count"])
+            else:
+                validated_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
-            try:
-                validated_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
+            meta_stats = anno.meta_stats
+            if "total_audio_duration" in meta_stats:
+                validated_audio_duration_list.append(meta_stats["total_audio_duration"])
+            else:
+                try:
+                    validated_audio_duration_list.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
+            if "raw_audio_duration" in meta_stats:
                 validated_raw_audio_duration_list.append(
-                    anno.task.data["audio_duration"]
+                    meta_stats["raw_audio_duration"]
                 )
-            except:
-                pass
+            else:
+                try:
+                    validated_raw_audio_duration_list.append(
+                        anno.task.data["audio_duration"]
+                    )
+                except:
+                    pass
     else:
         only_tasks = True
 
