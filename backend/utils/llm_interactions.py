@@ -62,7 +62,7 @@ def get_gpt4_output(system_prompt, user_prompt, history):
     openai.api_base = os.getenv("LLM_INTERACTIONS_OPENAI_API_BASE")
     openai.api_version = os.getenv("LLM_INTERACTIONS_OPENAI_API_VERSION")
     openai.api_key = os.getenv("OPENAI_API_KEY")
-    engine = "prompt-chat-gpt4"
+    engine = os.getenv("LLM_INTERACTIONS_OPENAI_ENGINE_GPT_4O")
 
     history = process_history(history)
     messages = [{"role": "system", "content": system_prompt}]
@@ -101,7 +101,7 @@ def get_gpt3_output(system_prompt, user_prompt, history):
     openai.api_base = os.getenv("LLM_INTERACTIONS_OPENAI_API_BASE")
     openai.api_version = os.getenv("LLM_INTERACTIONS_OPENAI_API_VERSION")
     openai.api_key = os.getenv("OPENAI_API_KEY")
-    engine = "prompt-chat-gpt35"
+    engine = os.getenv("LLM_INTERACTIONS_OPENAI_ENGINE_GPT35")
 
     history = process_history(history)
     messages = [{"role": "system", "content": system_prompt}]
