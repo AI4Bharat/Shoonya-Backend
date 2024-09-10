@@ -45,6 +45,7 @@ import openai
 import requests
 from rest_framework import status
 from rest_framework.response import Response
+from dataset.models import GPT35, GPT4, LLAMA2, GPT4O, GPT4OMini
 
 
 def process_history(history):
@@ -57,12 +58,17 @@ def process_history(history):
     return messages
 
 
-def get_gpt4_output(system_prompt, user_prompt, history):
+def get_gpt4_output(system_prompt, user_prompt, history, model):
     openai.api_type = os.getenv("LLM_INTERACTIONS_OPENAI_API_TYPE")
     openai.api_base = os.getenv("LLM_INTERACTIONS_OPENAI_API_BASE")
     openai.api_version = os.getenv("LLM_INTERACTIONS_OPENAI_API_VERSION")
     openai.api_key = os.getenv("OPENAI_API_KEY")
-    engine = os.getenv("LLM_INTERACTIONS_OPENAI_ENGINE_GPT_4O")
+    if model == GPT4:
+        engine = os.getenv("LLM_INTERACTIONS_OPENAI_ENGINE_GPT_4")
+    elif model == GPT4O:
+        engine = os.getenv("LLM_INTERACTIONS_OPENAI_ENGINE_GPT_4O")
+    elif model == GPT4OMini:
+        engine = os.getenv("LLM_INTERACTIONS_OPENAI_ENGINE_GPT_4O_MINI")
 
     history = process_history(history)
     messages = [{"role": "system", "content": system_prompt}]
@@ -156,13 +162,13 @@ def get_llama2_output(system_prompt, conv_history, user_prompt):
     return result.json()["choices"][0]["message"]["content"].strip()
 
 
-def get_model_output(system_prompt, user_prompt, history, model="gpt3.5"):
+def get_model_output(system_prompt, user_prompt, history, model=GPT4OMini):
     # Assume that translation happens outside (and the prompt is already translated)
     out = ""
-    if model == "GPT3.5":
+    if model == GPT35:
         out = get_gpt3_output(system_prompt, user_prompt, history)
-    elif model == "GPT4":
-        out = get_gpt4_output(system_prompt, user_prompt, history)
-    elif model == "LLAMA2":
+    elif model in [GPT4, GPT4O, GPT4OMini]:
+        out = get_gpt4_output(system_prompt, user_prompt, history, model)
+    elif model == LLAMA2:
         out = get_llama2_output(system_prompt, history, user_prompt)
     return out

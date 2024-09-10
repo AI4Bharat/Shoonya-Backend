@@ -124,7 +124,19 @@ LANGUAGE_CHOICES_INSTRUCTIONS = (
     ("4", "Indic/English(Latin script)"),
 )
 
-LLM_CHOICES = (("GPT3.5", "GPT3.5"), ("GPT4", "GPT4"), ("LLAMA2", "LLAMA2"))
+GPT35 = "GPT3.5"
+GPT4 = "GPT4"
+LLAMA2 = "LLAMA2"
+GPT4OMini = "GPT4OMini"
+GPT4O = "GPT4O"
+
+LLM_CHOICES = (
+    (GPT35, GPT35),
+    (GPT4, GPT4),
+    (LLAMA2, LLAMA2),
+    (GPT4OMini, GPT4OMini),
+    (GPT4O, GPT4O),
+)
 
 
 class DatasetInstance(models.Model):
