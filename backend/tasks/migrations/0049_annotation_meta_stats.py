@@ -4,15 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('tasks', '0048_alter_annotation_unique_together'),
+        ("tasks", "0048_alter_annotation_unique_together"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='annotation',
-            name='meta_stats',
-            field=models.JSONField(blank=True, help_text='Meta statistics for the annotation result', null=True, verbose_name='meta_stats'),
+            model_name="annotation",
+            name="meta_stats",
+            field=models.JSONField(
+                blank=True,
+                help_text="Meta statistics for the annotation result",
+                null=True,
+                verbose_name="meta_stats",
+            ),
         ),
     ]

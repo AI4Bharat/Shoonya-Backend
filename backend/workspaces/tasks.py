@@ -32,7 +32,11 @@ from projects.utils import (
     ocr_word_count,
 )
 from tasks.views import SentenceOperationViewSet
-from tasks.utils import calculateWordCount, calculateAudioDuration, calculateSentenceCount
+from tasks.utils import (
+    calculateWordCount,
+    calculateAudioDuration,
+    calculateSentenceCount,
+)
 
 
 def get_all_annotation_reports(
@@ -198,7 +202,7 @@ def get_all_annotation_reports(
             else:
                 total_word_count_list.append(ocr_word_count(anno.result))
     elif (
-            project_type in get_audio_project_types() or project_type == "AllAudioProjects"
+        project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
             meta_stats = anno.meta_stats
@@ -206,13 +210,19 @@ def get_all_annotation_reports(
                 meta_stats = []
             if project_type == "AllAudioProjects":
                 if "acoustic_normalised_duration" in meta_stats:
-                    acoustic_normalised_duration.append(meta_stats["acoustic_normalised_duration"])
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
-                            acoustic_normalised_duration.append(calculateAudioDuration(r))
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
                 if "acoustic_normalised_word_count" in meta_stats:
-                    acoustic_normalised_word_count.append(meta_stats["acoustic_normalised_word_count"])
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
@@ -243,13 +253,19 @@ def get_all_annotation_reports(
                             transcribed_word_count.append(calculateAudioDuration(r))
             elif project_type == "AcousticNormalisedTranscriptionEditing":
                 if "acoustic_normalised_duration" in meta_stats:
-                    acoustic_normalised_duration.append(meta_stats["acoustic_normalised_duration"])
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
-                            acoustic_normalised_duration.append(calculateAudioDuration(r))
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
                 if "acoustic_normalised_word_count" in meta_stats:
-                    acoustic_normalised_word_count.append(meta_stats["acoustic_normalised_word_count"])
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
@@ -280,9 +296,7 @@ def get_all_annotation_reports(
                         if r["from_name"] == "transcribed_json":
                             transcribed_word_count.append(calculateAudioDuration(r))
             try:
-                total_raw_audio_duration_list.append(
-                    anno.task.data["audio_duration"]
-                )
+                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
             if "total_segment_duration" in meta_stats:
@@ -298,18 +312,20 @@ def get_all_annotation_reports(
         only_tasks = True
     total_raw_audio_duration, total_word_count = 0, 0
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
-        acoustic_normalised_duration = convert_seconds_to_hours(sum(acoustic_normalised_duration))
+        acoustic_normalised_duration = convert_seconds_to_hours(
+            sum(acoustic_normalised_duration)
+        )
         verbatim_duration = convert_seconds_to_hours(sum(verbatim_duration))
         transcribed_duration = convert_seconds_to_hours(sum(transcribed_duration))
-        acoustic_normalised_word_count = convert_seconds_to_hours(sum(acoustic_normalised_word_count))
+        acoustic_normalised_word_count = convert_seconds_to_hours(
+            sum(acoustic_normalised_word_count)
+        )
         verbatim_word_count = convert_seconds_to_hours(sum(verbatim_word_count))
         transcribed_word_count = convert_seconds_to_hours(sum(transcribed_word_count))
         total_raw_audio_duration = convert_seconds_to_hours(
             sum(total_raw_audio_duration_list)
         )
-        total_segment_duration = convert_seconds_to_hours(
-            sum(total_segment_duration)
-        )
+        total_segment_duration = convert_seconds_to_hours(sum(total_segment_duration))
     else:
         total_word_count = sum(total_word_count_list)
     cumulative_rejection_score_ar = 0
@@ -563,13 +579,19 @@ def get_all_review_reports(
             meta_stats = anno.meta_stats
             if project_type == "AllAudioProjects":
                 if "acoustic_normalised_duration" in meta_stats:
-                    acoustic_normalised_duration.append(meta_stats["acoustic_normalised_duration"])
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
-                            acoustic_normalised_duration.append(calculateAudioDuration(r))
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
                 if "acoustic_normalised_word_count" in meta_stats:
-                    acoustic_normalised_word_count.append(meta_stats["acoustic_normalised_word_count"])
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
@@ -600,13 +622,19 @@ def get_all_review_reports(
                             transcribed_word_count.append(calculateAudioDuration(r))
             elif project_type == "AcousticNormalisedTranscriptionEditing":
                 if "acoustic_normalised_duration" in meta_stats:
-                    acoustic_normalised_duration.append(meta_stats["acoustic_normalised_duration"])
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
-                            acoustic_normalised_duration.append(calculateAudioDuration(r))
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
                 if "acoustic_normalised_word_count" in meta_stats:
-                    acoustic_normalised_word_count.append(meta_stats["acoustic_normalised_word_count"])
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
@@ -646,27 +674,27 @@ def get_all_review_reports(
                 except:
                     pass
             try:
-                total_raw_audio_duration_list.append(
-                    anno.task.data["audio_duration"]
-                )
+                total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
     else:
         only_tasks = True
     total_raw_audio_duration, total_word_count = 0, 0
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
-        acoustic_normalised_duration = convert_seconds_to_hours(sum(acoustic_normalised_duration))
+        acoustic_normalised_duration = convert_seconds_to_hours(
+            sum(acoustic_normalised_duration)
+        )
         verbatim_duration = convert_seconds_to_hours(sum(verbatim_duration))
         transcribed_duration = convert_seconds_to_hours(sum(transcribed_duration))
-        acoustic_normalised_word_count = convert_seconds_to_hours(sum(acoustic_normalised_word_count))
+        acoustic_normalised_word_count = convert_seconds_to_hours(
+            sum(acoustic_normalised_word_count)
+        )
         verbatim_word_count = convert_seconds_to_hours(sum(verbatim_word_count))
         transcribed_word_count = convert_seconds_to_hours(sum(transcribed_word_count))
         total_raw_audio_duration = convert_seconds_to_hours(
             sum(total_raw_audio_duration_list)
         )
-        total_segment_duration = convert_seconds_to_hours(
-            sum(total_segment_duration)
-        )
+        total_segment_duration = convert_seconds_to_hours(sum(total_segment_duration))
     else:
         total_word_count = sum(total_word_count_list)
     cumulative_rejection_score_ar = 0
@@ -849,13 +877,19 @@ def get_all_supercheck_reports(
             meta_stats = anno.meta_stats
             if project_type == "AllAudioProjects":
                 if "acoustic_normalised_duration" in meta_stats:
-                    acoustic_normalised_duration.append(meta_stats["acoustic_normalised_duration"])
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
-                            acoustic_normalised_duration.append(calculateAudioDuration(r))
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
                 if "acoustic_normalised_word_count" in meta_stats:
-                    acoustic_normalised_word_count.append(meta_stats["acoustic_normalised_word_count"])
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
@@ -886,13 +920,19 @@ def get_all_supercheck_reports(
                             transcribed_word_count.append(calculateAudioDuration(r))
             elif project_type == "AcousticNormalisedTranscriptionEditing":
                 if "acoustic_normalised_duration" in meta_stats:
-                    acoustic_normalised_duration.append(meta_stats["acoustic_normalised_duration"])
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
-                            acoustic_normalised_duration.append(calculateAudioDuration(r))
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
                 if "acoustic_normalised_word_count" in meta_stats:
-                    acoustic_normalised_word_count.append(meta_stats["acoustic_normalised_word_count"])
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
                 else:
                     for r in anno.result:
                         if r["from_name"] == "acoustic_normalised_transcribed_json":
@@ -942,18 +982,20 @@ def get_all_supercheck_reports(
 
     validated_raw_audio_duration, validated_word_count = 0, 0
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
-        acoustic_normalised_duration = convert_seconds_to_hours(sum(acoustic_normalised_duration))
+        acoustic_normalised_duration = convert_seconds_to_hours(
+            sum(acoustic_normalised_duration)
+        )
         verbatim_duration = convert_seconds_to_hours(sum(verbatim_duration))
         transcribed_duration = convert_seconds_to_hours(sum(transcribed_duration))
-        acoustic_normalised_word_count = convert_seconds_to_hours(sum(acoustic_normalised_word_count))
+        acoustic_normalised_word_count = convert_seconds_to_hours(
+            sum(acoustic_normalised_word_count)
+        )
         verbatim_word_count = convert_seconds_to_hours(sum(verbatim_word_count))
         transcribed_word_count = convert_seconds_to_hours(sum(transcribed_word_count))
         validated_raw_audio_duration = convert_seconds_to_hours(
             sum(validated_raw_audio_duration_list)
         )
-        total_segment_duration = convert_seconds_to_hours(
-            sum(total_segment_duration)
-        )
+        total_segment_duration = convert_seconds_to_hours(sum(total_segment_duration))
     else:
         validated_word_count = sum(validated_word_count_list)
     cumulative_rejection_score_rs = 0

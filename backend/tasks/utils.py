@@ -10,7 +10,17 @@ from projects.utils import (
     get_not_null_audio_transcription_duration,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
-from tasks.models import Annotation, REVIEWER_ANNOTATION, ANNOTATOR_ANNOTATION, SUPER_CHECKER_ANNOTATION, ACCEPTED, ACCEPTED_WITH_MINOR_CHANGES, ACCEPTED_WITH_MAJOR_CHANGES, VALIDATED, VALIDATED_WITH_CHANGES
+from tasks.models import (
+    Annotation,
+    REVIEWER_ANNOTATION,
+    ANNOTATOR_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
+    ACCEPTED,
+    ACCEPTED_WITH_MINOR_CHANGES,
+    ACCEPTED_WITH_MAJOR_CHANGES,
+    VALIDATED,
+    VALIDATED_WITH_CHANGES,
+)
 
 
 Queued_Task_name = {
@@ -74,6 +84,7 @@ def query_flower(filters=None):
 
 def compute_meta_stats_for_annotation(ann_obj, project_type):
     from tasks.views import SentenceOperationViewSet
+
     task_obj = ann_obj.task
     task_data = task_obj.data
     ced_project_type_choices = ["ContextualTranslationEditing"]
@@ -93,10 +104,10 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
             ACCEPTED_WITH_MAJOR_CHANGES,
         ]:
             rev_ann = a
-        elif (
-                a.annotation_type == SUPER_CHECKER_ANNOTATION
-                and a.annotation_status in [VALIDATED, VALIDATED_WITH_CHANGES]
-        ):
+        elif a.annotation_type == SUPER_CHECKER_ANNOTATION and a.annotation_status in [
+            VALIDATED,
+            VALIDATED_WITH_CHANGES,
+        ]:
             sup_ann = a
         elif a.annotation_type == ANNOTATOR_ANNOTATION:
             ann_ann = a
@@ -178,7 +189,7 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
             "as_wer_score": as_wer_score,
             "rs_wer_score": rs_wer_score,
             "ar_bleu_score": ar_bleu_score,
-            "rs_bleu_score": rs_bleu_score
+            "rs_bleu_score": rs_bleu_score,
         }
     elif project_type in ["AudioTranscription", "AudioTranscriptionEditing"]:
         transcribed_word_count, transcribed_duration = 0, 0
@@ -188,16 +199,17 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
                 transcribed_duration += calculateAudioDuration(ann_obj.result)
         segment_duration = get_audio_transcription_duration(result)
         not_null_segment_duration = get_not_null_audio_transcription_duration(result)
-        return {"audio_word_count": transcribed_word_count,
-                "transcribed_duration": transcribed_duration,
-                "total_segment_duration": segment_duration,
-                "not_null_segment_duration": not_null_segment_duration,
-                "ar_wer_score": ar_wer_score,
-                "as_wer_score": as_wer_score,
-                "rs_wer_score": rs_wer_score,
-                "ar_bleu_score": ar_bleu_score,
-                "rs_bleu_score": rs_bleu_score
-                }
+        return {
+            "audio_word_count": transcribed_word_count,
+            "transcribed_duration": transcribed_duration,
+            "total_segment_duration": segment_duration,
+            "not_null_segment_duration": not_null_segment_duration,
+            "ar_wer_score": ar_wer_score,
+            "as_wer_score": as_wer_score,
+            "rs_wer_score": rs_wer_score,
+            "ar_bleu_score": ar_bleu_score,
+            "rs_bleu_score": rs_bleu_score,
+        }
     elif project_type in [
         "ContextualSentenceVerification",
         "ContextualSentenceVerificationAndDomainClassification",
@@ -208,13 +220,14 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
         for r in result:
             if r["type"] == "textarea":
                 word_count += calculateWordCount(ann_obj.result)
-        return {"word_count": word_count,
-                "ar_wer_score": ar_wer_score,
-                "as_wer_score": as_wer_score,
-                "rs_wer_score": rs_wer_score,
-                "ar_bleu_score": ar_bleu_score,
-                "rs_bleu_score": rs_bleu_score
-                }
+        return {
+            "word_count": word_count,
+            "ar_wer_score": ar_wer_score,
+            "as_wer_score": as_wer_score,
+            "rs_wer_score": rs_wer_score,
+            "ar_bleu_score": ar_bleu_score,
+            "rs_bleu_score": rs_bleu_score,
+        }
     elif project_type in [
         "ConversationTranslation",
         "ConversationTranslationEditing",
@@ -228,14 +241,15 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
                     ann_obj.result["value"]["text"][0]
                 )
 
-        return {"word_count": word_count,
-                "sentence_count": sentence_count,
-                "ar_wer_score": ar_wer_score,
-                "as_wer_score": as_wer_score,
-                "rs_wer_score": rs_wer_score,
-                "ar_bleu_score": ar_bleu_score,
-                "rs_bleu_score": rs_bleu_score
-                }
+        return {
+            "word_count": word_count,
+            "sentence_count": sentence_count,
+            "ar_wer_score": ar_wer_score,
+            "as_wer_score": as_wer_score,
+            "rs_wer_score": rs_wer_score,
+            "ar_bleu_score": ar_bleu_score,
+            "rs_bleu_score": rs_bleu_score,
+        }
     elif project_type in [
         "OCRTranscription",
         "OCRTranscriptionEditing",
@@ -245,13 +259,14 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
         for r in result:
             if r["from_name"] == "ocr_transcribed_json":
                 word_count += calculateWordCount(ann_obj.result)
-        return {"word_count": word_count,
-                "ar_wer_score": ar_wer_score,
-                "as_wer_score": as_wer_score,
-                "rs_wer_score": rs_wer_score,
-                "ar_bleu_score": ar_bleu_score,
-                "rs_bleu_score": rs_bleu_score
-                }
+        return {
+            "word_count": word_count,
+            "ar_wer_score": ar_wer_score,
+            "as_wer_score": as_wer_score,
+            "rs_wer_score": rs_wer_score,
+            "ar_bleu_score": ar_bleu_score,
+            "rs_bleu_score": rs_bleu_score,
+        }
 
 
 def calculateWordCount(annotation_result):
