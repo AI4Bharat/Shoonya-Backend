@@ -1482,14 +1482,11 @@ def update_meta_stats(
         meta_stats = ann_obj.meta_stats
         if meta_stats:
             result_meta_stats[ann_obj.annotation_status][
-                "Raw Audio Duration"
-            ] = meta_stats["Raw Audio Duration"]
-            result_meta_stats[ann_obj.annotation_status][
                 "Segment Duration"
-            ] = meta_stats["Segment Duration"]
+            ] = meta_stats["total_segment_duration"]
             result_meta_stats[ann_obj.annotation_status][
                 "Not Null Segment Duration"
-            ] = meta_stats["Not Null Segment Duration"]
+            ] = meta_stats["not_null_segment_duration"]
         else:
             result_meta_stats[ann_obj.annotation_status][
                 "Raw Audio Duration"
