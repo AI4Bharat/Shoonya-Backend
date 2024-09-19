@@ -171,11 +171,11 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
         ) = (0, 0, 0, 0)
         for r in result:
             if r["from_name"] == "acoustic_normalised_transcribed_json":
-                acoustic_normalised_word_count += calculateWordCount(ann_obj.result)
-                acoustic_normalised_duration += calculateAudioDuration(ann_obj.result)
+                acoustic_normalised_word_count += calculateWordCount(r)
+                acoustic_normalised_duration += calculateAudioDuration(r)
             elif r["from_name"] == "verbatim_transcribed_json":
-                verbatim_word_count += calculateWordCount(ann_obj.result)
-                verbatim_duration += calculateAudioDuration(ann_obj.result)
+                verbatim_word_count += calculateWordCount(r)
+                verbatim_duration += calculateAudioDuration(r)
         segment_duration = get_audio_transcription_duration(result)
         not_null_segment_duration = get_not_null_audio_transcription_duration(result)
         return {
@@ -195,8 +195,8 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
         transcribed_word_count, transcribed_duration = 0, 0
         for r in result:
             if r["from_name"] == "transcribed_json":
-                transcribed_word_count += calculateWordCount(ann_obj.result)
-                transcribed_duration += calculateAudioDuration(ann_obj.result)
+                transcribed_word_count += calculateWordCount(r)
+                transcribed_duration += calculateAudioDuration(r)
         segment_duration = get_audio_transcription_duration(result)
         not_null_segment_duration = get_not_null_audio_transcription_duration(result)
         return {
@@ -219,7 +219,7 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
         word_count = 0
         for r in result:
             if r["type"] == "textarea":
-                word_count += calculateWordCount(ann_obj.result)
+                word_count += calculateWordCount(r)
         return {
             "word_count": word_count,
             "ar_wer_score": ar_wer_score,
@@ -236,7 +236,7 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
         word_count, sentence_count = 0, 0
         for r in result:
             if r["type"] == "textarea":
-                word_count += calculateWordCount(ann_obj.result)
+                word_count += calculateWordCount(r)
                 sentence_count += calculateSentenceCount(
                     ann_obj.result["value"]["text"][0]
                 )
@@ -258,7 +258,7 @@ def compute_meta_stats_for_annotation(ann_obj, project_type):
         word_count = 0
         for r in result:
             if r["from_name"] == "ocr_transcribed_json":
-                word_count += calculateWordCount(ann_obj.result)
+                word_count += calculateWordCount(r)
         return {
             "word_count": word_count,
             "ar_wer_score": ar_wer_score,
