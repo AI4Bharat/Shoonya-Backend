@@ -29,7 +29,7 @@ from tasks.models import (
     ANNOTATED,
 )
 from tasks.views import SentenceOperationViewSet
-from users.models import User, LANG_CHOICES
+from users.models import User
 from django.core.mail import EmailMessage
 
 from utils.blob_functions import (
@@ -56,7 +56,11 @@ import os
 import tempfile
 
 from shoonya_backend.locks import Lock
-
+from utils.constants import LANG_CHOICES
+from projects.tasks import filter_data_items
+from projects.models import BATCH
+from dataset import models as dataset_models
+from projects.registry_helper import ProjectRegistry
 import logging
 
 logger = logging.getLogger(__name__)
@@ -72,6 +76,10 @@ def sentence_text_translate_and_save_translation_pairs(
     input_dataset_instance_id,
     output_dataset_instance_id,
     batch_size,
+    filter_string,
+    sampling_mode,
+    sampling_parameters,
+    variable_parameters,
     api_type="indic-trans-v2",
     checks_for_particular_languages=False,
     automate_missing_data_items=True,
@@ -87,6 +95,10 @@ def sentence_text_translate_and_save_translation_pairs(
             Allowed - [indic-trans, google, indic-trans-v2, azure, blank]
         checks_for_particular_languages (bool): If True, checks for the particular languages in the translations.
         automate_missing_data_items (bool): If True, consider only those data items that are missing in the target dataset instance.
+        filter_string (str): string to filter input data.
+        sampling_mode (str): can be batch or full.
+        sampling_parameters (json): is a json that contains, batch number and batch size
+
     """
     task_name = "sentence_text_translate_and_save_translation_pairs"
     output_sentences = list(
@@ -113,6 +125,14 @@ def sentence_text_translate_and_save_translation_pairs(
             "metadata_json",
         )
     )
+    if filter_string and sampling_mode and sampling_parameters:
+        input_sentences = get_filtered_items(
+            "SentenceText",
+            input_dataset_instance_id,
+            filter_string,
+            sampling_mode,
+            sampling_parameters,
+        )
 
     # Convert the input_sentences list into a dataframe
     input_sentences_complete_df = pd.DataFrame(
@@ -403,7 +423,15 @@ def conversation_data_machine_translation(
 
 @shared_task(bind=True)
 def generate_ocr_prediction_json(
-    self, dataset_instance_id, user_id, api_type, automate_missing_data_items
+    self,
+    dataset_instance_id,
+    user_id,
+    api_type,
+    automate_missing_data_items,
+    filter_string,
+    sampling_mode,
+    sampling_parameters,
+    variable_parameters,
 ):
     """Function to generate OCR prediction data and to save to the same data item.
     Args:
@@ -436,7 +464,14 @@ def generate_ocr_prediction_json(
         )
     except Exception as e:
         ocr_data_items = []
-
+    if filter_string and sampling_mode and sampling_parameters:
+        ocr_data_items = get_filtered_items(
+            "OCRDocument",
+            dataset_instance_id,
+            filter_string,
+            sampling_mode,
+            sampling_parameters,
+        )
     # converting the dataset_instance to pandas dataframe.
     ocr_data_items_df = pd.DataFrame(
         ocr_data_items,
@@ -555,7 +590,15 @@ def generate_ocr_prediction_json(
 
 @shared_task(bind=True)
 def generate_asr_prediction_json(
-    self, dataset_instance_id, user_id, api_type, automate_missing_data_items
+    self,
+    dataset_instance_id,
+    user_id,
+    api_type,
+    automate_missing_data_items,
+    filter_string,
+    sampling_mode,
+    sampling_parameters,
+    variable_parameters,
 ):
     """Function to generate ASR prediction data and to save to the same data item.
     Args:
@@ -589,7 +632,14 @@ def generate_asr_prediction_json(
         )
     except Exception as e:
         asr_data_items = []
-
+    if filter_string and sampling_mode and sampling_parameters:
+        asr_data_items = get_filtered_items(
+            "SpeechConversation",
+            dataset_instance_id,
+            filter_string,
+            sampling_mode,
+            sampling_parameters,
+        )
     # converting the dataset_instance to pandas dataframe.
     asr_data_items_df = pd.DataFrame(
         asr_data_items,
@@ -703,7 +753,16 @@ def generate_asr_prediction_json(
 
 
 @shared_task(bind=True)
-def populate_draft_data_json(self, pk, user_id, fields_list):
+def populate_draft_data_json(
+    self,
+    pk,
+    user_id,
+    fields_list,
+    filter_string,
+    sampling_mode,
+    sampling_parameters,
+    variable_parameters,
+):
     task_name = "populate_draft_data_json"
     try:
         dataset_instance = DatasetInstance.objects.get(pk=pk)
@@ -712,6 +771,10 @@ def populate_draft_data_json(self, pk, user_id, fields_list):
     dataset_type = dataset_instance.dataset_type
     dataset_model = apps.get_model("dataset", dataset_type)
     dataset_items = dataset_model.objects.filter(instance_id=dataset_instance)
+    if filter_string and sampling_mode and sampling_parameters:
+        dataset_items = get_filtered_items(
+            dataset_type, pk, filter_string, sampling_mode, sampling_parameters
+        )
     cnt = 0
     for dataset_item in dataset_items:
         new_draft_data_json = {}
@@ -1695,3 +1758,38 @@ def upload_all_projects_to_blob_and_get_url(csv_files_directory):
             return "Error in generating url"
         blob_url = f"https://{account_name}.blob.{endpoint_suffix}/{CONTAINER_NAME_FOR_DOWNLOAD_ALL_PROJECTS}/{blob_client.blob_name}?{sas_token}"
     return blob_url
+
+
+def get_filtered_items(
+    dataset_model,
+    dataset_instance_id,
+    filter_string,
+    sampling_mode,
+    sampling_parameters,
+):
+    registry_helper = ProjectRegistry.get_instance()
+    project_type = registry_helper.get_project_name_from_dataset(dataset_model)
+    if not isinstance(dataset_instance_id, list):
+        dataset_instance_id = [dataset_instance_id]
+    filtered_items = filter_data_items(
+        project_type=project_type,
+        dataset_instance_ids=dataset_instance_id,
+        filter_string=filter_string,
+    )
+    # Apply sampling
+    if sampling_mode == BATCH:
+        batch_size = sampling_parameters["batch_size"]
+        try:
+            batch_number = sampling_parameters["batch_number"]
+            if len(batch_number) == 0:
+                batch_number = [1]
+        except KeyError:
+            batch_number = [1]
+        sampled_items = []
+        for batch_num in batch_number:
+            sampled_items += filtered_items[
+                batch_size * (batch_num - 1) : batch_size * batch_num
+            ]
+    else:
+        sampled_items = filtered_items
+    return sampled_items
