@@ -9,7 +9,7 @@ import socket
 import jwt
 from datetime import datetime, timedelta
 
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
@@ -26,34 +26,11 @@ from dotenv import load_dotenv
 
 from .utils import hash_upload
 from .managers import UserManager
+from utils.email_template import send_email_template
+from utils.constants import LANG_CHOICES
 
 # List of Indic languages
-LANG_CHOICES = (
-    ("English", "English"),
-    ("Assamese", "Assamese"),
-    ("Bengali", "Bengali"),
-    ("Bodo", "Bodo"),
-    ("Dogri", "Dogri"),
-    ("Gujarati", "Gujarati"),
-    ("Hindi", "Hindi"),
-    ("Kannada", "Kannada"),
-    ("Kashmiri", "Kashmiri"),
-    ("Konkani", "Konkani"),
-    ("Maithili", "Maithili"),
-    ("Malayalam", "Malayalam"),
-    ("Manipuri", "Manipuri"),
-    ("Marathi", "Marathi"),
-    ("Nepali", "Nepali"),
-    ("Odia", "Odia"),
-    ("Punjabi", "Punjabi"),
-    ("Sanskrit", "Sanskrit"),
-    ("Santali", "Santali"),
-    ("Sindhi", "Sindhi"),
-    ("Sinhala", "Sinhala"),
-    ("Tamil", "Tamil"),
-    ("Telugu", "Telugu"),
-    ("Urdu", "Urdu"),
-)
+
 load_dotenv()
 # Create your models here.
 # class Language(models.Model):
@@ -282,12 +259,24 @@ class User(AbstractBaseUser, PermissionsMixin):
         prefix = os.getenv("FRONTEND_URL_FOR_RESET_PASSWORD")
         link = f"{prefix}/#/forget-password/confirm/{key}/{sent_token}"
         try:
-            send_mail(
-                "Reset password link for shoonya",
-                f"Hello! Please click on the following link to reset your password - {link}",
+            subject = "Reset Password Link For Shoonya"
+            message = f"<p> Hello! Please click on the following link to reset your password - {link} </p>"
+
+            compiled_code = send_email_template(subject, message)
+            msg = EmailMultiAlternatives(
+                subject,
+                compiled_code,
                 settings.DEFAULT_FROM_EMAIL,
                 [email],
             )
+            msg.attach_alternative(compiled_code, "text/html")
+            msg.send()
+            # send_mail(
+            #     "Reset password link for shoonya",
+            #     f"Hello! Please click on the following link to reset your password - {link}",
+            #     settings.DEFAULT_FROM_EMAIL,
+            #     [email],
+            # )
         except SMTPAuthenticationError:
             raise Exception(
                 "Failed to authenticate with the SMTP server. Check your email settings."

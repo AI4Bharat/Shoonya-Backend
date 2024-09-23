@@ -7,7 +7,7 @@ from dataset.models import DatasetInstance
 from .registry_helper import ProjectRegistry
 from django.utils.timezone import now
 from datetime import datetime, timedelta
-from users.models import LANG_CHOICES
+from utils.constants import LANG_CHOICES
 
 # from dataset import LANG_CHOICES
 
@@ -249,7 +249,6 @@ class Project(models.Model):
             "Maximum no. of tasks assigned to a user which are at unlabeled stage, as a threshold for pulling new tasks"
         ),
     )
-
     # enable_task_reviews = models.BooleanField(
     #     verbose_name="enable_task_reviews",
     #     default=False,
