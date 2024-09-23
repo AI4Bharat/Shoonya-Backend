@@ -3,8 +3,9 @@ from dateutil.relativedelta import relativedelta
 from celery import shared_task
 import pandas as pd
 from django.conf import settings
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
 from tasks.views import SentenceOperationViewSet
+from utils.email_template import send_email_template_with_attachment
 
 from tasks.models import (
     Task,
@@ -12,6 +13,11 @@ from tasks.models import (
     ANNOTATOR_ANNOTATION,
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
+    ACCEPTED,
+    ACCEPTED_WITH_MINOR_CHANGES,
+    ACCEPTED_WITH_MAJOR_CHANGES,
+    VALIDATED,
+    VALIDATED_WITH_CHANGES,
 )
 from .models import Organization
 from users.models import User
@@ -23,6 +29,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
     ocr_word_count,
+    calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 from workspaces.tasks import (
     un_pack_annotation_tasks,
@@ -68,6 +75,79 @@ def get_all_annotation_reports(
             completed_by=userid,
             updated_at__range=[start_date, end_date],
         )
+    (
+        number_of_tasks_contributed_for_ar_wer,
+        number_of_tasks_contributed_for_as_wer,
+        number_of_tasks_contributed_for_ar_bleu,
+    ) = (
+        0,
+        0,
+        0,
+    )
+    ar_wer_score, as_wer_score, ar_bleu_score = 0, 0, 0
+    tasks_and_rejection_count_map_ar, number_of_tasks_that_has_review_annotations = (
+        {},
+        0,
+    )
+    for ann in submitted_tasks:
+        all_annotations = Annotation.objects.filter(task_id=ann.task_id)
+        try:
+            task = ann.task
+            revision_loop_count = task.revision_loop_count
+            r_count = revision_loop_count["review_count"]
+            tasks_and_rejection_count_map_ar[r_count] = (
+                tasks_and_rejection_count_map_ar.get(r_count, 0) + 1
+            )
+        except Exception as e:
+            pass
+        ar_done, as_done = False, False
+        ann_ann, rev_ann, sup_ann = "", "", ""
+        for a in all_annotations:
+            if a.annotation_type == REVIEWER_ANNOTATION and a.annotation_status in [
+                ACCEPTED,
+                ACCEPTED_WITH_MINOR_CHANGES,
+                ACCEPTED_WITH_MAJOR_CHANGES,
+            ]:
+                rev_ann = a
+            elif (
+                a.annotation_type == SUPER_CHECKER_ANNOTATION
+                and a.annotation_status in [VALIDATED, VALIDATED_WITH_CHANGES]
+            ):
+                sup_ann = a
+            elif a.annotation_type == ANNOTATOR_ANNOTATION:
+                ann_ann = a
+            if a.annotation_type == REVIEWER_ANNOTATION:
+                number_of_tasks_that_has_review_annotations += 1
+            if ann_ann and rev_ann and not ar_done:
+                try:
+                    ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        rev_ann.result, ann_ann.result, project_type
+                    )
+                    number_of_tasks_contributed_for_ar_wer += 1
+                    ar_done = True
+                except Exception as e:
+                    pass
+                try:
+                    s1 = SentenceOperationViewSet()
+                    sampleRequest = {
+                        "annotation_result1": rev_ann.result,
+                        "annotation_result2": ann_ann.result,
+                    }
+                    ar_bleu_score += float(
+                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                    )
+                    number_of_tasks_contributed_for_ar_bleu += 1
+                except Exception as e:
+                    pass
+            if ann_ann and sup_ann and not as_done:
+                try:
+                    as_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        sup_ann.result, ann_ann.result, project_type
+                    )
+                    number_of_tasks_contributed_for_as_wer += 1
+                    as_done = True
+                except Exception as e:
+                    pass
 
     submitted_tasks_count = submitted_tasks.count()
 
@@ -110,7 +190,10 @@ def get_all_annotation_reports(
     total_raw_audio_duration = convert_seconds_to_hours(
         sum(total_raw_audio_duration_list)
     )
-
+    cumulative_rejection_score_ar = 0
+    if tasks_and_rejection_count_map_ar:
+        for task, rc in tasks_and_rejection_count_map_ar.items():
+            cumulative_rejection_score_ar += task * rc
     result = {
         "Name": userName,
         "Email": email,
@@ -122,6 +205,28 @@ def get_all_annotation_reports(
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
+        "Average Word Error Rate Annotator Vs Reviewer": ar_wer_score
+        / number_of_tasks_contributed_for_ar_wer
+        if number_of_tasks_contributed_for_ar_wer
+        else 0,
+        "Cumulative Word Error Rate Annotator Vs Reviewer": ar_wer_score
+        if number_of_tasks_contributed_for_ar_wer
+        else 0,
+        "Average Word Error Rate Annotator Vs Superchecker": as_wer_score
+        / number_of_tasks_contributed_for_as_wer
+        if number_of_tasks_contributed_for_as_wer
+        else 0,
+        "Cumulative Word Error Rate Annotator Vs Superchecker": as_wer_score
+        if number_of_tasks_contributed_for_as_wer
+        else 0,
+        "Average Bleu Score Annotator Vs Reviewer": ar_bleu_score
+        / number_of_tasks_contributed_for_ar_bleu
+        if number_of_tasks_contributed_for_ar_bleu
+        else 0,
+        "Average Rejection Count Annotator Vs Reviewer": cumulative_rejection_score_ar
+        / number_of_tasks_that_has_review_annotations
+        if number_of_tasks_that_has_review_annotations
+        else 0,
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
@@ -189,7 +294,67 @@ def get_all_review_reports(
             annotation_type=REVIEWER_ANNOTATION,
             updated_at__range=[start_date, end_date],
         )
-
+    number_of_tasks_contributed_for_rs_wer, number_of_tasks_contributed_for_rs_bleu = (
+        0,
+        0,
+    )
+    rs_wer_score, rs_bleu_score = 0, 0
+    (
+        tasks_and_rejection_count_map_ar,
+        tasks_and_rejection_count_map_rs,
+        number_of_tasks_that_has_sup_annotations,
+    ) = ({}, {}, 0)
+    for ann in submitted_tasks:
+        all_annotations = Annotation.objects.filter(task_id=ann.task_id)
+        task = ann.task
+        revision_loop_count = task.revision_loop_count
+        try:
+            r_count = revision_loop_count["review_count"]
+            tasks_and_rejection_count_map_ar[r_count] = (
+                tasks_and_rejection_count_map_ar.get(r_count, 0) + 1
+            )
+        except Exception as e:
+            pass
+        try:
+            s_count = revision_loop_count["super_check_count"]
+            tasks_and_rejection_count_map_rs[s_count] = (
+                tasks_and_rejection_count_map_rs.get(s_count, 0) + 1
+            )
+        except Exception as e:
+            pass
+        rs_done = False  # for duplicate annotations
+        sup_ann, rev_ann = "", ""
+        for a in all_annotations:
+            if (
+                a.annotation_type == SUPER_CHECKER_ANNOTATION
+                and a.annotation_status in [VALIDATED, VALIDATED_WITH_CHANGES]
+            ):
+                sup_ann = a
+            elif a.annotation_type == REVIEWER_ANNOTATION:
+                rev_ann = a
+            if a.annotation_type == SUPER_CHECKER_ANNOTATION:
+                number_of_tasks_that_has_sup_annotations += 1
+            if rev_ann and sup_ann and not rs_done:
+                try:
+                    rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                        sup_ann.result, rev_ann.result, project_type
+                    )
+                    number_of_tasks_contributed_for_rs_wer += 1
+                    rs_done = True
+                except Exception as e:
+                    pass
+                try:
+                    s1 = SentenceOperationViewSet()
+                    sampleRequest = {
+                        "annotation_result1": sup_ann.result,
+                        "annotation_result2": rev_ann.result,
+                    }
+                    rs_bleu_score += float(
+                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                    )
+                    number_of_tasks_contributed_for_rs_bleu += 1
+                except Exception as e:
+                    pass
     submitted_tasks_count = submitted_tasks.count()
 
     project_type_lower = project_type.lower()
@@ -231,6 +396,15 @@ def get_all_review_reports(
     total_raw_audio_duration = convert_seconds_to_hours(
         sum(total_raw_audio_duration_list)
     )
+    cumulative_rejection_score_ar = 0
+    if tasks_and_rejection_count_map_ar:
+        for task, rc in tasks_and_rejection_count_map_ar.items():
+            cumulative_rejection_score_ar += task * rc
+
+    cumulative_rejection_score_rs = 0
+    if tasks_and_rejection_count_map_rs:
+        for task, rc in tasks_and_rejection_count_map_rs.items():
+            cumulative_rejection_score_rs += task * rc
 
     result = {
         "Name": userName,
@@ -243,6 +417,25 @@ def get_all_review_reports(
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
+        "Average Word Error Rate Reviewer Vs Superchecker": rs_wer_score
+        / number_of_tasks_contributed_for_rs_wer
+        if number_of_tasks_contributed_for_rs_wer
+        else 0,
+        "Cumulative Word Error Rate Reviewer Vs Superchecker": rs_wer_score
+        if number_of_tasks_contributed_for_rs_wer
+        else 0,
+        "Average Bleu Score Reviewer Vs Superchecker": rs_bleu_score
+        / number_of_tasks_contributed_for_rs_bleu
+        if number_of_tasks_contributed_for_rs_bleu
+        else 0,
+        "Average Rejection Count Annotator Vs Reviewer": cumulative_rejection_score_ar
+        / submitted_tasks_count
+        if submitted_tasks_count
+        else 0,
+        "Average Rejection Count Reviewer Vs Superchecker": cumulative_rejection_score_rs
+        / number_of_tasks_that_has_sup_annotations
+        if number_of_tasks_that_has_sup_annotations
+        else 0,
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
@@ -295,7 +488,17 @@ def get_all_supercheck_reports(
             annotation_type=SUPER_CHECKER_ANNOTATION,
             updated_at__range=[start_date, end_date],
         )
-
+    tasks_and_rejection_count_map_rs = {}
+    for ann in submitted_tasks:
+        task = ann.task
+        revision_loop_count = task.revision_loop_count
+        try:
+            s_count = revision_loop_count["super_check_count"]
+            tasks_and_rejection_count_map_rs[s_count] = (
+                tasks_and_rejection_count_map_rs.get(s_count, 0) + 1
+            )
+        except Exception as e:
+            pass
     submitted_tasks_count = submitted_tasks.count()
 
     project_type_lower = project_type.lower()
@@ -341,6 +544,10 @@ def get_all_supercheck_reports(
     validated_raw_audio_duration = convert_seconds_to_hours(
         sum(validated_raw_audio_duration_list)
     )
+    cumulative_rejection_score_rs = 0
+    if tasks_and_rejection_count_map_rs:
+        for task, rc in tasks_and_rejection_count_map_rs.items():
+            cumulative_rejection_score_rs += task * rc
 
     result = {
         "Name": userName,
@@ -353,6 +560,10 @@ def get_all_supercheck_reports(
         "Word Count": validated_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
+        "Average Rejection Count Reviewer Vs Superchecker": cumulative_rejection_score_rs
+        / submitted_tasks_count
+        if submitted_tasks_count
+        else 0,
     }
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
@@ -512,10 +723,11 @@ def send_user_reports_mail_org(
     final_reports = sorted(final_reports, key=lambda x: x["Name"], reverse=False)
 
     df = pd.DataFrame.from_dict(final_reports)
+    df = df.fillna("NA")
 
     content = df.to_csv(index=False)
     content_type = "text/csv"
-    filename = f"{organization.title}_user_analytics.csv"
+    filename = f"{organization.title}_payments_analytics.csv"
 
     participation_types = [
         "Full Time"
@@ -528,32 +740,30 @@ def send_user_reports_mail_org(
         for participation_type in participation_types
     ]
     participation_types_string = ", ".join(participation_types)
-
-    message = (
-        "Dear "
-        + str(user.username)
-        + ",\nYour user payment reports for "
-        + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
-        + "\nParticipation Types: "
-        + f"{participation_types_string}"
-        + (
-            "\nStart Date: " + f"{start_date}" + "\nEnd Date: " + f"{end_date}"
-            if start_date
-            else ""
-        )
+    # Format the start_date and end_date
+    start_date = start_date.strftime("%Y-%m-%d %H:%M:%S %Z")
+    end_date = end_date.strftime("%Y-%m-%d %H:%M:%S %Z")
+    message = f"""
+    <p> Your {organization.title} Payments Report  under  AI4Bharat Organisation are now ready for review. Kindly check the attachment below            </p>
+    <ul style="font-size: 10px; padding-left: 20px;">
+        <li><strong>Project Type:</strong> {project_type}</li>
+        <li><strong>Participation Types:</strong>{participation_types_string}</li>
+        <li><strong>Start Date:</strong> {start_date} UTC</li>
+        <li><strong>End Date:</strong> {end_date} UTC </li>
+    </ul>
+"""
+    compiled_code = send_email_template_with_attachment(
+        "Payment Reports", user.username, message
     )
-
-    email = EmailMessage(
-        f"{organization.title}" + " Payment Reports",
-        message,
+    msg = EmailMultiAlternatives(
+        f"{organization.title} Payment Reports",
+        compiled_code,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content, content_type)],
     )
-    email.send()
+    msg.attach_alternative(compiled_code, "text/html")
+    msg.attach(filename, content, content_type)
+    msg.send()
 
 
 def get_counts(
@@ -1245,25 +1455,26 @@ def send_project_analytics_mail_org(
     content = df.to_csv(index=False)
     content_type = "text/csv"
     filename = f"{organization.title}_project_analytics.csv"
+    message = f"""
+    <p> Your {organization.title} Project Analytics Report under AI4Bharat Organisation are now ready for review. Kindly check the attachment below            </p>
 
-    message = (
-        "Dear "
-        + str(user.username)
-        + ",\nYour project analysis reports for "
-        + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
+    <ul style="font-size: 10px; padding-left: 20px;">
+        <li><strong>Project Type:</strong> {project_type}</li>
+        <li><strong>Language:</strong> {selected_language}</li>
+    </ul>   
+"""
+    compiled_code = send_email_template_with_attachment(
+        "Project Analytics", user.username, message
     )
-
-    email = EmailMessage(
-        f"{organization.title}" + " Project Analytics",
-        message,
+    msg = EmailMultiAlternatives(
+        f"{organization.title} Project Analytics",
+        compiled_code,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content, content_type)],
     )
-    email.send()
+    msg.attach_alternative(compiled_code, "text/html")
+    msg.attach(filename, content, content_type)
+    msg.send()
 
 
 @shared_task(queue="reports")
@@ -1452,21 +1663,30 @@ def send_user_analytics_mail_org(
     content_type = "text/csv"
     filename = f"{organization.title}_user_analytics.csv"
 
-    message = (
-        "Dear "
-        + str(user.username)
-        + ",\nYour user analysis reports for "
-        + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
+    project_progress_stage_name = "All Stage"
+    if project_progress_stage == ANNOTATION_STAGE:
+        project_progress_stage_name = "Annotation"
+    elif project_progress_stage == REVIEW_STAGE:
+        project_progress_stage_name = "Review"
+    else:
+        project_progress_stage_name = "Super Check"
+    message = f"""
+    <p> Your {organization.title} User Analytics Report under AI4Bharat Organisation are now ready for review. Kindly check the attachment below  </p>
+    <ul style="font-size: 10px; padding-left: 20px;">
+        <li><strong>Project Type:</strong> {project_type}</li>
+        <li><strong>Progress Stage:</strong>{project_progress_stage_name}</li>
+        <li><strong>Target Language:</strong>{tgt_language}</li>
+    </ul>
+"""
+    compiled_code = send_email_template_with_attachment(
+        "User Analytics", user.username, message
     )
-
-    email = EmailMessage(
-        f"{organization.title}" + " User Analytics",
-        message,
+    msg = EmailMultiAlternatives(
+        f"{organization.title} User Analytics",
+        compiled_code,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content, content_type)],
     )
-    email.send()
+    msg.attach_alternative(compiled_code, "text/html")
+    msg.attach(filename, content, content_type)
+    msg.send()
