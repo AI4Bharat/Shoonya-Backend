@@ -1655,11 +1655,16 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
                 else:
                     reviewer_task_count = (
-                        reviewer_tasks.count() + reviewer_tasks_exported.count()
+                        reviewer_tasks.count()
+                        + reviewer_tasks_exported.count()
+                        + supercheck_tasks_exported.count()
                     )
 
                     annotation_tasks_count = (
-                        annotation_tasks.count() + annotation_tasks_exported.count()
+                        annotation_tasks.count()
+                        + annotation_tasks_exported.count()
+                        + reviewer_tasks_exported.count()
+                        + supercheck_tasks_exported.count()
                     )
 
                     supercheck_tasks_count = (
