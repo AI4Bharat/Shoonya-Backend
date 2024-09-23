@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework import routers
-from loging.views import TransliterationSelectionViewSet
+from loging.views import TransliterationSelectionViewSet, TransliterationLogView
 
 router = routers.DefaultRouter()
 
@@ -10,5 +10,10 @@ urlpatterns = [
         "transliteration_selection/",
         TransliterationSelectionViewSet.as_view(),
         name="transliteration_selection",
+    ),
+    path(
+        "transliteration-log/",
+        TransliterationLogView.as_view(),
+        name="transliteration-log",
     ),
 ]
