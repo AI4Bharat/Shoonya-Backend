@@ -3239,6 +3239,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
         project_type = request.data.get("project_type")
 
+        inactive_users = User.objects.filter(id=user_id, is_active=False)
+        frozen_users = workspace.frozen_users.all()
+
+        for inactive_user in inactive_users:
+            inactive_user.username = "*" + inactive_user.username
+
+        for frozen_user in frozen_users:
+            frozen_user.username = "*" + frozen_user.username
+
         send_user_reports_mail_ws.delay(
             ws_id=workspace.id,
             user_id=user_id,
