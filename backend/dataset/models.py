@@ -137,7 +137,7 @@ LLM_CHOICES = (
     (LLAMA2, LLAMA2),
     (GPT4OMini, GPT4OMini),
     (GPT4O, GPT4O),
-    (GEMMA, GEMMA)
+    (GEMMA, GEMMA),
 )
 
 
@@ -723,6 +723,8 @@ class Interaction(DatasetBase):
         on_delete=models.CASCADE,
         verbose_name="Instruction ID",
         help_text="ID of the related instruction",
+        null=True,
+        blank=True,
     )
     interactions_json = models.JSONField(verbose_name="Interactions JSON")
     no_of_turns = models.IntegerField(
@@ -741,7 +743,10 @@ class Interaction(DatasetBase):
         max_length=255, verbose_name="Model", help_text="Model used for the interaction"
     )
     datetime = models.DateTimeField(
-        verbose_name="Datetime", help_text="Timestamp of the interaction"
+        verbose_name="Datetime",
+        help_text="Timestamp of the interaction",
+        null=True,
+        blank=True,
     )
     time_taken = models.FloatField(
         verbose_name="Time Taken", help_text="Time taken for the interaction"
