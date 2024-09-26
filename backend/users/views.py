@@ -1442,6 +1442,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     day_of_week="*",
                     day_of_month="*",
                     month_of_year="*",
+                    timezone="Asia/Kolkata"
                 )
             except CrontabSchedule.DoesNotExist:
                 crontab_schedule = CrontabSchedule.objects.create(
@@ -1450,6 +1451,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     day_of_week="*",
                     day_of_month="*",
                     month_of_year="*",
+                    timezone="Asia/Kolkata"
                 )
         elif schedule == "Weekly":
             try:
