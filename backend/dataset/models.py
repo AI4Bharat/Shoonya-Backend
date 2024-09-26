@@ -129,6 +129,7 @@ GPT4 = "GPT4"
 LLAMA2 = "LLAMA2"
 GPT4OMini = "GPT4OMini"
 GPT4O = "GPT4O"
+GEMMA = "GEMMA"
 
 LLM_CHOICES = (
     (GPT35, GPT35),
@@ -136,6 +137,7 @@ LLM_CHOICES = (
     (LLAMA2, LLAMA2),
     (GPT4OMini, GPT4OMini),
     (GPT4O, GPT4O),
+    (GEMMA, GEMMA)
 )
 
 
