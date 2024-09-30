@@ -1,7 +1,10 @@
 import datetime
+import json
 import time
 import zipfile
 import threading
+
+import requests
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 import pandas as pd
 from celery import shared_task
@@ -47,7 +50,7 @@ from .utils import (
     get_batch_asr_predictions,
 )
 from django.db import transaction, DataError, IntegrityError
-from dataset.models import DatasetInstance
+from dataset.models import DatasetInstance, SpeechConversation
 from django.apps import apps
 from rest_framework.test import APIRequestFactory
 from django.http import QueryDict
@@ -62,6 +65,7 @@ from projects.models import BATCH
 from dataset import models as dataset_models
 from projects.registry_helper import ProjectRegistry
 import logging
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -1793,3 +1797,63 @@ def get_filtered_items(
     else:
         sampled_items = filtered_items
     return sampled_items
+
+
+@shared_task(
+    bind=True,
+)
+def update_SpeechConversation(self, lang, pid, auto_annotation, user_id):
+    UPDATE_SPEECH_CONVERSATION_API_URL = os.getenv("UPDATE_SPEECH_CONVERSATION_API_URL")
+    user_name = User.objects.filter(id=user_id)[0].username
+    data_item_list = [
+        t.input_data_id
+        for t in Task.objects.filter(project_id=pid, task_status="incomplete")
+    ]
+    tasks_objects = Task.objects.filter(project_id=pid, task_status="incomplete")
+    related_tasks_ids = [task.id for task in tasks_objects]
+    related_annos = Annotation.objects.filter(task__id__in=related_tasks_ids)
+    for anno in related_annos:
+        anno.delete()
+    for task in tasks_objects:
+        task.delete()
+    data_items = SpeechConversation.objects.filter(id__in=data_item_list)
+    data_items_list = []
+    for data_item in tqdm(data_items):
+        try:
+            MEDIA_URL = data_item.audio_url
+            pred_json = (
+                json.loads(data_item.prediction_json)
+                if isinstance(data_item.prediction_json, str)
+                else data_item.prediction_json
+            )
+            data = [{"audioUrl": MEDIA_URL, "audioJson": pred_json, "audioLang": lang}]
+            pred_text_json = requests.post(
+                UPDATE_SPEECH_CONVERSATION_API_URL, json=json.dumps(data)
+            )
+            json_pred_final = json.loads(pred_text_json.text)[0]
+        except:
+            pass
+        setattr(data_item, "prediction_json", json_pred_final)
+        data_items_list.append(data_item)
+    SpeechConversation.objects.bulk_update(data_items_list, ["prediction_json"], 512)
+
+    data_items_list = []
+    for data_item in tqdm(data_items):
+        new_draft_data_json = {}
+        pred_json = (
+            json.loads(data_item.prediction_json)
+            if isinstance(data_item.prediction_json, str)
+            else data_item.prediction_json
+        )
+        try:
+            new_draft_data_json["transcribed_json"] = getattr(
+                data_item, "prediction_json"
+            )
+            if new_draft_data_json["transcribed_json"] == "None":
+                del new_draft_data_json["transcribed_json"]
+        except:
+            pass
+        setattr(data_item, "draft_data_json", new_draft_data_json)
+        data_items_list.append(data_item)
+    SpeechConversation.objects.bulk_update(data_items_list, ["draft_data_json"], 512)
+    print(f"SpeechConversation Dataset updated for {pid} by {user_name}")

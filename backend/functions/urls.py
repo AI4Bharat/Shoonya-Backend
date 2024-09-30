@@ -29,6 +29,7 @@ urlpatterns = [
     ),
     path("schedule_project_reports_email", schedule_project_reports_email),
     path("download_all_projects", download_all_projects),
+    path("schedule_update_SpeechConversation", schedule_update_SpeechConversation),
 ]
 
 # urlpatterns = format_suffix_patterns(urlpatterns)

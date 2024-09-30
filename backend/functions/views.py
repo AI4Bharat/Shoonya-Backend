@@ -14,6 +14,7 @@ from users.utils import (
 )
 
 from tasks.models import *
+from utils.constants import lang_codes
 
 from .tasks import (
     conversation_data_machine_translation,
@@ -23,6 +24,7 @@ from .tasks import (
     generate_asr_prediction_json,
     schedule_mail_for_project_reports,
     schedule_mail_to_download_all_projects,
+    update_SpeechConversation,
 )
 from .utils import (
     check_conversation_translation_function_inputs,
@@ -907,3 +909,33 @@ def download_all_projects(request):
             },
             status=status.HTTP_200_OK,
         )
+
+
+@api_view(["POST"])
+def schedule_update_SpeechConversation(request):
+    try:
+        project_id = request.data["project_id"]
+    except Exception as e:
+        return Response(
+            {"message": "Please send a project_id"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    user_id = request.user.id
+    project = Project.objects.filter(id=project_id)
+    try:
+        tg_lang = project[0].tgt_language.lower()
+        model_language = lang_codes[tg_lang]
+    except Exception as e:
+        return Response(
+            {"message": "Error in Fetching language"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    auto_annotation = request.data.get("auto_annotation", None)
+    update_SpeechConversation.delay(
+        model_language, project_id, auto_annotation, user_id
+    )
+
+    return Response(
+        {"message": "Update In Progress"},
+        status=status.HTTP_200_OK,
+    )
