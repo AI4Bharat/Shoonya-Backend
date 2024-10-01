@@ -124,7 +124,21 @@ LANGUAGE_CHOICES_INSTRUCTIONS = (
     ("4", "Indic/English(Latin script)"),
 )
 
-LLM_CHOICES = (("GPT3.5", "GPT3.5"), ("GPT4", "GPT4"), ("LLAMA2", "LLAMA2"))
+GPT35 = "GPT3.5"
+GPT4 = "GPT4"
+LLAMA2 = "LLAMA2"
+GPT4OMini = "GPT4OMini"
+GPT4O = "GPT4O"
+GEMMA = "GEMMA"
+
+LLM_CHOICES = (
+    (GPT35, GPT35),
+    (GPT4, GPT4),
+    (LLAMA2, LLAMA2),
+    (GPT4OMini, GPT4OMini),
+    (GPT4O, GPT4O),
+    (GEMMA, GEMMA),
+)
 
 
 class DatasetInstance(models.Model):
@@ -709,6 +723,8 @@ class Interaction(DatasetBase):
         on_delete=models.CASCADE,
         verbose_name="Instruction ID",
         help_text="ID of the related instruction",
+        null=True,
+        blank=True,
     )
     interactions_json = models.JSONField(verbose_name="Interactions JSON")
     no_of_turns = models.IntegerField(
@@ -727,7 +743,10 @@ class Interaction(DatasetBase):
         max_length=255, verbose_name="Model", help_text="Model used for the interaction"
     )
     datetime = models.DateTimeField(
-        verbose_name="Datetime", help_text="Timestamp of the interaction"
+        verbose_name="Datetime",
+        help_text="Timestamp of the interaction",
+        null=True,
+        blank=True,
     )
     time_taken = models.FloatField(
         verbose_name="Time Taken", help_text="Time taken for the interaction"
@@ -788,12 +807,6 @@ class PromptAnswer(DatasetBase):
     language = models.CharField(
         verbose_name="language", choices=LANG_CHOICES, max_length=15
     )
-    eval_output_likert_score = models.IntegerField(
-        verbose_name="evaluation_prompt_response_rating",
-        null=True,
-        blank=True,
-        help_text=("Rating of the prompt response"),
-    )
     eval_form_output_json = models.JSONField(
         verbose_name="evaluation_form_output",
         null=True,
@@ -805,6 +818,12 @@ class PromptAnswer(DatasetBase):
         null=True,
         blank=True,
         help_text=("Time taken to complete the prompt response"),
+    )
+    prompt_output_pair_id = models.CharField(
+        verbose_name="prompt_output_pair_id",
+        max_length=16,
+        help_text=("prompt_output_pair_id"),
+        null=True,
     )
 
     def __str__(self):

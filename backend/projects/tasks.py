@@ -685,7 +685,7 @@ def export_project_new_record(
             )
 
         elif project_type == "ModelInteractionEvaluation":
-            item_data_list = get_attributes_for_ModelInteractionEvaluation(task, True)
+            item_data_list = get_attributes_for_ModelInteractionEvaluation(task)
             for item in range(len(item_data_list)):
                 data_item = dataset_model()
                 data_item.instance_id = export_dataset_instance

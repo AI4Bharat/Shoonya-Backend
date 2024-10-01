@@ -2230,22 +2230,40 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             other_lang = []
             for lang in languages:
                 proj_lang_filter = proj_objs.filter(tgt_language=lang)
-                annotation_tasks_count = 0
-                reviewer_task_count = 0
-                reviewer_tasks = Task.objects.filter(
-                    project_id__in=proj_lang_filter,
-                    project_id__project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
-                    task_status__in=["reviewed", "exported", "super_checked"],
-                )
-
                 annotation_tasks = Task.objects.filter(
                     project_id__in=proj_lang_filter,
                     task_status__in=[
                         "annotated",
                         "reviewed",
-                        "exported",
                         "super_checked",
                     ],
+                )
+                reviewer_tasks = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
+                    task_status__in=["reviewed", "super_checked"],
+                )
+                supercheck_tasks = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[SUPERCHECK_STAGE],
+                    task_status__in=["super_checked"],
+                )
+                annotation_tasks_exported = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[ANNOTATION_STAGE],
+                    task_status__in=[
+                        "exported",
+                    ],
+                )
+                reviewer_tasks_exported = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[REVIEW_STAGE],
+                    task_status__in=["exported"],
+                )
+                supercheck_tasks_exported = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[SUPERCHECK_STAGE],
+                    task_status__in=["exported"],
                 )
 
                 if metainfo == True:
@@ -2389,14 +2407,23 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         }
 
                 else:
-                    reviewer_task_count = reviewer_tasks.count()
+                    reviewer_task_count = (
+                        reviewer_tasks.count() + reviewer_tasks_exported.count()
+                    )
 
-                    annotation_tasks_count = annotation_tasks.count()
+                    annotation_tasks_count = (
+                        annotation_tasks.count() + annotation_tasks_exported.count()
+                    )
+
+                    supercheck_tasks_count = (
+                        supercheck_tasks.count() + supercheck_tasks_exported.count()
+                    )
 
                     result = {
                         "language": lang,
                         "ann_cumulative_tasks_count": annotation_tasks_count,
                         "rew_cumulative_tasks_count": reviewer_task_count,
+                        "sup_cumulative_tasks_count": supercheck_tasks_count,
                     }
 
                 if lang == None or lang == "":
@@ -2406,6 +2433,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
             ann_task_count = 0
             rew_task_count = 0
+            sup_task_count = 0
             ann_word_count = 0
             rew_word_count = 0
             ann_aud_dur = 0
@@ -2414,6 +2442,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 if metainfo != True:
                     ann_task_count += dat["ann_cumulative_tasks_count"]
                     rew_task_count += dat["rew_cumulative_tasks_count"]
+                    sup_task_count += dat["sup_cumulative_tasks_count"]
                 else:
                     if project_type in get_audio_project_types():
                         ann_aud_dur += convert_hours_to_seconds(
@@ -2435,6 +2464,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         "language": "Others",
                         "ann_cumulative_tasks_count": ann_task_count,
                         "rew_cumulative_tasks_count": rew_task_count,
+                        "sup_cumulative_tasks_count": sup_task_count,
                     }
                 else:
                     if project_type in get_audio_project_types():
@@ -2457,10 +2487,11 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                             "ann_cumulative_word_count": ann_word_count,
                             "rew_cumulative_word_count": rew_word_count,
                         }
+
                     else:
-                        other_language= None
+                        other_language = None
                 if other_language:
-                     general_lang.append(other_language)
+                    general_lang.append(other_language)
             try:
                 final_result = sorted(
                     general_lang, key=lambda x: x["language"], reverse=False
