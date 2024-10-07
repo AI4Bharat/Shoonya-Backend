@@ -11,10 +11,10 @@ class ProjectPermissionView(APIView):
         project_permissions = org.permission_json["PROJECT_PERMISSIONS"]
         if (
             "fetch_all" in request.query_params
-            and request.query_params["fetch_all"] == True
+            and request.query_params["fetch_all"] == "True"
         ):
             return Response(
-                {"permission": list(project_permissions)}, status=status.HTTP_200_OK
+                {"permission": project_permissions}, status=status.HTTP_200_OK
             )
         permission_name = request.query_params.get("permission_name")
         if permission_name is None:
