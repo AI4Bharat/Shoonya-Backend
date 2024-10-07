@@ -9,6 +9,13 @@ class ProjectPermissionView(APIView):
     def get(self, request, *args, **kwargs):
         org = Organization.objects.get(id=request.user.organization.id)
         project_permissions = org.permission_json["PROJECT_PERMISSIONS"]
+        if (
+            "fetch_all" in request.query_params
+            and request.query_params["fetch_all"] == True
+        ):
+            return Response(
+                {"permission": list(project_permissions)}, status=status.HTTP_200_OK
+            )
         permission_name = request.query_params.get("permission_name")
         if permission_name is None:
             return Response(
@@ -39,8 +46,6 @@ class ProjectPermissionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if permission_name in project_permissions:
-            project_permissions[permission_name].append(new_roles)
-        else:
             project_permissions[permission_name] = [new_roles]
         org.permission_json["PROJECT_PERMISSIONS"] = project_permissions
         org.save()
@@ -75,6 +80,13 @@ class DatasetPermissionView(APIView):
     def get(self, request, *args, **kwargs):
         org = Organization.objects.get(id=request.user.organization.id)
         dataset_permissions = org.permission_json["DATASET_PERMISSIONS"]
+        if (
+            "fetch_all" in request.query_params
+            and request.query_params["fetch_all"] == "True"
+        ):
+            return Response(
+                {"permission": dataset_permissions}, status=status.HTTP_200_OK
+            )
         permission_name = request.query_params.get("permission_name")
         if permission_name is None:
             return Response(
@@ -105,8 +117,6 @@ class DatasetPermissionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if permission_name in dataset_permissions:
-            dataset_permissions[permission_name].append(new_roles)
-        else:
             dataset_permissions[permission_name] = [new_roles]
         org.permission_json["DATASET_PERMISSIONS"] = dataset_permissions
         org.save()
