@@ -20,6 +20,7 @@ from tasks.models import (
     ANNOTATOR_ANNOTATION,
     REVIEWED,
     REVIEWER_ANNOTATION,
+    LABELED,
 )
 import datetime
 import yaml
@@ -350,16 +351,54 @@ def process_conversation_tasks(task, is_translation, is_verification):
         task["input_data"], is_translation, is_verification
     )
     conversation_json = process_conversation_results(
-        task, conversation_json, is_verification
+        task, conversation_json, is_verification, task["annotations"][0]["result"]
     )
     update_task_data(task, conversation_json, is_verification)
 
 
+def process_conversation_tasks_multiple_annotators(
+    task, is_translation, is_verification
+):
+    conversation_json = get_conversation_json(
+        task["input_data"], is_translation, is_verification
+    )
+    complete_result = []
+    all_annotations = Annotation.objects.filter(task=task)
+    for a in all_annotations:
+        single_result = process_conversation_results(
+            task, conversation_json, is_verification, a.result
+        )
+        single_dict = {
+            "annotator_id": a.id,
+            "annotation_result": single_result,
+            "annotation_type": a.annotation_type,
+        }
+        complete_result.append(single_dict)
+    update_task_data(task, complete_result, is_verification)
+
+
 def process_speech_tasks(task, is_audio_segmentation, project_type):
-    annotation_result = process_annotation_result(task)
+    annotation_result = process_annotation_result(task["annotations"][0]["result"])
     speakers_json = task["data"]["speakers_json"]
     process_speech_results(
         task, annotation_result, speakers_json, is_audio_segmentation, project_type
+    )
+
+
+def process_speech_tasks_multiple_annotators(task, is_audio_segmentation, project_type):
+    all_annotations = Annotation.objects.filter(task=task)
+    complete_result = []
+    speakers_json = task["data"]["speakers_json"]
+    for a in all_annotations:
+        annotation_result = process_annotation_result(a.result)
+        single_dict = {
+            "annotator_id": a.id,
+            "annotation_result": annotation_result,
+            "annotation_type": a.annotation_type,
+        }
+        complete_result.append(single_dict)
+    process_speech_results(
+        task, complete_result, speakers_json, is_audio_segmentation, project_type
     )
 
 
@@ -369,10 +408,35 @@ def process_ocr_tasks(
     is_OCRSegmentCategorizationEditing,
     is_OCRSegmentCategorisationRelationMappingEditing,
 ):
-    annotation_result = process_annotation_result(task)
+    annotation_result = process_annotation_result(task["annotations"][0]["result"])
     process_ocr_results(
         task,
         annotation_result,
+        is_OCRSegmentCategorization,
+        is_OCRSegmentCategorizationEditing,
+        is_OCRSegmentCategorisationRelationMappingEditing,
+    )
+
+
+def process_ocr_tasks_multiple_annotators(
+    task,
+    is_OCRSegmentCategorization,
+    is_OCRSegmentCategorizationEditing,
+    is_OCRSegmentCategorisationRelationMappingEditing,
+):
+    all_annotations = Annotation.objects.filter(task=task)
+    complete_result = []
+    for a in all_annotations:
+        annotation_result = process_annotation_result(a.result)
+        single_dict = {
+            "annotator_id": a.id,
+            "annotation_result": annotation_result,
+            "annotation_type": a.annotation_type,
+        }
+        complete_result.append(single_dict)
+    process_ocr_results(
+        task,
+        complete_result,
         is_OCRSegmentCategorization,
         is_OCRSegmentCategorizationEditing,
         is_OCRSegmentCategorisationRelationMappingEditing,
@@ -392,13 +456,15 @@ def get_conversation_json(input_data, is_translation, is_verification):
         ).machine_translated_conversation_json
 
 
-def process_conversation_results(task, conversation_json, is_ConversationVerification):
+def process_conversation_results(
+    task, conversation_json, is_ConversationVerification, task_result
+):
     if isinstance(conversation_json, str):
         conversation_json = json.loads(conversation_json)
     for idx1 in range(len(conversation_json)):
         for idx2 in range(len(conversation_json[idx1]["sentences"])):
             conversation_json[idx1]["sentences"][idx2] = ""
-    for result in task["annotations"][0]["result"]:
+    for result in task_result:
         if isinstance(result, str):
             text_dict = result
         else:
@@ -425,8 +491,7 @@ def update_task_data(task, conversation_json, is_verification):
         task["data"]["translated_conversation_json"] = conversation_json
 
 
-def process_annotation_result(task):
-    annotation_result = task["annotations"][0]["result"]
+def process_annotation_result(annotation_result):
     return (
         json.loads(annotation_result)
         if isinstance(annotation_result, str)
@@ -444,29 +509,65 @@ def process_speech_results(
     )
 
     if is_audio_segmentation:
-        task["data"]["prediction_json"] = convert_annotation_result_to_formatted_json(
-            annotation_result, speakers_json, True, False, False
-        )
+        if isinstance(annotation_result, list):
+            for i in range(len(annotation_result)):
+                annotation_result[i][
+                    "annotation_result"
+                ] = convert_annotation_result_to_formatted_json(
+                    annotation_result[i], speakers_json, True, False, False
+                )
+            task["data"]["prediction_json"] = annotation_result
+        else:
+            task["data"][
+                "prediction_json"
+            ] = convert_annotation_result_to_formatted_json(
+                annotation_result, speakers_json, True, False, False
+            )
     elif is_StandardizedTranscriptionEditing:
-        task["data"][
-            "final_transcribed_json"
-        ] = convert_annotation_result_to_formatted_json(
-            annotation_result,
-            speakers_json,
-            True,
-            False,
-            False,
-            True,
-        )
-        task["data"]["transcribed_json"] = task["data"]["final_transcribed_json"]
+        if isinstance(annotation_result, list):
+            for i in range(len(annotation_result)):
+                annotation_result[i][
+                    "annotation_result"
+                ] = convert_annotation_result_to_formatted_json(
+                    annotation_result[i], speakers_json, True, False, False, True
+                )
+            task["data"]["final_transcribed_json"] = annotation_result
+            task["data"]["transcribed_json"] = annotation_result
+        else:
+            task["data"][
+                "final_transcribed_json"
+            ] = convert_annotation_result_to_formatted_json(
+                annotation_result,
+                speakers_json,
+                True,
+                False,
+                False,
+                True,
+            )
+            task["data"]["transcribed_json"] = task["data"]["final_transcribed_json"]
     else:
-        task["data"]["transcribed_json"] = convert_annotation_result_to_formatted_json(
-            annotation_result,
-            speakers_json,
-            True,
-            False,
-            project_type == "AcousticNormalisedTranscriptionEditing",
-        )
+        if isinstance(annotation_result, list):
+            for i in range(len(annotation_result)):
+                annotation_result[i][
+                    "annotation_result"
+                ] = convert_annotation_result_to_formatted_json(
+                    annotation_result[i],
+                    speakers_json,
+                    True,
+                    False,
+                    project_type == "AcousticNormalisedTranscriptionEditing",
+                )
+            task["data"]["transcribed_json"] = annotation_result
+        else:
+            task["data"][
+                "transcribed_json"
+            ] = convert_annotation_result_to_formatted_json(
+                annotation_result,
+                speakers_json,
+                True,
+                False,
+                project_type == "AcousticNormalisedTranscriptionEditing",
+            )
 
 
 def process_ocr_results(
@@ -478,13 +579,28 @@ def process_ocr_results(
 ):
     from projects.views import convert_annotation_result_to_formatted_json
 
-    task["data"]["ocr_transcribed_json"] = convert_annotation_result_to_formatted_json(
-        annotation_result,
-        None,
-        False,
-        is_OCRSegmentCategorization or is_OCRSegmentCategorizationEditing,
-        False,
-    )
+    if isinstance(annotation_result, list):
+        for i in range(len(annotation_result)):
+            annotation_result[i][
+                "annotation_result"
+            ] = convert_annotation_result_to_formatted_json(
+                annotation_result,
+                None,
+                False,
+                is_OCRSegmentCategorization or is_OCRSegmentCategorizationEditing,
+                False,
+            )
+        task["data"]["ocr_transcribed_json"] = annotation_result
+    else:
+        task["data"][
+            "ocr_transcribed_json"
+        ] = convert_annotation_result_to_formatted_json(
+            annotation_result,
+            None,
+            False,
+            is_OCRSegmentCategorization or is_OCRSegmentCategorizationEditing,
+            False,
+        )
     if (
         is_OCRSegmentCategorization
         or is_OCRSegmentCategorizationEditing

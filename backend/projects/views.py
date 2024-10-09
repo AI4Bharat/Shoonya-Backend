@@ -91,6 +91,9 @@ from .utils import (
     get_audio_segments_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     ann_result_for_ste,
+    process_conversation_tasks_multiple_annotators,
+    process_speech_tasks_multiple_annotators,
+    process_ocr_tasks_multiple_annotators,
 )
 
 from users.utils import generate_random_string
@@ -4134,6 +4137,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             is_OCRSegmentCategorisationRelationMappingEditing = (
                 project_type == "OCRSegmentCategorisationRelationMappingEditing"
             )
+            required_annotators_per_task = project.required_annotators_per_task
             for task in tasks:
                 try:
                     curr_task = process_task(
@@ -4148,23 +4152,48 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         or is_ConversationTranslationEditing
                         or is_ConversationVerification
                     ):
-                        process_conversation_tasks(
-                            curr_task,
-                            is_ConversationTranslation,
-                            is_ConversationVerification,
-                        )
+                        if required_annotators_per_task < 2:
+                            process_conversation_tasks(
+                                curr_task,
+                                is_ConversationTranslation,
+                                is_ConversationVerification,
+                            )
+                        else:
+                            process_conversation_tasks_multiple_annotators(
+                                curr_task,
+                                is_ConversationTranslation,
+                                is_ConversationVerification,
+                            )
                     elif dataset_type in ["SpeechConversation", "OCRDocument"]:
                         is_SpeechConversation = dataset_type == "SpeechConversation"
                         if is_SpeechConversation:
-                            process_speech_tasks(
-                                curr_task, is_AudioSegmentation, project_type
-                            )
+                            if required_annotators_per_task < 2:
+                                process_speech_tasks(
+                                    curr_task,
+                                    is_AudioSegmentation,
+                                    project_type,
+                                )
+                            else:
+                                process_speech_tasks_multiple_annotators(
+                                    curr_task,
+                                    is_AudioSegmentation,
+                                    project_type,
+                                )
                         else:
-                            process_ocr_tasks(
-                                curr_task,
-                                is_OCRSegmentCategorization,
-                                is_OCRSegmentCategorizationEditing,
-                            )
+                            if required_annotators_per_task < 2:
+                                process_ocr_tasks(
+                                    curr_task,
+                                    is_OCRSegmentCategorization,
+                                    is_OCRSegmentCategorizationEditing,
+                                    is_OCRSegmentCategorisationRelationMappingEditing,
+                                )
+                            else:
+                                process_ocr_tasks_multiple_annotators(
+                                    curr_task,
+                                    is_OCRSegmentCategorization,
+                                    is_OCRSegmentCategorizationEditing,
+                                    is_OCRSegmentCategorisationRelationMappingEditing,
+                                )
                 except Exception as e:
                     continue
                 tasks_list.append(curr_task)
