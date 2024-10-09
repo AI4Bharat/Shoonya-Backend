@@ -9,7 +9,7 @@ from tasks.views import (
     stopping_celery_tasks,
     resume_celery_task,
     delete_celery_task,
-    TransliterationAPIView
+    TransliterationAPIView,
 )
 
 router = routers.DefaultRouter()

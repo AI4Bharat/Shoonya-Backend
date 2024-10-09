@@ -2776,13 +2776,14 @@ def delete_celery_task(req):
 
     return JsonResponse({"message": "Task deleted successfully"}, status=200)
 
+
 class TransliterationAPIView(APIView):
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request, target_language, data, *args, **kwargs):
         response_transliteration = requests.get(
-            os.getenv("TRANSLITERATION_URL")+target_language+"/"+data,
-            headers={"Authorization": "Bearer "+os.getenv("TRANSLITERATION_KEY")},
+            os.getenv("TRANSLITERATION_URL") + target_language + "/" + data,
+            headers={"Authorization": "Bearer " + os.getenv("TRANSLITERATION_KEY")},
         )
 
         transliteration_output = response_transliteration.json()
