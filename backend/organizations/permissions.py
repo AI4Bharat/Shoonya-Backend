@@ -45,8 +45,13 @@ class ProjectPermissionView(APIView):
                 {"message": "New Roles are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if not isinstance(new_roles, list):
+            return Response(
+                {"message": "New Roles must be an array"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if permission_name in project_permissions:
-            project_permissions[permission_name] = [new_roles]
+            project_permissions[permission_name] = new_roles
         org.permission_json["PROJECT_PERMISSIONS"] = project_permissions
         org.save()
         return Response(
@@ -116,8 +121,13 @@ class DatasetPermissionView(APIView):
                 {"message": "New Roles are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if not isinstance(new_roles, list):
+            return Response(
+                {"message": "New Roles must be an array"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if permission_name in dataset_permissions:
-            dataset_permissions[permission_name] = [new_roles]
+            dataset_permissions[permission_name] = new_roles
         org.permission_json["DATASET_PERMISSIONS"] = dataset_permissions
         org.save()
         return Response(
