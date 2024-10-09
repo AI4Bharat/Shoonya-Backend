@@ -59,6 +59,7 @@ import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
 from django.db import IntegrityError
+from rest_framework.views import APIView
 
 # Create your views here.
 
@@ -2774,3 +2775,15 @@ def delete_celery_task(req):
     task.forget()
 
     return JsonResponse({"message": "Task deleted successfully"}, status=200)
+
+class TransliterationAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, target_language, data, *args, **kwargs):
+        response_transliteration = requests.get(
+            os.getenv("TRANSLITERATION_URL")+target_language+"/"+data,
+            headers={"Authorization": "Bearer "+os.getenv("TRANSLITERATION_KEY")},
+        )
+
+        transliteration_output = response_transliteration.json()
+        return Response(transliteration_output, status=status.HTTP_200_OK)
