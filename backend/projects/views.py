@@ -3940,10 +3940,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         annotator_email = correct_annotation.completed_by.email
                     except:
                         pass
-                    annotation_dict = model_to_dict(correct_annotation)
-                    annotation_dict["created_at"] = str(correct_annotation.created_at)
-                    annotation_dict["updated_at"] = str(correct_annotation.updated_at)
-                    task_dict["annotations"] = [OrderedDict(annotation_dict)]
+                    task_dict["annotations"] = [correct_annotation]
                 elif required_annotators_per_task >= 2:
                     all_ann = Annotation.objects.filter(task=task)
                     for a in all_ann:
@@ -3951,7 +3948,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             labeled_ann.append(a)
                     task_dict["annotations"] = labeled_ann
                 else:
-                    task_dict["annotations"] = [OrderedDict({"result": {}})]
+                    task_dict["annotations"] = []
 
                 task_dict["data"]["annotator_email"] = annotator_email
 
@@ -3968,34 +3965,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks_list.append(OrderedDict(task_dict))
 
             dataset_type = project.dataset_id.all()[0].dataset_type
-            if dataset_type == "Instruction":
-                for task in tasks_list:
-                    if required_annotators_per_task < 2:
-                        annotation_result = task["annotations"][0]["result"]
-                        annotation_result = (
-                            json.loads(annotation_result)
-                            if isinstance(annotation_result, str)
-                            else annotation_result
-                        )
-                        task["data"]["interactions_json"] = annotation_result
-                        del task["annotations"]
-                    else:
-                        complete_result = []
-                        for i in range(len(task["annotations"])):
-                            a = task["annotations"][i]
-                            annotation_result = a.result
-                            annotation_result = (
-                                json.loads(annotation_result)
-                                if isinstance(annotation_result, str)
-                                else annotation_result
-                            )
-                            single_dict = {
-                                "annotator_id": a.id,
-                                "annotation_result": annotation_result,
-                                "annotation_type": a.annotation_type,
-                            }
-                            complete_result.append(single_dict)
-                        task["data"]["interactions_json"] = complete_result
+            for task in tasks_list:
+                complete_result = []
+                for i in range(len(task["annotations"])):
+                    a = task["annotations"][i]
+                    annotation_result = a.result
+                    annotation_result = (
+                        json.loads(annotation_result)
+                        if isinstance(annotation_result, str)
+                        else annotation_result
+                    )
+                    uid = a.completed_by.email
+                    single_dict = {
+                        "user_id": uid,
+                        "annotation_id": a.id,
+                        "annotation_result": annotation_result,
+                        "annotation_type": a.annotation_type,
+                        "annotation_status": a.annotation_status,
+                    }
+                    complete_result.append(single_dict)
+                task["data"]["interactions_json"] = complete_result
+                del task["annotations"]
             return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
