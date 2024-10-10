@@ -1438,6 +1438,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     {"message": "Project does not exist"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
+            required_annotators_per_task = project.required_annotators_per_task
             for user_id in ids:
                 user = User.objects.get(pk=user_id)
                 if user in project.frozen_users.all():
@@ -1458,6 +1459,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
                 superchecker_annotation = Annotation_model.objects.filter(
                     parent_annotation__in=reviewer_annotation
+                )
+                annotator_annotation = (
+                    annotator_annotation.exclude(annotation_status=LABELED)
+                    if required_annotators_per_task > 1
+                    else annotator_annotation
                 )
                 superchecker_annotation.delete()
                 reviewer_annotation.delete()
@@ -3905,7 +3911,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 ret_status = status.HTTP_200_OK
                 return Response(ret_dict, status=ret_status)
             tasks_list = []
+            required_annotators_per_task = project.required_annotators_per_task
             for task in tasks:
+                labeled_ann = []
                 task_dict = model_to_dict(task)
                 if export_type != "JSON":
                     task_dict["data"]["task_status"] = task.task_status
@@ -3927,19 +3935,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )[0]
 
                 annotator_email = ""
-                if correct_annotation is not None:
+                if correct_annotation is not None and required_annotators_per_task < 2:
                     try:
                         annotator_email = correct_annotation.completed_by.email
                     except:
                         pass
                     annotation_dict = model_to_dict(correct_annotation)
-                    # annotation_dict['result'] = annotation_dict['result_json']
-
-                    # del annotation_dict['result_json']
-                    # print(annotation_dict)
                     annotation_dict["created_at"] = str(correct_annotation.created_at)
                     annotation_dict["updated_at"] = str(correct_annotation.updated_at)
                     task_dict["annotations"] = [OrderedDict(annotation_dict)]
+                elif required_annotators_per_task >= 2:
+                    all_ann = Annotation.objects.filter(task=task)
+                    for a in all_ann:
+                        if a.annotation_status == LABELED:
+                            labeled_ann.append(a)
+                    task_dict["annotations"] = labeled_ann
                 else:
                     task_dict["annotations"] = [OrderedDict({"result": {}})]
 
@@ -3960,14 +3970,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
             dataset_type = project.dataset_id.all()[0].dataset_type
             if dataset_type == "Instruction":
                 for task in tasks_list:
-                    annotation_result = task["annotations"][0]["result"]
-                    annotation_result = (
-                        json.loads(annotation_result)
-                        if isinstance(annotation_result, str)
-                        else annotation_result
-                    )
-                    task["data"]["interactions_json"] = annotation_result
-                    del task["annotations"]
+                    if required_annotators_per_task < 2:
+                        annotation_result = task["annotations"][0]["result"]
+                        annotation_result = (
+                            json.loads(annotation_result)
+                            if isinstance(annotation_result, str)
+                            else annotation_result
+                        )
+                        task["data"]["interactions_json"] = annotation_result
+                        del task["annotations"]
+                    else:
+                        complete_result = []
+                        for i in range(len(task["annotations"])):
+                            a = task["annotations"][i]
+                            annotation_result = a.result
+                            annotation_result = (
+                                json.loads(annotation_result)
+                                if isinstance(annotation_result, str)
+                                else annotation_result
+                            )
+                            single_dict = {
+                                "annotator_id": a.id,
+                                "annotation_result": annotation_result,
+                                "annotation_type": a.annotation_type,
+                            }
+                            complete_result.append(single_dict)
+                        task["data"]["interactions_json"] = complete_result
             return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
