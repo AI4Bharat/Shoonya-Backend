@@ -26,18 +26,12 @@ from utils.blob_functions import test_container_connection
 from utils.llm_interactions import get_model_output
 
 from .tasks import (
-    conversation_data_machine_translation,
-    sentence_text_translate_and_save_translation_pairs,
     populate_draft_data_json,
-    generate_ocr_prediction_json,
-    generate_asr_prediction_json,
     schedule_mail_for_project_reports,
     schedule_mail_to_download_all_projects,
 )
 from .utils import (
-    check_conversation_translation_function_inputs,
     check_if_particular_organization_owner,
-    check_translation_function_inputs,
 )
 
 
