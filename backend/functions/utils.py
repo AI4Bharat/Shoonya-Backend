@@ -48,6 +48,3 @@ def check_if_particular_organization_owner(request):
         }
 
     return {"status": status.HTTP_200_OK}
-
-
-
