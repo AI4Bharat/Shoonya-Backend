@@ -380,7 +380,7 @@ def create_parameters_for_task_creation(
     create_tasks_from_dataitems(sampled_items, project)
 
 
-@shared_task
+# @shared_task
 def export_project_in_place(
     annotation_fields, project_id, project_type, get_request_data
 ) -> None:
@@ -423,6 +423,7 @@ def export_project_in_place(
 
     # List for storing the annotated tasks that have been accepted as correct annotation
     annotated_tasks = []
+    export_excluded_task_ids = []
     for task in tasks:
         task_dict = model_to_dict(task)
         # Rename keys to match label studio converter
@@ -438,160 +439,16 @@ def export_project_in_place(
         del task_dict["annotation_users"]
         del task_dict["review_user"]
         tasks_list.append(OrderedDict(task_dict))
-    if output_dataset_info["dataset_type"] == "Conversation":
-        tasks_annotations = tasks_list
-    else:
-        download_resources = True
-        tasks_df = DataExport.export_csv_file(
-            project, tasks_list, download_resources, get_request_data
-        )
-        tasks_annotations = json.loads(tasks_df.to_json(orient="records"))
-
-    export_excluded_task_ids = []
-
-    for ta, tl, task in zip(tasks_annotations, tasks_list, annotated_tasks):
-        if output_dataset_info["dataset_type"] == "SpeechConversation":
-            try:
-                ta_labels = json.loads(ta["labels"])
-            except Exception as error:
-                print(task.id)
-                print(error)
-                export_excluded_task_ids.append(task.id)
-                continue
-            if project_type == "AcousticNormalisedTranscriptionEditing":
-                try:
-                    ta_transcribed_json = json.loads(ta["verbatim_transcribed_json"])
-                except json.JSONDecodeError:
-                    ta_transcribed_json = [ta["verbatim_transcribed_json"]]
-                except KeyError:
-                    ta_transcribed_json = len(ta_labels) * [""]
-                if len(ta_labels) != len(ta_transcribed_json):
-                    export_excluded_task_ids.append(task.id)
-                    continue
-                try:
-                    ta_acoustic_transcribed_json = json.loads(
-                        ta["acoustic_normalised_transcribed_json"]
-                    )
-                except json.JSONDecodeError:
-                    ta_acoustic_transcribed_json = [
-                        ta["acoustic_normalised_transcribed_json"]
-                    ]
-                except KeyError:
-                    ta_acoustic_transcribed_json = len(ta_labels) * [""]
-                if len(ta_labels) != len(ta_acoustic_transcribed_json):
-                    export_excluded_task_ids.append(task.id)
-                    continue
-            else:
-                try:
-                    ta_transcribed_json = json.loads(ta["transcribed_json"])
-                except json.JSONDecodeError:
-                    ta_transcribed_json = [ta["transcribed_json"]]
-                except KeyError:
-                    ta_transcribed_json = len(ta_labels) * [""]
-                if len(ta_labels) != len(ta_transcribed_json):
-                    export_excluded_task_ids.append(task.id)
-                    continue
-
         task.output_data = task.input_data
         task.save()
-        data_item = dataset_model.objects.get(id__exact=tl["input_data"])
+        data_item = dataset_model.objects.get(id__exact=task_dict["input_data"])
+        res = task_dict["annotations"][0]["result"]
         try:
             for field in annotation_fields:
-                # Check being done for rating as Label studio stores all the data in string format
-                # We need to store the rating in integer format
-                if field == "rating":
-                    setattr(data_item, field, int(ta[field]))
-                elif field == "transcribed_json" or field == "prediction_json":
-                    speakers_details = data_item.speakers_json
-                    for idx in range(len(ta_transcribed_json)):
-                        ta_labels[idx]["text"] = ta_transcribed_json[idx]
-                        speaker_id = next(
-                            speaker
-                            for speaker in speakers_details
-                            if speaker["name"] == ta_labels[idx]["labels"][0]
-                        )["speaker_id"]
-                        ta_labels[idx]["speaker_id"] = speaker_id
-                        del ta_labels[idx]["labels"]
-                        if project_type == "AcousticNormalisedTranscriptionEditing":
-                            temp = deepcopy(ta_labels[idx])
-                            temp["text"] = ta_acoustic_transcribed_json[idx]
-                            ta_acoustic_transcribed_json[idx] = temp
-                    if project_type == "AcousticNormalisedTranscriptionEditing":
-                        try:
-                            standardised_transcription = json.loads(
-                                ta["standardised_transcription"]
-                            )
-                        except json.JSONDecodeError:
-                            standardised_transcription = ta[
-                                "standardised_transcription"
-                            ]
-                        except KeyError:
-                            standardised_transcription = ""
-                        ta_transcribed_json = {
-                            "verbatim_transcribed_json": ta_labels,
-                            "acoustic_normalised_transcribed_json": ta_acoustic_transcribed_json,
-                            "standardised_transcription": standardised_transcription,
-                        }
-                        setattr(data_item, field, ta_transcribed_json)
-                    else:
-                        setattr(data_item, field, ta_labels)
-                elif field == "conversation_json":
-                    if project.project_type == "ConversationVerification":
-                        conversation_json = data_item.unverified_conversation_json
-                    else:
-                        conversation_json = (
-                            data_item.machine_translated_conversation_json
-                        )
-                    for idx1 in range(len(conversation_json)):
-                        for idx2 in range(len(conversation_json[idx1]["sentences"])):
-                            conversation_json[idx1]["sentences"][idx2] = ""
-                    for result in tl["annotations"][0]["result"]:
-                        if result["to_name"] != "quality_status":
-                            to_name_list = result["to_name"].split("_")
-                            idx1 = int(to_name_list[1])
-                            idx2 = int(to_name_list[2])
-                            conversation_json[idx1]["sentences"][idx2] = ".".join(
-                                map(str, result["value"]["text"])
-                            )
-                    setattr(data_item, field, conversation_json)
-                elif field == "domain":
-                    setattr(
-                        data_item,
-                        field,
-                        ",".join(json.loads(ta[field])[0]["taxonomy"][0]),
-                    )
-                elif field == "conversation_quality_status":
-                    conversation_quality_status = ""
-                    for result in tl["annotations"][0]["result"]:
-                        if result["to_name"] == "quality_status":
-                            conversation_quality_status = result["value"]["choices"][0]
-                            break
-                    setattr(data_item, field, conversation_quality_status)
-                elif field == "ocr_transcribed_json":
-                    ta_ocr_transcribed_json = []
-                    for idx in range(len(json.loads(ta["annotation_bboxes"]))):
-                        ta_ocr_transcribed_json.append(
-                            json.loads(ta["annotation_labels"])[idx]
-                        )
-                        # QUICKFIX for adjusting tasks_annotations
-                        ta["annotation_transcripts"] = ta["ocr_transcribed_json"]
-                        if (
-                            len(json.loads(ta["annotation_bboxes"])) > 1
-                            and type(json.loads(ta["annotation_transcripts"])) == list
-                        ):
-                            ta_ocr_transcribed_json[-1]["text"] = json.loads(
-                                ta["annotation_transcripts"]
-                            )[idx]
-                        else:
-                            ta_ocr_transcribed_json[-1]["text"] = ta[
-                                "annotation_transcripts"
-                            ]
-                    setattr(data_item, field, ta_ocr_transcribed_json)
-                else:
-                    setattr(data_item, field, ta[field])
-            data_items.append(data_item)
+                setattr(data_item, field, res)
         except Exception as e:
             export_excluded_task_ids.append(task.id)
+        data_items.append(data_item)
     # Write json to dataset columns
     dataset_model.objects.bulk_update(data_items, annotation_fields)
 

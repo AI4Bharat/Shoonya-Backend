@@ -9,12 +9,6 @@ from workspaces.models import Workspace
 
 # List of all dataset types
 DATASET_TYPE_CHOICES = [
-    ("SentenceText", "SentenceText"),
-    ("TranslationPair", "TranslationPair"),
-    ("OCRDocument", "OCRDocument"),
-    ("BlockText", "BlockText"),
-    ("Conversation", "Conversation"),
-    ("SpeechConversation", "SpeechConversation"),
     ("PromptBase", "PromptBase"),
     ("PromptAnswer", "PromptAnswer"),
     ("PromptAnswerEvaluation", "PromptAnswerEvaluation"),

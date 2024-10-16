@@ -3761,7 +3761,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     return Response(ret_dict, status=ret_status)
 
                 # Call the async task export function for inplace functions
-                export_project_in_place.delay(
+                export_project_in_place(
                     annotation_fields=annotation_fields,
                     project_id=pk,
                     project_type=project_type,
