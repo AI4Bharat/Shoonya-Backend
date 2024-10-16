@@ -43,6 +43,19 @@ ModelOutputEvaluation:
             - prompt
             - output
             - language
+    MultipleInteractionEvaluation:
+      input_dataset:
+        class: MultiModelInteraction
+        fields:
+          - id
+          - multiple_interaction_json
+          - language
+      output_dataset:
+        class: MultiModelInteraction
+        save_type: in_place
+        fields:
+          annotations:
+            - eval_form_json
 Chat:
   description: "Instruction Driven Chat"
   project_types:
