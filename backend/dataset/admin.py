@@ -15,28 +15,6 @@ admin.site.register(DatasetInstance, DatasetInstanceAdmin)
 
 
 # TODO: Find a clean generic way to do this:
-class SentenceTextAdmin(ImportExportActionModelAdmin):
-    resource_class = SentenceTextResource
-
-
-class TranslationPairAdmin(ImportExportActionModelAdmin):
-    resource_class = TranslationPairResource
-
-
-class OCRDocumentAdmin(ImportExportActionModelAdmin):
-    resource_class = OCRResource
-
-
-class BlockTextAdmin(ImportExportActionModelAdmin):
-    resource_class = BlockTextResource
-
-
-class ConversationAdmin(ImportExportActionModelAdmin):
-    resource_class = ConversationResource
-
-
-class SpeechConversationAdmin(ImportExportActionModelAdmin):
-    resource_class = SpeechConversationResource
 
 
 class PromptBaseAdmin(ImportExportActionModelAdmin):
@@ -61,14 +39,13 @@ class InteractionsAdmin(ImportExportActionModelAdmin):
     resource_class = InteractionsResource
 
 
-admin.site.register(SentenceText, SentenceTextAdmin)
-admin.site.register(TranslationPair, TranslationPairAdmin)
-admin.site.register(OCRDocument, OCRDocumentAdmin)
-admin.site.register(BlockText, BlockTextAdmin)
-admin.site.register(Conversation, ConversationAdmin)
-admin.site.register(SpeechConversation, SpeechConversationAdmin)
+class MultiModelInteractionAdmin(ImportExportActionModelAdmin):
+    resource_class = MultiModelInteractionResource
+
+
 admin.site.register(PromptBase, PromptBaseAdmin)
 admin.site.register(PromptAnswer, PromptAnswerAdmin)
 admin.site.register(PromptAnswerEvaluation, PromptAnswerEvaluationAdmin)
 admin.site.register(Instruction, InstructionsAdmin)
 admin.site.register(Interaction, InteractionsAdmin)
+admin.site.register(MultiModelInteraction, MultiModelInteractionAdmin)
