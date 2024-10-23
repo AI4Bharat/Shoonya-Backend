@@ -3691,6 +3691,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 tasks_list.append(OrderedDict(task_dict))
 
             dataset_type = project.dataset_id.all()[0].dataset_type
+            is_MultipleInteractionEvaluation = (
+                project_type == "MultipleInteractionEvaluation"
+            )
+            is_ModelOutputEvaluation = project_type == "ModelOutputEvaluation"
+            is_ModelInteractionEvaluation = project_type == "ModelInteractionEvaluation"
             for task in tasks_list:
                 complete_result = []
                 for i in range(len(task["annotations"])):
@@ -3710,7 +3715,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         "annotation_status": a.annotation_status,
                     }
                     complete_result.append(single_dict)
-                task["data"]["interactions_json"] = complete_result
+                if is_MultipleInteractionEvaluation:
+                    task["data"]["eval_form_json"] = complete_result
+                elif is_ModelInteractionEvaluation:
+                    task["data"]["eval_form_output_json"] = complete_result
+                elif is_ModelOutputEvaluation:
+                    task["data"]["form_output_json"] = complete_result
+                else:
+                    task["data"]["interactions_json"] = complete_result
                 del task["annotations"]
             return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:
