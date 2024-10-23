@@ -26,50 +26,6 @@ class DatasetItemsSerializer(serializers.ModelSerializer):
         fields = ["instance_id"]
 
 
-class SentenceTextSerializer(serializers.ModelSerializer):
-    """
-    Serializer for SentenceText data
-    """
-
-    metadata_json = serializers.JSONField()
-
-    class Meta:
-        model = SentenceText
-        fields = "__all__"
-
-
-class TranslationPairSerializer(serializers.ModelSerializer):
-    """
-    Serializer for TranslationPair data
-    """
-
-    metadata_json = serializers.JSONField()
-
-    class Meta:
-        model = TranslationPair
-        fields = "__all__"
-
-
-class OCRDocumentSerializer(serializers.ModelSerializer):
-    """
-    Serializer for OCRDocument data
-    """
-
-    class Meta:
-        model = OCRDocument
-        fields = "__all__"
-
-
-class BlockTextSerializer(serializers.ModelSerializer):
-    """
-    Serializer for BlockText data
-    """
-
-    class Meta:
-        model = BlockText
-        fields = "__all__"
-
-
 class TaskResultSerializer(serializers.ModelSerializer):
     """
     Serializer for TaskResult data
@@ -77,30 +33,6 @@ class TaskResultSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TaskResult
-        fields = "__all__"
-
-
-class ConversationSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Conversation data
-    """
-
-    metadata_json = serializers.JSONField()
-
-    class Meta:
-        model = Conversation
-        fields = "__all__"
-
-
-class SpeechConversationSerializer(serializers.ModelSerializer):
-    """
-    Serializer for Speech Conversation
-    """
-
-    metadata_json = serializers.JSONField()
-
-    class Meta:
-        model = SpeechConversation
         fields = "__all__"
 
 
@@ -146,19 +78,20 @@ class InteractionsSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class MultiModelInteractionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MultiModelInteraction
+        fields = "__all__"
+
+
 # Define a mapping between dataset instance type and serializer
 SERIALIZER_MAP = {
-    "SentenceText": SentenceTextSerializer,
-    "TranslationPair": TranslationPairSerializer,
-    "OCRDocument": OCRDocumentSerializer,
-    "BlockText": BlockTextSerializer,
-    "Conversation": ConversationSerializer,
-    "SpeechConversation": SpeechConversationSerializer,
     "PromptBase": PromptBaseSerializer,
     "PromptAnswer": PromptAnswerSerializer,
     "PromptAnswerEvaluation": PromptAnswerEvaluationSerializer,
     "Instruction": InstructionsSerializer,
     "Interaction": InteractionsSerializer,
+    "MultiModelInteraction": MultiModelInteractionSerializer,
 }
 
 # class CollectionDatasetSerializer(serializers.ModelSerializer):
