@@ -1801,6 +1801,8 @@ class AnnotationViewSet(
                         is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
@@ -1863,6 +1865,8 @@ class AnnotationViewSet(
                         is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
@@ -1942,6 +1946,8 @@ class AnnotationViewSet(
                         is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
@@ -2043,6 +2049,8 @@ class AnnotationViewSet(
                         is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
@@ -2152,6 +2160,8 @@ class AnnotationViewSet(
                         is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
@@ -2244,6 +2254,8 @@ class AnnotationViewSet(
                         is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
