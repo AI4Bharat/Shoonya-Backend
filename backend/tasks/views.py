@@ -1786,11 +1786,15 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        == 1,
+                        (
+                            is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 1
+                        ),
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1842,11 +1846,15 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        == 1,
+                        (
+                            is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            == 1
+                        ),
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -1915,11 +1923,15 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 2,
+                        (
+                            is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            <= 2
+                        ),
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -2010,11 +2022,15 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 2,
+                        (
+                            is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            <= 2
+                        ),
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -2110,11 +2126,15 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 3,
+                        (
+                            is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            <= 3
+                        ),
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -2196,11 +2216,15 @@ class AnnotationViewSet(
                         request.data["result"],
                         annotation_obj.task,
                         is_acoustic_project_type,
-                        is_acoustic_project_type
-                        and annotation_obj.task.project_id.metadata_json[
-                            "acoustic_enabled_stage"
-                        ]
-                        <= 3,
+                        (
+                            is_acoustic_project_type
+                            and "acoustic_enabled_stage"
+                            in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            <= 3
+                        ),
                     )
                     if empty_flag == True and annotation_status in [
                         LABELED,
