@@ -277,6 +277,7 @@ class Annotation(models.Model):
         unique_together = (
             "task",
             "completed_by",
+            "parent_annotation",
         )
 
 
