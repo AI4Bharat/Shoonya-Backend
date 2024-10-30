@@ -3712,12 +3712,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         else annotation_result
                     )
                     uid = a.completed_by.email
+                    try:
+                        p_ann = a.parent_annotation.id
+                    except Exception as e:
+                        p_ann = None
                     single_dict = {
                         "user_id": uid,
                         "annotation_id": a.id,
                         "annotation_result": annotation_result,
                         "annotation_type": a.annotation_type,
                         "annotation_status": a.annotation_status,
+                        "parent_annotation_id": p_ann,
                     }
                     complete_result.append(single_dict)
                     if add_notes:
