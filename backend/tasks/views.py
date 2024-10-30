@@ -216,7 +216,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
             if exist_req_user:
                 user_id = int(req_user)
-
+            required_annotators_per_task = proj_objs[0].required_annotators_per_task
             if "annotation_status" in dict(request.query_params):
                 ann_status = request.query_params["annotation_status"]
                 ann_status = ast.literal_eval(ann_status)
@@ -389,11 +389,29 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         task_objs.sort(key=lambda x: x["id"])
                         ordered_tasks = []
                         final_dict = {}
+                        seen = set()
                         for task_obj in task_objs:
+                            if task_obj["id"] in seen:
+                                continue
+                            seen.add(task_obj["id"])
                             tas = Task.objects.filter(id=task_obj["id"])
                             tas = tas.values()[0]
                             tas["review_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
+                            if required_annotators_per_task > 1:
+                                review_ann = [
+                                    a
+                                    for a in Annotation.objects.filter(
+                                        task_id=tas["id"]
+                                    )
+                                    if a.annotation_type == REVIEWER_ANNOTATION
+                                ]
+                                if len(review_ann) > 1:
+                                    for r in review_ann:
+                                        tas_copy = deepcopy(tas)
+                                        tas_copy["correct_annotation_id"] = r.id
+                                        ordered_tasks.append(tas_copy)
+                                    continue
                             ordered_tasks.append(tas)
 
                         if page_number is not None:
@@ -486,7 +504,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_objs.sort(key=lambda x: x["id"])
                 ordered_tasks = []
                 final_dict = {}
+                seen = set()
                 for task_obj in task_objs:
+                    if task_obj["id"] in seen:
+                        continue
+                    seen.add(task_obj["id"])
                     tas = Task.objects.filter(id=task_obj["id"])
                     tas = tas.values()[0]
                     tas["review_status"] = task_obj["annotation_status"]
@@ -534,6 +556,18 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             else:
                                 tas["data"]["output_text"] = "-"
                         del tas["data"]["machine_translation"]
+                    if required_annotators_per_task > 1:
+                        review_ann = [
+                            a
+                            for a in Annotation.objects.filter(task_id=tas["id"])
+                            if a.annotation_type == REVIEWER_ANNOTATION
+                        ]
+                        if len(review_ann) > 1:
+                            for r in review_ann:
+                                tas_copy = deepcopy(tas)
+                                tas_copy["correct_annotation_id"] = r.id
+                                ordered_tasks.append(tas_copy)
+                            continue
                     ordered_tasks.append(tas)
                 if page_number is not None:
                     page_object = Paginator(ordered_tasks, records)

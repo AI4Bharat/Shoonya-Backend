@@ -1965,7 +1965,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         base_annotation_obj.save()
                     except IntegrityError as e:
                         print(
-                            f"Task and completed_by fields are same while assigning new task "
+                            f"Task, completed_by and parent_annotation fields are same while assigning new review task "
                             f"for project id-{project.id}, user-{cur_user.email}"
                         )
             else:
@@ -2208,7 +2208,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # tasks = tasks.order_by("id")
         task_ids = list(task_ids)
         task_ids = task_ids[:task_pull_count]
+        seen = set()
+        required_annotators_per_task = project.required_annotators_per_task
         for task_id in task_ids:
+            if task_id in seen:
+                continue
+            seen.add(task_id)
             task = Task.objects.get(pk=task_id)
             task.review_user = cur_user
             task.save()
@@ -2223,25 +2228,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
             reviewer_anno_count = Annotation_model.objects.filter(
                 task_id=task_id, annotation_type=REVIEWER_ANNOTATION
             ).count()
-            if reviewer_anno_count == 0:
-                base_annotation_obj = Annotation_model(
-                    result=rec_ann[0].result,
-                    task=task,
-                    completed_by=cur_user,
-                    annotation_status="unreviewed",
-                    parent_annotation=rec_ann[0],
-                    annotation_type=REVIEWER_ANNOTATION,
-                )
-                try:
-                    base_annotation_obj.save()
-                except IntegrityError as e:
-                    print(
-                        f"Task and completed_by fields are same while assigning new review task "
-                        f"for project id-{project.id}, user-{cur_user.email}"
+            for i in range(required_annotators_per_task):
+                if reviewer_anno_count == 0:
+                    base_annotation_obj = Annotation_model(
+                        result=rec_ann[i].result,
+                        task=task,
+                        completed_by=cur_user,
+                        annotation_status="unreviewed",
+                        parent_annotation=rec_ann[i],
+                        annotation_type=REVIEWER_ANNOTATION,
                     )
-            else:
-                task.review_user = reviewer_anno[0].completed_by
-                task.save()
+                    try:
+                        base_annotation_obj.save()
+                    except IntegrityError as e:
+                        print(
+                            f"Task, completed_by and parent_annotation fields are same while assigning new review task "
+                            f"for project id-{project.id}, user-{cur_user.email}"
+                        )
+                else:
+                    task.review_user = reviewer_anno[i].completed_by
+                    task.save()
         project.release_lock(REVIEW_LOCK)
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
@@ -2463,8 +2469,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     base_annotation_obj.save()
                 except IntegrityError as e:
                     print(
-                        f"Task and completed_by fields are same while assigning super-check task for "
-                        f"project id-{project.id}, user-{cur_user.email}"
+                        f"Task, completed_by and parent_annotation fields are same while assigning new review task "
+                        f"for project id-{project.id}, user-{cur_user.email}"
                     )
             else:
                 task.super_check_user = superchecker_anno[0].completed_by
@@ -3620,7 +3626,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 include_input_data_metadata_json = True
             else:
                 include_input_data_metadata_json = False
-
+            add_notes = request.query_params.get("add_notes", False)
             if "export_type" in dict(request.query_params):
                 export_type = request.query_params["export_type"]
             else:
@@ -3639,7 +3645,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             tasks_list = []
             required_annotators_per_task = project.required_annotators_per_task
             for task in tasks:
-                labeled_ann = []
+                ann_list = []
                 task_dict = model_to_dict(task)
                 if export_type != "JSON":
                     task_dict["data"]["task_status"] = task.task_status
@@ -3670,9 +3676,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 elif required_annotators_per_task >= 2:
                     all_ann = Annotation.objects.filter(task=task)
                     for a in all_ann:
-                        if a.annotation_status == LABELED:
-                            labeled_ann.append(a)
-                    task_dict["annotations"] = labeled_ann
+                        ann_list.append(a)
+                    task_dict["annotations"] = ann_list
                 else:
                     task_dict["annotations"] = []
 
@@ -3697,7 +3702,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             is_ModelOutputEvaluation = project_type == "ModelOutputEvaluation"
             is_ModelInteractionEvaluation = project_type == "ModelInteractionEvaluation"
             for task in tasks_list:
-                complete_result = []
+                complete_result, notes = [], []
                 for i in range(len(task["annotations"])):
                     a = task["annotations"][i]
                     annotation_result = a.result
@@ -3715,6 +3720,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         "annotation_status": a.annotation_status,
                     }
                     complete_result.append(single_dict)
+                    if add_notes:
+                        notes.append(
+                            {
+                                "annotation_id": a.id,
+                                "annotation_notes": a.annotation_notes,
+                                "review_notes": a.review_notes,
+                                "supercheck_notes": a.supercheck_notes,
+                            }
+                        )
                 if is_MultipleInteractionEvaluation:
                     task["data"]["eval_form_json"] = complete_result
                 elif is_ModelInteractionEvaluation:
@@ -3723,6 +3737,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     task["data"]["form_output_json"] = complete_result
                 else:
                     task["data"]["interactions_json"] = complete_result
+                task["data"]["notes_json"] = notes
                 del task["annotations"]
             return DataExport.generate_export_file(project, tasks_list, export_type)
         except Project.DoesNotExist:
@@ -3791,7 +3806,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     return Response(ret_dict, status=ret_status)
 
                 # Call the async task export function for inplace functions
-                export_project_in_place(
+                export_project_in_place.delay(
                     annotation_fields=annotation_fields,
                     project_id=pk,
                     project_type=project_type,
