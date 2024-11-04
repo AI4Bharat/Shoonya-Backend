@@ -410,6 +410,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     for r in review_ann:
                                         tas_copy = deepcopy(tas)
                                         tas_copy["correct_annotation_id"] = r.id
+                                        tas_copy[
+                                            "annotator_mail"
+                                        ] = r.parent_annotation.completed_by.email
                                         ordered_tasks.append(tas_copy)
                                     continue
                             ordered_tasks.append(tas)
@@ -566,6 +569,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             for r in review_ann:
                                 tas_copy = deepcopy(tas)
                                 tas_copy["correct_annotation_id"] = r.id
+                                tas_copy[
+                                    "annotator_mail"
+                                ] = r.parent_annotation.completed_by.email
                                 ordered_tasks.append(tas_copy)
                             continue
                     ordered_tasks.append(tas)
