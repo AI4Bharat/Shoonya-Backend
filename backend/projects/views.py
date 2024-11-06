@@ -2246,7 +2246,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             rec_ann = (
                 Annotation_model.objects.filter(task_id=task_id)
                 .filter(annotation_type=ANNOTATOR_ANNOTATION)
-                .order_by("-updated_at")
+                .order_by("updated_at")
             )
             reviewer_anno = Annotation_model.objects.filter(
                 task_id=task_id, annotation_type=REVIEWER_ANNOTATION
