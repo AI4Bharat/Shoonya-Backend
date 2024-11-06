@@ -403,7 +403,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     a
                                     for a in Annotation.objects.filter(
                                         task_id=tas["id"]
-                                    )
+                                    ).order_by("id")
                                     if a.annotation_type == REVIEWER_ANNOTATION
                                 ]
                                 if len(review_ann) > 1:
@@ -559,7 +559,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     if required_annotators_per_task > 1:
                         review_ann = [
                             a
-                            for a in Annotation.objects.filter(task_id=tas["id"])
+                            for a in Annotation.objects.filter(
+                                task_id=tas["id"]
+                            ).order_by("id")
                             if a.annotation_type == REVIEWER_ANNOTATION
                         ]
                         if len(review_ann) > 1:

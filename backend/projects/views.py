@@ -1547,10 +1547,36 @@ class ProjectViewSet(viewsets.ModelViewSet):
             task_ids = [an.task_id for an in ann_filter1]
 
             queryset = Task.objects.filter(id__in=task_ids).order_by("id")
-
-            if current_task_id != None:
+            required_annotators_per_task = project.required_annotators_per_task
+            next_anno = ""
+            if required_annotators_per_task > 1:
+                try:
+                    curr_anno_id = int(request.data.get("current_annotation_id"))
+                except Exception as e:
+                    ret_dict = {"message": "Please send the current_annotation_id"}
+                    ret_status = status.HTTP_400_BAD_REQUEST
+                    return Response(ret_dict, status=ret_status)
+                for task in queryset:
+                    curr_task_anno = ann_filter1.filter(task=task).order_by("id")
+                    ann_ids = [an.id for an in curr_task_anno]
+                    if curr_anno_id != ann_ids[-1]:
+                        for i, c in enumerate(ann_ids):
+                            if c == curr_anno_id:
+                                next_anno = ann_ids[i + 1]
+            if next_anno:
+                queryset = queryset.filter(id=current_task_id)
+            elif current_task_id != None:
                 queryset = queryset.filter(id__gt=current_task_id)
             for task in queryset:
+                if next_anno:
+                    task_dict = TaskSerializer(task, many=False).data
+                    task_dict["correct_annotation"] = next_anno
+                    return Response(task_dict)
+                elif required_annotators_per_task > 1:
+                    next_anno = ann_filter1.filter(task=task).order_by("id")
+                    task_dict = TaskSerializer(task, many=False).data
+                    task_dict["correct_annotation"] = next_anno[0].id
+                    return Response(task_dict)
                 task_dict = TaskSerializer(task, many=False).data
                 return Response(task_dict)
             ret_dict = {"message": "No more tasks available!"}
