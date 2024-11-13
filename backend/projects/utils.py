@@ -173,7 +173,7 @@ def get_audio_transcription_duration(annotation_result):
     return audio_duration
 
 
-def get_not_null_audio_transcription_duration(annotation_result, ann_id):
+def get_not_null_audio_transcription_duration(annotation_result, ann_id=None):
     audio_duration = 0
     memory = create_memory(annotation_result)
     for key, indexes in memory.items():

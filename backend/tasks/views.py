@@ -59,6 +59,7 @@ import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
 from django.db import IntegrityError
+from .utils import compute_meta_stats_for_annotation
 
 # Create your views here.
 
@@ -2335,6 +2336,10 @@ class AnnotationViewSet(
                 if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
                     task.correct_annotation = None
                     task.save()
+        annotation_obj.meta_stats = compute_meta_stats_for_annotation(
+            annotation_obj, annotation_obj.task.project_id.project_type
+        )
+        annotation_obj.save()
         annotation_response.data["message"] = response_message
         return annotation_response
 
