@@ -61,7 +61,7 @@ from .tasks import (
     get_review_reports,
     get_supercheck_reports,
 )
-
+from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
 
 # Create your views here.
 
@@ -648,6 +648,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     calculate_word_error_rate_between_two_audio_transcription_annotation(
                                         review_annotation.result,
                                         review_annotation.parent_annotation.result,
+                                        project_type,
                                     )
                                 )
                             except:
@@ -682,6 +683,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     calculate_word_error_rate_between_two_audio_transcription_annotation(
                                         supercheck_annotation.result,
                                         supercheck_annotation.parent_annotation.result,
+                                        project_type,
                                     )
                                 )
                             except:
@@ -1003,6 +1005,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         project_progress_stage,
                         project_type,
                     )
+                    result["No.of Projects"] = reviewer_projs.count()
                     final_reports.append(result)
             elif user_id in workspace_reviewer_list:
                 reviewer_projs = Project.objects.filter(
@@ -1020,6 +1023,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     project_progress_stage,
                     project_type,
                 )
+                result["No.of Projects"] = reviewer_projs.count()
                 final_reports.append(result)
 
             else:
@@ -1065,6 +1069,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     result = get_supercheck_reports(
                         superchecker_projs_ids, id, start_date, end_date, project_type
                     )
+                    result["No.of Projects"] = superchecker_projs.count()
                     final_reports.append(result)
             elif user_id in workspace_superchecker_list:
                 superchecker_projs = Project.objects.filter(
@@ -1079,6 +1084,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 result = get_supercheck_reports(
                     superchecker_projs_ids, user_id, start_date, end_date, project_type
                 )
+                result["No.of Projects"] = superchecker_projs.count()
                 final_reports.append(result)
 
             else:
@@ -1106,6 +1112,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             users_id = [user.id for user in ws.members.all()]
 
             selected_language = "-"
+            frozen_user = [user.username for user in ws.frozen_users.all()]
             final_reports = []
             for index, each_annotation_user in enumerate(users_id):
                 name = user_name[index]
@@ -1288,7 +1295,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     and project_progress_stage > ANNOTATION_STAGE
                 ):
                     result = {
-                        "Annotator": name,
+                        "Annotator": "*" + name if name in frozen_user else name,
                         "Email": email,
                         "Language": selected_language,
                         "No.of Projects": project_count,
@@ -1310,7 +1317,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     }
                 else:
                     result = {
-                        "Annotator": name,
+                        "Annotator": "*" + name if name in frozen_user else name,
                         "Email": email,
                         "Language": selected_language,
                         "No.of Projects": project_count,
@@ -1402,22 +1409,40 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             other_lang = []
             for lang in languages:
                 proj_lang_filter = proj_objs.filter(tgt_language=lang)
-                annotation_tasks_count = 0
-                reviewer_task_count = 0
-                reviewer_tasks = Task.objects.filter(
-                    project_id__in=proj_lang_filter,
-                    project_id__project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
-                    task_status__in=["reviewed", "exported", "super_checked"],
-                )
-
                 annotation_tasks = Task.objects.filter(
                     project_id__in=proj_lang_filter,
                     task_status__in=[
                         "annotated",
                         "reviewed",
-                        "exported",
                         "super_checked",
                     ],
+                )
+                reviewer_tasks = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
+                    task_status__in=["reviewed", "super_checked"],
+                )
+                supercheck_tasks = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[SUPERCHECK_STAGE],
+                    task_status__in=["super_checked"],
+                )
+                annotation_tasks_exported = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[ANNOTATION_STAGE],
+                    task_status__in=[
+                        "exported",
+                    ],
+                )
+                reviewer_tasks_exported = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[REVIEW_STAGE],
+                    task_status__in=["exported"],
+                )
+                supercheck_tasks_exported = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[SUPERCHECK_STAGE],
+                    task_status__in=["exported"],
                 )
 
                 if metainfo == True:
@@ -1634,14 +1659,28 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         }
 
                 else:
-                    reviewer_task_count = reviewer_tasks.count()
+                    reviewer_task_count = (
+                        reviewer_tasks.count()
+                        + reviewer_tasks_exported.count()
+                        + supercheck_tasks_exported.count()
+                    )
 
-                    annotation_tasks_count = annotation_tasks.count()
+                    annotation_tasks_count = (
+                        annotation_tasks.count()
+                        + annotation_tasks_exported.count()
+                        + reviewer_tasks_exported.count()
+                        + supercheck_tasks_exported.count()
+                    )
+
+                    supercheck_tasks_count = (
+                        supercheck_tasks.count() + supercheck_tasks_exported.count()
+                    )
 
                     result = {
                         "language": lang,
                         "ann_cumulative_tasks_count": annotation_tasks_count,
                         "rew_cumulative_tasks_count": reviewer_task_count,
+                        "sup_cumulative_tasks_count": supercheck_tasks_count,
                     }
 
                 if lang == None or lang == "":
@@ -1651,6 +1690,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             ann_task_count = 0
             rew_task_count = 0
+            sup_task_count = 0
             ann_word_count = 0
             rew_word_count = 0
             ann_aud_dur = 0
@@ -1665,6 +1705,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 if metainfo != True:
                     ann_task_count += dat["ann_cumulative_tasks_count"]
                     rew_task_count += dat["rew_cumulative_tasks_count"]
+                    sup_task_count += dat["sup_cumulative_tasks_count"]
                 else:
                     if project_type in get_audio_project_types():
                         ann_aud_dur += convert_hours_to_seconds(
@@ -1708,6 +1749,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         "language": "Others",
                         "ann_cumulative_tasks_count": ann_task_count,
                         "rew_cumulative_tasks_count": rew_task_count,
+                        "sup_cumulative_tasks_count": sup_task_count,
                     }
                 else:
                     if project_type in get_audio_project_types():
@@ -3201,6 +3243,15 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 )
 
         project_type = request.data.get("project_type")
+
+        inactive_users = User.objects.filter(id=user_id, is_active=False)
+        frozen_users = workspace.frozen_users.all()
+
+        for inactive_user in inactive_users:
+            inactive_user.username = "*" + inactive_user.username
+
+        for frozen_user in frozen_users:
+            frozen_user.username = "*" + frozen_user.username
 
         send_user_reports_mail_ws.delay(
             ws_id=workspace.id,
