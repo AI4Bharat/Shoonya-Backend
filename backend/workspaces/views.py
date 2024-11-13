@@ -1005,6 +1005,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         project_progress_stage,
                         project_type,
                     )
+                    result["No.of Projects"] = reviewer_projs.count()
                     final_reports.append(result)
             elif user_id in workspace_reviewer_list:
                 reviewer_projs = Project.objects.filter(
@@ -1022,6 +1023,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     project_progress_stage,
                     project_type,
                 )
+                result["No.of Projects"] = reviewer_projs.count()
                 final_reports.append(result)
 
             else:
@@ -1067,6 +1069,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     result = get_supercheck_reports(
                         superchecker_projs_ids, id, start_date, end_date, project_type
                     )
+                    result["No.of Projects"] = superchecker_projs.count()
                     final_reports.append(result)
             elif user_id in workspace_superchecker_list:
                 superchecker_projs = Project.objects.filter(
@@ -1081,6 +1084,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 result = get_supercheck_reports(
                     superchecker_projs_ids, user_id, start_date, end_date, project_type
                 )
+                result["No.of Projects"] = superchecker_projs.count()
                 final_reports.append(result)
 
             else:
@@ -1108,6 +1112,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             users_id = [user.id for user in ws.members.all()]
 
             selected_language = "-"
+            frozen_user = [user.username for user in ws.frozen_users.all()]
             final_reports = []
             for index, each_annotation_user in enumerate(users_id):
                 name = user_name[index]
@@ -1290,7 +1295,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     and project_progress_stage > ANNOTATION_STAGE
                 ):
                     result = {
-                        "Annotator": name,
+                        "Annotator": "*" + name if name in frozen_user else name,
                         "Email": email,
                         "Language": selected_language,
                         "No.of Projects": project_count,
@@ -1312,7 +1317,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     }
                 else:
                     result = {
-                        "Annotator": name,
+                        "Annotator": "*" + name if name in frozen_user else name,
                         "Email": email,
                         "Language": selected_language,
                         "No.of Projects": project_count,
