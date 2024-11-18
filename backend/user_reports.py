@@ -20,16 +20,19 @@ from pretty_html_table import build_table
 import numpy as np
 from django.db import connection
 from psycopg2.extras import Json
+from tasks.models import Statistic
 
 
-def upsert_stat(cursor, stat_type, org_id, result):
-    query = """
-    INSERT INTO stats (stat_type, org_id, result)
-    VALUES (%s, %s, %s)
-    ON CONFLICT (stat_type, org_id)
-    DO UPDATE SET result = EXCLUDED.result;
-    """
-    cursor.execute(query, [stat_type, org_id, Json(result)])
+def upsert_stat(stat_type, org_id, result):
+    obj, created = Statistic.objects.update_or_create(
+        stat_type=stat_type,
+        org_id=org_id,
+        defaults={
+            "result": result,
+        },
+    )
+
+    return obj, created
 
 
 def fetch_task_counts():
@@ -231,7 +234,7 @@ def fetch_task_counts():
                         }
                     )
                 final_result_for_all__types[pjt_type] = formatted_result
-            upsert_stat(cursor, "task_count", org, final_result_for_all__types)
+            upsert_stat("task_count", org, final_result_for_all__types)
 
 
 def calculate_reports():

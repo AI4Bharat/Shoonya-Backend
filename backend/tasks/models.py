@@ -277,7 +277,14 @@ class Annotation(models.Model):
             "completed_by",
         )
 
+class Statistic(models.Model):
+    stat_type = models.CharField(max_length=255)
+    org_id = models.IntegerField()
+    result = models.JSONField()
+    updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = ('stat_type', 'org_id')
 
 class Prediction(models.Model):
     """ML predictions"""
