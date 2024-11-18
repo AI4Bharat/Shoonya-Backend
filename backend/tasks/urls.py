@@ -7,6 +7,9 @@ from tasks.views import (
     PredictionViewSet,
     get_celery_tasks,
     TransliterationAPIView,
+    stopping_celery_tasks,
+    resume_celery_task,
+    delete_celery_task,
 )
 
 router = routers.DefaultRouter()
@@ -21,4 +24,7 @@ urlpatterns = [
         TransliterationAPIView.as_view(),
         name="transliteration-api",
     ),
+    path("stopping_celery_tasks/", stopping_celery_tasks),
+    path("resume_celery_task/", resume_celery_task),
+    path("delete_celery_task/", delete_celery_task),
 ] + router.urls

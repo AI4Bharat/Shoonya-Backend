@@ -261,6 +261,13 @@ class Annotation(models.Model):
         help_text=("Time when the annotation was first labeled/accepted/validated"),
     )
 
+    meta_stats = models.JSONField(
+        blank=True,
+        null=True,
+        verbose_name="meta_stats",
+        help_text="Meta statistics for the annotation result",
+    )
+
     def __str__(self):
         return str(self.id)
 
