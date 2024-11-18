@@ -278,6 +278,7 @@ class Annotation(models.Model):
         )
 
 
+
 class Prediction(models.Model):
     """ML predictions"""
 

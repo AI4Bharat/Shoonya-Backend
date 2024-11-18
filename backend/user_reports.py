@@ -18,6 +18,220 @@ from django.core.mail import send_mail
 from django.conf import settings
 from pretty_html_table import build_table
 import numpy as np
+from django.db import connection
+from psycopg2.extras import Json
+
+
+def upsert_stat(cursor, stat_type, org_id, result):
+    query = """
+    INSERT INTO stats (stat_type, org_id, result)
+    VALUES (%s, %s, %s)
+    ON CONFLICT (stat_type, org_id)
+    DO UPDATE SET result = EXCLUDED.result;
+    """
+    cursor.execute(query, [stat_type, org_id, Json(result)])
+
+
+def fetch_task_counts():
+    org_ids = [1]
+    project_types = [
+        "AcousticNormalisedTranscriptionEditing",
+        "AudioSegmentation",
+        "AudioTranscription",
+        "AudioTranscriptionEditing",
+        "StandardisedTranscriptionEditing",
+        "ContextualSentenceVerification",
+        "ContextualSentenceVerificationAndDomainClassification",
+        "ContextualTranslationEditing",
+        "ConversationTranslation",
+        "ConversationTranslationEditing",
+        "ConversationVerification",
+        "MonolingualTranslation",
+        "OCRTranscriptionEditing",
+        "SemanticTextualSimilarity_Scale5",
+        "SentenceSplitting",
+        "TranslationEditing",
+    ]
+
+    with connection.cursor() as cursor:
+
+        for org in org_ids:
+
+            final_result_for_all__types = {}
+
+            for pjt_type in project_types:
+
+                sql_query = f"""
+                        with annotation_tasks (language,count) as 
+                        (
+                        SELECT
+                            pjt.tgt_language,
+                            count(tsk.id)
+                        FROM
+                            tasks_task AS tsk,
+                            projects_project AS pjt
+                        WHERE
+                            tsk.project_id_id = pjt.id
+                            AND tsk.task_status in ('annotated','reviewed','super_checked')
+                            AND pjt.project_type in ('{pjt_type}')
+                            AND pjt.organization_id_id = {org}
+                        GROUP BY
+                            pjt.tgt_language
+                        ),reviewer_tasks (language,count) as 
+                        (
+                        SELECT
+                            pjt.tgt_language,
+                            count(tsk.id)
+                        FROM
+                            tasks_task AS tsk,
+                            projects_project AS pjt
+                        WHERE
+                            tsk.project_id_id = pjt.id
+                            AND tsk.task_status in ('reviewed','super_checked')
+                            AND pjt.project_stage in (2,3)
+                            AND pjt.project_type in ('{pjt_type}')
+                            AND pjt.organization_id_id = {org}
+                        GROUP BY
+                            pjt.tgt_language
+                        )
+                        ,superchecker_tasks (language,count) as 
+                        (
+                        SELECT
+                            pjt.tgt_language,
+                            count(tsk.id)
+                        FROM
+                            tasks_task AS tsk,
+                            projects_project AS pjt
+                        WHERE
+                            tsk.project_id_id = pjt.id
+                            AND tsk.task_status in ('super_checked')
+                            AND pjt.project_stage in (3)
+                            AND pjt.project_type in ('{pjt_type}')
+                            AND pjt.organization_id_id = {org}
+                        GROUP BY
+                            pjt.tgt_language
+                        ),
+                        annotation_tasks_exported (language,count) as 
+                        (
+                        SELECT
+                            pjt.tgt_language,
+                            count(tsk.id)
+                        FROM
+                            tasks_task AS tsk,
+                            projects_project AS pjt
+                        WHERE
+                            tsk.project_id_id = pjt.id
+                            AND tsk.task_status in ('exported')
+                            AND pjt.project_stage in (1)
+                            AND pjt.project_type in ('{pjt_type}')
+                            AND pjt.organization_id_id = {org}
+                        GROUP BY
+                            pjt.tgt_language
+                        ), reviewer_tasks_exported (language,count) as 
+                        (
+                        SELECT
+                            pjt.tgt_language,
+                            count(tsk.id)
+                        FROM
+                            tasks_task AS tsk,
+                            projects_project AS pjt
+                        WHERE
+                            tsk.project_id_id = pjt.id
+                            AND tsk.task_status in ('exported')
+                            AND pjt.project_stage in (2)
+                            AND pjt.project_type in ('{pjt_type}')
+                            AND pjt.organization_id_id = {org}
+                        GROUP BY
+                            pjt.tgt_language
+                        ), supercheck_tasks_exported (language,count) as 
+                        (
+                        SELECT
+                            pjt.tgt_language,
+                            count(tsk.id)
+                        FROM
+                            tasks_task AS tsk,
+                            projects_project AS pjt
+                        WHERE
+                            tsk.project_id_id = pjt.id
+                            AND tsk.task_status in ('exported')
+                            AND pjt.project_stage in (3)
+                            AND pjt.project_type in ('{pjt_type}')
+                            AND pjt.organization_id_id = {org}
+                        GROUP BY
+                            pjt.tgt_language
+                        ),
+                        reviewer_tasks_count (language,count,tag) as (
+                        SELECT 
+                            language,
+                            SUM(count) as task_count,
+                            'rew'
+                        FROM (
+                            SELECT language, count FROM reviewer_tasks
+                            UNION ALL
+                            SELECT language, count FROM reviewer_tasks_exported
+                            UNION ALL
+                            SELECT language, count FROM supercheck_tasks_exported
+                        ) AS merged_tables
+                        GROUP BY language
+                        ),
+                        annotation_tasks_count (language,count,tag) as (
+                        SELECT 
+                            language,
+                            SUM(count) as task_count,
+                            'ann'
+                        FROM (
+                            SELECT language, count FROM annotation_tasks
+                            UNION ALL
+                            SELECT language, count FROM annotation_tasks_exported
+                            UNION ALL
+                            SELECT language, count FROM reviewer_tasks_exported
+                            UNION ALL
+                            SELECT language, count FROM supercheck_tasks_exported
+                        ) AS merged_tables
+                        GROUP BY language
+                        ),
+                        supercheck_tasks_count (language,count,tag) as (
+                        SELECT 
+                            language,
+                            SUM(count) as task_count,
+                            'sup'
+                        FROM (
+                            SELECT language, count FROM superchecker_tasks
+                            UNION ALL
+                            SELECT language, count FROM supercheck_tasks_exported
+                        ) AS merged_tables
+                        GROUP BY language
+                        ),
+                        cumulative_task_counts (language,count,tag) as (
+                        select language,count,tag from annotation_tasks_count
+                        union all
+                        select language,count,tag from reviewer_tasks_count
+                        union all
+                        select language,count,tag from supercheck_tasks_count
+                        )
+                        SELECT 
+                            language,
+                            SUM(CASE WHEN tag = 'ann' THEN count ELSE 0 END) AS annotation_count,
+                            SUM(CASE WHEN tag = 'rew' THEN count ELSE 0 END) AS reviewer_count,
+                            SUM(CASE WHEN tag = 'sup' THEN count ELSE 0 END) AS superchecker_count
+                        FROM cumulative_task_counts
+                        GROUP BY language;
+                    """
+                cursor.execute(sql=sql_query)
+                result = cursor.fetchall()
+                formatted_result = []
+                for langResult in result:
+                    ann, rev, sup = langResult[1:]
+                    formatted_result.append(
+                        {
+                            "language": langResult[0],
+                            "ann_cumulative_tasks_count": int(str(ann)),
+                            "rew_cumulative_tasks_count": int(str(rev)),
+                            "sup_cumulative_tasks_count": int(str(sup)),
+                        }
+                    )
+                final_result_for_all__types[pjt_type] = formatted_result
+            upsert_stat(cursor, "task_count", org, final_result_for_all__types)
 
 
 def calculate_reports():

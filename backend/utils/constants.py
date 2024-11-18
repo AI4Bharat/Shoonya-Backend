@@ -26,3 +26,28 @@ LANG_CHOICES = (
     ("Thai", "Thai"),
     ("Urdu", "Urdu"),
 )
+
+lang_codes = {
+    "assamese": "as",
+    "bengali": "bn",
+    "bodo": "brx",
+    "dogri": "doi",
+    "gujarati": "gu",
+    "hindi": "hi",
+    "kannada": "kn",
+    "kashmiri": "ks",
+    "konkani": "kok",
+    "maithili": "mai",
+    "malayalam": "ml",
+    "manipuri": "mni",
+    "marathi": "mr",
+    "nepali": "ne",
+    "odia": "or",
+    "punjabi": "pa",
+    "sanskrit": "sa",
+    "santali": "sat",
+    "sindhi": "sd",
+    "tamil": "ta",
+    "telugu": "te",
+    "urdu": "ur",
+}
