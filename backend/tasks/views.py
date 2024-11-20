@@ -11,7 +11,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 
-
+import requests
 from tasks.models import *
 from tasks.serializers import (
     TaskSerializer,
@@ -47,6 +47,7 @@ from rapidfuzz.distance import Levenshtein
 import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
+from rest_framework.views import APIView
 
 
 # Create your views here.
@@ -2494,3 +2495,15 @@ def get_celery_tasks(request):
     page_size = int(request.GET.get("page_size", 10))
     data = paginate_queryset(filtered_tasks, page_number, page_size)
     return JsonResponse(data["results"], safe=False)
+
+class TransliterationAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, target_language, data, *args, **kwargs):
+        response_transliteration = requests.get(
+            os.getenv("TRANSLITERATION_URL") + target_language + "/" + data,
+            headers={"Authorization": "Bearer " + os.getenv("TRANSLITERATION_KEY")},
+        )
+
+        transliteration_output = response_transliteration.json()
+        return Response(transliteration_output, status=status.HTTP_200_OK)
