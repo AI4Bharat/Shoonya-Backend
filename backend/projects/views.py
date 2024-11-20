@@ -8,7 +8,7 @@ import math
 
 from django.core.files import File
 from django.db import IntegrityError
-from django.db.models import Count, Q, F, Case, When
+from django.db.models import Count, Q, F, Case, When, OuterRef, Exists
 from django.forms.models import model_to_dict
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -46,6 +46,7 @@ from .utils import (
     get_user_from_query_params,
     ocr_word_count,
     get_attributes_for_ModelInteractionEvaluation,
+    filter_tasks_for_review_filter_criteria,
 )
 
 from dataset.models import DatasetInstance
@@ -864,15 +865,31 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data["unassigned_task_count"] = get_task_count_unassigned(
             pk, request.user
         )
+        project = Project.objects.get(id=pk)
+        if project.required_annotators_per_task > 1:
+            similar_task_incomplete = Task.objects.filter(
+                project_id=OuterRef("project_id"),
+                input_data=OuterRef("input_data"),
+                task_status=INCOMPLETE,
+            ).exclude(id=OuterRef("id"))
 
-        # Add a field to specify the no. of labeled tasks
-        project_response.data["labeled_task_count"] = (
-            Task.objects.filter(project_id=pk)
-            .filter(task_status=ANNOTATED)
-            .filter(review_user__isnull=True)
-            .exclude(annotation_users=request.user.id)
-            .count()
-        )
+            tasks = (
+                Task.objects.filter(
+                    project_id=pk, task_status=ANNOTATED, review_user__isnull=True
+                )
+                .exclude(annotation_users=request.user.id)
+                .exclude(Exists(similar_task_incomplete))
+                .count()
+            )
+            project_response.data["labeled_task_count"] = tasks
+        else:
+            project_response.data["labeled_task_count"] = (
+                Task.objects.filter(project_id=pk)
+                .filter(task_status=ANNOTATED)
+                .filter(review_user__isnull=True)
+                .exclude(annotation_users=request.user.id)
+                .count()
+            )
 
         # Add a field to specify the no. of reviewed tasks
         project_response.data["reviewed_task_count"] = (
@@ -2269,6 +2286,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         task_ids.append(st.id)
         task_ids = [t for t in task_ids if t not in corrupted_tasks]
         task_ids = task_ids[:task_pull_count]
+        task_ids = filter_tasks_for_review_filter_criteria(task_ids)
         for task_id in task_ids:
             if task_id in seen:
                 continue
