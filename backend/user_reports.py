@@ -21,6 +21,19 @@ import numpy as np
 from django.db import connection
 from psycopg2.extras import Json
 from tasks.models import Statistic
+import pprint
+
+
+def checkNoneValue(value):
+    if value == None:
+        return "0.0"
+    return value
+
+
+def checkLangNone(language):
+    if language == None:
+        return "Others"
+    return language
 
 
 def upsert_stat(stat_type, org_id, result):
@@ -36,7 +49,7 @@ def upsert_stat(stat_type, org_id, result):
 
 
 def fetch_task_counts():
-    org_ids = [1]
+    org_ids = [1, 2, 3]
     project_types = [
         "AcousticNormalisedTranscriptionEditing",
         "AudioSegmentation",
@@ -227,7 +240,7 @@ def fetch_task_counts():
                     ann, rev, sup = langResult[1:]
                     formatted_result.append(
                         {
-                            "language": langResult[0],
+                            "language": checkLangNone(langResult[0]),
                             "ann_cumulative_tasks_count": int(str(ann)),
                             "rew_cumulative_tasks_count": int(str(rev)),
                             "sup_cumulative_tasks_count": int(str(sup)),
@@ -235,6 +248,213 @@ def fetch_task_counts():
                     )
                 final_result_for_all__types[pjt_type] = formatted_result
             upsert_stat("task_count", org, final_result_for_all__types)
+
+
+def set_meta_stats(org_ids, project_types, stat_types):
+
+    # org_ids = [1, 2, 3]
+
+    # project_types = [
+    #     "ConversationTranslation",
+    #     "ConversationTranslationEditing",
+    #     "ConversationVerification",
+    # ]
+
+    # stat_types = ["word_count", "sentence_count"]
+
+    with connection.cursor() as cursor:
+
+        for org in org_ids:
+
+            for stat_type in stat_types:
+
+                final_result_for_all__types = {}
+
+                for pjt_type in project_types:
+
+                    sql_query = f"""
+                                    with annotation_tasks (language,{stat_type}) as 
+                                    (
+                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
+                                    from tasks_annotation as ta 
+                                    join tasks_task as tsk on tsk.id=ta.task_id
+                                    join projects_project as pjt on pjt.id=tsk.project_id_id
+                                    where pjt.project_type in ('{pjt_type}')
+                                    and tsk.task_status in ('annotated','reviewed','super_checked')
+                                    and pjt.organization_id_id = {org}
+                                    group by pjt.tgt_language
+                                    ),
+                                    reviewer_tasks (language,{stat_type}) as (
+                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
+                                    from tasks_annotation as ta 
+                                    join tasks_task as tsk on tsk.id=ta.task_id
+                                    join projects_project as pjt on pjt.id=tsk.project_id_id
+                                    where pjt.project_type in ('{pjt_type}')
+                                    and tsk.task_status in ('reviewed','super_checked')
+                                    and pjt.project_stage in (2,3)
+                                    and pjt.organization_id_id = {org}
+                                    group by pjt.tgt_language
+                                    ),
+                                    superchecker_tasks (language,{stat_type}) as (
+                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
+                                    from tasks_annotation as ta 
+                                    join tasks_task as tsk on tsk.id=ta.task_id
+                                    join projects_project as pjt on pjt.id=tsk.project_id_id
+                                    where pjt.project_type in ('{pjt_type}')
+                                    and tsk.task_status in ('super_checked')
+                                    and pjt.project_stage in (3)
+                                    and pjt.organization_id_id = {org}
+                                    group by pjt.tgt_language
+                                    ),
+                                    annotation_tasks_exported (language,{stat_type}) as (
+                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
+                                    from tasks_annotation as ta 
+                                    join tasks_task as tsk on tsk.id=ta.task_id
+                                    join projects_project as pjt on pjt.id=tsk.project_id_id
+                                    where pjt.project_type in ('{pjt_type}')
+                                    AND tsk.task_status in ('exported')
+                                    AND pjt.project_stage in (1)
+                                    and pjt.organization_id_id = {org}
+                                    group by pjt.tgt_language
+                                    ),
+                                    reviewer_tasks_exported (language,{stat_type}) as (
+                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
+                                    from tasks_annotation as ta 
+                                    join tasks_task as tsk on tsk.id=ta.task_id
+                                    join projects_project as pjt on pjt.id=tsk.project_id_id
+                                    where pjt.project_type in ('{pjt_type}')
+                                    AND tsk.task_status in ('exported')
+                                    AND pjt.project_stage in (2)
+                                    and pjt.organization_id_id = {org}
+                                    group by pjt.tgt_language
+                                    ),
+                                    supercheck_tasks_exported (language,{stat_type}) as (
+                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
+                                    from tasks_annotation as ta 
+                                    join tasks_task as tsk on tsk.id=ta.task_id
+                                    join projects_project as pjt on pjt.id=tsk.project_id_id
+                                    where pjt.project_type in ('{pjt_type}')
+                                    AND tsk.task_status in ('exported')
+                                    AND pjt.project_stage in (3)
+                                    and pjt.organization_id_id = {org}
+                                    group by pjt.tgt_language
+                                    ),
+                                    reviewer_{stat_type} (language,{stat_type},tag) as (
+                                    SELECT 
+                                        language,
+                                        SUM({stat_type}) as {stat_type},
+                                        'rew'
+                                    FROM (
+                                        SELECT language, {stat_type} FROM reviewer_tasks
+                                        UNION ALL
+                                        SELECT language, {stat_type} FROM reviewer_tasks_exported
+                                        UNION ALL
+                                        SELECT language, {stat_type} FROM supercheck_tasks_exported
+                                    ) AS merged_tables
+                                    GROUP BY language
+                                    ),
+                                    annotation_{stat_type} (language,{stat_type},tag) as (
+                                    SELECT 
+                                        language,
+                                        SUM({stat_type}) as {stat_type},
+                                        'ann'
+                                    FROM (
+                                        SELECT language, {stat_type} FROM annotation_tasks
+                                        UNION ALL
+                                        SELECT language, {stat_type} FROM annotation_tasks_exported
+                                        UNION ALL
+                                        SELECT language, {stat_type} FROM reviewer_tasks_exported
+                                        UNION ALL
+                                        SELECT language, {stat_type} FROM supercheck_tasks_exported
+                                    ) AS merged_tables
+                                    GROUP BY language
+                                    ),
+                                    supercheck_{stat_type} (language,{stat_type},tag) as (
+                                    SELECT 
+                                        language,
+                                        SUM({stat_type}) as {stat_type},
+                                        'sup'
+                                    FROM (
+                                        SELECT language, {stat_type} FROM superchecker_tasks
+                                        UNION ALL
+                                        SELECT language, {stat_type} FROM supercheck_tasks_exported
+                                    ) AS merged_tables
+                                    GROUP BY language
+                                    ),
+                                    cumulative_{stat_type}s (language,{stat_type},tag) as (
+                                    select language,{stat_type},tag from annotation_{stat_type}
+                                    union all
+                                    select language,{stat_type},tag from reviewer_{stat_type}
+                                    union all
+                                    select language,{stat_type},tag from supercheck_{stat_type}
+                                    )
+                                    SELECT 
+                                        language,
+                                        SUM(CASE WHEN tag = 'ann' THEN {stat_type} ELSE 0 END) AS annotation_{stat_type},
+                                        SUM(CASE WHEN tag = 'rew' THEN {stat_type} ELSE 0 END) AS reviewer_{stat_type},
+                                        SUM(CASE WHEN tag = 'sup' THEN {stat_type} ELSE 0 END) AS superchecker_{stat_type}
+                                    FROM cumulative_{stat_type}s
+                                    GROUP BY language;
+                                """
+                    cursor.execute(sql=sql_query)
+                    result = cursor.fetchall()
+                    formatted_result = []
+                    for langResult in result:
+                        ann, rev, sup = langResult[1:]
+                        ann, rev, sup = (
+                            checkNoneValue(ann),
+                            checkNoneValue(rev),
+                            checkNoneValue(sup),
+                        )
+                        if stat_type == "word_count":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_cumulative_word_count": int(float(str(ann))),
+                                    "rew_cumulative_word_count": int(float(str(rev))),
+                                    "sup_cumulative_word_count": int(float(str(sup))),
+                                }
+                            )
+                        elif stat_type == "sentence_count":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "total_ann_sentence_count": int(float(str(ann))),
+                                    "total_rev_sentence_count": int(float(str(rev))),
+                                    "total_sup_sentence_count": int(float(str(sup))),
+                                }
+                            )
+
+                        elif stat_type == "audio_word_count":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_audio_word_count": int(float(str(ann))),
+                                    "rev_audio_word_count": int(float(str(rev))),
+                                    "sup_audio_word_count": int(float(str(sup))),
+                                }
+                            )
+
+                        elif stat_type == "total_segment_duration":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_total_segment_duration": float(str(ann)),
+                                    "rev_total_segment_duration": float(str(rev)),
+                                    "sup_total_segment_duration": float(str(sup)),
+                                }
+                            )
+                        elif stat_type == "not_null_segment_duration":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_not_null_segment_duration": float(str(ann)),
+                                    "rev_not_null_segment_duration": float(str(rev)),
+                                    "sup_not_null_segment_duration": float(str(sup)),
+                                }
+                            )
+                    final_result_for_all__types[pjt_type] = formatted_result
+                upsert_stat(stat_type, org, final_result_for_all__types)
 
 
 def calculate_reports():

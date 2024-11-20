@@ -39,7 +39,28 @@ celery_app.conf.beat_schedule = {
         "task": "check_size",
         "schedule": crontab(minute=0, hour=0),  # every mid night
     },
-    "fetchTaskCounts": {"task": "fetchTaskCounts", "schedule": crontab(minute="*/30")},
+    "fetchTaskCounts": {"task": "fetchTaskCounts", "schedule": crontab(minute="*/10")},
+    # "fetchConversationProjectMetaStats": {
+    #     "task": "fetchConversationProjectMetaStats",
+    #     "schedule": crontab(minute="*/30"),
+    # },
+    "setWordCounts": {"task": "setWordCounts", "schedule": crontab(minute="*/10")},
+    "setSentenceCounts": {
+        "task": "setSentenceCounts",
+        "schedule": crontab(minute="*/10"),
+    },
+    "setAudioWordCounts": {
+        "task": "setAudioWordCounts",
+        "schedule": crontab(minute="*/10"),
+    },
+    "setSegmentDurations": {
+        "task": "setSegmentDurations",
+        "schedule": crontab(minute="*/10"),
+    },
+    "setNotNullSegmentDurations": {
+        "task": "setNotNullSegmentDurations",
+        "schedule": crontab(minute="*/10"),
+    },
 }
 
 # Celery Task related settings

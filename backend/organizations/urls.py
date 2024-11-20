@@ -19,7 +19,7 @@ from .permissions import *
 from django.urls import path
 
 
-urlpatterns = [
+urlpatterns += [
     path(
         "project_permission/",
         ProjectPermissionView.as_view(),
