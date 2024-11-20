@@ -384,76 +384,81 @@ def filter_tasks_for_review_filter_criteria(task_ids):
     for task_id in task_ids:
         task = Task.objects.filter(id=task_id)
         ann = Annotation.objects.filter(task=task[0], annotation_status=LABELED)[0]
+        if not isinstance(ann.result, list):
+            continue
         for r in ann.result:
-            model_responses_json = r["model_responses_json"]
-            for mr in model_responses_json:
-                questions_response = mr["questions_response"]
-                for qr in questions_response:
-                    if (
-                        "review_filter_criteria" in qr["question"]
-                        and "review_filter_values" in qr["question"]
-                        and "response" in qr
-                    ):
-                        response = qr["response"]
-                        if not isinstance(response, list) or not isinstance(
-                            qr["question"]["review_filter_values"], list
-                        ):
-                            tasks_to_be_removed.add(task_id)
-                        elif (
-                            qr["question"]["review_filter_criteria"].lower() == "equals"
-                        ):
-                            if not check_matching_values_equal(
-                                response, qr["question"]["review_filter_values"]
+            if "model_responses_json" in r:
+                model_responses_json = r["model_responses_json"]
+                for mr in model_responses_json:
+                    if "questions_response" in mr:
+                        questions_response = mr["questions_response"]
+                        for qr in questions_response:
+                            if (
+                                "review_filter_criteria" in qr["question"]
+                                and "review_filter_values" in qr["question"]
+                                and "response" in qr
                             ):
-                                tasks_to_be_removed.add(task_id)
-                        elif (
-                            qr["question"]["review_filter_criteria"].lower()
-                            == "not_equals"
-                        ):
-                            if check_matching_values_equal(
-                                response, qr["question"]["review_filter_values"]
-                            ):
-                                tasks_to_be_removed.add(task_id)
-                        elif (
-                            qr["question"]["review_filter_criteria"].lower()
-                            == "greater_than"
-                        ):
-                            if not check_matching_values_greater(
-                                response,
-                                qr["question"]["review_filter_values"],
-                                "greater_than",
-                            ):
-                                tasks_to_be_removed.add(task_id)
-                        elif (
-                            qr["question"]["review_filter_criteria"].lower()
-                            == "greater_than_equals"
-                        ):
-                            if not check_matching_values_greater(
-                                response,
-                                qr["question"]["review_filter_values"],
-                                "greater_than_equals",
-                            ):
-                                tasks_to_be_removed.add(task_id)
-                        elif (
-                            qr["question"]["review_filter_criteria"].lower()
-                            == "less_than"
-                        ):
-                            if check_matching_values_greater(
-                                response,
-                                qr["question"]["review_filter_values"],
-                                "greater_than_equals",
-                            ):
-                                tasks_to_be_removed.add(task_id)
-                        elif (
-                            qr["question"]["review_filter_criteria"].lower()
-                            == "less_than_equals"
-                        ):
-                            if check_matching_values_greater(
-                                response,
-                                qr["question"]["review_filter_values"],
-                                "greater_than",
-                            ):
-                                tasks_to_be_removed.add(task_id)
+                                response = qr["response"]
+                                if not isinstance(response, list) or not isinstance(
+                                    qr["question"]["review_filter_values"], list
+                                ):
+                                    tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "equals"
+                                ):
+                                    if not check_matching_values_equal(
+                                        response, qr["question"]["review_filter_values"]
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "not_equals"
+                                ):
+                                    if check_matching_values_equal(
+                                        response, qr["question"]["review_filter_values"]
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "greater_than"
+                                ):
+                                    if not check_matching_values_greater(
+                                        response,
+                                        qr["question"]["review_filter_values"],
+                                        "greater_than",
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "greater_than_equals"
+                                ):
+                                    if not check_matching_values_greater(
+                                        response,
+                                        qr["question"]["review_filter_values"],
+                                        "greater_than_equals",
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "less_than"
+                                ):
+                                    if check_matching_values_greater(
+                                        response,
+                                        qr["question"]["review_filter_values"],
+                                        "greater_than_equals",
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "less_than_equals"
+                                ):
+                                    if check_matching_values_greater(
+                                        response,
+                                        qr["question"]["review_filter_values"],
+                                        "greater_than",
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
     task_ids = [t for t in task_ids if t not in tasks_to_be_removed]
     return task_ids
 
