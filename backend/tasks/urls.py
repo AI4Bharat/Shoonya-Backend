@@ -17,8 +17,8 @@ router = routers.DefaultRouter()
 urlpatterns = [
     path("get_celery_tasks", get_celery_tasks),
     path(
-         "xlit-api/generic/transliteration/<str:target_language>/<str:data>",
-         TransliterationAPIView.as_view(),
-         name="transliteration-api",
-     ),
+        "xlit-api/generic/transliteration/<str:target_language>/<str:data>",
+        TransliterationAPIView.as_view(),
+        name="transliteration-api",
+    ),
 ] + router.urls

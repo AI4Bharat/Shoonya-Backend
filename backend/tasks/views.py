@@ -2496,6 +2496,7 @@ def get_celery_tasks(request):
     data = paginate_queryset(filtered_tasks, page_number, page_size)
     return JsonResponse(data["results"], safe=False)
 
+
 class TransliterationAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
