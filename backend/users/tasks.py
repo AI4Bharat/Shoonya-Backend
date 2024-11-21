@@ -7,6 +7,7 @@ from user_reports import (
     calculate_reports,
     fetch_task_counts,
     set_meta_stats,
+    set_raw_duration,
 )
 from celery.utils.log import get_task_logger
 
@@ -81,6 +82,22 @@ def setAudioWordCounts():
     logger.info("Completed Audio Word Count Update")
 
 
+@shared_task(name="setRawDurations")
+def setRawDurations():
+
+    org_ids = [1, 2, 3]
+
+    project_types = [
+        "AudioTranscription",
+        "AudioTranscriptionEditing",
+        "AcousticNormalisedTranscriptionEditing",
+    ]
+
+    set_raw_duration(org_ids=org_ids, project_types=project_types)
+
+    logger.info("Completed Raw Duration Update")
+
+
 @shared_task(name="setSegmentDurations")
 def setSegmentDurations():
 
@@ -115,3 +132,41 @@ def setNotNullSegmentDurations():
     set_meta_stats(org_ids=org_ids, project_types=project_types, stat_types=stat_types)
 
     logger.info("Completed Not Null Segment Duration Update")
+
+
+@shared_task(name="setAcousticNormalisedStats")
+def setAcosticNormalisedStats():
+
+    org_ids = [1, 2, 3]
+
+    stat_types = [
+        "acoustic_normalised_word_count",
+        "acoustic_normalised_duration",
+        "verbatim_word_count",
+        "verbatim_duration",
+    ]
+
+    project_types = [
+        "AcousticNormalisedTranscriptionEditing",
+    ]
+
+    set_meta_stats(org_ids=org_ids, project_types=project_types, stat_types=stat_types)
+
+    logger.info("Completed ANTE Stats Update")
+
+
+@shared_task(name="setTranscribedDurations")
+def setTranscribedDurations():
+
+    org_ids = [1, 2, 3]
+
+    stat_types = ["transcribed_duration"]
+
+    project_types = [
+        "AudioTranscription",
+        "AudioTranscriptionEditing",
+    ]
+
+    set_meta_stats(org_ids=org_ids, project_types=project_types, stat_types=stat_types)
+
+    logger.info("Completed Transcribed Duration Update")

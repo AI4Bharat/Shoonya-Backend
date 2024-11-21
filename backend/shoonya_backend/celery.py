@@ -40,10 +40,6 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(minute=0, hour=0),  # every mid night
     },
     "fetchTaskCounts": {"task": "fetchTaskCounts", "schedule": crontab(minute="*/10")},
-    # "fetchConversationProjectMetaStats": {
-    #     "task": "fetchConversationProjectMetaStats",
-    #     "schedule": crontab(minute="*/30"),
-    # },
     "setWordCounts": {"task": "setWordCounts", "schedule": crontab(minute="*/10")},
     "setSentenceCounts": {
         "task": "setSentenceCounts",
@@ -59,6 +55,18 @@ celery_app.conf.beat_schedule = {
     },
     "setNotNullSegmentDurations": {
         "task": "setNotNullSegmentDurations",
+        "schedule": crontab(minute="*/10"),
+    },
+    "setAcousticNormalisedStats": {
+        "task": "setAcousticNormalisedStats",
+        "schedule": crontab(minute="*/10"),
+    },
+    "setTranscribedDurations": {
+        "task": "setTranscribedDurations",
+        "schedule": crontab(minute="*/10"),
+    },
+    "setRawDurations": {
+        "task": "setRawDurations",
         "schedule": crontab(minute="*/10"),
     },
 }

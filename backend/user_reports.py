@@ -22,6 +22,7 @@ from django.db import connection
 from psycopg2.extras import Json
 from tasks.models import Statistic
 import pprint
+from projects.utils import convert_seconds_to_hours
 
 
 def checkNoneValue(value):
@@ -250,6 +251,170 @@ def fetch_task_counts():
             upsert_stat("task_count", org, final_result_for_all__types)
 
 
+def set_raw_duration(org_ids, project_types):
+
+    with connection.cursor() as cursor:
+
+        for org in org_ids:
+
+            final_result_for_all__types = {}
+
+            for pjt_type in project_types:
+
+                sql_query = f"""
+                            with annotation_tasks (language,raw_duration) as 
+                            (
+                            select pjt.tgt_language as language,sum(cast(tsk.data->'audio_duration' as float)) as raw_duration
+                            from tasks_task as tsk 
+                            join projects_project as pjt on pjt.id=tsk.project_id_id
+                            where pjt.project_type in ('{pjt_type}')
+                            and tsk.task_status in ('annotated','reviewed','super_checked')
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            reviewer_tasks (language,raw_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tsk.data->'audio_duration' as float)) as raw_duration
+                            from tasks_annotation as ta 
+                            join tasks_task as tsk on tsk.id=ta.task_id
+                            join projects_project as pjt on pjt.id=tsk.project_id_id
+                            where pjt.project_type in ('{pjt_type}')
+                            and tsk.task_status in ('reviewed','super_checked')
+                            and pjt.project_stage in (2,3)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            superchecker_tasks (language,raw_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tsk.data->'audio_duration' as float)) as raw_duration
+                            from tasks_annotation as ta 
+                            join tasks_task as tsk on tsk.id=ta.task_id
+                            join projects_project as pjt on pjt.id=tsk.project_id_id
+                            where pjt.project_type in ('{pjt_type}')
+                            and tsk.task_status in ('super_checked')
+                            and pjt.project_stage in (3)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            annotation_tasks_exported (language,raw_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tsk.data->'audio_duration' as float)) as raw_duration
+                            from tasks_annotation as ta 
+                            join tasks_task as tsk on tsk.id=ta.task_id
+                            join projects_project as pjt on pjt.id=tsk.project_id_id
+                            where pjt.project_type in ('{pjt_type}')
+                            AND tsk.task_status in ('exported')
+                            AND pjt.project_stage in (1)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            reviewer_tasks_exported (language,raw_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tsk.data->'audio_duration' as float)) as raw_duration
+                            from tasks_annotation as ta 
+                            join tasks_task as tsk on tsk.id=ta.task_id
+                            join projects_project as pjt on pjt.id=tsk.project_id_id
+                            where pjt.project_type in ('{pjt_type}')
+                            AND tsk.task_status in ('exported')
+                            AND pjt.project_stage in (2)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            supercheck_tasks_exported (language,raw_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tsk.data->'audio_duration' as float)) as raw_duration
+                            from tasks_annotation as ta 
+                            join tasks_task as tsk on tsk.id=ta.task_id
+                            join projects_project as pjt on pjt.id=tsk.project_id_id
+                            where pjt.project_type in ('{pjt_type}')
+                            AND tsk.task_status in ('exported')
+                            AND pjt.project_stage in (3)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            reviewer_raw_duration (language,raw_duration,tag) as (
+                            SELECT 
+                                language,
+                                SUM(raw_duration) as raw_duration,
+                                'rew'
+                            FROM (
+                                SELECT language, raw_duration FROM reviewer_tasks
+                                UNION ALL
+                                SELECT language, raw_duration FROM reviewer_tasks_exported
+                                UNION ALL
+                                SELECT language, raw_duration FROM supercheck_tasks_exported
+                            ) AS merged_tables
+                            GROUP BY language
+                            ),
+                            annotation_raw_duration (language,raw_duration,tag) as (
+                            SELECT 
+                                language,
+                                SUM(raw_duration) as raw_duration,
+                                'ann'
+                            FROM (
+                                SELECT language, raw_duration FROM annotation_tasks
+                                UNION ALL
+                                SELECT language, raw_duration FROM annotation_tasks_exported
+                                UNION ALL
+                                SELECT language, raw_duration FROM reviewer_tasks_exported
+                                UNION ALL
+                                SELECT language, raw_duration FROM supercheck_tasks_exported
+                            ) AS merged_tables
+                            GROUP BY language
+                            ),
+                            supercheck_raw_duration (language,raw_duration,tag) as (
+                            SELECT 
+                                language,
+                                SUM(raw_duration) as raw_duration,
+                                'sup'
+                            FROM (
+                                SELECT language, raw_duration FROM superchecker_tasks
+                                UNION ALL
+                                SELECT language, raw_duration FROM supercheck_tasks_exported
+                            ) AS merged_tables
+                            GROUP BY language
+                            ),
+                            cumulative_raw_durations (language,raw_duration,tag) as (
+                            select language,raw_duration,tag from annotation_raw_duration
+                            union all
+                            select language,raw_duration,tag from reviewer_raw_duration
+                            union all
+                            select language,raw_duration,tag from supercheck_raw_duration
+                            )
+                            SELECT 
+                                language,
+                                SUM(CASE WHEN tag = 'ann' THEN raw_duration ELSE 0 END) AS annotation_raw_duration,
+                                SUM(CASE WHEN tag = 'rew' THEN raw_duration ELSE 0 END) AS reviewer_raw_duration,
+                                SUM(CASE WHEN tag = 'sup' THEN raw_duration ELSE 0 END) AS superchecker_raw_duration
+                            FROM cumulative_raw_durations
+                            GROUP BY language;
+                            """
+
+                cursor.execute(sql=sql_query)
+                result = cursor.fetchall()
+                formatted_result = []
+                for langResult in result:
+
+                    ann, rev, sup = langResult[1:]
+                    ann, rev, sup = (
+                        checkNoneValue(ann),
+                        checkNoneValue(rev),
+                        checkNoneValue(sup),
+                    )
+
+                    formatted_result.append(
+                        {
+                            "language": checkLangNone(langResult[0]),
+                            "ann_raw_aud_duration": convert_seconds_to_hours(
+                                float(str(ann))
+                            ),
+                            "rev_raw_aud_duration": convert_seconds_to_hours(
+                                float(str(rev))
+                            ),
+                            "sup_raw_aud_duration": convert_seconds_to_hours(
+                                float(str(sup))
+                            ),
+                        }
+                    )
+                final_result_for_all__types[pjt_type] = formatted_result
+            upsert_stat("raw_duration", org, final_result_for_all__types)
+
+
 def set_meta_stats(org_ids, project_types, stat_types):
 
     # org_ids = [1, 2, 3]
@@ -451,6 +616,57 @@ def set_meta_stats(org_ids, project_types, stat_types):
                                     "ann_not_null_segment_duration": float(str(ann)),
                                     "rev_not_null_segment_duration": float(str(rev)),
                                     "sup_not_null_segment_duration": float(str(sup)),
+                                }
+                            )
+                        elif stat_type == "transcribed_duration":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_transcribed_duration": float(str(ann)),
+                                    "rev_transcribed_duration": float(str(rev)),
+                                    "sup_transcribed_duration": float(str(sup)),
+                                }
+                            )
+                        elif stat_type == "verbatim_duration":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_verbatim_duration": float(str(ann)),
+                                    "rev_verbatim_duration": float(str(rev)),
+                                    "sup_verbatim_duration": float(str(sup)),
+                                }
+                            )
+                        elif stat_type == "verbatim_word_count":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_verbatim_word_count": float(str(ann)),
+                                    "rev_verbatim_word_count": float(str(rev)),
+                                    "sup_verbatim_word_count": float(str(sup)),
+                                }
+                            )
+                        elif stat_type == "acoustic_normalised_duration":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_acoustic_normalised_duration": float(str(ann)),
+                                    "rev_acoustic_normalised_duration": float(str(rev)),
+                                    "sup_acoustic_normalised_duration": float(str(sup)),
+                                }
+                            )
+                        elif stat_type == "acoustic_normalised_word_count":
+                            formatted_result.append(
+                                {
+                                    "language": checkLangNone(langResult[0]),
+                                    "ann_acoustic_normalised_word_count": float(
+                                        str(ann)
+                                    ),
+                                    "rev_acoustic_normalised_word_count": float(
+                                        str(rev)
+                                    ),
+                                    "sup_acoustic_normalised_word_count": float(
+                                        str(sup)
+                                    ),
                                 }
                             )
                     final_result_for_all__types[pjt_type] = formatted_result
