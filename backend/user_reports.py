@@ -251,6 +251,198 @@ def fetch_task_counts():
             upsert_stat("task_count", org, final_result_for_all__types)
 
 
+def set_total_duration(org_ids, project_types):
+
+    with connection.cursor() as cursor:
+
+        for org in org_ids:
+
+            final_result_for_all__types = {}
+
+            for pjt_type in project_types:
+
+                sql_query = f"""
+                            with totalDurations (task_id,project_id,language,total_duration) as (
+                            with durations (id,duration) as 
+                            (
+                            with subSetResultObjects (id,entry) as
+                            (
+                            with sa (id,result) as
+
+                            (
+                            select ta.id,ta.result
+                            from tasks_annotation as ta 
+                            join tasks_task as tsk on tsk.id=ta.task_id
+                            join projects_project as pjt on pjt.id=tsk.project_id_id
+                            where pjt.project_type in ('{pjt_type}')
+                            and pjt.organization_id_id = {org}
+                            )
+
+                            select id,jsonb_array_elements(
+                                case jsonb_typeof(result) 
+                                    when 'array' then result
+                                    else '[]' end
+                                ) as elem from sa
+                            )
+
+                            select id,sum(cast(entry->'value'->>'end' as float)-cast(entry->'value'->>'start' as float) ) as duration
+                            from subSetResultObjects 
+                            where entry->>'type'='labels'
+                            group by id
+                            )
+                            select tsk.id,pjt.id,pjt.tgt_language as language,sum(da.duration) as total_duration from durations as da
+                            join tasks_annotation as ta on ta.id=da.id
+                            join tasks_task as tsk on tsk.id = ta.task_id
+                            join projects_project as pjt on pjt.id = tsk.project_id_id
+                            group by tsk.id,pjt.id,pjt.tgt_language),
+                            -- -------------- 
+                            annotation_tasks (language,total_duration) as 
+                            (
+                            select pjt.tgt_language as language,sum(cast(tds.total_duration as float)) as total_duration
+                            from totalDurations as tds 
+                            join projects_project as pjt on pjt.id=tds.project_id
+                            join tasks_task as tsk on tsk.id=tds.task_id
+                            where tsk.task_status in ('annotated','reviewed','super_checked')
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            reviewer_tasks (language,total_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tds.total_duration as float)) as total_duration
+                            from totalDurations as tds 
+                            join projects_project as pjt on pjt.id=tds.project_id
+                            join tasks_task as tsk on tsk.id=tds.task_id
+                            where tsk.task_status in ('reviewed','super_checked')
+                            and pjt.project_stage in (2,3)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            superchecker_tasks (language,total_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tds.total_duration as float)) as total_duration
+                            from totalDurations as tds 
+                            join projects_project as pjt on pjt.id=tds.project_id
+                            join tasks_task as tsk on tsk.id=tds.task_id
+                            where tsk.task_status in ('super_checked')
+                            and pjt.project_stage in (3)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            annotation_tasks_exported (language,total_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tds.total_duration as float)) as total_duration
+                            from totalDurations as tds 
+                            join projects_project as pjt on pjt.id=tds.project_id
+                            join tasks_task as tsk on tsk.id=tds.task_id
+                            where tsk.task_status in ('exported')
+                            AND pjt.project_stage in (1)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            reviewer_tasks_exported (language,total_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tds.total_duration as float)) as total_duration
+                            from totalDurations as tds 
+                            join projects_project as pjt on pjt.id=tds.project_id
+                            join tasks_task as tsk on tsk.id=tds.task_id
+                            where tsk.task_status in ('exported')
+                            AND pjt.project_stage in (2)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            supercheck_tasks_exported (language,total_duration) as (
+                            select pjt.tgt_language as language,sum(cast(tds.total_duration as float)) as total_duration
+                            from totalDurations as tds 
+                            join projects_project as pjt on pjt.id=tds.project_id
+                            join tasks_task as tsk on tsk.id=tds.task_id
+                            where tsk.task_status in ('exported')
+                            AND pjt.project_stage in (3)
+                            and pjt.organization_id_id = {org}
+                            group by pjt.tgt_language
+                            ),
+                            reviewer_total_duration (language,total_duration,tag) as (
+                            SELECT 
+                                language,
+                                SUM(total_duration) as total_duration,
+                                'rew'
+                            FROM (
+                                SELECT language, total_duration FROM reviewer_tasks
+                                UNION ALL
+                                SELECT language, total_duration FROM reviewer_tasks_exported
+                                UNION ALL
+                                SELECT language, total_duration FROM supercheck_tasks_exported
+                            ) AS merged_tables
+                            GROUP BY language
+                            ),
+                            annotation_total_duration (language,total_duration,tag) as (
+                            SELECT 
+                                language,
+                                SUM(total_duration) as total_duration,
+                                'ann'
+                            FROM (
+                                SELECT language, total_duration FROM annotation_tasks
+                                UNION ALL
+                                SELECT language, total_duration FROM annotation_tasks_exported
+                                UNION ALL
+                                SELECT language, total_duration FROM reviewer_tasks_exported
+                                UNION ALL
+                                SELECT language, total_duration FROM supercheck_tasks_exported
+                            ) AS merged_tables
+                            GROUP BY language
+                            ),
+                            supercheck_total_duration (language,total_duration,tag) as (
+                            SELECT 
+                                language,
+                                SUM(total_duration) as total_duration,
+                                'sup'
+                            FROM (
+                                SELECT language, total_duration FROM superchecker_tasks
+                                UNION ALL
+                                SELECT language, total_duration FROM supercheck_tasks_exported
+                            ) AS merged_tables
+                            GROUP BY language
+                            ),
+                            cumulative_total_durations (language,total_duration,tag) as (
+                            select language,total_duration,tag from annotation_total_duration
+                            union all
+                            select language,total_duration,tag from reviewer_total_duration
+                            union all
+                            select language,total_duration,tag from supercheck_total_duration
+                            )
+                            SELECT 
+                                language,
+                                SUM(CASE WHEN tag = 'ann' THEN total_duration ELSE 0 END) AS annotation_total_duration,
+                                SUM(CASE WHEN tag = 'rew' THEN total_duration ELSE 0 END) AS reviewer_total_duration,
+                                SUM(CASE WHEN tag = 'sup' THEN total_duration ELSE 0 END) AS superchecker_total_duration
+                            FROM cumulative_total_durations
+                            GROUP BY language;
+                """
+                cursor.execute(sql=sql_query)
+                result = cursor.fetchall()
+                formatted_result = []
+                for langResult in result:
+
+                    ann, rev, sup = langResult[1:]
+                    ann, rev, sup = (
+                        checkNoneValue(ann),
+                        checkNoneValue(rev),
+                        checkNoneValue(sup),
+                    )
+
+                    formatted_result.append(
+                        {
+                            "language": checkLangNone(langResult[0]),
+                            "ann_cumulative_aud_duration": convert_seconds_to_hours(
+                                float(str(ann))
+                            ),
+                            "rev_cumulative_aud_duration": convert_seconds_to_hours(
+                                float(str(rev))
+                            ),
+                            "sup_cumulative_aud_duration": convert_seconds_to_hours(
+                                float(str(sup))
+                            ),
+                        }
+                    )
+                final_result_for_all__types[pjt_type] = formatted_result
+            upsert_stat("total_duration", org, final_result_for_all__types)
+
+
 def set_raw_duration(org_ids, project_types):
 
     with connection.cursor() as cursor:

@@ -8,6 +8,7 @@ from user_reports import (
     fetch_task_counts,
     set_meta_stats,
     set_raw_duration,
+    set_total_duration,
 )
 from celery.utils.log import get_task_logger
 
@@ -96,6 +97,22 @@ def setRawDurations():
     set_raw_duration(org_ids=org_ids, project_types=project_types)
 
     logger.info("Completed Raw Duration Update")
+
+
+@shared_task(name="setTotalDurations")
+def setTotalDurations():
+
+    org_ids = [1, 2, 3]
+
+    project_types = [
+        "AudioTranscription",
+        "AudioTranscriptionEditing",
+        "AcousticNormalisedTranscriptionEditing",
+    ]
+
+    set_total_duration(org_ids=org_ids, project_types=project_types)
+
+    logger.info("Completed Total Duration Update")
 
 
 @shared_task(name="setSegmentDurations")

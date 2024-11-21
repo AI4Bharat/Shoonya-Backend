@@ -69,6 +69,10 @@ celery_app.conf.beat_schedule = {
         "task": "setRawDurations",
         "schedule": crontab(minute="*/10"),
     },
+    "setTotalDurations": {
+        "task": "setTotalDurations",
+        "schedule": crontab(minute="*/10"),
+    },
 }
 
 # Celery Task related settings
