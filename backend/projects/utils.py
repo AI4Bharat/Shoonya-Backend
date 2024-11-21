@@ -383,7 +383,10 @@ def filter_tasks_for_review_filter_criteria(task_ids):
     tasks_to_be_removed = set()
     for task_id in task_ids:
         task = Task.objects.filter(id=task_id)
-        ann = Annotation.objects.filter(task=task[0], annotation_status=LABELED)[0]
+        try:
+            ann = Annotation.objects.filter(task=task[0], annotation_status=LABELED)
+        except Exception as e:
+            continue
         if not isinstance(ann.result, list):
             continue
         for r in ann.result:

@@ -2286,7 +2286,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         task_ids.append(st.id)
         task_ids = [t for t in task_ids if t not in corrupted_tasks]
         task_ids = task_ids[:task_pull_count]
-        task_ids = filter_tasks_for_review_filter_criteria(task_ids)
+        if required_annotators_per_task > 1:
+            task_ids = filter_tasks_for_review_filter_criteria(task_ids)
         for task_id in task_ids:
             if task_id in seen:
                 continue
