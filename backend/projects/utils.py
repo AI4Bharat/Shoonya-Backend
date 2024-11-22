@@ -7,7 +7,7 @@ import nltk
 from projects.models import Project
 from rest_framework.response import Response
 from rest_framework import status
-from tasks.models import Annotation as Annotation_model
+from tasks.models import Annotation as Annotation_model, LABELED, Task
 from users.models import User
 
 from dataset.models import Instruction, Interaction
@@ -189,27 +189,20 @@ def get_audio_segments_count(annotation_result):
 def calculate_word_error_rate_between_two_audio_transcription_annotation(
     annotation_result1, annotation_result2
 ):
-    annotation_result1 = sorted(annotation_result1, key=lambda i: (i["value"]["end"]))
-    annotation_result2 = sorted(annotation_result2, key=lambda i: (i["value"]["end"]))
-
     annotation_result1_text = ""
     annotation_result2_text = ""
 
     for result in annotation_result1:
-        if result["from_name"] in ["transcribed_json", "verbatim_transcribed_json"]:
-            try:
-                for s in result["value"]["text"]:
-                    annotation_result1_text += s
-            except:
-                pass
+        try:
+            annotation_result1_text += result["prompt"]
+        except:
+            pass
 
     for result in annotation_result2:
-        if result["from_name"] in ["transcribed_json", "verbatim_transcribed_json"]:
-            try:
-                for s in result["value"]["text"]:
-                    annotation_result2_text += s
-            except:
-                pass
+        try:
+            annotation_result2_text += result["prompt"]
+        except:
+            pass
     if len(annotation_result1_text) == 0 or len(annotation_result2_text) == 0:
         return 0
     return wer(annotation_result1_text, annotation_result2_text)
@@ -384,3 +377,142 @@ def get_annotations_for_project(
     return None, Response(
         {"message": "Project id not provided"}, status=status.HTTP_400_BAD_REQUEST
     )
+
+
+def filter_tasks_for_review_filter_criteria(task_ids):
+    tasks_to_be_removed = set()
+    for task_id in task_ids:
+        task = Task.objects.filter(id=task_id)
+        try:
+            ann = Annotation.objects.filter(task=task[0], annotation_status=LABELED)
+        except Exception as e:
+            continue
+        try:
+            ann = ann[0]
+        except Exception as e:
+            pass
+        if not isinstance(ann.result, list):
+            continue
+        for r in ann.result:
+            if "model_responses_json" in r:
+                model_responses_json = r["model_responses_json"]
+                for mr in model_responses_json:
+                    if "questions_response" in mr:
+                        questions_response = mr["questions_response"]
+                        for qr in questions_response:
+                            if (
+                                "review_filter_criteria" in qr["question"]
+                                and "review_filter_values" in qr["question"]
+                                and "response" in qr
+                            ):
+                                response = qr["response"]
+                                if not isinstance(response, list) or not isinstance(
+                                    qr["question"]["review_filter_values"], list
+                                ):
+                                    tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "equals"
+                                ):
+                                    if not check_matching_values_equal(
+                                        response, qr["question"]["review_filter_values"]
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "not_equals"
+                                ):
+                                    if check_matching_values_equal(
+                                        response, qr["question"]["review_filter_values"]
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "greater_than"
+                                ):
+                                    if not check_matching_values_greater(
+                                        response,
+                                        qr["question"]["review_filter_values"],
+                                        "greater_than",
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "greater_than_equals"
+                                ):
+                                    if not check_matching_values_greater(
+                                        response,
+                                        qr["question"]["review_filter_values"],
+                                        "greater_than_equals",
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "less_than"
+                                ):
+                                    if check_matching_values_greater(
+                                        response,
+                                        qr["question"]["review_filter_values"],
+                                        "greater_than_equals",
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+                                elif (
+                                    qr["question"]["review_filter_criteria"].lower()
+                                    == "less_than_equals"
+                                ):
+                                    if check_matching_values_greater(
+                                        response,
+                                        qr["question"]["review_filter_values"],
+                                        "greater_than",
+                                    ):
+                                        tasks_to_be_removed.add(task_id)
+    task_ids = [t for t in task_ids if t not in tasks_to_be_removed]
+    return task_ids
+
+
+def check_matching_values_equal(list1, list2):
+    processed_list1 = set()
+
+    for item in list1:
+        if isinstance(item, str):
+            processed_list1.add(item.lower())
+        elif isinstance(item, int):
+            processed_list1.add(float(item))
+
+    for item in list2:
+        if isinstance(item, str):
+            if item.lower() in processed_list1:
+                return True
+        elif isinstance(item, int):
+            if float(item) in processed_list1:
+                return True
+    return False
+
+
+def check_matching_values_greater(list1, list2, criteria):
+    integers_list1, integers_list2 = [], []
+    for item1 in list1:
+        if isinstance(item1, int):
+            integers_list1.append(item1)
+        elif isinstance(item1, str):
+            if item1.isdigit():
+                integers_list1.append(int(item1))
+    for item2 in list2:
+        if isinstance(item2, int):
+            integers_list1.append(item2)
+        elif isinstance(item2, str):
+            if item2.isdigit():
+                integers_list1.append(int(item2))
+
+    if criteria == "greater_than":
+        for num1 in integers_list1:
+            for num2 in integers_list2:
+                if num1 > num2:
+                    return True
+        return False
+    else:
+        for num1 in integers_list1:
+            for num2 in integers_list2:
+                if num1 >= num2:
+                    return True
+        return False
