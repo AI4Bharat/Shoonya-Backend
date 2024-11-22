@@ -89,6 +89,7 @@ LANGUAGE_CHOICES = [
     ("English", "English"),
     ("Assamese", "Assamese"),
     ("Bengali", "Bengali"),
+    ("Burmese", "Burmese"),
     ("Bodo", "Bodo"),
     ("Dogri", "Dogri"),
     ("Gujarati", "Gujarati"),
@@ -109,6 +110,7 @@ LANGUAGE_CHOICES = [
     ("Sinhala", "Sinhala"),
     ("Tamil", "Tamil"),
     ("Telugu", "Telugu"),
+    ("Thai", "Thai"),
     ("Urdu", "Urdu"),
 ]
 
