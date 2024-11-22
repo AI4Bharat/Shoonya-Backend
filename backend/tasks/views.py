@@ -1686,21 +1686,15 @@ class AnnotationViewSet(
                             review_annotation.save()
                     except:
                         pass
-
-                no_of_annotations = task.annotations.filter(
-                    annotation_type=ANNOTATOR_ANNOTATION, annotation_status="labeled"
-                ).count()
-                if task.project_id.required_annotators_per_task == no_of_annotations:
-                    # if True:
                     task.task_status = ANNOTATED
-                    if not (
-                        task.project_id.project_stage == REVIEW_STAGE
-                        or task.project_id.project_stage == SUPERCHECK_STAGE
-                    ):
-                        if no_of_annotations == 1:
-                            task.correct_annotation = annotation
 
-                    task.save()
+                if not (
+                    task.project_id.project_stage == REVIEW_STAGE
+                    or task.project_id.project_stage == SUPERCHECK_STAGE
+                ):
+                    task.correct_annotation = annotation
+
+                task.save()
 
         # Review annotation update
         elif annotation_obj.annotation_type == REVIEWER_ANNOTATION:
