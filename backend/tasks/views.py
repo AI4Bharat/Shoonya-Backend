@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import datetime,timezone
 from locale import normalize
 from urllib.parse import unquote
 import ast
@@ -11,7 +11,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 
-
+import requests
 from tasks.models import *
 from tasks.serializers import (
     TaskSerializer,
@@ -47,6 +47,7 @@ from rapidfuzz.distance import Levenshtein
 import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
+from rest_framework.views import APIView
 
 
 # Create your views here.
@@ -2474,20 +2475,20 @@ def get_celery_tasks(request):
             filtered_tasks[i]["name"] = Queued_Task_name[filtered_tasks[i]["name"]]
     for i in filtered_tasks:
         if filtered_tasks[i]["succeeded"] is not None:
-            filtered_tasks[i]["succeeded"] = timezone.datetime.utcfromtimestamp(
-                filtered_tasks[i]["succeeded"]
+            filtered_tasks[i]["succeeded"] = datetime.fromtimestamp(
+                filtered_tasks[i]["succeeded"],tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         if filtered_tasks[i]["failed"] is not None:
-            filtered_tasks[i]["failed"] = timezone.datetime.utcfromtimestamp(
-                filtered_tasks[i]["failed"]
+            filtered_tasks[i]["failed"] = datetime.fromtimestamp(
+                filtered_tasks[i]["failed"],tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         if filtered_tasks[i]["started"] is not None:
-            filtered_tasks[i]["started"] = timezone.datetime.utcfromtimestamp(
-                filtered_tasks[i]["started"]
+            filtered_tasks[i]["started"] = datetime.fromtimestamp(
+                filtered_tasks[i]["started"],tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         if filtered_tasks[i]["received"] is not None:
-            filtered_tasks[i]["received"] = timezone.datetime.utcfromtimestamp(
-                filtered_tasks[i]["received"]
+            filtered_tasks[i]["received"] = datetime.fromtimestamp(
+                filtered_tasks[i]["received"],tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     if "error" in filtered_tasks:
@@ -2496,3 +2497,15 @@ def get_celery_tasks(request):
     page_size = int(request.GET.get("page_size", 10))
     data = paginate_queryset(filtered_tasks, page_number, page_size)
     return JsonResponse(data["results"], safe=False)
+
+class TransliterationAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, target_language, data, *args, **kwargs):
+        response_transliteration = requests.get(
+            os.getenv("TRANSLITERATION_URL") + target_language + "/" + data,
+            headers={"Authorization": "Bearer " + os.getenv("TRANSLITERATION_KEY")},
+        )
+
+        transliteration_output = response_transliteration.json()
+        return Response(transliteration_output, status=status.HTTP_200_OK)
