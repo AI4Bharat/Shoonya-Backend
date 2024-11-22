@@ -387,6 +387,10 @@ def filter_tasks_for_review_filter_criteria(task_ids):
             ann = Annotation.objects.filter(task=task[0], annotation_status=LABELED)
         except Exception as e:
             continue
+        try:
+            ann = ann[0]
+        except Exception as e:
+            pass
         if not isinstance(ann.result, list):
             continue
         for r in ann.result:
