@@ -1,4 +1,4 @@
-from datetime import timezone
+from datetime import datetime, timezone
 from locale import normalize
 from urllib.parse import unquote
 import ast
@@ -1687,17 +1687,13 @@ class AnnotationViewSet(
                     except:
                         pass
 
-                no_of_annotations = task.annotations.filter(
-                    annotation_type=ANNOTATOR_ANNOTATION, annotation_status="labeled"
-                ).count()
-                task.task_status = ANNOTATED
+                    task.task_status = ANNOTATED
+
                 if not (
                     task.project_id.project_stage == REVIEW_STAGE
                     or task.project_id.project_stage == SUPERCHECK_STAGE
                 ):
-                    if no_of_annotations == 1:
-                        task.correct_annotation = annotation
-
+                    task.correct_annotation = annotation
                 task.save()
 
         # Review annotation update
@@ -2473,20 +2469,20 @@ def get_celery_tasks(request):
             filtered_tasks[i]["name"] = Queued_Task_name[filtered_tasks[i]["name"]]
     for i in filtered_tasks:
         if filtered_tasks[i]["succeeded"] is not None:
-            filtered_tasks[i]["succeeded"] = timezone.datetime.utcfromtimestamp(
-                filtered_tasks[i]["succeeded"]
+            filtered_tasks[i]["succeeded"] = datetime.fromtimestamp(
+                filtered_tasks[i]["succeeded"], tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         if filtered_tasks[i]["failed"] is not None:
-            filtered_tasks[i]["failed"] = timezone.datetime.utcfromtimestamp(
-                filtered_tasks[i]["failed"]
+            filtered_tasks[i]["failed"] = datetime.fromtimestamp(
+                filtered_tasks[i]["failed"], tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         if filtered_tasks[i]["started"] is not None:
-            filtered_tasks[i]["started"] = timezone.datetime.utcfromtimestamp(
-                filtered_tasks[i]["started"]
+            filtered_tasks[i]["started"] = datetime.fromtimestamp(
+                filtered_tasks[i]["started"], tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         if filtered_tasks[i]["received"] is not None:
-            filtered_tasks[i]["received"] = timezone.datetime.utcfromtimestamp(
-                filtered_tasks[i]["received"]
+            filtered_tasks[i]["received"] = datetime.fromtimestamp(
+                filtered_tasks[i]["received"], tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
     if "error" in filtered_tasks:
