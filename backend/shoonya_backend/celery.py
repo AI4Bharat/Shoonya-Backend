@@ -40,39 +40,6 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(minute=0, hour=0),  # every mid night
     },
     "fetchTaskCounts": {"task": "fetchTaskCounts", "schedule": crontab(minute="*/10")},
-    "setWordCounts": {"task": "setWordCounts", "schedule": crontab(minute="*/10")},
-    "setSentenceCounts": {
-        "task": "setSentenceCounts",
-        "schedule": crontab(minute="*/10"),
-    },
-    "setAudioWordCounts": {
-        "task": "setAudioWordCounts",
-        "schedule": crontab(minute="*/10"),
-    },
-    "setSegmentDurations": {
-        "task": "setSegmentDurations",
-        "schedule": crontab(minute="*/10"),
-    },
-    "setNotNullSegmentDurations": {
-        "task": "setNotNullSegmentDurations",
-        "schedule": crontab(minute="*/10"),
-    },
-    "setAcousticNormalisedStats": {
-        "task": "setAcousticNormalisedStats",
-        "schedule": crontab(minute="*/10"),
-    },
-    "setTranscribedDurations": {
-        "task": "setTranscribedDurations",
-        "schedule": crontab(minute="*/10"),
-    },
-    "setRawDurations": {
-        "task": "setRawDurations",
-        "schedule": crontab(minute="*/10"),
-    },
-    "setTotalDurations": {
-        "task": "setTotalDurations",
-        "schedule": crontab(minute="*/10"),
-    },
 }
 
 # Celery Task related settings

@@ -3200,68 +3200,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
         task_counts = list(
             Statistic.objects.filter(stat_type="task_count", org_id=organization.id)
         )[0].result
-        word_counts = list(
-            Statistic.objects.filter(stat_type="word_count", org_id=organization.id)
-        )[0].result
-        sentence_counts = list(
-            Statistic.objects.filter(stat_type="sentence_count", org_id=organization.id)
-        )[0].result
-        audio_word_counts = list(
-            Statistic.objects.filter(
-                stat_type="audio_word_count", org_id=organization.id
-            )
-        )[0].result
-        acoustic_normalised_word_counts = list(
-            Statistic.objects.filter(
-                stat_type="acoustic_normalised_word_count", org_id=organization.id
-            )
-        )[0].result
-        verbatim_word_counts = list(
-            Statistic.objects.filter(
-                stat_type="verbatim_word_count", org_id=organization.id
-            )
-        )[0].result
-        raw_durations = list(
-            Statistic.objects.filter(stat_type="raw_duration", org_id=organization.id)
-        )[0].result
-        total_durations = list(
-            Statistic.objects.filter(stat_type="total_duration", org_id=organization.id)
-        )[0].result
-        acoustic_normalised_durations = list(
-            Statistic.objects.filter(
-                stat_type="acoustic_normalised_duration", org_id=organization.id
-            )
-        )[0].result
-        verbatim_durations = list(
-            Statistic.objects.filter(
-                stat_type="verbatim_duration", org_id=organization.id
-            )
-        )[0].result
 
         if metainfo != True:
             for pjt_type in project_types:
                 final_result_for_all_types[pjt_type] = task_counts[pjt_type]
-        else:
-            for pjt_type in project_types:
-                if (
-                    "ConversationTranslation" in pjt_type
-                    or "ConversationTranslationEditing" in pjt_type
-                    or "ContextualTranslationEditing" in pjt_type
-                ):
-                    result = []
-                    current_word_counts = {}
-                    for langResult in word_counts[pjt_type]:
-                        current_word_counts[list(langResult.values())[0]] = langResult
-                    for lang in indian_languages:
-                        currStatResult = {"language": lang}
-                        if lang in current_word_counts:
-                            currStatResult["ann_cumulative_word_count"] = (
-                                current_word_counts[lang]["ann_cumulative_word_count"]
-                            )
-                            currStatResult["rew_cumulative_word_count"] = (
-                                current_word_counts[lang]["rew_cumulative_word_count"]
-                            )
-                        result.append(currStatResult)
-                    final_result_for_all_types[pjt_type] = result
 
         return Response(final_result_for_all_types)
