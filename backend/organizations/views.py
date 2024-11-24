@@ -3213,6 +3213,10 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             )
         )[0].result
 
+        ocr_meta_stats = list(
+            Statistic.objects.filter(stat_type="ocr_meta_stats", org_id=organization.id)
+        )[0].result
+
         if metainfo != True:
             for pjt_type in project_types:
                 final_result_for_all_types[pjt_type] = task_counts[pjt_type]
@@ -3234,4 +3238,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     final_result_for_all_types[pjt_type] = translation_meta_stats[
                         pjt_type
                     ]
+                elif (
+                    pjt_type == "OCRTranscription"
+                    or pjt_type == "OCRTranscriptionEditing"
+                ):
+                    final_result_for_all_types[pjt_type] = ocr_meta_stats[pjt_type]
         return Response(final_result_for_all_types)

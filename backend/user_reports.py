@@ -22,9 +22,20 @@ from django.db import connection
 from psycopg2.extras import Json
 from tasks.models import Statistic
 import pprint
-from projects.utils import (
-    convert_seconds_to_hours,
-    get_translation_dataset_project_types,
+from projects.utils import ocr_word_count
+
+from projects.models import (
+    Project,
+    ANNOTATION_STAGE,
+    REVIEW_STAGE,
+    SUPERCHECK_STAGE,
+)
+from tasks.models import (
+    Task,
+    Annotation,
+    ANNOTATOR_ANNOTATION,
+    REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
 )
 
 
@@ -750,3 +761,99 @@ def fetch_translation_dataset_stats():
                     )
                 final_result_for_all__types[pjt_type] = formatted_result
             upsert_stat("translation_meta_stats", org, final_result_for_all__types)
+
+
+def fetch_ocr_dataset_stats():
+
+    org_ids = [1, 2, 3]
+
+    project_types = ["OCRTranscription", "OCRTranscriptionEditing"]
+
+    for org in org_ids:
+
+        final_result_for_all__types = {}
+
+        for pjt_type in project_types:
+
+            proj_objs = Project.objects.filter(
+                organization_id=org, project_type=pjt_type
+            )
+
+            result = []
+            languages = list(set([proj.tgt_language for proj in proj_objs]))
+
+            for lang in languages:
+                proj_lang_filter = proj_objs.filter(tgt_language=lang)
+                annotation_tasks = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    task_status__in=[
+                        "annotated",
+                        "reviewed",
+                        "super_checked",
+                    ],
+                )
+                reviewer_tasks = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
+                    task_status__in=["reviewed", "super_checked"],
+                )
+
+                total_rev_word_count = 0
+                total_computed_rev_word_count = 0
+
+                for each_task in reviewer_tasks:
+                    if each_task.task_status == "reviewed":
+                        anno = Annotation.objects.filter(
+                            task=each_task,
+                            annotation_type=REVIEWER_ANNOTATION,
+                        )[0]
+                    elif each_task.task_status == "super_checked":
+                        anno = Annotation.objects.filter(
+                            task=each_task,
+                            annotation_type=SUPER_CHECKER_ANNOTATION,
+                        )[0]
+                    else:
+                        anno = each_task.correct_annotation
+                    total_rev_word_count += ocr_word_count(anno.result)
+                    try:
+                        total_computed_rev_word_count += anno.meta_stats["word_count"]
+                    except:
+                        pass
+
+                total_anno_word_count = 0
+                total_computed_anno_word_count = 0
+
+                for each_task in annotation_tasks:
+                    if each_task.task_status == "reviewed":
+                        anno = Annotation.objects.filter(
+                            task=each_task,
+                            annotation_type=REVIEWER_ANNOTATION,
+                        )[0]
+                    elif each_task.task_status == "exported":
+                        anno = each_task.correct_annotation
+                    elif each_task.task_status == "super_checked":
+                        anno = Annotation.objects.filter(
+                            task=each_task,
+                            annotation_type=SUPER_CHECKER_ANNOTATION,
+                        )[0]
+                    else:
+                        anno = Annotation.objects.filter(
+                            task=each_task,
+                            annotation_type=ANNOTATOR_ANNOTATION,
+                        )[0]
+                    total_anno_word_count += ocr_word_count(anno.result)
+                    try:
+                        total_computed_anno_word_count += anno.meta_stats["word_count"]
+                    except:
+                        pass
+
+                result.append(
+                    {
+                        "language": checkLangNone(lang),
+                        "ann_ocr_cumulative_word_count": total_anno_word_count,
+                        "rew_ocr_cumulative_word_count": total_rev_word_count,
+                    }
+                )
+
+            final_result_for_all__types[pjt_type] = result
+        upsert_stat("ocr_meta_stats", org, final_result_for_all__types)

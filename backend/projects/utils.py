@@ -448,15 +448,15 @@ def process_speech_results(
             annotation_result, speakers_json, True, False, False
         )
     elif is_StandardizedTranscriptionEditing:
-        task["data"][
-            "final_transcribed_json"
-        ] = convert_annotation_result_to_formatted_json(
-            annotation_result,
-            speakers_json,
-            True,
-            False,
-            False,
-            True,
+        task["data"]["final_transcribed_json"] = (
+            convert_annotation_result_to_formatted_json(
+                annotation_result,
+                speakers_json,
+                True,
+                False,
+                False,
+                True,
+            )
         )
         task["data"]["transcribed_json"] = task["data"]["final_transcribed_json"]
     else:

@@ -8,6 +8,7 @@ from user_reports import (
     fetch_task_counts,
     fetch_conversation_dataset_stats,
     fetch_translation_dataset_stats,
+    fetch_ocr_dataset_stats,
 )
 from celery.utils.log import get_task_logger
 
@@ -35,3 +36,9 @@ def fetchConversationMetaStats():
 def fetchTranslationMetaStats():
     fetch_translation_dataset_stats()
     logger.info("Completed Translation Meta Stats Update")
+
+
+@shared_task(name="fetchOCRMetaStats")
+def fetchOCRMetaStats():
+    fetch_ocr_dataset_stats()
+    logger.info("Completed OCR Meta Stats Update")
