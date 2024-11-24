@@ -250,261 +250,6 @@ def fetch_task_counts():
                 final_result_for_all__types[pjt_type] = formatted_result
             upsert_stat("task_count", org, final_result_for_all__types)
 
-    # org_ids = [1, 2, 3]
-
-    # project_types = [
-    #     "ConversationTranslation",
-    #     "ConversationTranslationEditing",
-    #     "ConversationVerification",
-    # ]
-
-    # stat_types = ["word_count", "sentence_count"]
-
-    with connection.cursor() as cursor:
-
-        for org in org_ids:
-
-            for stat_type in stat_types:
-
-                final_result_for_all__types = {}
-
-                for pjt_type in project_types:
-
-                    sql_query = f"""
-                                    with annotation_tasks (language,{stat_type}) as 
-                                    (
-                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
-                                    from tasks_annotation as ta 
-                                    join tasks_task as tsk on tsk.id=ta.task_id
-                                    join projects_project as pjt on pjt.id=tsk.project_id_id
-                                    where pjt.project_type in ('{pjt_type}')
-                                    and tsk.task_status in ('annotated','reviewed','super_checked')
-                                    and pjt.organization_id_id = {org}
-                                    group by pjt.tgt_language
-                                    ),
-                                    reviewer_tasks (language,{stat_type}) as (
-                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
-                                    from tasks_annotation as ta 
-                                    join tasks_task as tsk on tsk.id=ta.task_id
-                                    join projects_project as pjt on pjt.id=tsk.project_id_id
-                                    where pjt.project_type in ('{pjt_type}')
-                                    and tsk.task_status in ('reviewed','super_checked')
-                                    and pjt.project_stage in (2,3)
-                                    and pjt.organization_id_id = {org}
-                                    group by pjt.tgt_language
-                                    ),
-                                    superchecker_tasks (language,{stat_type}) as (
-                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
-                                    from tasks_annotation as ta 
-                                    join tasks_task as tsk on tsk.id=ta.task_id
-                                    join projects_project as pjt on pjt.id=tsk.project_id_id
-                                    where pjt.project_type in ('{pjt_type}')
-                                    and tsk.task_status in ('super_checked')
-                                    and pjt.project_stage in (3)
-                                    and pjt.organization_id_id = {org}
-                                    group by pjt.tgt_language
-                                    ),
-                                    annotation_tasks_exported (language,{stat_type}) as (
-                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
-                                    from tasks_annotation as ta 
-                                    join tasks_task as tsk on tsk.id=ta.task_id
-                                    join projects_project as pjt on pjt.id=tsk.project_id_id
-                                    where pjt.project_type in ('{pjt_type}')
-                                    AND tsk.task_status in ('exported')
-                                    AND pjt.project_stage in (1)
-                                    and pjt.organization_id_id = {org}
-                                    group by pjt.tgt_language
-                                    ),
-                                    reviewer_tasks_exported (language,{stat_type}) as (
-                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
-                                    from tasks_annotation as ta 
-                                    join tasks_task as tsk on tsk.id=ta.task_id
-                                    join projects_project as pjt on pjt.id=tsk.project_id_id
-                                    where pjt.project_type in ('{pjt_type}')
-                                    AND tsk.task_status in ('exported')
-                                    AND pjt.project_stage in (2)
-                                    and pjt.organization_id_id = {org}
-                                    group by pjt.tgt_language
-                                    ),
-                                    supercheck_tasks_exported (language,{stat_type}) as (
-                                    select pjt.tgt_language as language,sum(cast(ta.meta_stats->'{stat_type}' as float)) as {stat_type}
-                                    from tasks_annotation as ta 
-                                    join tasks_task as tsk on tsk.id=ta.task_id
-                                    join projects_project as pjt on pjt.id=tsk.project_id_id
-                                    where pjt.project_type in ('{pjt_type}')
-                                    AND tsk.task_status in ('exported')
-                                    AND pjt.project_stage in (3)
-                                    and pjt.organization_id_id = {org}
-                                    group by pjt.tgt_language
-                                    ),
-                                    reviewer_{stat_type} (language,{stat_type},tag) as (
-                                    SELECT 
-                                        language,
-                                        SUM({stat_type}) as {stat_type},
-                                        'rew'
-                                    FROM (
-                                        SELECT language, {stat_type} FROM reviewer_tasks
-                                        UNION ALL
-                                        SELECT language, {stat_type} FROM reviewer_tasks_exported
-                                        UNION ALL
-                                        SELECT language, {stat_type} FROM supercheck_tasks_exported
-                                    ) AS merged_tables
-                                    GROUP BY language
-                                    ),
-                                    annotation_{stat_type} (language,{stat_type},tag) as (
-                                    SELECT 
-                                        language,
-                                        SUM({stat_type}) as {stat_type},
-                                        'ann'
-                                    FROM (
-                                        SELECT language, {stat_type} FROM annotation_tasks
-                                        UNION ALL
-                                        SELECT language, {stat_type} FROM annotation_tasks_exported
-                                        UNION ALL
-                                        SELECT language, {stat_type} FROM reviewer_tasks_exported
-                                        UNION ALL
-                                        SELECT language, {stat_type} FROM supercheck_tasks_exported
-                                    ) AS merged_tables
-                                    GROUP BY language
-                                    ),
-                                    supercheck_{stat_type} (language,{stat_type},tag) as (
-                                    SELECT 
-                                        language,
-                                        SUM({stat_type}) as {stat_type},
-                                        'sup'
-                                    FROM (
-                                        SELECT language, {stat_type} FROM superchecker_tasks
-                                        UNION ALL
-                                        SELECT language, {stat_type} FROM supercheck_tasks_exported
-                                    ) AS merged_tables
-                                    GROUP BY language
-                                    ),
-                                    cumulative_{stat_type}s (language,{stat_type},tag) as (
-                                    select language,{stat_type},tag from annotation_{stat_type}
-                                    union all
-                                    select language,{stat_type},tag from reviewer_{stat_type}
-                                    union all
-                                    select language,{stat_type},tag from supercheck_{stat_type}
-                                    )
-                                    SELECT 
-                                        language,
-                                        SUM(CASE WHEN tag = 'ann' THEN {stat_type} ELSE 0 END) AS annotation_{stat_type},
-                                        SUM(CASE WHEN tag = 'rew' THEN {stat_type} ELSE 0 END) AS reviewer_{stat_type},
-                                        SUM(CASE WHEN tag = 'sup' THEN {stat_type} ELSE 0 END) AS superchecker_{stat_type}
-                                    FROM cumulative_{stat_type}s
-                                    GROUP BY language;
-                                """
-                    cursor.execute(sql=sql_query)
-                    result = cursor.fetchall()
-                    formatted_result = []
-                    for langResult in result:
-                        ann, rev, sup = langResult[1:]
-                        ann, rev, sup = (
-                            checkNoneValue(ann),
-                            checkNoneValue(rev),
-                            checkNoneValue(sup),
-                        )
-                        if stat_type == "word_count":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_cumulative_word_count": int(float(str(ann))),
-                                    "rew_cumulative_word_count": int(float(str(rev))),
-                                    "sup_cumulative_word_count": int(float(str(sup))),
-                                }
-                            )
-                        elif stat_type == "sentence_count":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "total_ann_sentence_count": int(float(str(ann))),
-                                    "total_rev_sentence_count": int(float(str(rev))),
-                                    "total_sup_sentence_count": int(float(str(sup))),
-                                }
-                            )
-
-                        elif stat_type == "audio_word_count":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_audio_word_count": int(float(str(ann))),
-                                    "rev_audio_word_count": int(float(str(rev))),
-                                    "sup_audio_word_count": int(float(str(sup))),
-                                }
-                            )
-
-                        elif stat_type == "total_segment_duration":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_total_segment_duration": float(str(ann)),
-                                    "rev_total_segment_duration": float(str(rev)),
-                                    "sup_total_segment_duration": float(str(sup)),
-                                }
-                            )
-                        elif stat_type == "not_null_segment_duration":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_not_null_segment_duration": float(str(ann)),
-                                    "rev_not_null_segment_duration": float(str(rev)),
-                                    "sup_not_null_segment_duration": float(str(sup)),
-                                }
-                            )
-                        elif stat_type == "transcribed_duration":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_transcribed_duration": float(str(ann)),
-                                    "rev_transcribed_duration": float(str(rev)),
-                                    "sup_transcribed_duration": float(str(sup)),
-                                }
-                            )
-                        elif stat_type == "verbatim_duration":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_verbatim_duration": float(str(ann)),
-                                    "rev_verbatim_duration": float(str(rev)),
-                                    "sup_verbatim_duration": float(str(sup)),
-                                }
-                            )
-                        elif stat_type == "verbatim_word_count":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_verbatim_word_count": float(str(ann)),
-                                    "rev_verbatim_word_count": float(str(rev)),
-                                    "sup_verbatim_word_count": float(str(sup)),
-                                }
-                            )
-                        elif stat_type == "acoustic_normalised_duration":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_acoustic_normalised_duration": float(str(ann)),
-                                    "rev_acoustic_normalised_duration": float(str(rev)),
-                                    "sup_acoustic_normalised_duration": float(str(sup)),
-                                }
-                            )
-                        elif stat_type == "acoustic_normalised_word_count":
-                            formatted_result.append(
-                                {
-                                    "language": checkLangNone(langResult[0]),
-                                    "ann_acoustic_normalised_word_count": float(
-                                        str(ann)
-                                    ),
-                                    "rev_acoustic_normalised_word_count": float(
-                                        str(rev)
-                                    ),
-                                    "sup_acoustic_normalised_word_count": float(
-                                        str(sup)
-                                    ),
-                                }
-                            )
-                    final_result_for_all__types[pjt_type] = formatted_result
-                upsert_stat(stat_type, org, final_result_for_all__types)
-
 
 def calculate_reports():
     analytics = AnalyticsViewSet()
@@ -816,3 +561,116 @@ def calculate_reports():
             [user.email],
             html_message=email_to_send,
         )
+
+
+def fetch_conversation_dataset_stats():
+
+    org_ids = [1, 2, 3]
+
+    project_types = [
+        "ConversationTranslation",
+        "ConversationTranslationEditing",
+        "ContextualTranslationEditing",
+    ]
+
+    with connection.cursor() as cursor:
+
+        for org in org_ids:
+
+            final_result_for_all__types = {}
+
+            for pjt_type in project_types:
+
+                stat_query = f"""
+                                WITH
+                                    ANN_WORD_COUNTS (LANGUAGE, ANN_CUMULATIVE_WORD_COUNT) AS (
+                                        SELECT
+                                            PJT.TGT_LANGUAGE,
+                                            SUM(CAST(TSK.DATA -> 'word_count' AS INTEGER)) AS WORD_COUNT
+                                        FROM
+                                            TASKS_TASK AS TSK
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            PJT.PROJECT_TYPE IN ('{pjt_type}')
+                                            AND TSK.TASK_STATUS IN ('annotated', 'reviewed', 'super_checked')
+                                            AND PJT.ORGANIZATION_ID_ID = {org}
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE
+                                    ),
+                                    REV_WORD_COUNTS (LANGUAGE, REW_CUMULATIVE_WORD_COUNT) AS (
+                                        SELECT
+                                            PJT.TGT_LANGUAGE,
+                                            SUM(CAST(TSK.DATA -> 'word_count' AS INTEGER)) AS WORD_COUNT
+                                        FROM
+                                            TASKS_TASK AS TSK
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            PJT.PROJECT_TYPE IN ('{pjt_type}')
+                                            AND TSK.TASK_STATUS IN ('reviewed', 'super_checked')
+                                            AND PJT.PROJECT_STAGE IN (2, 3)
+                                            AND PJT.ORGANIZATION_ID_ID = {org}
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE
+                                    ),
+                                    ANN_SENTENCE_COUNTS (LANGUAGE, TOTAL_ANN_SENTENCE_COUNT) AS (
+                                        SELECT
+                                            PJT.TGT_LANGUAGE,
+                                            SUM(CAST(TSK.DATA -> 'sentence_count' AS INTEGER)) AS WORD_COUNT
+                                        FROM
+                                            TASKS_TASK AS TSK
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            PJT.PROJECT_TYPE IN ('{pjt_type}')
+                                            AND TSK.TASK_STATUS IN ('annotated', 'reviewed', 'super_checked')
+                                            AND PJT.ORGANIZATION_ID_ID = {org}
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE
+                                    ),
+                                    REV_SENTENCE_COUNTS (LANGUAGE, TOTAL_REV_SENTENCE_COUNT) AS (
+                                        SELECT
+                                            PJT.TGT_LANGUAGE,
+                                            SUM(CAST(TSK.DATA -> 'sentence_count' AS INTEGER)) AS WORD_COUNT
+                                        FROM
+                                            TASKS_TASK AS TSK
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            PJT.PROJECT_TYPE IN ('{pjt_type}')
+                                            AND TSK.TASK_STATUS IN ('reviewed', 'super_checked')
+                                            AND PJT.PROJECT_STAGE IN (2, 3)
+                                            AND PJT.ORGANIZATION_ID_ID = {org}
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE
+                                    )
+                                SELECT
+                                    COALESCE(
+                                        AWCS.LANGUAGE,
+                                        RWCS.LANGUAGE,
+                                        ASCS.LANGUAGE,
+                                        RSCS.LANGUAGE
+                                    ) AS LANGUAGE,
+                                    COALESCE(AWCS.ANN_CUMULATIVE_WORD_COUNT, 0) AS ANN_CUMULATIVE_WORD_COUNT,
+                                    COALESCE(RWCS.REW_CUMULATIVE_WORD_COUNT, 0) AS REW_CUMULATIVE_WORD_COUNT,
+                                    COALESCE(ASCS.TOTAL_ANN_SENTENCE_COUNT, 0) AS TOTAL_ANN_SENTENCE_COUNT,
+                                    COALESCE(RSCS.TOTAL_REV_SENTENCE_COUNT, 0) AS TOTAL_REV_SENTENCE_COUNT
+                                FROM
+                                    ANN_WORD_COUNTS AWCS
+                                    FULL OUTER JOIN REV_WORD_COUNTS RWCS ON AWCS.LANGUAGE = RWCS.LANGUAGE
+                                    FULL OUTER JOIN ANN_SENTENCE_COUNTS ASCS ON COALESCE(AWCS.LANGUAGE, RWCS.LANGUAGE) = ASCS.LANGUAGE
+                                    FULL OUTER JOIN REV_SENTENCE_COUNTS RSCS ON COALESCE(AWCS.LANGUAGE, RWCS.LANGUAGE, ASCS.LANGUAGE) = RSCS.LANGUAGE;
+                                """
+                cursor.execute(sql=stat_query)
+                result = cursor.fetchall()
+                formatted_result = []
+                for langResult in result:
+                    awc, rwc, asc, rsc = langResult[1:]
+                    formatted_result.append(
+                        {
+                            "language": checkLangNone(langResult[0]),
+                            "ann_cumulative_word_count": int(str(awc)),
+                            "rew_cumulative_word_count": int(str(rwc)),
+                            "total_rev_sentance_count": int(str(asc)),
+                            "total_ann_sentance_count": int(str(rsc)),
+                        }
+                    )
+                final_result_for_all__types[pjt_type] = formatted_result
+            upsert_stat("conversation_meta_stats", org, final_result_for_all__types)

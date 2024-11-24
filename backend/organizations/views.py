@@ -3201,8 +3201,24 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             Statistic.objects.filter(stat_type="task_count", org_id=organization.id)
         )[0].result
 
+        conversation_meta_stats = list(
+            Statistic.objects.filter(
+                stat_type="conversation_meta_stats", org_id=organization.id
+            )
+        )[0].result
+
         if metainfo != True:
             for pjt_type in project_types:
                 final_result_for_all_types[pjt_type] = task_counts[pjt_type]
 
+        else:
+            for pjt_type in project_types:
+                if (
+                    "ConversationTranslation" in pjt_type
+                    or "ConversationTranslationEditing" in pjt_type
+                    or "ContextualTranslationEditing" in pjt_type
+                ):
+                    final_result_for_all_types[pjt_type] = conversation_meta_stats[
+                        pjt_type
+                    ]
         return Response(final_result_for_all_types)

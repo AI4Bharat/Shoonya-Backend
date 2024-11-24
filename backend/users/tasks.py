@@ -3,7 +3,11 @@ from django.conf import settings
 from django.core.mail import send_mail
 from celery.schedules import crontab
 from shoonya_backend.celery import celery_app
-from user_reports import calculate_reports, fetch_task_counts
+from user_reports import (
+    calculate_reports,
+    fetch_task_counts,
+    fetch_conversation_dataset_stats,
+)
 from celery.utils.log import get_task_logger
 
 logger = get_task_logger(__name__)
@@ -18,3 +22,9 @@ def send_mail_task():
 def fetchTaskCounts():
     fetch_task_counts()
     logger.info("Completed Task Count Update")
+
+
+@shared_task(name="fetchConversationMetaStats")
+def fetchConversationMetaStats():
+    fetch_conversation_dataset_stats()
+    logger.info("Completed Conversation Meta Stats Update")
