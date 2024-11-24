@@ -22,7 +22,10 @@ from django.db import connection
 from psycopg2.extras import Json
 from tasks.models import Statistic
 import pprint
-from projects.utils import convert_seconds_to_hours
+from projects.utils import (
+    convert_seconds_to_hours,
+    get_translation_dataset_project_types,
+)
 
 
 def checkNoneValue(value):
@@ -674,3 +677,76 @@ def fetch_conversation_dataset_stats():
                     )
                 final_result_for_all__types[pjt_type] = formatted_result
             upsert_stat("conversation_meta_stats", org, final_result_for_all__types)
+
+
+def fetch_translation_dataset_stats():
+
+    org_ids = [1, 2, 3]
+
+    project_types = [
+        "MonolingualTranslation",
+        "TranslationEditing",
+        "SemanticTextualSimilarity_Scale5",
+    ]
+
+    with connection.cursor() as cursor:
+
+        for org in org_ids:
+
+            final_result_for_all__types = {}
+
+            for pjt_type in project_types:
+
+                stat_query = f"""
+                                WITH
+                                    ANN_WORD_COUNTS (LANGUAGE, ANN_CUMULATIVE_WORD_COUNT) AS (
+                                        SELECT
+                                            PJT.TGT_LANGUAGE,
+                                            SUM(CAST(TSK.DATA -> 'word_count' AS INTEGER)) AS WORD_COUNT
+                                        FROM
+                                            TASKS_TASK AS TSK
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            PJT.PROJECT_TYPE IN ('{pjt_type}')
+                                            AND TSK.TASK_STATUS IN ('annotated', 'reviewed', 'super_checked')
+                                            AND PJT.ORGANIZATION_ID_ID = {org}
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE
+                                    ),
+                                    REV_WORD_COUNTS (LANGUAGE, REW_CUMULATIVE_WORD_COUNT) AS (
+                                        SELECT
+                                            PJT.TGT_LANGUAGE,
+                                            SUM(CAST(TSK.DATA -> 'word_count' AS INTEGER)) AS WORD_COUNT
+                                        FROM
+                                            TASKS_TASK AS TSK
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            PJT.PROJECT_TYPE IN ('{pjt_type}')
+                                            AND TSK.TASK_STATUS IN ('reviewed', 'super_checked')
+                                            AND PJT.PROJECT_STAGE IN (2, 3)
+                                            AND PJT.ORGANIZATION_ID_ID = {org}
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE
+                                    )
+                                SELECT
+                                    COALESCE(AWCS.LANGUAGE, RWCS.LANGUAGE) AS LANGUAGE,
+                                    COALESCE(AWCS.ANN_CUMULATIVE_WORD_COUNT, 0) AS ANN_CUMULATIVE_WORD_COUNT,
+                                    COALESCE(RWCS.REW_CUMULATIVE_WORD_COUNT, 0) AS REW_CUMULATIVE_WORD_COUNT
+                                FROM
+                                    ANN_WORD_COUNTS AWCS
+                                    FULL OUTER JOIN REV_WORD_COUNTS RWCS ON AWCS.LANGUAGE = RWCS.LANGUAGE
+                                """
+                cursor.execute(sql=stat_query)
+                result = cursor.fetchall()
+                formatted_result = []
+                for langResult in result:
+                    awc, rwc = langResult[1:]
+                    formatted_result.append(
+                        {
+                            "language": checkLangNone(langResult[0]),
+                            "ann_cumulative_word_count": int(str(awc)),
+                            "rew_cumulative_word_count": int(str(rwc)),
+                        }
+                    )
+                final_result_for_all__types[pjt_type] = formatted_result
+            upsert_stat("translation_meta_stats", org, final_result_for_all__types)

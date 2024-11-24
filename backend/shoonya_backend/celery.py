@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 from datetime import timedelta
 from celery.schedules import crontab
+from celery.signals import worker_ready
 import os
 
 from celery import Celery
@@ -44,10 +45,22 @@ celery_app.conf.beat_schedule = {
         "task": "fetchConversationMetaStats",
         "schedule": crontab(minute="*/10"),
     },
+    "fetchTranslationMetaStats": {
+        "task": "fetchTranslationMetaStats",
+        "schedule": crontab(minute="*/10"),
+    },
 }
 
 # Celery Task related settings
 celery_app.autodiscover_tasks()
+
+
+@worker_ready.connect
+def at_start(sender, **k):
+    with sender.app.connection() as conn:
+        sender.app.send_task("fetchTaskCounts", connection=conn)
+        sender.app.send_task("fetchTranslationMetaStats", connection=conn)
+        sender.app.send_task("fetchConversationMetaStats", connection=conn)
 
 
 @celery_app.task(bind=True)
