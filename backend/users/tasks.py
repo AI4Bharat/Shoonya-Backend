@@ -9,6 +9,7 @@ from user_reports import (
     fetch_conversation_dataset_stats,
     fetch_translation_dataset_stats,
     fetch_ocr_dataset_stats,
+    fetch_audio_dataset_stats,
 )
 from celery.utils.log import get_task_logger
 
@@ -42,3 +43,9 @@ def fetchTranslationMetaStats():
 def fetchOCRMetaStats():
     fetch_ocr_dataset_stats()
     logger.info("Completed OCR Meta Stats Update")
+
+
+@shared_task(name="fetchAudioMetaStats")
+def fetchAudioMetaStats():
+    fetch_audio_dataset_stats()
+    logger.info("Completed Audio Meta Stats Update")

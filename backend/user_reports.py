@@ -22,7 +22,13 @@ from django.db import connection
 from psycopg2.extras import Json
 from tasks.models import Statistic
 import pprint
-from projects.utils import ocr_word_count
+from projects.utils import (
+    ocr_word_count,
+    get_audio_project_types,
+    audio_word_count,
+    get_audio_transcription_duration,
+    convert_seconds_to_hours,
+)
 
 from projects.models import (
     Project,
@@ -857,3 +863,125 @@ def fetch_ocr_dataset_stats():
 
             final_result_for_all__types[pjt_type] = result
         upsert_stat("ocr_meta_stats", org, final_result_for_all__types)
+
+
+def fetch_audio_dataset_stats():
+
+    org_ids = [1, 2, 3]
+
+    project_types = get_audio_project_types()
+
+    for org in org_ids:
+
+        final_result_for_all__types = {}
+
+        for pjt_type in project_types:
+
+            proj_objs = Project.objects.filter(
+                organization_id=org, project_type=pjt_type
+            )
+
+            result = []
+            languages = list(set([proj.tgt_language for proj in proj_objs]))
+
+            for lang in languages:
+                proj_lang_filter = proj_objs.filter(tgt_language=lang)
+                annotation_tasks = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    task_status__in=[
+                        "annotated",
+                        "reviewed",
+                        "super_checked",
+                    ],
+                )
+                reviewer_tasks = Task.objects.filter(
+                    project_id__in=proj_lang_filter,
+                    project_id__project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
+                    task_status__in=["reviewed", "super_checked"],
+                )
+
+                total_rev_duration_list = []
+                raw_audio_duration = 0
+                audio_segment_word_count_list = []
+
+                for each_task in reviewer_tasks:
+                    try:
+                        if each_task.task_status == "reviewed":
+                            anno = Annotation.objects.filter(
+                                task=each_task,
+                                annotation_type=REVIEWER_ANNOTATION,
+                            )[0]
+                        elif each_task.task_status == "super_checked":
+                            anno = Annotation.objects.filter(
+                                task=each_task,
+                                annotation_type=SUPER_CHECKER_ANNOTATION,
+                            )[0]
+                        else:
+                            anno = each_task.correct_annotation
+                        total_rev_duration_list.append(
+                            get_audio_transcription_duration(anno.result)
+                        )
+                        raw_audio_duration += each_task.data["audio_duration"]
+                        audio_segment_word_count_list.append(
+                            audio_word_count(anno.result)
+                        )
+                    except:
+                        pass
+                rev_total_duration = sum(total_rev_duration_list)
+                rev_total_time = convert_seconds_to_hours(rev_total_duration)
+                rev_raw_time = convert_seconds_to_hours(raw_audio_duration)
+                rev_audio_word_count = sum(audio_segment_word_count_list)
+
+                # annotation audio duration calculation
+
+                total_ann_duration_list = []
+                raw_audio_duration = 0
+                audio_segment_word_count_list = []
+
+                for each_task in annotation_tasks:
+                    try:
+                        if each_task.task_status == "reviewed":
+                            anno = Annotation.objects.filter(
+                                task=each_task,
+                                annotation_type=REVIEWER_ANNOTATION,
+                            )[0]
+                        elif each_task.task_status == "exported":
+                            anno = each_task.correct_annotation
+                        elif each_task.task_status == "super_checked":
+                            anno = Annotation.objects.filter(
+                                task=each_task,
+                                annotation_type=SUPER_CHECKER_ANNOTATION,
+                            )[0]
+                        else:
+                            anno = Annotation.objects.filter(
+                                task=each_task,
+                                annotation_type=ANNOTATOR_ANNOTATION,
+                            )[0]
+                        total_ann_duration_list.append(
+                            get_audio_transcription_duration(anno.result)
+                        )
+                        raw_audio_duration += each_task.data["audio_duration"]
+                        audio_segment_word_count_list.append(
+                            audio_word_count(anno.result)
+                        )
+                    except:
+                        pass
+                ann_total_duration = sum(total_ann_duration_list)
+                ann_total_time = convert_seconds_to_hours(ann_total_duration)
+                ann_raw_time = convert_seconds_to_hours(raw_audio_duration)
+                ann_audio_word_count = sum(audio_segment_word_count_list)
+
+                result.append(
+                    {
+                        "language": lang,
+                        "ann_cumulative_aud_duration": ann_total_time,
+                        "rew_cumulative_aud_duration": rev_total_time,
+                        "ann_raw_aud_duration": ann_raw_time,
+                        "rew_raw_aud_duration": rev_raw_time,
+                        "ann_audio_word_count": ann_audio_word_count,
+                        "rev_audio_word_count": rev_audio_word_count,
+                    }
+                )
+
+            final_result_for_all__types[pjt_type] = result
+        upsert_stat("audio_meta_stats", org, final_result_for_all__types)

@@ -53,6 +53,10 @@ celery_app.conf.beat_schedule = {
         "task": "fetchOCRMetaStats",
         "schedule": crontab(minute="*/10"),
     },
+    "fetchAudioMetaStats": {
+        "task": "fetchAudioMetaStats",
+        "schedule": crontab(minute="*/10"),
+    },
 }
 
 # Celery Task related settings
@@ -66,6 +70,7 @@ def at_start(sender, **k):
         sender.app.send_task("fetchTranslationMetaStats", connection=conn)
         sender.app.send_task("fetchConversationMetaStats", connection=conn)
         sender.app.send_task("fetchOCRMetaStats", connection=conn)
+        sender.app.send_task("fetchAudioMetaStats", connection=conn)
 
 
 @celery_app.task(bind=True)
