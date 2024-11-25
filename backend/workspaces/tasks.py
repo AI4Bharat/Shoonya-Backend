@@ -1465,7 +1465,6 @@ def un_pack_annotation_tasks(
     if len(lead_time_annotated_tasks) > 0:
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
 
-
     return (
         accepted.count(),
         to_be_revised.count(),
