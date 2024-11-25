@@ -869,7 +869,12 @@ def fetch_audio_dataset_stats():
 
     org_ids = [1, 2, 3]
 
-    project_types = get_audio_project_types()
+    project_types = [
+        "AudioSegmentation",
+        "AudioTranscription",
+        "AudioTranscriptionEditing",
+        "StandardizedTranscriptionEditing",
+    ]
 
     for org in org_ids:
 
@@ -985,3 +990,17 @@ def fetch_audio_dataset_stats():
 
             final_result_for_all__types[pjt_type] = result
         upsert_stat("audio_meta_stats", org, final_result_for_all__types)
+
+def fetch_audio_dataset_query_stats():
+
+    org_ids = [1,2,3]
+
+    project_types = get_audio_project_types()
+
+    for org in org_ids:
+
+        final_result_for_all__types = {}
+
+        for pjt_type in project_types:
+
+            

@@ -55,7 +55,7 @@ celery_app.conf.beat_schedule = {
     },
     "fetchAudioMetaStats": {
         "task": "fetchAudioMetaStats",
-        "schedule": crontab(minute="*/10"),
+        "schedule": crontab(minute="*/20"),
     },
 }
 
@@ -63,14 +63,14 @@ celery_app.conf.beat_schedule = {
 celery_app.autodiscover_tasks()
 
 
-@worker_ready.connect
-def at_start(sender, **k):
-    with sender.app.connection() as conn:
-        sender.app.send_task("fetchTaskCounts", connection=conn)
-        sender.app.send_task("fetchTranslationMetaStats", connection=conn)
-        sender.app.send_task("fetchConversationMetaStats", connection=conn)
-        sender.app.send_task("fetchOCRMetaStats", connection=conn)
-        sender.app.send_task("fetchAudioMetaStats", connection=conn)
+# @worker_ready.connect
+# def at_start(sender, **k):
+#     with sender.app.connection() as conn:
+#         sender.app.send_task("fetchTaskCounts", connection=conn)
+#         sender.app.send_task("fetchTranslationMetaStats", connection=conn)
+#         sender.app.send_task("fetchConversationMetaStats", connection=conn)
+#         sender.app.send_task("fetchOCRMetaStats", connection=conn)
+#         sender.app.send_task("fetchAudioMetaStats", connection=conn)
 
 
 @celery_app.task(bind=True)
