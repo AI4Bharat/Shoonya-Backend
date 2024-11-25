@@ -1016,77 +1016,16 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
             >= anno.task.project_id.revision_loop_count
         ):
             tasks_rejected_max_times += 1
-
+    avg_word_error_rate = 0
     if project_type != None:
-        project_type_lower = project_type.lower()
-        is_translation_project = True if "translation" in project_type_lower else False
-
-        validated_word_count_list = []
-        validated_with_changes_word_count_list = []
-        rejected_word_count_list = []
-        validated_audio_duration_list = []
-        validated_with_changes_audio_duration_list = []
-        rejected_audio_duration_list = []
-        total_raw_audio_duration_list = []
         total_word_error_rate_rs_list = []
-        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-            for anno in validated_objs:
-                try:
-                    validated_word_count_list.append(anno.task.data["word_count"])
-                except:
-                    pass
-            for anno in validated_with_changes_objs:
-                try:
-                    validated_with_changes_word_count_list.append(
-                        anno.task.data["word_count"]
-                    )
-                except:
-                    pass
-            for anno in rejected_objs:
-                try:
-                    rejected_word_count_list.append(anno.task.data["word_count"])
-                except:
-                    pass
-        elif "OCRTranscription" in project_type:
-            for anno in validated_objs:
-                validated_word_count_list.append(ocr_word_count(anno.result))
-            for anno in validated_with_changes_objs:
-                validated_with_changes_word_count_list.append(
-                    ocr_word_count(anno.result)
-                )
-            for anno in rejected_objs:
-                rejected_word_count_list.append(ocr_word_count(anno.result))
-        elif project_type in get_audio_project_types():
-            for anno in validated_objs:
-                try:
-                    validated_audio_duration_list.append(
-                        get_audio_transcription_duration(anno.result)
-                    )
-                except:
-                    pass
-            for anno in validated_with_changes_objs:
-                try:
-                    validated_with_changes_audio_duration_list.append(
-                        get_audio_transcription_duration(anno.result)
-                    )
-                except:
-                    pass
-            for anno in rejected_objs:
-                try:
-                    rejected_audio_duration_list.append(
-                        get_audio_transcription_duration(anno.result)
-                    )
-                except:
-                    pass
+        if project_type in "InstructionDrivenChat":
             for anno in total_sup_annos:
                 try:
                     total_word_error_rate_rs_list.append(
                         calculate_word_error_rate_between_two_audio_transcription_annotation(
                             anno.result, anno.parent_annotation.result
                         )
-                    )
-                    total_raw_audio_duration_list.append(
-                        anno.task.data["audio_duration"]
                     )
                 except:
                     pass
@@ -1099,22 +1038,6 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                     )
                 except:
                     pass
-
-        validated_word_count = sum(validated_word_count_list)
-        validated_with_changes_word_count = sum(validated_with_changes_word_count_list)
-        rejected_word_count = sum(rejected_word_count_list)
-        validated_audio_duration = convert_seconds_to_hours(
-            sum(validated_audio_duration_list)
-        )
-        validated_with_changes_audio_duration = convert_seconds_to_hours(
-            sum(validated_with_changes_audio_duration_list)
-        )
-        rejected_audio_duration = convert_seconds_to_hours(
-            sum(rejected_audio_duration_list)
-        )
-        total_raw_audio_duration = convert_seconds_to_hours(
-            sum(total_raw_audio_duration_list)
-        )
         if len(total_word_error_rate_rs_list) > 0:
             avg_word_error_rate = sum(total_word_error_rate_rs_list) / len(
                 total_word_error_rate_rs_list
@@ -1140,23 +1063,7 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
     }
 
     if project_type != None:
-        if is_translation_project or project_type in [
-            "SemanticTextualSimilarity_Scale5",
-            "OCRTranscriptionEditing",
-            "OCRTranscription",
-        ]:
-            result["Validated Word Count"] = validated_word_count
-            result[
-                "Validated With Changes Word Count"
-            ] = validated_with_changes_word_count
-            result["Rejected Word Count"] = rejected_word_count
-        elif project_type in get_audio_project_types():
-            result["Validated Audio Duration"] = validated_audio_duration
-            result[
-                "Validated With Changes Audio Duration"
-            ] = validated_with_changes_audio_duration
-            result["Rejected Audio Duration"] = rejected_audio_duration
-            result["Total Raw Audio Duration"] = total_raw_audio_duration
+        if project_type in "InstructionDrivenChat":
             result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
 
     return result
@@ -1324,10 +1231,8 @@ def get_review_reports(
             >= anno.task.project_id.revision_loop_count
         ):
             tasks_rejected_max_times += 1
-
+    avg_word_error_rate_ar, avg_word_error_rate_rs = 0, 0
     if project_type != None:
-        project_type_lower = project_type.lower()
-        is_translation_project = True if "translation" in project_type_lower else False
         total_rev_annos_accepted = total_rev_annos.filter(
             annotation_status__in=[
                 "accepted",
@@ -1335,26 +1240,11 @@ def get_review_reports(
                 "accepted_with_major_changes",
             ]
         )
-        total_audio_duration_list = []
-        total_raw_audio_duration_list = []
-        total_word_count_list = []
         total_word_error_rate_ar_list = []
         total_word_error_rate_rs_list = []
-        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-            for anno in total_rev_annos_accepted:
-                total_word_count_list.append(anno.task.data["word_count"])
-        elif "OCRTranscription" in project_type:
-            for anno in total_rev_annos_accepted:
-                total_word_count_list.append(ocr_word_count(anno.result))
-        elif project_type in get_audio_project_types():
+        if project_type in "InstructionDrivenChat":
             for anno in total_rev_annos_accepted:
                 try:
-                    total_audio_duration_list.append(
-                        get_audio_transcription_duration(anno.result)
-                    )
-                    total_raw_audio_duration_list.append(
-                        anno.task.data["audio_duration"]
-                    )
                     total_word_error_rate_ar_list.append(
                         calculate_word_error_rate_between_two_audio_transcription_annotation(
                             anno.result, anno.parent_annotation.result
@@ -1371,12 +1261,6 @@ def get_review_reports(
                     )
                 except:
                     pass
-
-        total_word_count = sum(total_word_count_list)
-        total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-        total_raw_audio_duration = convert_seconds_to_hours(
-            sum(total_raw_audio_duration_list)
-        )
         if len(total_word_error_rate_ar_list) > 0:
             avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
                 total_word_error_rate_ar_list
@@ -1455,15 +1339,7 @@ def get_review_reports(
         }
 
         if project_type != None:
-            if is_translation_project or project_type in [
-                "SemanticTextualSimilarity_Scale5",
-                "OCRTranscriptionEditing",
-                "OCRTranscription",
-            ]:
-                result["Total Word Count"] = total_word_count
-            elif project_type in get_audio_project_types():
-                result["Total Segments Duration"] = total_audio_duration
-                result["Total Raw Audio Duration"] = total_raw_audio_duration
+            if project_type in "InstructionDrivenChat":
                 result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
                 result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
 
@@ -1488,15 +1364,7 @@ def get_review_reports(
     }
 
     if project_type != None:
-        if is_translation_project or project_type in [
-            "SemanticTextualSimilarity_Scale5",
-            "OCRTranscriptionEditing",
-            "OCRTranscription",
-        ]:
-            result["Total Word Count"] = total_word_count
-        elif project_type in get_audio_project_types():
-            result["Total Segments Duration"] = total_audio_duration
-            result["Total Raw Audio Duration"] = total_raw_audio_duration
+        if project_type in "InstructionDrivenChat":
             result["Average Word Error Rate A/R"] = round(avg_word_error_rate_ar, 2)
             result["Average Word Error Rate R/S"] = round(avg_word_error_rate_rs, 2)
 
@@ -1596,51 +1464,6 @@ def un_pack_annotation_tasks(
     avg_lead_time = 0
     if len(lead_time_annotated_tasks) > 0:
         avg_lead_time = sum(lead_time_annotated_tasks) / len(lead_time_annotated_tasks)
-    total_word_count = 0
-    if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-        total_word_count_list = []
-        for each_task in labeled_annotations:
-            try:
-                total_word_count_list.append(each_task.task.data["word_count"])
-            except:
-                pass
-
-        total_word_count = sum(total_word_count_list)
-    elif "OCRTranscription" in project_type:
-        total_word_count = 0
-        for each_anno in labeled_annotations:
-            total_word_count += ocr_word_count(each_anno.result)
-
-    total_duration = "0:00:00"
-    total_raw_duration = 0.0
-    avg_segment_duration = 0
-    avg_segments_per_task = 0
-    if project_type in get_audio_project_types():
-        total_duration_list = []
-        total_raw_duration_list = []
-        total_audio_segments_list = []
-        for each_task in labeled_annotations:
-            try:
-                total_duration_list.append(
-                    get_audio_transcription_duration(each_task.result)
-                )
-                total_raw_duration_list.append(each_task.task.data["audio_duration"])
-                total_audio_segments_list.append(
-                    get_audio_segments_count(each_task.result)
-                )
-            except:
-                pass
-        total_duration = convert_seconds_to_hours(sum(total_duration_list))
-        total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
-        total_audio_segments = sum(total_audio_segments_list)
-        try:
-            avg_segment_duration = sum(total_duration_list) / total_audio_segments
-            avg_segments_per_task = total_audio_segments / len(
-                total_audio_segments_list
-            )
-        except:
-            avg_segment_duration = 0
-            avg_segments_per_task = 0
 
     return (
         accepted.count(),
@@ -1649,11 +1472,6 @@ def un_pack_annotation_tasks(
         accepted_wt_major_changes.count(),
         labeled,
         avg_lead_time,
-        total_word_count,
-        total_duration,
-        total_raw_duration,
-        avg_segment_duration,
-        avg_segments_per_task,
     )
 
 

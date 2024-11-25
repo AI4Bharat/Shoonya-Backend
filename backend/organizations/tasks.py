@@ -556,16 +556,18 @@ def get_counts(
                 annotators=annotator,
             )
     project_count = projects_objs.count()
-    no_of_workspaces_objs = len(
-        set([each_proj.workspace_id.id for each_proj in projects_objs])
-    )
+    try:
+        no_of_workspaces_objs = len(
+            set([each_proj.workspace_id.id for each_proj in projects_objs])
+        )
+    except Exception as e:
+        no_of_workspaces_objs = 0
     proj_ids = [eachid["id"] for eachid in projects_objs.values("id")]
 
     all_tasks_in_project = Task.objects.filter(
         Q(project_id__in=proj_ids) & Q(annotation_users=annotator)
     )
     assigned_tasks = all_tasks_in_project.count()
-    total_raw_duration = 0
 
     if project_progress_stage != None and project_progress_stage > ANNOTATION_STAGE:
         (
@@ -575,11 +577,6 @@ def get_counts(
             accepted_wt_major_changes,
             labeled,
             avg_lead_time,
-            total_word_count,
-            total_duration,
-            total_raw_duration,
-            avg_segment_duration,
-            avg_segments_per_task,
         ) = un_pack_annotation_tasks(
             proj_ids,
             annotator,
@@ -607,50 +604,6 @@ def get_counts(
             avg_lead_time = sum(lead_time_annotated_tasks) / len(
                 lead_time_annotated_tasks
             )
-        total_word_count = 0
-        if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
-            total_word_count_list = []
-            for each_task in labeled_annotations:
-                try:
-                    total_word_count_list.append(each_task.task.data["word_count"])
-                except:
-                    pass
-
-            total_word_count = sum(total_word_count_list)
-        elif "OCRTranscription" in project_type:
-            total_word_count = 0
-            for each_anno in labeled_annotations:
-                total_word_count += ocr_word_count(each_anno.result)
-
-        total_duration = "0:00:00"
-        avg_segment_duration = 0
-        avg_segments_per_task = 0
-        if project_type in get_audio_project_types():
-            total_duration_list = []
-            total_raw_duration_list = []
-            total_audio_segments_list = []
-            for each_task in labeled_annotations:
-                try:
-                    total_duration_list.append(
-                        get_audio_transcription_duration(each_task.result)
-                    )
-                    total_audio_segments_list.append(
-                        get_audio_segments_count(each_task.result)
-                    )
-                    total_raw_duration_list.append(
-                        each_task.task.data["audio_duration"]
-                    )
-                except:
-                    pass
-            total_duration = convert_seconds_to_hours(sum(total_duration_list))
-            total_raw_duration = convert_seconds_to_hours(sum(total_raw_duration_list))
-            total_audio_segments = sum(total_audio_segments_list)
-            try:
-                avg_segment_duration = total_duration / total_audio_segments
-                avg_segments_per_task = total_audio_segments / len(labeled_annotations)
-            except:
-                avg_segment_duration = 0
-                avg_segments_per_task = 0
 
     total_skipped_tasks = Annotation.objects.filter(
         task__project_id__in=proj_ids,
@@ -689,11 +642,6 @@ def get_counts(
         all_draft_tasks_in_project.count(),
         project_count,
         no_of_workspaces_objs,
-        total_word_count,
-        total_duration,
-        total_raw_duration,
-        avg_segment_duration,
-        avg_segments_per_task,
     )
 
 
@@ -1289,11 +1237,6 @@ def send_user_analytics_mail_org(
                 total_draft_tasks_count,
                 no_of_projects,
                 no_of_workspaces_objs,
-                total_word_count,
-                total_duration,
-                total_raw_duration,
-                avg_segment_duration,
-                avg_segments_per_task,
             ) = get_counts(
                 pk,
                 annotator,
@@ -1324,19 +1267,20 @@ def send_user_analytics_mail_org(
                     "Unlabeled": total_unlabeled_tasks_count,
                     "Skipped": total_skipped_tasks_count,
                     "Draft": total_draft_tasks_count,
-                    "Word Count": total_word_count,
-                    "Total Segments Duration": total_duration,
-                    "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
                     "User Role": role,
-                    "Avg Segment Duration": round(avg_segment_duration, 2),
-                    "Average Segments Per Task": round(avg_segments_per_task, 2),
                 }
                 if project_type != None and is_translation_project:
                     (
+                        all_reviewd_tasks_count,
+                        accepted_count,
+                        reviewed_except_accepted,
+                        minor_changes_count,
+                        major_changes_count,
                         avg_char_score,
                         avg_bleu_score,
+                        avg_lead_time,
                     ) = get_translation_quality_reports(
                         pk,
                         annotator,
@@ -1360,30 +1304,11 @@ def send_user_analytics_mail_org(
                     "Unlabeled": total_unlabeled_tasks_count,
                     "Skipped": total_skipped_tasks_count,
                     "Draft": total_draft_tasks_count,
-                    "Word Count": total_word_count,
-                    "Total Segments Duration": total_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
                     "User Role": role,
-                    "Avg Segment Duration": round(avg_segment_duration, 2),
-                    "Average Segments Per Task": round(avg_segments_per_task, 2),
                 }
 
-            if project_type in get_audio_project_types():
-                del temp_result["Word Count"]
-            elif is_translation_project or project_type in [
-                "SemanticTextualSimilarity_Scale5",
-                "OCRTranscriptionEditing",
-                "OCRTranscription",
-            ]:
-                del temp_result["Total Segments Duration"]
-                del temp_result["Avg Segment Duration"]
-                del temp_result["Average Segments Per Task"]
-            else:
-                del temp_result["Word Count"]
-                del temp_result["Total Segments Duration"]
-                del temp_result["Avg Segment Duration"]
-                del temp_result["Average Segments Per Task"]
             result.append(temp_result)
         final_result = sorted(
             result, key=lambda x: x[sort_by_column_name], reverse=descending_order
