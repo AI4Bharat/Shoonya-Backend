@@ -199,29 +199,9 @@ def create_tasks_from_dataitems(items, project):
         # Remove data id because it's not needed in task.data
         if "id" in item:
             del item["id"]
-        task = Task(data=item, project_id=project, input_data=data)
-        """
-        if is_translation_project or dataset_type1 == "TranslationPair":
-            if is_conversation_project:
-                field_name = (
-                    "source_conversation_json"
-                    if is_editing_project
-                    else "conversation_json"
-                )
-                task.data["word_count"] = conversation_wordcount(task.data[field_name])
-                task.data["sentence_count"] = conversation_sentence_count(
-                    task.data[field_name]
-                )
-            else:
-                task.data["word_count"] = no_of_words(task.data["input_text"])
-        if is_audio_project:
-            indx = 0
-            for speaker in task.data["speakers_json"]:
-                field_name = "speaker_" + str(indx) + "_details"
-                task.data[field_name] = stringify_json(task.data["speakers_json"][indx])
-                indx += 1
-        """
-        tasks.append(task)
+        for _ in range(project.required_annotators_per_task):
+            task = Task(data=item, project_id=project, input_data=data)
+            tasks.append(task)
     # Bulk create the tasks
     Task.objects.bulk_create(tasks)
 
@@ -424,19 +404,20 @@ def export_project_in_place(
     # List for storing the annotated tasks that have been accepted as correct annotation
     annotated_tasks = []
     export_excluded_task_ids = []
-    required_annotators_per_task = project.required_annotators_per_task
+    # required_annotators_per_task = project.required_annotators_per_task
     for task in tasks:
         task_dict = model_to_dict(task)
         # Rename keys to match label studio converter
         # task_dict['id'] = task_dict['task_id']
         # del task_dict['task_id']
         ann_list = []
-        if required_annotators_per_task >= 2:
-            all_ann = Annotation.objects.filter(task=task)
-            for a in all_ann:
-                ann_list.append(a)
-            task_dict["annotations"] = ann_list
-        elif task.correct_annotation is not None:
+        # if required_annotators_per_task >= 2:
+        #     all_ann = Annotation.objects.filter(task=task)
+        #     for a in all_ann:
+        #         ann_list.append(a)
+        #     task_dict["annotations"] = ann_list
+        # elif task.correct_annotation is not None:
+        if task.correct_annotation is not None:
             annotated_tasks.append(task)
             annotation_dict = model_to_dict(task.correct_annotation)
             # annotation_dict['result'] = annotation_dict['result_json']

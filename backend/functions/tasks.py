@@ -46,6 +46,7 @@ from django.apps import apps
 from rest_framework.test import APIRequestFactory
 from django.http import QueryDict
 from rest_framework.request import Request
+from dataset.models import LANGUAGE_CHOICES
 import os
 import tempfile
 
@@ -196,6 +197,9 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
             result_ann_meta_stats,
             result_rev_meta_stats,
             result_sup_meta_stats,
+            average_ann_vs_rev_WER,
+            average_rev_vs_sup_WER,
+            average_ann_vs_sup_WER,
         ) = get_stats_definitions()
         for ann_obj in annotations:
             if ann_obj.annotation_type == ANNOTATOR_ANNOTATION:
@@ -208,6 +212,9 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         result_ann_meta_stats,
                         ann_obj,
                         project_type,
+                        average_ann_vs_rev_WER,
+                        average_rev_vs_sup_WER,
+                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -221,6 +228,9 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         result_rev_meta_stats,
                         ann_obj,
                         project_type,
+                        average_ann_vs_rev_WER,
+                        average_rev_vs_sup_WER,
+                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -234,6 +244,9 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         result_sup_meta_stats,
                         ann_obj,
                         project_type,
+                        average_ann_vs_rev_WER,
+                        average_rev_vs_sup_WER,
+                        average_ann_vs_sup_WER,
                     )
                 except:
                     continue
@@ -247,6 +260,9 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
             anno_stats,
             meta_stats,
             complete_stats,
+            average_ann_vs_rev_WER,
+            average_rev_vs_sup_WER,
+            average_ann_vs_sup_WER,
             proj.id,
             user,
         )
@@ -407,6 +423,9 @@ def get_stats_definitions():
         result_ann_meta_stats,
         result_rev_meta_stats,
         result_sup_meta_stats,
+        [],
+        [],
+        [],
     )
 
 
@@ -420,6 +439,9 @@ def get_modified_stats_result(
     anno_stats,
     meta_stats,
     complete_stats,
+    average_ann_vs_rev_WER,
+    average_rev_vs_sup_WER,
+    average_ann_vs_sup_WER,
     proj_id,
     user,
 ):
@@ -467,6 +489,15 @@ def get_modified_stats_result(
         .exclude(review_user=user.id)
         .count()
     )
+    result["Average Annotator VS Reviewer Word Error Rate"] = "{:.2f}".format(
+        get_average_of_a_list(average_ann_vs_rev_WER)
+    )
+    result["Average Reviewer VS Superchecker Word Error Rate"] = "{:.2f}".format(
+        get_average_of_a_list(average_rev_vs_sup_WER)
+    )
+    result["Average Annotator VS Superchecker Word Error Rate"] = "{:.2f}".format(
+        get_average_of_a_list(average_rev_vs_sup_WER)
+    )
     return result
 
 
@@ -476,7 +507,7 @@ def get_average_of_a_list(arr):
     total_sum = 0
     total_length = 0
     for num in arr:
-        if isinstance(num, int):
+        if isinstance(num, int) or isinstance(num, float):
             total_sum += num
             total_length += 1
     return total_sum / total_length if total_length > 0 else 0
@@ -494,7 +525,8 @@ def get_proj_objs(
 ):
     if workspace_level_reports:
         if project_type:
-            if language not in ["NULL", "None", None]:
+            LANG_CHOICES_DICT = dict(LANGUAGE_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     workspace_id=wid,
                     project_type=project_type,
@@ -508,7 +540,8 @@ def get_proj_objs(
             proj_objs = Project.objects.filter(workspace_id=wid)
     elif organization_level_reports:
         if project_type:
-            if language != ["NULL", "None", None]:
+            LANG_CHOICES_DICT = dict(LANGUAGE_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     organization_id=oid,
                     project_type=project_type,
@@ -522,7 +555,8 @@ def get_proj_objs(
             proj_objs = Project.objects.filter(organization_id=oid)
     elif dataset_level_reports:
         if project_type:
-            if language != ["NULL", "None", None]:
+            LANG_CHOICES_DICT = dict(LANGUAGE_CHOICES)
+            if language in LANG_CHOICES_DICT:
                 proj_objs = Project.objects.filter(
                     dataset_id=did,
                     project_type=project_type,
@@ -547,6 +581,9 @@ def get_stats_helper(
     result_meta_stats,
     ann_obj,
     project_type,
+    average_ann_vs_rev_WER,
+    average_rev_vs_sup_WER,
+    average_ann_vs_sup_WER,
 ):
     task_obj = ann_obj.task
     task_data = task_obj.data
@@ -560,6 +597,40 @@ def get_stats_helper(
         ann_obj,
         project_type,
     )
+    if task_obj.task_status == REVIEWED:
+        if ann_obj.annotation_type == REVIEWER_ANNOTATION:
+            try:
+                average_ann_vs_rev_WER.append(
+                    calculate_wer_between_two_annotations(
+                        get_most_recent_annotation(ann_obj).result,
+                        get_most_recent_annotation(ann_obj.parent_annotation).result,
+                    )
+                )
+            except Exception as error:
+                pass
+    elif task_obj.task_status == SUPER_CHECKED:
+        if ann_obj.annotation_type == SUPER_CHECKER_ANNOTATION:
+            try:
+                average_ann_vs_rev_WER.append(
+                    calculate_wer_between_two_annotations(
+                        get_most_recent_annotation(ann_obj.parent_annotation).result,
+                        get_most_recent_annotation(
+                            ann_obj.parent_annotation.parent_annotation
+                        ).result,
+                    )
+                )
+            except Exception as error:
+                pass
+            try:
+                average_rev_vs_sup_WER.append(
+                    calculate_wer_between_two_annotations(
+                        get_most_recent_annotation(ann_obj).result,
+                        get_most_recent_annotation(ann_obj.parent_annotation).result,
+                    )
+                )
+            except Exception as error:
+                pass
+
     return 0
 
 
