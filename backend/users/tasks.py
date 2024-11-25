@@ -10,6 +10,7 @@ from user_reports import (
     fetch_translation_dataset_stats,
     fetch_ocr_dataset_stats,
     fetch_audio_dataset_stats,
+    fetch_audio_dataset_query_stats,
 )
 from celery.utils.log import get_task_logger
 
@@ -47,5 +48,5 @@ def fetchOCRMetaStats():
 
 @shared_task(name="fetchAudioMetaStats")
 def fetchAudioMetaStats():
-    fetch_audio_dataset_stats()
+    fetch_audio_dataset_query_stats()
     logger.info("Completed Audio Meta Stats Update")

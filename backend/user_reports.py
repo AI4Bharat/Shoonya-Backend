@@ -991,16 +991,254 @@ def fetch_audio_dataset_stats():
             final_result_for_all__types[pjt_type] = result
         upsert_stat("audio_meta_stats", org, final_result_for_all__types)
 
+
 def fetch_audio_dataset_query_stats():
 
-    org_ids = [1,2,3]
+    org_ids = [1, 2, 3]
 
     project_types = get_audio_project_types()
 
-    for org in org_ids:
+    with connection.cursor() as cursor:
+        for org in org_ids:
 
-        final_result_for_all__types = {}
+            final_result_for_all__types = {}
 
-        for pjt_type in project_types:
+            for pjt_type in project_types:
 
-            
+                stat_query = f"""
+                                WITH
+                                    AUDIO_ANNOTATION_IDS (ID) AS (
+                                        SELECT
+                                            (
+                                                CASE
+                                                    WHEN TSK.TASK_STATUS = 'reviewed'
+                                                    AND TA.ANNOTATION_TYPE = 2 THEN TA.ID
+                                                    WHEN TSK.TASK_STATUS = 'super_checked'
+                                                    AND TA.ANNOTATION_TYPE = 3 THEN TA.ID
+                                                    WHEN TSK.TASK_STATUS = 'exported' THEN TSK.CORRECT_ANNOTATION_ID
+                                                    WHEN TSK.TASK_STATUS = 'annotated' THEN TA.ID
+                                                END
+                                            )
+                                        FROM
+                                            TASKS_ANNOTATION AS TA
+                                            JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            PJT.PROJECT_TYPE IN ('{pjt_type}')
+                                            AND TSK.TASK_STATUS IN ('annotated', 'reviewed', 'super_checked')
+                                            AND PJT.ORGANIZATION_ID_ID = {org}
+                                    ),
+                                    AUDIO_REVIEWED_IDS (ID) AS (
+                                        SELECT
+                                            (
+                                                CASE
+                                                    WHEN TSK.TASK_STATUS = 'reviewed'
+                                                    AND TA.ANNOTATION_TYPE = 2 THEN TA.ID
+                                                    WHEN TSK.TASK_STATUS = 'super_checked'
+                                                    AND TA.ANNOTATION_TYPE = 3 THEN TA.ID
+                                                    WHEN TSK.TASK_STATUS IN ('annotated', 'exported') THEN TSK.CORRECT_ANNOTATION_ID
+                                                END
+                                            )
+                                        FROM
+                                            TASKS_ANNOTATION AS TA
+                                            JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            PJT.PROJECT_TYPE IN ('{pjt_type}')
+                                            AND TSK.TASK_STATUS IN ('reviewed', 'super_checked')
+                                            AND PJT.PROJECT_STAGE IN (2, 3)
+                                            AND PJT.ORGANIZATION_ID_ID = {org}
+                                    ),
+                                    AUDIO_ANNOTATION_WORD_COUNTS (LANGUAGE, WORD_COUNT) AS (
+                                        SELECT
+                                            COALESCE(PJT.TGT_LANGUAGE, 'Others'),
+                                            (
+                                                CASE
+                                                    WHEN PJT.PROJECT_TYPE = 'AcousticNormalisedTranscriptionEditing' THEN SUM(
+                                                        CAST(
+                                                            TA.META_STATS -> 'acoustic_normalised_word_count' AS INTEGER
+                                                        )
+                                                    )
+                                                    ELSE SUM(
+                                                        CAST(TA.META_STATS -> 'audio_word_count' AS INTEGER)
+                                                    )
+                                                END
+                                            )
+                                        FROM
+                                            AUDIO_ANNOTATION_IDS AS AAIS
+                                            JOIN TASKS_ANNOTATION AS TA ON TA.ID = AAIS.ID
+                                            JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE,PJT.PROJECT_TYPE
+                                    ),
+                                    AUDIO_REVIEWED_WORD_COUNTS (LANGUAGE, WORD_COUNT) AS (
+                                        SELECT
+                                            COALESCE(PJT.TGT_LANGUAGE, 'Others'),
+                                            (
+                                                CASE
+                                                    WHEN PJT.PROJECT_TYPE = 'AcousticNormalisedTranscriptionEditing' THEN SUM(
+                                                        CAST(
+                                                            TA.META_STATS -> 'acoustic_normalised_word_count' AS INTEGER
+                                                        )
+                                                    )
+                                                    ELSE SUM(
+                                                        CAST(TA.META_STATS -> 'audio_word_count' AS INTEGER)
+                                                    )
+                                                END
+                                            )
+                                        FROM
+                                            AUDIO_REVIEWED_IDS AS ARIS
+                                            JOIN TASKS_ANNOTATION AS TA ON TA.ID = ARIS.ID
+                                            JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE,PJT.PROJECT_TYPE
+                                    ),
+                                    AUDIO_ANNOTATION_RAW_DURATION (LANGUAGE, RAW_DURATION) AS (
+                                        SELECT
+                                            COALESCE(PJT.TGT_LANGUAGE, 'Others'),
+                                            SUM(CAST(TSK.DATA -> 'audio_duration' AS FLOAT))
+                                        FROM
+                                            TASKS_TASK AS TSK
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            TSK.ID IN (
+                                                SELECT DISTINCT
+                                                    TSK.ID
+                                                FROM
+                                                    AUDIO_ANNOTATION_IDS AS AAIS
+                                                    JOIN TASKS_ANNOTATION AS TA ON TA.ID = AAIS.ID
+                                                    JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                                            )
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE
+                                    ),
+                                    AUDIO_REVIEWED_RAW_DURATION (LANGUAGE, RAW_DURATION) AS (
+                                        SELECT
+                                            COALESCE(PJT.TGT_LANGUAGE, 'Others'),
+                                            SUM(CAST(TSK.DATA -> 'audio_duration' AS FLOAT))
+                                        FROM
+                                            TASKS_TASK AS TSK
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                        WHERE
+                                            TSK.ID IN (
+                                                SELECT DISTINCT
+                                                    TSK.ID
+                                                FROM
+                                                    AUDIO_REVIEWED_IDS AS ARIS
+                                                    JOIN TASKS_ANNOTATION AS TA ON TA.ID = ARIS.ID
+                                                    JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                                            )
+                                        GROUP BY
+                                            PJT.TGT_LANGUAGE
+                                    ),
+                                    AUDIO_ANNOTATION_RESULTS (LANGUAGE, ENTRY) AS (
+                                        SELECT
+                                            PJT.TGT_LANGUAGE,
+                                            JSONB_ARRAY_ELEMENTS(
+                                                CASE JSONB_TYPEOF(TA.RESULT)
+                                                    WHEN 'array' THEN TA.RESULT
+                                                    ELSE '[]'
+                                                END
+                                            ) AS ENTRY
+                                        FROM
+                                            AUDIO_ANNOTATION_IDS AS AAIS
+                                            JOIN TASKS_ANNOTATION AS TA ON TA.ID = AAIS.ID
+                                            JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                    ),
+                                    AUDIO_ANNOTATION_CUMULATIVE_DURATION (LANGUAGE, TOTAL_DURATION) AS (
+                                        SELECT
+                                            COALESCE(LANGUAGE, 'Others'),
+                                            SUM(
+                                                CAST(ENTRY -> 'value' ->> 'end' AS FLOAT) - CAST(ENTRY -> 'value' ->> 'start' AS FLOAT)
+                                            )
+                                        FROM
+                                            AUDIO_ANNOTATION_RESULTS
+                                        WHERE
+                                            ENTRY ->> 'type' = 'labels'
+                                        GROUP BY
+                                            LANGUAGE
+                                    ),
+                                    AUDIO_REVIEWED_RESULTS (LANGUAGE, ENTRY) AS (
+                                        SELECT
+                                            PJT.TGT_LANGUAGE,
+                                            JSONB_ARRAY_ELEMENTS(
+                                                CASE JSONB_TYPEOF(TA.RESULT)
+                                                    WHEN 'array' THEN TA.RESULT
+                                                    ELSE '[]'
+                                                END
+                                            ) AS ENTRY
+                                        FROM
+                                            AUDIO_REVIEWED_IDS AS ARIS
+                                            JOIN TASKS_ANNOTATION AS TA ON TA.ID = ARIS.ID
+                                            JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                                            JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+                                    ),
+                                    AUDIO_REVIEWED_CUMULATIVE_DURATION (LANGUAGE, TOTAL_DURATION) AS (
+                                        SELECT
+                                            COALESCE(LANGUAGE, 'Others'),
+                                            SUM(
+                                                CAST(ENTRY -> 'value' ->> 'end' AS FLOAT) - CAST(ENTRY -> 'value' ->> 'start' AS FLOAT)
+                                            )
+                                        FROM
+                                            AUDIO_REVIEWED_RESULTS
+                                        WHERE
+                                            ENTRY ->> 'type' = 'labels'
+                                        GROUP BY
+                                            LANGUAGE
+                                    )
+                                SELECT
+                                    COALESCE(
+                                        AAWCS.LANGUAGE,
+                                        ARWCS.LANGUAGE,
+                                        AARD.LANGUAGE,
+                                        ARRD.LANGUAGE
+                                    ) AS LANGUAGE,
+                                    COALESCE(AAWCS.WORD_COUNT, 0) AS ANN_AUDIO_WORD_COUNT,
+                                    COALESCE(ARWCS.WORD_COUNT, 0) AS REV_AUDIO_WORD_COUNT,
+                                    SECONDS_TO_HHMMSS (COALESCE(AARD.RAW_DURATION, 0)) AS ANN_RAW_AUD_DURATION,
+                                    SECONDS_TO_HHMMSS (COALESCE(ARRD.RAW_DURATION, 0)) AS REV_RAW_AUD_DURATION,
+                                    SECONDS_TO_HHMMSS (COALESCE(AACD.TOTAL_DURATION, 0)) AS ANN_CUMULATIVE_AUD_DURATION,
+                                    SECONDS_TO_HHMMSS (COALESCE(ARCD.TOTAL_DURATION, 0)) AS REW_CUMULATIVE_AUD_DURATION
+                                FROM
+                                    AUDIO_ANNOTATION_WORD_COUNTS AAWCS
+                                    FULL OUTER JOIN AUDIO_REVIEWED_WORD_COUNTS ARWCS ON AAWCS.LANGUAGE = ARWCS.LANGUAGE
+                                    FULL OUTER JOIN AUDIO_ANNOTATION_RAW_DURATION AARD ON COALESCE(AAWCS.LANGUAGE, ARWCS.LANGUAGE) = AARD.LANGUAGE
+                                    FULL OUTER JOIN AUDIO_REVIEWED_RAW_DURATION ARRD ON COALESCE(AAWCS.LANGUAGE, ARWCS.LANGUAGE, AARD.LANGUAGE) = ARRD.LANGUAGE
+                                    FULL OUTER JOIN AUDIO_ANNOTATION_CUMULATIVE_DURATION AACD ON COALESCE(
+                                        AAWCS.LANGUAGE,
+                                        ARWCS.LANGUAGE,
+                                        AARD.LANGUAGE,
+                                        ARRD.LANGUAGE
+                                    ) = AACD.LANGUAGE
+                                    FULL OUTER JOIN AUDIO_REVIEWED_CUMULATIVE_DURATION ARCD ON COALESCE(
+                                        AAWCS.LANGUAGE,
+                                        ARWCS.LANGUAGE,
+                                        AARD.LANGUAGE,
+                                        ARRD.LANGUAGE,
+                                        AACD.LANGUAGE
+                                    ) = ARCD.LANGUAGE
+                                ORDER BY
+                                    LANGUAGE
+                                """
+
+                cursor.execute(sql=stat_query)
+                result = cursor.fetchall()
+                formatted_result = []
+                for langResult in result:
+                    awc, rwc, ard, rrd, acd, rcd = langResult[1:]
+                    formatted_result.append(
+                        {
+                            "language": checkLangNone(langResult[0]),
+                            "ann_cumulative_aud_duration": acd,
+                            "rew_cumulative_aud_duration": rcd,
+                            "ann_raw_aud_duration": ard,
+                            "rew_raw_aud_duration": rrd,
+                            "ann_audio_word_count": int(str(awc)),
+                            "rev_audio_word_count": int(str(rwc)),
+                        }
+                    )
+                final_result_for_all__types[pjt_type] = formatted_result
+            upsert_stat("audio_meta_stats", org, final_result_for_all__types)
