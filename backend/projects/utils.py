@@ -32,7 +32,7 @@ from utils.convert_result_to_chitralekha_format import (
 )
 
 
-nltk.download("punkt")
+nltk.download("punkt", quiet=True)
 
 
 def get_audio_project_types():
