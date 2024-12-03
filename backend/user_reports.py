@@ -774,95 +774,116 @@ def fetch_ocr_dataset_stats():
     org_ids = [1, 2, 3]
 
     project_types = ["OCRTranscription", "OCRTranscriptionEditing"]
+    with connection.cursor() as cursor:
+        for org in org_ids:
 
-    for org in org_ids:
+            final_result_for_all__types = {}
 
-        final_result_for_all__types = {}
+            for pjt_type in project_types:
 
-        for pjt_type in project_types:
-
-            proj_objs = Project.objects.filter(
-                organization_id=org, project_type=pjt_type
-            )
-
-            result = []
-            languages = list(set([proj.tgt_language for proj in proj_objs]))
-
-            for lang in languages:
-                proj_lang_filter = proj_objs.filter(tgt_language=lang)
-                annotation_tasks = Task.objects.filter(
-                    project_id__in=proj_lang_filter,
-                    task_status__in=[
-                        "annotated",
-                        "reviewed",
-                        "super_checked",
-                    ],
+                ocr_query = f"""
+                WITH
+        OCR_ANNOTATION_IDS (ID) AS (
+            SELECT
+                (
+                    CASE
+                        WHEN TSK.TASK_STATUS = 'reviewed'
+                        AND TA.ANNOTATION_TYPE = 2 THEN TA.ID
+                        WHEN TSK.TASK_STATUS = 'super_checked'
+                        AND TA.ANNOTATION_TYPE = 3 THEN TA.ID
+                        WHEN TSK.TASK_STATUS = 'exported' THEN TSK.CORRECT_ANNOTATION_ID
+                        WHEN TSK.TASK_STATUS = 'annotated' THEN TA.ID
+                    END
                 )
-                reviewer_tasks = Task.objects.filter(
-                    project_id__in=proj_lang_filter,
-                    project_id__project_stage__in=[REVIEW_STAGE, SUPERCHECK_STAGE],
-                    task_status__in=["reviewed", "super_checked"],
+            FROM
+                TASKS_ANNOTATION AS TA
+                JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+            WHERE
+                PJT.PROJECT_TYPE IN ('{pjt_type}')
+                AND TSK.TASK_STATUS IN ('annotated', 'reviewed', 'super_checked')
+                AND PJT.ORGANIZATION_ID_ID = {org}
+        ),
+        OCR_REVIEWED_IDS (ID) AS (
+            SELECT
+                (
+                    CASE
+                        WHEN TSK.TASK_STATUS = 'reviewed'
+                        AND TA.ANNOTATION_TYPE = 2 THEN TA.ID
+                        WHEN TSK.TASK_STATUS = 'super_checked'
+                        AND TA.ANNOTATION_TYPE = 3 THEN TA.ID
+                        WHEN TSK.TASK_STATUS IN ('annotated', 'exported') THEN TSK.CORRECT_ANNOTATION_ID
+                    END
                 )
-
-                total_rev_word_count = 0
-                total_computed_rev_word_count = 0
-
-                for each_task in reviewer_tasks:
-                    if each_task.task_status == "reviewed":
-                        anno = Annotation.objects.filter(
-                            task=each_task,
-                            annotation_type=REVIEWER_ANNOTATION,
-                        )[0]
-                    elif each_task.task_status == "super_checked":
-                        anno = Annotation.objects.filter(
-                            task=each_task,
-                            annotation_type=SUPER_CHECKER_ANNOTATION,
-                        )[0]
-                    else:
-                        anno = each_task.correct_annotation
-                    total_rev_word_count += ocr_word_count(anno.result)
-                    try:
-                        total_computed_rev_word_count += anno.meta_stats["word_count"]
-                    except:
-                        pass
-
-                total_anno_word_count = 0
-                total_computed_anno_word_count = 0
-
-                for each_task in annotation_tasks:
-                    if each_task.task_status == "reviewed":
-                        anno = Annotation.objects.filter(
-                            task=each_task,
-                            annotation_type=REVIEWER_ANNOTATION,
-                        )[0]
-                    elif each_task.task_status == "exported":
-                        anno = each_task.correct_annotation
-                    elif each_task.task_status == "super_checked":
-                        anno = Annotation.objects.filter(
-                            task=each_task,
-                            annotation_type=SUPER_CHECKER_ANNOTATION,
-                        )[0]
-                    else:
-                        anno = Annotation.objects.filter(
-                            task=each_task,
-                            annotation_type=ANNOTATOR_ANNOTATION,
-                        )[0]
-                    total_anno_word_count += ocr_word_count(anno.result)
-                    try:
-                        total_computed_anno_word_count += anno.meta_stats["word_count"]
-                    except:
-                        pass
-
-                result.append(
-                    {
-                        "language": checkLangNone(lang),
-                        "ann_ocr_cumulative_word_count": total_anno_word_count,
-                        "rew_ocr_cumulative_word_count": total_rev_word_count,
-                    }
-                )
-
-            final_result_for_all__types[pjt_type] = result
-        upsert_stat("ocr_meta_stats", org, final_result_for_all__types)
+            FROM
+                TASKS_ANNOTATION AS TA
+                JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+            WHERE
+                PJT.PROJECT_TYPE IN ('{pjt_type}')
+                AND TSK.TASK_STATUS IN ('reviewed', 'super_checked')
+                AND PJT.PROJECT_STAGE IN (2, 3)
+                AND PJT.ORGANIZATION_ID_ID = {org}
+        ),
+        OCR_ANNOTATION_WORD_COUNTS (LANGUAGE, WORD_COUNT) AS (
+            SELECT
+                COALESCE(PJT.TGT_LANGUAGE, 'Others'),
+                SUM(
+                            CAST(
+                                TA.META_STATS -> 'word_count' AS INTEGER
+                            )
+                        )
+            FROM
+                OCR_ANNOTATION_IDS AS AAIS
+                JOIN TASKS_ANNOTATION AS TA ON TA.ID = AAIS.ID
+                JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+            GROUP BY
+                PJT.TGT_LANGUAGE,PJT.PROJECT_TYPE
+        ),
+        OCR_REVIEWED_WORD_COUNTS (LANGUAGE, WORD_COUNT) AS (
+            SELECT
+                COALESCE(PJT.TGT_LANGUAGE, 'Others'),
+                SUM(
+                            CAST(
+                                TA.META_STATS -> 'word_count' AS INTEGER
+                            )
+                        )
+            FROM
+                OCR_REVIEWED_IDS AS ARIS
+                JOIN TASKS_ANNOTATION AS TA ON TA.ID = ARIS.ID
+                JOIN TASKS_TASK AS TSK ON TSK.ID = TA.TASK_ID
+                JOIN PROJECTS_PROJECT AS PJT ON PJT.ID = TSK.PROJECT_ID_ID
+            GROUP BY
+                PJT.TGT_LANGUAGE,PJT.PROJECT_TYPE
+        )
+    SELECT
+        COALESCE(
+            AOWCS.LANGUAGE,
+            AORWCS.LANGUAGE
+        ) AS LANGUAGE,
+        COALESCE(AOWCS.WORD_COUNT, 0) AS ANN_OCR_WORD_COUNT,
+        COALESCE(AORWCS.WORD_COUNT, 0) AS REV_OCR_WORD_COUNT
+    FROM
+        OCR_ANNOTATION_WORD_COUNTS AOWCS
+        FULL OUTER JOIN OCR_REVIEWED_WORD_COUNTS AORWCS ON AOWCS.LANGUAGE = AORWCS.LANGUAGE
+    ORDER BY
+        LANGUAGE
+                """
+                cursor.execute(sql=ocr_query)
+                result = cursor.fetchall()
+                formatted_result = []
+                for langResult in result:
+                    awc, rwc = langResult[1:]
+                    formatted_result.append(
+                        {
+                            "language": checkLangNone(langResult[0]),
+                            "ann_ocr_cumulative_word_count": int(str(awc)),
+                            "rew_ocr_cumulative_word_count": int(str(rwc)),
+                        }
+                    )
+                final_result_for_all__types[pjt_type] = formatted_result
+            upsert_stat("ocr_meta_stats", org, final_result_for_all__types)
 
 
 def fetch_audio_dataset_stats():

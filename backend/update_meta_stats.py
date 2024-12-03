@@ -28,19 +28,19 @@ def compute_meta_stats_for_tasks(item):
 if __name__ == "__main__":
 
     project_types = [
-        "ConversationTranslation",
-        "ConversationTranslationEditing",
-        "ConversationVerification",
-        "OCRTranscription",
-        "OCRTranscriptionEditing",
-        "OCRSegmentCategorizationEditing",
+        # "ConversationTranslation",
+        # "ConversationTranslationEditing",
+        # "ConversationVerification",
+        # "OCRTranscription",
+        # "OCRTranscriptionEditing",
+        # "OCRSegmentCategorizationEditing",
         "AudioTranscription",
         "AudioTranscriptionEditing",
         "ContextualSentenceVerification",
         "ContextualSentenceVerificationAndDomainClassification",
-        "ContextualTranslationEditing",
-        "TranslationEditing",
-        "AcousticNormalisedTranscriptionEditing",
+        # "ContextualTranslationEditing",
+        # "TranslationEditing",
+        # "AcousticNormalisedTranscriptionEditing",
     ]
 
     executor = ProcessPoolExecutor(max_workers=10)
