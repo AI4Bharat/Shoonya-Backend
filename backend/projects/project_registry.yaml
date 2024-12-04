@@ -106,8 +106,10 @@ OCR:
         class: OCRDocument
         fields:
           - image_url
+          - page_number
         display_fields:
           - image_url
+          - page_number
         prediction: ocr_prediction_json
       output_dataset: 
         class: OCRDocument

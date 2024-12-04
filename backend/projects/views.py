@@ -917,6 +917,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
     elif (
         proj_type == "OCRTranscriptionEditing"
         or proj_type == "OCRSegmentCategorizationEditing"
+        or proj_type == "OCRTextlineSegmentation"
     ):
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = (
@@ -2365,6 +2366,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
                 "OCRSegmentCategorizationEditing",
+                "OCRTextlineSegmentation",
             ]:
                 try:
                     result = convert_prediction_json_to_annotation_result(
