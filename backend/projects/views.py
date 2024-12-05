@@ -1,4 +1,4 @@
-import reg
+import re
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
@@ -866,54 +866,62 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             if isinstance(data_item.prediction_json, str)
             else data_item.prediction_json
         )
+        assert type(prediction_json) in [dict, list], "Seems something is wrong with the formatting"
+        # see if the prediction is a list, then it seems that only verbatim json is present
+        if isinstance(prediction_json,list):
+            prediction_json = {
+                    "verbatim_transcribed_json": prediction_json 
+            }
+        
         speakers_json = data_item.speakers_json
         audio_duration = data_item.audio_duration
         # converting prediction_json to result (wherever it exists) for every task.
         if prediction_json == None:
             return result
-        for idx, val in enumerate(prediction_json):
-            label_dict = {
-                "origin": "manual",
-                "to_name": "audio_url",
-                "from_name": "labels",
-                "original_length": audio_duration,
-            }
-            text_dict = {
-                "origin": "manual",
-                "to_name": "audio_url",
-                "from_name": "transcribed_json",
-                "original_length": audio_duration,
-            }
-            if proj_type == "AcousticNormalisedTranscriptionEditing":
-                text_dict["from_name"] = "verbatim_transcribed_json"
-            id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
-            label_dict["id"] = id
-            text_dict["id"] = id
-            label_dict["type"] = "labels"
-            text_dict["type"] = "textarea"
-
-            value_labels = {
-                "start": val["start"],
-                "end": val["end"],
-                "labels": [
-                    next(
-                        speaker
-                        for speaker in speakers_json
-                        if speaker["speaker_id"] == val["speaker_id"]
-                    )["name"]
-                ],
-            }
-            value_text = {
-                "start": val["start"],
-                "end": val["end"],
-                "text": [val["text"]],
-            }
-
-            label_dict["value"] = value_labels
-            text_dict["value"] = value_text
-            # mainly label_dict and text_dict are sent as result
-            result.append(label_dict)
-            result.append(text_dict)
+        for pred_type, pred_json in prediction_json.keys():
+            for idx, val in enumerate(pred_json):
+                label_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "labels",
+                    "original_length": audio_duration,
+                }
+                text_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "transcribed_json",
+                    "original_length": audio_duration,
+                }
+                if proj_type == "AcousticNormalisedTranscriptionEditing":
+                    text_dict["from_name"] = pred_type
+                id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+                label_dict["id"] = id
+                text_dict["id"] = id
+                label_dict["type"] = "labels"
+                text_dict["type"] = "textarea"
+    
+                value_labels = {
+                    "start": val["start"],
+                    "end": val["end"],
+                    "labels": [
+                        next(
+                            speaker
+                            for speaker in speakers_json
+                            if speaker["speaker_id"] == val["speaker_id"]
+                        )["name"]
+                    ],
+                }
+                value_text = {
+                    "start": val["start"],
+                    "end": val["end"],
+                    "text": [val["text"]],
+                }
+    
+                label_dict["value"] = value_labels
+                text_dict["value"] = value_text
+                # mainly label_dict and text_dict are sent as result
+                result.append(label_dict)
+                result.append(text_dict)
     elif (
         proj_type == "OCRTranscriptionEditing"
         or proj_type == "OCRSegmentCategorizationEditing"
