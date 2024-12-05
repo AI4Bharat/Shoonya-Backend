@@ -168,7 +168,7 @@ ANNOTATION_REGISTRY_DICT = {
 
 
 def convert_prediction_json_to_annotation_result(
-    prediction_json, speakers_json, audio_duration, index, is_acoustic=False
+    prediction_json, speakers_json, audio_duration, index, tred_type, is_acoustic=False
 ):
     """
     Convert prediction_json and transcribed_json to annotation_result
@@ -192,7 +192,7 @@ def convert_prediction_json_to_annotation_result(
             "original_length": audio_duration,
         }
         if is_acoustic:
-            text_dict["from_name"] = "verbatim_transcribed_json"
+            text_dict["from_name"] = tred_type
         id = f"shoonya_{index}s{idx}s{generate_random_string(13-len(str(idx)))}"
         label_dict["id"] = id
         text_dict["id"] = id
