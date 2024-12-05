@@ -263,13 +263,21 @@ def draft_data_json_to_annotation_result(draft_data_json, project_type, pk=None)
             if field == "conversation_json":
                 ans = convert_conversation_json_to_annotation_result(value, idx)
             elif field == "transcribed_json" or field == "prediction_json":
-                ans = convert_prediction_json_to_annotation_result(
-                    value,
-                    dataset_item.speakers_json,
-                    dataset_item.audio_duration,
-                    idx,
-                    project_type == "AcousticNormalisedTranscriptionEditing",
-                )
+                assert type(value) in [list, dict], f"Something wrong is there in the type of {value}"
+                if isinstance(value,list):
+                    value = {
+                        "verbatim_transcribed_json": value
+                    }
+                for tred_type, tred_value in value.items():
+                    sub_ans = convert_prediction_json_to_annotation_result(
+                        tred_value,
+                        dataset_item.speakers_json,
+                        dataset_item.audio_duration,
+                        idx,
+                        project_type == "AcousticNormalisedTranscriptionEditing",
+                        tred_type=tred_type
+                    )
+                    ans.extend(sub_ans)
             else:
                 if field_type == "textarea":
                     field_dict["value"] = {"text": [value]}
