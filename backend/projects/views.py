@@ -1,4 +1,4 @@
-import re
+import reg
 from collections import OrderedDict
 from datetime import datetime
 from time import sleep
