@@ -878,7 +878,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
         # converting prediction_json to result (wherever it exists) for every task.
         if prediction_json == None:
             return result
-        for pred_type, pred_json in prediction_json.keys():
+        for pred_type, pred_json in prediction_json.items():
             for idx, val in enumerate(pred_json):
                 label_dict = {
                     "origin": "manual",
