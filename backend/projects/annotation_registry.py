@@ -274,8 +274,8 @@ def draft_data_json_to_annotation_result(draft_data_json, project_type, pk=None)
                         dataset_item.speakers_json,
                         dataset_item.audio_duration,
                         idx,
-                        tred_type = tred_type
-                        is_acoustic = (project_type == "AcousticNormalisedTranscriptionEditing"),
+                        tred_type = tred_type,
+                        is_acoustic = (project_type == "AcousticNormalisedTranscriptionEditing")
                     )
                     ans.extend(sub_ans)
             else:
