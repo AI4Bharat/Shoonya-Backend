@@ -879,8 +879,8 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
         if prediction_json == None:
             return result
         # for pred_type, pred_json in prediction_json.items():
-        if 'acoustic_normalised_transcribed_json' in pred_json.keys():
-            for idx, val, val_acoustic in enumerate(zip(pred_json['verbatim_transcribed_json'],pred_json['acoustic_normalised_transcribed_json'])):
+        if 'acoustic_normalised_transcribed_json' in prediction_json.keys():
+            for idx, val, val_acoustic in enumerate(zip(prediction_json['verbatim_transcribed_json'],prediction_json['acoustic_normalised_transcribed_json'])):
                 label_dict = {
                     "origin": "manual",
                     "to_name": "audio_url",
@@ -942,7 +942,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 result.append(text_dict)
                 result.append(text_dict_acoustic)
         else:
-            for idx, val in enumerate(pred_json['verbatim_transcribed_json']):
+            for idx, val in enumerate(prediction_json['verbatim_transcribed_json']):
                 label_dict = {
                     "origin": "manual",
                     "to_name": "audio_url",
