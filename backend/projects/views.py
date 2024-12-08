@@ -854,33 +854,42 @@ def get_task_count_unassigned(pk, user):
     return len(proj_tasks_unassigned)
 
 
-def convert_prediction_json_to_annotation_result(pk, proj_type):
+def convert_prediction_json_to_annotation_result(
+    pk, proj_type, data_item, prediction_json, populate_draft_data=False
+):
     result = []
     if (
         proj_type == "AudioTranscriptionEditing"
         or proj_type == "AcousticNormalisedTranscriptionEditing"
     ):
-        data_item = SpeechConversation.objects.get(pk=pk)
-        prediction_json = (
-            json.loads(data_item.prediction_json)
-            if isinstance(data_item.prediction_json, str)
-            else data_item.prediction_json
-        )
-        assert type(prediction_json) in [dict, list], "Seems something is wrong with the formatting"
+        if not data_item and not prediction_json:
+            data_item = SpeechConversation.objects.get(pk=pk)
+            prediction_json = (
+                json.loads(data_item.prediction_json)
+                if isinstance(data_item.prediction_json, str)
+                else data_item.prediction_json
+            )
+        assert type(prediction_json) in [
+            dict,
+            list,
+        ], "Seems something is wrong with the formatting"
         # see if the prediction is a list, then it seems that only verbatim json is present
-        if isinstance(prediction_json,list):
-            prediction_json = {
-                    "verbatim_transcribed_json": prediction_json 
-            }
-        
+        if isinstance(prediction_json, list):
+            prediction_json = {"verbatim_transcribed_json": prediction_json}
+
         speakers_json = data_item.speakers_json
         audio_duration = data_item.audio_duration
         # converting prediction_json to result (wherever it exists) for every task.
         if prediction_json == None:
             return result
         # for pred_type, pred_json in prediction_json.items():
-        if 'acoustic_normalised_transcribed_json' in prediction_json.keys():
-            for idx, (val, val_acoustic) in enumerate(zip(prediction_json['verbatim_transcribed_json'],prediction_json['acoustic_normalised_transcribed_json'])):
+        if "acoustic_normalised_transcribed_json" in prediction_json.keys():
+            for idx, (val, val_acoustic) in enumerate(
+                zip(
+                    prediction_json["verbatim_transcribed_json"],
+                    prediction_json["acoustic_normalised_transcribed_json"],
+                )
+            ):
                 label_dict = {
                     "origin": "manual",
                     "to_name": "audio_url",
@@ -900,18 +909,20 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                     "original_length": audio_duration,
                 }
                 if proj_type == "AcousticNormalisedTranscriptionEditing":
-                    text_dict["from_name"] = 'verbatim_transcribed_json'
-                    text_dict_acoustic["from_name"] = 'acoustic_normalised_transcribed_json'
-                    
+                    text_dict["from_name"] = "verbatim_transcribed_json"
+                    text_dict_acoustic[
+                        "from_name"
+                    ] = "acoustic_normalised_transcribed_json"
+
                 id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
                 label_dict["id"] = id
                 text_dict["id"] = id
                 text_dict_acoustic["id"] = id
-                
+
                 label_dict["type"] = "labels"
                 text_dict["type"] = "textarea"
                 text_dict_acoustic["type"] = "textarea"
-    
+
                 value_labels = {
                     "start": val["start"],
                     "end": val["end"],
@@ -933,7 +944,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                     "end": val_acoustic["end"],
                     "text": [val_acoustic["text"]],
                 }
-    
+
                 label_dict["value"] = value_labels
                 text_dict["value"] = value_text
                 text_dict_acoustic["value"] = value_text_acoustic
@@ -942,7 +953,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 result.append(text_dict)
                 result.append(text_dict_acoustic)
         else:
-            for idx, val in enumerate(prediction_json['verbatim_transcribed_json']):
+            for idx, val in enumerate(prediction_json["verbatim_transcribed_json"]):
                 label_dict = {
                     "origin": "manual",
                     "to_name": "audio_url",
@@ -956,13 +967,13 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                     "original_length": audio_duration,
                 }
                 if proj_type == "AcousticNormalisedTranscriptionEditing":
-                    text_dict["from_name"] = 'verbatim_transcribed_json'
+                    text_dict["from_name"] = "verbatim_transcribed_json"
                 id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
                 label_dict["id"] = id
                 text_dict["id"] = id
                 label_dict["type"] = "labels"
                 text_dict["type"] = "textarea"
-    
+
                 value_labels = {
                     "start": val["start"],
                     "end": val["end"],
@@ -979,7 +990,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                     "end": val["end"],
                     "text": [val["text"]],
                 }
-    
+
                 label_dict["value"] = value_labels
                 text_dict["value"] = value_text
                 # mainly label_dict and text_dict are sent as result
@@ -2439,7 +2450,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ]:
                 try:
                     result = convert_prediction_json_to_annotation_result(
-                        task.input_data.id, project.project_type
+                        task.input_data.id, project.project_type, None, None, False
                     )
                 except Exception as e:
                     print(
