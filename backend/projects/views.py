@@ -4130,7 +4130,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
             project_type = dict(PROJECT_TYPE_CHOICES)[project.project_type]
-
+            fetch_parent_data_field = request.query_params.get(
+                "fetch_parent_data_field", None
+            )
             include_input_data_metadata_json = request.query_params.get(
                 "include_input_data_metadata_json", False
             )
@@ -4181,6 +4183,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         include_input_data_metadata_json,
                         dataset_model,
                         is_audio_project_type,
+                        fetch_parent_data_field,
                     )
                     if (
                         is_ConversationTranslation
