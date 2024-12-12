@@ -402,6 +402,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "OCRTranscription",
             "OCRSegmentCategorization",
             "OCRSegmentCategorizationEditing",
+            "OCRTextlineSegmentation",
         ]:
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
@@ -650,6 +651,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "OCRTranscription",
         "OCRSegmentCategorization",
         "OCRSegmentCategorizationEditing",
+        "OCRTextlineSegmentation",
     ]:
         result["Validated Word Count"] = validated_word_count
         result["Validated With Changes Word Count"] = validated_with_changes_word_count
@@ -994,7 +996,7 @@ def convert_annotation_result_to_formatted_json(
     annotation_result,
     speakers_json,
     is_SpeechConversation,
-    is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing,
+    is_OCRSegmentCategorizationOROCRSegmentCategorizationEditingOROCRTextlineSegmentation,
     is_acoustic=False,
 ):
     transcribed_json = []
@@ -1090,14 +1092,18 @@ def convert_annotation_result_to_formatted_json(
                 acoustic_transcribed_json, ensure_ascii=False
             )
     else:
-        dicts = 2 if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing else 3
+        dicts = (
+            2
+            if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditingOROCRTextlineSegmentation
+            else 3
+        )
         for idx1 in range(0, len(annotation_result), dicts):
             rectangle_dict = {}
             labels_dict = {}
             text_dict = {}
             if isinstance(annotation_result[idx1], str):
                 annotation_result[idx1] = json.loads(annotation_result[idx1])
-            if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing:
+            if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditingOROCRTextlineSegmentation:
                 custom_text_dict = {"value": {"text": ""}}
                 text_dict = json.dumps(custom_text_dict, indent=2)
             for idx2 in range(idx1, idx1 + dicts):
@@ -4092,6 +4098,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             is_OCRSegmentCategorizationEditing = (
                 project_type == "OCRSegmentCategorizationEditing"
             )
+            is_OCRTextlineSegmentation = project_type == "OCRTextlineSegmentation"
             is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
             for task in tasks:
                 try:
@@ -4123,6 +4130,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                                 curr_task,
                                 is_OCRSegmentCategorization,
                                 is_OCRSegmentCategorizationEditing,
+                                is_OCRTextlineSegmentation,
                             )
                 except Exception as e:
                     continue
