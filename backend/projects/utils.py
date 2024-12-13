@@ -27,7 +27,7 @@ from yaml.loader import SafeLoader
 from jiwer import wer
 
 from utils.convert_result_to_chitralekha_format import create_memory
-
+from dataset import models as dataset_models
 
 nltk.download("punkt")
 
@@ -496,6 +496,7 @@ def process_task(
     include_input_data_metadata_json,
     dataset_model,
     is_audio_project_type,
+    fetch_parent_data_field,
 ):
     task_dict = model_to_dict(task)
     if export_type != "JSON":
@@ -530,6 +531,21 @@ def process_task(
         task_dict["data"]["input_data_metadata_json"] = dataset_model.objects.get(
             pk=task_dict["input_data"]
         ).metadata_json
+    try:
+        if fetch_parent_data_field and dataset_model:
+            parent_data_item = dataset_model.objects.get(
+                pk=task_dict["input_data"]
+            ).parent_data
+            if parent_data_item:
+                dataset_model = getattr(
+                    dataset_models, parent_data_item.instance_id.dataset_type
+                )
+                parent_dataset_model = dataset_model.objects.get(pk=parent_data_item.id)
+                task_dict["data"]["fetch_parent_data_field"] = getattr(
+                    parent_dataset_model, fetch_parent_data_field, None
+                )
+    except Exception as e:
+        pass
 
     del task_dict["annotation_users"]
     del task_dict["review_user"]
