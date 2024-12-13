@@ -361,7 +361,10 @@ def process_speech_tasks(task, is_audio_segmentation, project_type):
 
 
 def process_ocr_tasks(
-    task, is_OCRSegmentCategorization, is_OCRSegmentCategorizationEditing
+    task,
+    is_OCRSegmentCategorization,
+    is_OCRSegmentCategorizationEditing,
+    is_OCRTextlineSegmentation,
 ):
     annotation_result = process_annotation_result(task)
     process_ocr_results(
@@ -369,6 +372,7 @@ def process_ocr_tasks(
         annotation_result,
         is_OCRSegmentCategorization,
         is_OCRSegmentCategorizationEditing,
+        is_OCRTextlineSegmentation,
     )
 
 
@@ -451,6 +455,7 @@ def process_ocr_results(
     annotation_result,
     is_OCRSegmentCategorization,
     is_OCRSegmentCategorizationEditing,
+    is_OCRTextlineSegmentation,
 ):
     from projects.views import convert_annotation_result_to_formatted_json
 
@@ -458,10 +463,16 @@ def process_ocr_results(
         annotation_result,
         None,
         False,
-        is_OCRSegmentCategorization or is_OCRSegmentCategorizationEditing,
+        is_OCRSegmentCategorization
+        or is_OCRSegmentCategorizationEditing
+        or is_OCRTextlineSegmentation,
         False,
     )
-    if is_OCRSegmentCategorization or is_OCRSegmentCategorizationEditing:
+    if (
+        is_OCRSegmentCategorization
+        or is_OCRSegmentCategorizationEditing
+        or is_OCRTextlineSegmentation
+    ):
         bboxes_relation_json = []
         for ann in annotation_result:
             if "type" in ann and ann["type"] == "relation":

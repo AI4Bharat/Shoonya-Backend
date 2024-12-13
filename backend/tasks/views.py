@@ -1754,13 +1754,17 @@ class AnnotationViewSet(
             == "AcousticNormalisedTranscriptionEditing"
             else False
         )
-        is_ocr_sc_or_sce = (
+        is_ocr_sc_or_sce_or_ts = (
             True
             if annotation_obj.task.project_id.project_type
-            in ["OCRSegmentCategorization", "OCRSegmentCategorizationEditing"]
+            in [
+                "OCRSegmentCategorization",
+                "OCRSegmentCategorizationEditing",
+                "OCRTextlineSegmentation",
+            ]
             else False
         )
-        if is_ocr_sc_or_sce and (
+        if is_ocr_sc_or_sce_or_ts and (
             "language" in request.data or "ocr_domain" in request.data
         ):
             language = request.data.get("languages", [])
