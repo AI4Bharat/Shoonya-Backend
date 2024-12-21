@@ -172,6 +172,26 @@ OCR:
         fields:
           annotations:
             - ocr_transcribed_json
+    OCRSegmentCategorisationRelationMappingEditing:
+      project_mode: "Annotation"
+      label_studio_jsx_file: "ocr/ocr_transcription.jsx"
+      input_dataset:
+        class: OCRDocument
+        fields:
+          - language
+          - image_url
+          - ocr_domain
+        display_fields:
+          - language
+          - image_url
+          - ocr_domain
+        prediction: ocr_prediction_json
+      output_dataset:
+        class: OCRDocument
+        save_type: in_place
+        fields:
+          annotations:
+            - ocr_transcribed_json
 Monolingual:
   description: "Monolingual Data Collection"
   project_types:
@@ -413,3 +433,26 @@ Audio:
         fields: 
           annotations: 
             - transcribed_json
+    StandardizedTranscriptionEditing: 
+      project_mode: "Annotation" 
+      label_studio_jsx_file: "audio/acoustic_transcription.jsx" 
+      input_dataset: 
+        class: SpeechConversation 
+        fields: 
+          - audio_url 
+          - reference_raw_transcript 
+          - audio_duration 
+          - scenario 
+          - domain 
+          - speakers_json
+        display_fields: 
+          - scenario 
+          - audio_url 
+        prediction: machine_transcribed_json 
+      output_dataset:  
+        class: SpeechConversation 
+        save_type: in_place 
+        fields: 
+          annotations: 
+            - final_transcribed_json
+

@@ -3,8 +3,9 @@ from dateutil.relativedelta import relativedelta
 from celery import shared_task
 import pandas as pd
 from django.conf import settings
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
 from tasks.views import SentenceOperationViewSet
+from utils.email_template import send_email_template_with_attachment
 
 from tasks.models import (
     Task,
@@ -34,6 +35,11 @@ from workspaces.tasks import (
     un_pack_annotation_tasks,
 )
 from django.db.models import Q
+from tasks.utils import (
+    calculateWordCount,
+    calculateAudioDuration,
+    calculateSentenceCount,
+)
 
 
 def get_all_annotation_reports(
@@ -118,27 +124,41 @@ def get_all_annotation_reports(
             if a.annotation_type == REVIEWER_ANNOTATION:
                 number_of_tasks_that_has_review_annotations += 1
             if ann_ann and rev_ann and not ar_done:
-                try:
-                    ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        rev_ann.result, ann_ann.result, project_type
-                    )
+                meta_stats = rev_ann.meta_stats
+                if "word_error_rate" in meta_stats:
+                    ar_wer_score += meta_stats["word_error_rate"]
                     number_of_tasks_contributed_for_ar_wer += 1
                     ar_done = True
-                except Exception as e:
-                    pass
-                try:
-                    s1 = SentenceOperationViewSet()
-                    sampleRequest = {
-                        "annotation_result1": rev_ann.result,
-                        "annotation_result2": ann_ann.result,
-                    }
-                    ar_bleu_score += float(
-                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
-                    )
-                    number_of_tasks_contributed_for_ar_bleu += 1
-                except Exception as e:
-                    pass
+                else:
+                    try:
+                        ar_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            rev_ann.result, ann_ann.result, project_type
+                        )
+                        number_of_tasks_contributed_for_ar_wer += 1
+                        ar_done = True
+                    except Exception as e:
+                        pass
+                if "bleu_score" in meta_stats:
+                    ar_bleu_score += meta_stats["bleu_score"]
+                else:
+                    try:
+                        s1 = SentenceOperationViewSet()
+                        sampleRequest = {
+                            "annotation_result1": rev_ann.result,
+                            "annotation_result2": ann_ann.result,
+                        }
+                        ar_bleu_score += float(
+                            s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                        )
+                        number_of_tasks_contributed_for_ar_bleu += 1
+                    except Exception as e:
+                        pass
             if ann_ann and sup_ann and not as_done:
+                meta_stats = sup_ann.meta_stats
+                if "word_error_rate" in meta_stats:
+                    as_wer_score += meta_stats["word_error_rate"]
+                    number_of_tasks_contributed_for_as_wer += 1
+                    as_done = True
                 try:
                     as_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
                         sup_ann.result, ann_ann.result, project_type
@@ -157,38 +177,160 @@ def get_all_annotation_reports(
         if project_type in ["ConversationTranslationEditing", "ConversationTranslation"]
         else False
     )
-    total_audio_duration_list = []
+    acoustic_normalised_duration = []
+    verbatim_duration = []
+    transcribed_duration = []
+    acoustic_normalised_word_count = []
+    verbatim_word_count = []
+    transcribed_word_count = []
+    total_segment_duration = []
     total_raw_audio_duration_list = []
     total_word_count_list = []
     only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
-            try:
-                total_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                total_word_count_list.append(meta_stats["word_count"])
+            else:
+                try:
+                    total_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
-            total_word_count_list.append(ocr_word_count(anno.result))
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                total_word_count_list.append(meta_stats["word_count"])
+            else:
+                total_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
+            meta_stats = anno.meta_stats
+            if not meta_stats:
+                meta_stats = []
+            if project_type == "AllAudioProjects":
+                if "acoustic_normalised_duration" in meta_stats:
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
+                if "acoustic_normalised_word_count" in meta_stats:
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_word_count.append(calculateWordCount(r))
+                if "verbatim_duration" in meta_stats:
+                    verbatim_duration.append(meta_stats["verbatim_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_duration.append(calculateAudioDuration(r))
+                if "verbatim_word_count" in meta_stats:
+                    verbatim_word_count.append(meta_stats["verbatim_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_word_count.append(calculateWordCount(r))
+                if "transcribed_duration" in meta_stats:
+                    transcribed_duration.append(meta_stats["transcribed_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_duration.append(calculateAudioDuration(r))
+                if "transcribed_word_count" in meta_stats:
+                    transcribed_word_count.append(meta_stats["transcribed_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_word_count.append(calculateAudioDuration(r))
+            elif project_type == "AcousticNormalisedTranscriptionEditing":
+                if "acoustic_normalised_duration" in meta_stats:
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
+                if "acoustic_normalised_word_count" in meta_stats:
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_word_count.append(calculateWordCount(r))
+                if "verbatim_duration" in meta_stats:
+                    verbatim_duration.append(meta_stats["verbatim_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_duration.append(calculateAudioDuration(r))
+                if "verbatim_word_count" in meta_stats:
+                    verbatim_word_count.append(meta_stats["verbatim_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_word_count.append(calculateWordCount(r))
+            else:
+                if "transcribed_duration" in meta_stats:
+                    transcribed_duration.append(meta_stats["transcribed_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_duration.append(calculateAudioDuration(r))
+                if "transcribed_word_count" in meta_stats:
+                    transcribed_word_count.append(meta_stats["transcribed_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_word_count.append(calculateAudioDuration(r))
             try:
-                total_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
                 total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
+            if "total_segment_duration" in meta_stats:
+                total_segment_duration.append(meta_stats["total_segment_duration"])
+            else:
+                try:
+                    total_segment_duration.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
     else:
         only_tasks = True
-
-    total_word_count = sum(total_word_count_list)
-    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-    total_raw_audio_duration = convert_seconds_to_hours(
-        sum(total_raw_audio_duration_list)
-    )
+    total_raw_audio_duration, total_word_count = 0, 0
+    if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        acoustic_normalised_duration = convert_seconds_to_hours(
+            sum(acoustic_normalised_duration)
+        )
+        verbatim_duration = convert_seconds_to_hours(sum(verbatim_duration))
+        transcribed_duration = convert_seconds_to_hours(sum(transcribed_duration))
+        acoustic_normalised_word_count = convert_seconds_to_hours(
+            sum(acoustic_normalised_word_count)
+        )
+        verbatim_word_count = convert_seconds_to_hours(sum(verbatim_word_count))
+        transcribed_word_count = convert_seconds_to_hours(sum(transcribed_word_count))
+        total_raw_audio_duration = convert_seconds_to_hours(
+            sum(total_raw_audio_duration_list)
+        )
+        total_segment_duration = convert_seconds_to_hours(sum(total_segment_duration))
+    else:
+        total_word_count = sum(total_word_count_list)
     cumulative_rejection_score_ar = 0
     if tasks_and_rejection_count_map_ar:
         for task, rc in tasks_and_rejection_count_map_ar.items():
@@ -199,10 +341,16 @@ def get_all_annotation_reports(
         "Participation Type": participation_type,
         "Role": role,
         "Type of Work": "Annotator",
-        "Total Segments Duration": total_audio_duration,
+        "Acoustic Normalised Duration": acoustic_normalised_duration,
+        "Verbatim Duration": verbatim_duration,
+        "Transcribed Duration": transcribed_duration,
         "Total Raw Audio Duration": total_raw_audio_duration,
-        "Word Count": total_word_count,
+        "Total Segment Duration": total_segment_duration,
+        "Acoustic Normalised Word Count": acoustic_normalised_word_count,
+        "Verbatim Word Count": verbatim_word_count,
+        "Transcribed Word Count": transcribed_word_count,
         "Submitted Tasks": submitted_tasks_count,
+        "Word Count": total_word_count,
         "Language": user_lang,
         "Average Word Error Rate Annotator Vs Reviewer": ar_wer_score
         / number_of_tasks_contributed_for_ar_wer
@@ -230,17 +378,44 @@ def get_all_annotation_reports(
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
+        if project_type == "AcousticNormalisedTranscriptionEditing":
+            del result["Transcribed Duration"]
+            del result["Transcribed Word Count"]
+        elif project_type in get_audio_project_types():
+            del result["Acoustic Normalised Duration"]
+            del result["Verbatim Duration"]
+            del result["Raw Audio Duration"]
+            del result["Acoustic Normalised Word Count"]
+            del result["Verbatim Word Count"]
     elif only_tasks:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
         del result["Word Count"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
     elif is_CT_OR_CTE:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
         del result["Word Count"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
     else:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
 
     return result
 
@@ -334,26 +509,35 @@ def get_all_review_reports(
             if a.annotation_type == SUPER_CHECKER_ANNOTATION:
                 number_of_tasks_that_has_sup_annotations += 1
             if rev_ann and sup_ann and not rs_done:
-                try:
-                    rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
-                        sup_ann.result, rev_ann.result, project_type
-                    )
+                meta_stats = sup_ann.meta_stats
+                if "word_error_rate" in meta_stats:
+                    rs_wer_score += meta_stats["word_error_rate"]
                     number_of_tasks_contributed_for_rs_wer += 1
                     rs_done = True
-                except Exception as e:
-                    pass
-                try:
-                    s1 = SentenceOperationViewSet()
-                    sampleRequest = {
-                        "annotation_result1": sup_ann.result,
-                        "annotation_result2": rev_ann.result,
-                    }
-                    rs_bleu_score += float(
-                        s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
-                    )
-                    number_of_tasks_contributed_for_rs_bleu += 1
-                except Exception as e:
-                    pass
+                else:
+                    try:
+                        rs_wer_score += calculate_word_error_rate_between_two_audio_transcription_annotation(
+                            sup_ann.result, rev_ann.result, project_type
+                        )
+                        number_of_tasks_contributed_for_rs_wer += 1
+                        rs_done = True
+                    except Exception as e:
+                        pass
+                if "bleu_score" in meta_stats:
+                    rs_bleu_score += meta_stats["bleu_score"]
+                else:
+                    try:
+                        s1 = SentenceOperationViewSet()
+                        sampleRequest = {
+                            "annotation_result1": sup_ann.result,
+                            "annotation_result2": rev_ann.result,
+                        }
+                        rs_bleu_score += float(
+                            s1.calculate_bleu_score(sampleRequest).data["bleu_score"]
+                        )
+                        number_of_tasks_contributed_for_rs_bleu += 1
+                    except Exception as e:
+                        pass
     submitted_tasks_count = submitted_tasks.count()
 
     project_type_lower = project_type.lower()
@@ -363,38 +547,159 @@ def get_all_review_reports(
         if project_type in ["ConversationTranslationEditing", "ConversationTranslation"]
         else False
     )
-    total_audio_duration_list = []
     total_raw_audio_duration_list = []
     total_word_count_list = []
+    acoustic_normalised_duration = []
+    verbatim_duration = []
+    transcribed_duration = []
+    acoustic_normalised_word_count = []
+    verbatim_word_count = []
+    transcribed_word_count = []
+    total_segment_duration = []
     only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
-            try:
-                total_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                total_word_count_list.append(meta_stats["word_count"])
+            else:
+                try:
+                    total_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
-            total_word_count_list.append(ocr_word_count(anno.result))
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                total_word_count_list.append(meta_stats["word_count"])
+            else:
+                total_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
+            meta_stats = anno.meta_stats
+            if project_type == "AllAudioProjects":
+                if "acoustic_normalised_duration" in meta_stats:
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
+                if "acoustic_normalised_word_count" in meta_stats:
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_word_count.append(calculateWordCount(r))
+                if "verbatim_duration" in meta_stats:
+                    verbatim_duration.append(meta_stats["verbatim_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_duration.append(calculateAudioDuration(r))
+                if "verbatim_word_count" in meta_stats:
+                    verbatim_word_count.append(meta_stats["verbatim_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_word_count.append(calculateWordCount(r))
+                if "transcribed_duration" in meta_stats:
+                    transcribed_duration.append(meta_stats["transcribed_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_duration.append(calculateAudioDuration(r))
+                if "transcribed_word_count" in meta_stats:
+                    transcribed_word_count.append(meta_stats["transcribed_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_word_count.append(calculateAudioDuration(r))
+            elif project_type == "AcousticNormalisedTranscriptionEditing":
+                if "acoustic_normalised_duration" in meta_stats:
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
+                if "acoustic_normalised_word_count" in meta_stats:
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_word_count.append(calculateWordCount(r))
+                if "verbatim_duration" in meta_stats:
+                    verbatim_duration.append(meta_stats["verbatim_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_duration.append(calculateAudioDuration(r))
+                if "verbatim_word_count" in meta_stats:
+                    verbatim_word_count.append(meta_stats["verbatim_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_word_count.append(calculateWordCount(r))
+            else:
+                if "transcribed_duration" in meta_stats:
+                    transcribed_duration.append(meta_stats["transcribed_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_duration.append(calculateAudioDuration(r))
+                if "transcribed_word_count" in meta_stats:
+                    transcribed_word_count.append(meta_stats["transcribed_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_word_count.append(calculateAudioDuration(r))
+            if "total_segment_duration" in meta_stats:
+                total_segment_duration.append(meta_stats["total_segment_duration"])
+            else:
+                try:
+                    total_segment_duration.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
             try:
-                total_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
                 total_raw_audio_duration_list.append(anno.task.data["audio_duration"])
             except:
                 pass
     else:
         only_tasks = True
 
-    total_word_count = sum(total_word_count_list)
-    total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
-    total_raw_audio_duration = convert_seconds_to_hours(
-        sum(total_raw_audio_duration_list)
-    )
+    total_raw_audio_duration, total_word_count = 0, 0
+    if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        acoustic_normalised_duration = convert_seconds_to_hours(
+            sum(acoustic_normalised_duration)
+        )
+        verbatim_duration = convert_seconds_to_hours(sum(verbatim_duration))
+        transcribed_duration = convert_seconds_to_hours(sum(transcribed_duration))
+        acoustic_normalised_word_count = convert_seconds_to_hours(
+            sum(acoustic_normalised_word_count)
+        )
+        verbatim_word_count = convert_seconds_to_hours(sum(verbatim_word_count))
+        transcribed_word_count = convert_seconds_to_hours(sum(transcribed_word_count))
+        total_raw_audio_duration = convert_seconds_to_hours(
+            sum(total_raw_audio_duration_list)
+        )
+        total_segment_duration = convert_seconds_to_hours(sum(total_segment_duration))
+    else:
+        total_word_count = sum(total_word_count_list)
     cumulative_rejection_score_ar = 0
     if tasks_and_rejection_count_map_ar:
         for task, rc in tasks_and_rejection_count_map_ar.items():
@@ -411,8 +716,14 @@ def get_all_review_reports(
         "Participation Type": participation_type,
         "Role": role,
         "Type of Work": "Review",
-        "Total Segments Duration": total_audio_duration,
+        "Acoustic Normalised Duration": acoustic_normalised_duration,
+        "Verbatim Duration": verbatim_duration,
+        "Transcribed Duration": transcribed_duration,
         "Total Raw Audio Duration": total_raw_audio_duration,
+        "Total Segment Duration": total_segment_duration,
+        "Acoustic Normalised Word Count": acoustic_normalised_word_count,
+        "Verbatim Word Count": verbatim_word_count,
+        "Transcribed Word Count": transcribed_word_count,
         "Word Count": total_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
@@ -439,17 +750,44 @@ def get_all_review_reports(
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
+        if project_type == "AcousticNormalisedTranscriptionEditing":
+            del result["Transcribed Duration"]
+            del result["Transcribed Word Count"]
+        elif project_type in get_audio_project_types():
+            del result["Acoustic Normalised Duration"]
+            del result["Verbatim Duration"]
+            del result["Raw Audio Duration"]
+            del result["Acoustic Normalised Word Count"]
+            del result["Verbatim Word Count"]
     elif only_tasks:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
         del result["Word Count"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
     elif is_CT_OR_CTE:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
         del result["Word Count"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
     else:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
 
     return result
 
@@ -508,26 +846,134 @@ def get_all_supercheck_reports(
         else False
     )
     validated_word_count_list = []
-    validated_audio_duration_list = []
+    acoustic_normalised_duration = []
+    verbatim_duration = []
+    transcribed_duration = []
+    acoustic_normalised_word_count = []
+    verbatim_word_count = []
+    transcribed_word_count = []
+    total_segment_duration = []
     validated_raw_audio_duration_list = []
     only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
-            try:
-                validated_word_count_list.append(anno.task.data["word_count"])
-            except:
-                pass
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                validated_word_count_list.append(meta_stats["word_count"])
+            else:
+                try:
+                    validated_word_count_list.append(anno.task.data["word_count"])
+                except:
+                    pass
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
-            validated_word_count_list.append(ocr_word_count(anno.result))
+            meta_stats = anno.meta_stats
+            if "word_count" in meta_stats:
+                validated_word_count_list.append(meta_stats["word_count"])
+            else:
+                validated_word_count_list.append(ocr_word_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
         for anno in submitted_tasks:
+            meta_stats = anno.meta_stats
+            if project_type == "AllAudioProjects":
+                if "acoustic_normalised_duration" in meta_stats:
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
+                if "acoustic_normalised_word_count" in meta_stats:
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_word_count.append(calculateWordCount(r))
+                if "verbatim_duration" in meta_stats:
+                    verbatim_duration.append(meta_stats["verbatim_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_duration.append(calculateAudioDuration(r))
+                if "verbatim_word_count" in meta_stats:
+                    verbatim_word_count.append(meta_stats["verbatim_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_word_count.append(calculateWordCount(r))
+                if "transcribed_duration" in meta_stats:
+                    transcribed_duration.append(meta_stats["transcribed_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_duration.append(calculateAudioDuration(r))
+                if "transcribed_word_count" in meta_stats:
+                    transcribed_word_count.append(meta_stats["transcribed_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_word_count.append(calculateAudioDuration(r))
+            elif project_type == "AcousticNormalisedTranscriptionEditing":
+                if "acoustic_normalised_duration" in meta_stats:
+                    acoustic_normalised_duration.append(
+                        meta_stats["acoustic_normalised_duration"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_duration.append(
+                                calculateAudioDuration(r)
+                            )
+                if "acoustic_normalised_word_count" in meta_stats:
+                    acoustic_normalised_word_count.append(
+                        meta_stats["acoustic_normalised_word_count"]
+                    )
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "acoustic_normalised_transcribed_json":
+                            acoustic_normalised_word_count.append(calculateWordCount(r))
+                if "verbatim_duration" in meta_stats:
+                    verbatim_duration.append(meta_stats["verbatim_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_duration.append(calculateAudioDuration(r))
+                if "verbatim_word_count" in meta_stats:
+                    verbatim_word_count.append(meta_stats["verbatim_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "verbatim_transcribed_json":
+                            verbatim_word_count.append(calculateWordCount(r))
+            else:
+                if "transcribed_duration" in meta_stats:
+                    transcribed_duration.append(meta_stats["transcribed_duration"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_duration.append(calculateAudioDuration(r))
+                if "transcribed_word_count" in meta_stats:
+                    transcribed_word_count.append(meta_stats["transcribed_word_count"])
+                else:
+                    for r in anno.result:
+                        if r["from_name"] == "transcribed_json":
+                            transcribed_word_count.append(calculateAudioDuration(r))
+            if "total_segment_duration" in meta_stats:
+                total_segment_duration.append(meta_stats["total_segment_duration"])
+            else:
+                try:
+                    total_segment_duration.append(
+                        get_audio_transcription_duration(anno.result)
+                    )
+                except:
+                    pass
             try:
-                validated_audio_duration_list.append(
-                    get_audio_transcription_duration(anno.result)
-                )
                 validated_raw_audio_duration_list.append(
                     anno.task.data["audio_duration"]
                 )
@@ -536,13 +982,24 @@ def get_all_supercheck_reports(
     else:
         only_tasks = True
 
-    validated_word_count = sum(validated_word_count_list)
-    validated_audio_duration = convert_seconds_to_hours(
-        sum(validated_audio_duration_list)
-    )
-    validated_raw_audio_duration = convert_seconds_to_hours(
-        sum(validated_raw_audio_duration_list)
-    )
+    validated_raw_audio_duration, validated_word_count = 0, 0
+    if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
+        acoustic_normalised_duration = convert_seconds_to_hours(
+            sum(acoustic_normalised_duration)
+        )
+        verbatim_duration = convert_seconds_to_hours(sum(verbatim_duration))
+        transcribed_duration = convert_seconds_to_hours(sum(transcribed_duration))
+        acoustic_normalised_word_count = convert_seconds_to_hours(
+            sum(acoustic_normalised_word_count)
+        )
+        verbatim_word_count = convert_seconds_to_hours(sum(verbatim_word_count))
+        transcribed_word_count = convert_seconds_to_hours(sum(transcribed_word_count))
+        validated_raw_audio_duration = convert_seconds_to_hours(
+            sum(validated_raw_audio_duration_list)
+        )
+        total_segment_duration = convert_seconds_to_hours(sum(total_segment_duration))
+    else:
+        validated_word_count = sum(validated_word_count_list)
     cumulative_rejection_score_rs = 0
     if tasks_and_rejection_count_map_rs:
         for task, rc in tasks_and_rejection_count_map_rs.items():
@@ -554,8 +1011,14 @@ def get_all_supercheck_reports(
         "Participation Type": participation_type,
         "Role": role,
         "Type of Work": "Supercheck",
-        "Total Segments Duration": validated_audio_duration,
+        "Acoustic Normalised Duration": acoustic_normalised_duration,
+        "Verbatim Duration": verbatim_duration,
+        "Transcribed Duration": transcribed_duration,
         "Total Raw Audio Duration": validated_raw_audio_duration,
+        "Total Segment Duration": total_segment_duration,
+        "Acoustic Normalised Word Count": acoustic_normalised_word_count,
+        "Verbatim Word Count": verbatim_word_count,
+        "Transcribed Word Count": transcribed_word_count,
         "Word Count": validated_word_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
@@ -567,17 +1030,44 @@ def get_all_supercheck_reports(
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
+        if project_type == "AcousticNormalisedTranscriptionEditing":
+            del result["Transcribed Duration"]
+            del result["Transcribed Word Count"]
+        elif project_type in get_audio_project_types():
+            del result["Acoustic Normalised Duration"]
+            del result["Verbatim Duration"]
+            del result["Raw Audio Duration"]
+            del result["Acoustic Normalised Word Count"]
+            del result["Verbatim Word Count"]
     elif only_tasks:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
         del result["Word Count"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
     elif is_CT_OR_CTE:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
         del result["Word Count"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
     else:
-        del result["Total Segments Duration"]
-        del result["Total Raw Audio Duration"]
+        del result["Acoustic Normalised Duration"]
+        del result["Verbatim Duration"]
+        del result["Transcribed Duration"]
+        del result["Raw Audio Duration"]
+        del result["Total Segment Duration"]
+        del result["Acoustic Normalised Word Count"]
+        del result["Verbatim Word Count"]
+        del result["Transcribed Word Count"]
 
     return result
 
@@ -726,7 +1216,7 @@ def send_user_reports_mail_org(
 
     content = df.to_csv(index=False)
     content_type = "text/csv"
-    filename = f"{organization.title}_user_analytics.csv"
+    filename = f"{organization.title}_payments_analytics.csv"
 
     participation_types = [
         "Full Time"
@@ -739,32 +1229,30 @@ def send_user_reports_mail_org(
         for participation_type in participation_types
     ]
     participation_types_string = ", ".join(participation_types)
-
-    message = (
-        "Dear "
-        + str(user.username)
-        + ",\nYour user payment reports for "
-        + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
-        + "\nParticipation Types: "
-        + f"{participation_types_string}"
-        + (
-            "\nStart Date: " + f"{start_date}" + "\nEnd Date: " + f"{end_date}"
-            if start_date
-            else ""
-        )
+    # Format the start_date and end_date
+    start_date = start_date.strftime("%Y-%m-%d %H:%M:%S %Z")
+    end_date = end_date.strftime("%Y-%m-%d %H:%M:%S %Z")
+    message = f"""
+    <p> Your {organization.title} Payments Report  under  AI4Bharat Organisation are now ready for review. Kindly check the attachment below            </p>
+    <ul style="font-size: 10px; padding-left: 20px;">
+        <li><strong>Project Type:</strong> {project_type}</li>
+        <li><strong>Participation Types:</strong>{participation_types_string}</li>
+        <li><strong>Start Date:</strong> {start_date} UTC</li>
+        <li><strong>End Date:</strong> {end_date} UTC </li>
+    </ul>
+"""
+    compiled_code = send_email_template_with_attachment(
+        "Payment Reports", user.username, message
     )
-
-    email = EmailMessage(
-        f"{organization.title}" + " Payment Reports",
-        message,
+    msg = EmailMultiAlternatives(
+        f"{organization.title} Payment Reports",
+        compiled_code,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content, content_type)],
     )
-    email.send()
+    msg.attach_alternative(compiled_code, "text/html")
+    msg.attach(filename, content, content_type)
+    msg.send()
 
 
 def get_counts(
@@ -1456,25 +1944,26 @@ def send_project_analytics_mail_org(
     content = df.to_csv(index=False)
     content_type = "text/csv"
     filename = f"{organization.title}_project_analytics.csv"
+    message = f"""
+    <p> Your {organization.title} Project Analytics Report under AI4Bharat Organisation are now ready for review. Kindly check the attachment below            </p>
 
-    message = (
-        "Dear "
-        + str(user.username)
-        + ",\nYour project analysis reports for "
-        + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
+    <ul style="font-size: 10px; padding-left: 20px;">
+        <li><strong>Project Type:</strong> {project_type}</li>
+        <li><strong>Language:</strong> {selected_language}</li>
+    </ul>   
+"""
+    compiled_code = send_email_template_with_attachment(
+        "Project Analytics", user.username, message
     )
-
-    email = EmailMessage(
-        f"{organization.title}" + " Project Analytics",
-        message,
+    msg = EmailMultiAlternatives(
+        f"{organization.title} Project Analytics",
+        compiled_code,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content, content_type)],
     )
-    email.send()
+    msg.attach_alternative(compiled_code, "text/html")
+    msg.attach(filename, content, content_type)
+    msg.send()
 
 
 @shared_task(queue="reports")
@@ -1663,21 +2152,30 @@ def send_user_analytics_mail_org(
     content_type = "text/csv"
     filename = f"{organization.title}_user_analytics.csv"
 
-    message = (
-        "Dear "
-        + str(user.username)
-        + ",\nYour user analysis reports for "
-        + f"{organization.title}"
-        + " are ready.\n Thanks for contributing on Shoonya!"
-        + "\nProject Type: "
-        + f"{project_type}"
+    project_progress_stage_name = "All Stage"
+    if project_progress_stage == ANNOTATION_STAGE:
+        project_progress_stage_name = "Annotation"
+    elif project_progress_stage == REVIEW_STAGE:
+        project_progress_stage_name = "Review"
+    else:
+        project_progress_stage_name = "Super Check"
+    message = f"""
+    <p> Your {organization.title} User Analytics Report under AI4Bharat Organisation are now ready for review. Kindly check the attachment below  </p>
+    <ul style="font-size: 10px; padding-left: 20px;">
+        <li><strong>Project Type:</strong> {project_type}</li>
+        <li><strong>Progress Stage:</strong>{project_progress_stage_name}</li>
+        <li><strong>Target Language:</strong>{tgt_language}</li>
+    </ul>
+"""
+    compiled_code = send_email_template_with_attachment(
+        "User Analytics", user.username, message
     )
-
-    email = EmailMessage(
-        f"{organization.title}" + " User Analytics",
-        message,
+    msg = EmailMultiAlternatives(
+        f"{organization.title} User Analytics",
+        compiled_code,
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
-        attachments=[(filename, content, content_type)],
     )
-    email.send()
+    msg.attach_alternative(compiled_code, "text/html")
+    msg.attach(filename, content, content_type)
+    msg.send()

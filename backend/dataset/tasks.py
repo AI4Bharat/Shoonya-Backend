@@ -12,11 +12,9 @@ from tasks.models import Task, Annotation
 #### CELERY SHARED TASKS
 
 
-@shared_task(
-    bind=True,
-)
+@shared_task(queue="default")
 def upload_data_to_data_instance(
-    self, dataset_string, pk, dataset_type, content_type, deduplicate=False
+    dataset_string, pk, dataset_type, content_type, deduplicate=False
 ):
     # sourcery skip: raise-specific-error
     """Celery background task to upload the data to the dataset instance through file upload.
@@ -102,8 +100,8 @@ def upload_data_to_data_instance(
         raise Exception(f"Upload failed for lines: {failed_rows}")
 
 
-@shared_task(bind=True)
-def deduplicate_dataset_instance_items(self, pk, deduplicate_field_list):
+@shared_task(queue="default")
+def deduplicate_dataset_instance_items(pk, deduplicate_field_list):
     if len(deduplicate_field_list) == 0:
         return "Field list cannot be empty"
     try:

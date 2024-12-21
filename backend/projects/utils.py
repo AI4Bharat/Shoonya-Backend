@@ -13,7 +13,7 @@ from tasks.models import Annotation as Annotation_model
 from users.models import User
 from django.forms import model_to_dict
 
-from dataset.models import Conversation
+from dataset.models import Conversation, SpeechConversation
 from tasks.models import (
     Annotation,
     ANNOTATED,
@@ -25,11 +25,15 @@ import datetime
 import yaml
 from yaml.loader import SafeLoader
 from jiwer import wer
-
-from utils.convert_result_to_chitralekha_format import create_memory
 from dataset import models as dataset_models
+from users.utils import generate_random_string
+from utils.convert_result_to_chitralekha_format import (
+    create_memory,
+    convert_fractional_time_to_formatted,
+)
 
-nltk.download("punkt")
+
+nltk.download("punkt", quiet=True)
 
 
 def get_audio_project_types():
@@ -170,7 +174,7 @@ def get_audio_transcription_duration(annotation_result):
     return audio_duration
 
 
-def get_not_null_audio_transcription_duration(annotation_result, ann_id):
+def get_not_null_audio_transcription_duration(annotation_result, ann_id=None):
     audio_duration = 0
     memory = create_memory(annotation_result)
     for key, indexes in memory.items():
@@ -365,6 +369,7 @@ def process_ocr_tasks(
     is_OCRSegmentCategorization,
     is_OCRSegmentCategorizationEditing,
     is_OCRTextlineSegmentation,
+    is_OCRSegmentCategorisationRelationMappingEditing,
 ):
     annotation_result = process_annotation_result(task)
     process_ocr_results(
@@ -373,6 +378,7 @@ def process_ocr_tasks(
         is_OCRSegmentCategorization,
         is_OCRSegmentCategorizationEditing,
         is_OCRTextlineSegmentation,
+        is_OCRSegmentCategorisationRelationMappingEditing,
     )
 
 
@@ -436,10 +442,26 @@ def process_speech_results(
 ):
     from projects.views import convert_annotation_result_to_formatted_json
 
+    is_StandardizedTranscriptionEditing = (
+        project_type == "StandardizedTranscriptionEditing"
+    )
+
     if is_audio_segmentation:
         task["data"]["prediction_json"] = convert_annotation_result_to_formatted_json(
             annotation_result, speakers_json, True, False, False
         )
+    elif is_StandardizedTranscriptionEditing:
+        task["data"]["final_transcribed_json"] = (
+            convert_annotation_result_to_formatted_json(
+                annotation_result,
+                speakers_json,
+                True,
+                False,
+                False,
+                True,
+            )
+        )
+        task["data"]["transcribed_json"] = task["data"]["final_transcribed_json"]
     else:
         task["data"]["transcribed_json"] = convert_annotation_result_to_formatted_json(
             annotation_result,
@@ -456,6 +478,7 @@ def process_ocr_results(
     is_OCRSegmentCategorization,
     is_OCRSegmentCategorizationEditing,
     is_OCRTextlineSegmentation,
+    is_OCRSegmentCategorisationRelationMappingEditing,
 ):
     from projects.views import convert_annotation_result_to_formatted_json
 
@@ -472,6 +495,7 @@ def process_ocr_results(
         is_OCRSegmentCategorization
         or is_OCRSegmentCategorizationEditing
         or is_OCRTextlineSegmentation
+        or is_OCRSegmentCategorisationRelationMappingEditing
     ):
         bboxes_relation_json = []
         for ann in annotation_result:
@@ -556,3 +580,225 @@ def process_task(
         task_dict["data"] = data
 
     return OrderedDict(task_dict)
+
+
+def convert_time_to_seconds(time_str):
+    # Split the time string into hours, minutes, seconds, and milliseconds
+    hours, minutes, seconds_milliseconds = time_str.split(":")
+    seconds, milliseconds = seconds_milliseconds.split(".")
+
+    # Convert each component to integers
+    hours = int(hours)
+    minutes = int(minutes)
+    seconds = int(seconds)
+    milliseconds = int(milliseconds)
+
+    # Calculate the total time in seconds
+    total_seconds = (hours * 3600) + (minutes * 60) + seconds + (milliseconds / 1000.0)
+
+    return total_seconds
+
+
+def parse_json_for_ste(input_data_id):
+    data_item = SpeechConversation.objects.get(pk=input_data_id)
+    data = (
+        json.loads(data_item.transcribed_json)
+        if isinstance(data_item.transcribed_json, str)
+        else data_item.transcribed_json
+    )
+    if not data:
+        return []
+    matched_items = {}
+    total_duration = data_item.audio_duration
+    for item in data["verbatim_transcribed_json"]:
+        start_end = (item["start"], item["end"])
+        if start_end not in matched_items:
+            matched_items[start_end] = {
+                "verbatim_transcribed_json": [],
+                "vSpeaker_id": [],
+                "standardised_transcription": [],
+                "sSpeaker_id": [],
+                "acoustic_normalised_transcribed_json": [],
+            }
+        if "text" in item:
+            matched_items[start_end]["verbatim_transcribed_json"].append(item["text"])
+        if "speaker_id" in item:
+            matched_items[start_end]["vSpeaker_id"].append(item["speaker_id"])
+
+    for item in data["standardised_transcription"]:
+        start_end = (item["start"], item["end"])
+        if start_end not in matched_items:
+            matched_items[start_end] = {
+                "verbatim_transcribed_json": [],
+                "vSpeaker_id": [],
+                "standardised_transcription": [],
+                "sSpeaker_id": [],
+                "acoustic_normalised_transcribed_json": [],
+            }
+        if "text" in item:
+            matched_items[start_end]["standardised_transcription"].append(item["text"])
+        if "speaker_id" in item:
+            matched_items[start_end]["sSpeaker_id"].append(item["speaker_id"])
+
+    for item in data["acoustic_normalised_transcribed_json"]:
+        start_end = (item["start"], item["end"])
+        if start_end not in matched_items:
+            matched_items[start_end] = {
+                "verbatim_transcribed_json": [],
+                "vSpeaker_id": [],
+                "standardised_transcription": [],
+                "sSpeaker_id": [],
+                "acoustic_normalised_transcribed_json": [],
+            }
+        matched_items[start_end]["acoustic_normalised_transcribed_json"].append(
+            item["text"]
+        )
+
+    output = []
+    idx = 1
+    for start_end, item in matched_items.items():
+        start, end = start_end
+        tempId_vb = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+        tempId_st = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+        if (
+            item["acoustic_normalised_transcribed_json"]
+            and item["verbatim_transcribed_json"]
+        ):
+            output.append(
+                {
+                    "id": tempId_vb,
+                    "type": "textarea",
+                    "value": {
+                        "end": end,
+                        "text": item["acoustic_normalised_transcribed_json"],
+                        "start": start,
+                    },
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "acoustic_normalised_transcribed_json",
+                    "original_length": total_duration,
+                }
+            )
+            output.append(
+                {
+                    "id": tempId_vb,
+                    "type": "labels",
+                    "value": {
+                        "end": end,
+                        "start": start,
+                        "labels": item["vSpeaker_id"],
+                    },
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "labels",
+                    "original_length": total_duration,
+                }
+            )
+            output.append(
+                {
+                    "id": tempId_vb,
+                    "type": "textarea",
+                    "value": {
+                        "end": end,
+                        "text": item["verbatim_transcribed_json"],
+                        "start": start,
+                    },
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "verbatim_transcribed_json",
+                    "original_length": total_duration,
+                }
+            )
+        if item["standardised_transcription"]:
+            output.append(
+                {
+                    "id": tempId_st,
+                    "type": "labels",
+                    "value": {
+                        "end": end,
+                        "start": start,
+                        "labels": item["sSpeaker_id"],
+                    },
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "labels",
+                    "original_length": total_duration,
+                }
+            )
+            output.append(
+                {
+                    "id": tempId_st,
+                    "type": "textarea",
+                    "value": {
+                        "end": end,
+                        "text": item["standardised_transcription"],
+                        "start": start,
+                    },
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "acoustic_standardised_transcribed_json",
+                    "original_length": total_duration,
+                }
+            )
+        idx += 1
+    return output
+
+
+def ann_result_for_ste(ann_result):
+    vb_list = []
+    ac_list = []
+    st_list = []
+    sId = "Speaker 0"
+    for i, a in enumerate(ann_result):
+        if a["from_name"] == "labels":
+            continue
+        elif a["from_name"] == "acoustic_normalised_transcribed_json":
+            text = a["value"]["text"][0]
+            if i + 1 < len(ann_result) and ann_result[i + 1]["from_name"] == "labels":
+                try:
+                    sId = ann_result[i + 1]["value"]["labels"][0]
+                except Exception as e:
+                    sId = "Speaker 0"
+            ac_list.append(
+                {
+                    "speaker_id": sId,
+                    "start": a["value"]["start"],
+                    "end": a["value"]["end"],
+                    "text": text,
+                }
+            )
+        elif a["from_name"] == "verbatim_transcribed_json":
+            text = a["value"]["text"][0]
+            if i - 1 > 0 and ann_result[i - 1]["from_name"] == "labels":
+                try:
+                    sId = ann_result[i - 1]["value"]["labels"][0]
+                except Exception as e:
+                    sId = "Speaker 0"
+            vb_list.append(
+                {
+                    "speaker_id": sId,
+                    "start": a["value"]["start"],
+                    "end": a["value"]["end"],
+                    "text": text,
+                }
+            )
+        elif a["from_name"] == "acoustic_standardised_transcribed_json":
+            text = a["value"]["text"][0]
+            if i - 1 > 0 and ann_result[i - 1]["from_name"] == "labels":
+                try:
+                    sId = ann_result[i - 1]["value"]["labels"][0]
+                except Exception as e:
+                    sId = "Speaker 0"
+            st_list.append(
+                {
+                    "speaker_id": sId,
+                    "start": a["value"]["start"],
+                    "end": a["value"]["end"],
+                    "text": text,
+                }
+            )
+    return {
+        "verbatim_transcribed_json": vb_list,
+        "acoustic_normalised_transcribed_json": ac_list,
+        "standardised_transcription": st_list,
+    }

@@ -4,6 +4,7 @@ LANG_CHOICES = (
     ("Bengali", "Bengali"),
     ("Bodo", "Bodo"),
     ("Dogri", "Dogri"),
+    ("Filipino", "Filipino"),
     ("Gujarati", "Gujarati"),
     ("Hindi", "Hindi"),
     ("Kannada", "Kannada"),
@@ -22,6 +23,7 @@ LANG_CHOICES = (
     ("Sinhala", "Sinhala"),
     ("Tamil", "Tamil"),
     ("Telugu", "Telugu"),
+    ("Thai", "Thai"),
     ("Urdu", "Urdu"),
 )
 

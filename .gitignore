@@ -59,3 +59,5 @@ $RECYCLE.BIN/
 
 # Logs
 **/logs/*
+
+backend/assert_meta_stats.py

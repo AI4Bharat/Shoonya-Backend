@@ -25,6 +25,8 @@ from .utils import (
     process_speech_tasks,
     process_ocr_tasks,
     process_task,
+    convert_time_to_seconds,
+    parse_json_for_ste,
 )
 from django.http import HttpResponse, JsonResponse
 from rest_framework import status, viewsets
@@ -88,6 +90,7 @@ from .utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
+    ann_result_for_ste,
 )
 
 from users.utils import generate_random_string
@@ -1003,6 +1006,7 @@ def convert_prediction_json_to_annotation_result(
         or proj_type == "OCRSegmentCategorizationEditing"
         or proj_type == "OCRTextlineSegmentation"
     ):
+
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = (
             json.loads(data_item.ocr_prediction_json)
@@ -1011,6 +1015,10 @@ def convert_prediction_json_to_annotation_result(
         )
         if ocr_prediction_json == None:
             return result
+        is_OCRSegmentCategorisationRelationMappingEditing = (
+            proj_type == "OCRSegmentCategorisationRelationMappingEditing"
+        )
+        id_set = set()
         for idx, val in enumerate(ocr_prediction_json):
             image_rotation = (
                 ocr_prediction_json["image_rotation"]
@@ -1018,6 +1026,8 @@ def convert_prediction_json_to_annotation_result(
                 else 0
             )
             custom_id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+            if is_OCRSegmentCategorisationRelationMappingEditing:
+                id_set.add(custom_id)
             # creating values
             common_value = {
                 "x": val["x"],
@@ -1070,7 +1080,20 @@ def convert_prediction_json_to_annotation_result(
             result.append(rectangle_dict)
             result.append(label_dict)
             result.append(text_dict)
-
+        bboxes_relation_prediction_json = (
+            json.loads(data_item.bboxes_relation_prediction_json)
+            if isinstance(data_item.bboxes_relation_prediction_json, str)
+            else data_item.bboxes_relation_prediction_json
+        )
+        bboxes_relation_prediction_json = (
+            []
+            if bboxes_relation_prediction_json is None
+            else bboxes_relation_prediction_json
+        )
+        for b in bboxes_relation_prediction_json:
+            if "from_id" in b and "to_id" in b:
+                if b["from_id"] in id_set and b["to_id"] in id_set:
+                    result.append(b)
     return result
 
 
@@ -1080,12 +1103,15 @@ def convert_annotation_result_to_formatted_json(
     is_SpeechConversation,
     is_OCRSegmentCategorizationOROCRSegmentCategorizationEditingOROCRTextlineSegmentation,
     is_acoustic=False,
+    is_StandardisedTranscriptionEditing=False,
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
     standardised_transcription = ""
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
-    if is_SpeechConversation:
+    if is_StandardisedTranscriptionEditing:
+        transcribed_json = ann_result_for_ste(annotation_result)
+    elif is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
             formatted_result_dict = {}
@@ -1104,9 +1130,6 @@ def convert_annotation_result_to_formatted_json(
                     annotation_result[idx1], ensure_ascii=False
                 )
                 acoustic_text_dict = annotation_result[idx1]
-            elif annotation_result[idx1]["from_name"] == "standardised_transcription":
-                standardised_transcription = annotation_result[idx1]["value"]["text"][0]
-                continue
             else:
                 text_dict = json.dumps(annotation_result[idx1], ensure_ascii=False)
                 text_dict = annotation_result[idx1]
@@ -2222,7 +2245,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 proj.metadata_json[
                     "automatic_annotation_creation_mode"
                 ] = automatic_annotation_creation_mode
-            if proj.project_type == "AcousticNormalisedTranscriptionEditing":
+            if proj.project_type in [
+                "AcousticNormalisedTranscriptionEditing",
+                "StandardizedTranscriptionEditing",
+            ]:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
                 proj.metadata_json["acoustic_enabled_stage"] = (
@@ -2466,9 +2492,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     )
                     task.delete()
                     continue
+
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
             ).count()
+
             if annotator_anno_count < project.required_annotators_per_task:
                 cur_user_anno_count = Annotation_model.objects.filter(
                     task_id=task,
@@ -4184,6 +4212,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
             is_OCRTextlineSegmentation = project_type == "OCRTextlineSegmentation"
             is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
+            is_OCRSegmentCategorisationRelationMappingEditing = (
+                project_type == "OCRSegmentCategorisationRelationMappingEditing"
+            )
             for task in tasks:
                 try:
                     curr_task = process_task(

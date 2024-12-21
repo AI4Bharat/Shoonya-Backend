@@ -11,6 +11,11 @@ from tasks.utils import Queued_Task_name
 from django.utils import timezone
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import json
+from celery import Celery
+
+# from flower.api import Flower
+# flower_app = Flower()
+celery_app = Celery()
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import StreamingHttpResponse, FileResponse
@@ -54,6 +59,8 @@ import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
 from rest_framework.views import APIView
+from django.db import IntegrityError
+from .utils import compute_meta_stats_for_annotation
 
 # Create your views here.
 
@@ -1342,12 +1349,16 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     "Project ID": annotation.task.project_id.id,
                     "Task ID": annotation.task.id,
                     "Updated at": utc_to_ist(annotation.updated_at),
-                    "Annotated at": utc_to_ist(annotation.annotated_at)
-                    if annotation.annotated_at
-                    else None,
-                    "Created at": utc_to_ist(annotation.created_at)
-                    if annotation.created_at
-                    else None,
+                    "Annotated at": (
+                        utc_to_ist(annotation.annotated_at)
+                        if annotation.annotated_at
+                        else None
+                    ),
+                    "Created at": (
+                        utc_to_ist(annotation.created_at)
+                        if annotation.created_at
+                        else None
+                    ),
                 }
 
                 response.append(data)
@@ -1754,7 +1765,15 @@ class AnnotationViewSet(
             == "AcousticNormalisedTranscriptionEditing"
             else False
         )
-        is_ocr_sc_or_sce_or_ts = (
+
+        is_StandardizedTranscriptionEditing = (
+            True
+            if annotation_obj.task.project_id.project_type
+            == "StandardizedTranscriptionEditing"
+            else False
+        )
+
+        is_ocr_sc_or_sce = (
             True
             if annotation_obj.task.project_id.project_type
             in [
@@ -1789,16 +1808,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
-                            and "acoustic_enabled_stage"
-                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
                             == 1
-                        ),
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1806,11 +1824,14 @@ class AnnotationViewSet(
                     annotation_obj.annotation_notes = request.data["annotation_notes"]
                     update_fields_list.append("annotation_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(update_fields=update_fields_list)
-                annotation_response = Response(
-                    AnnotationSerializer(annotation_obj).data
-                )
-                response_message = "Success"
+                try:
+                    annotation_obj.save(update_fields=update_fields_list)
+                    annotation_response = Response(
+                        AnnotationSerializer(annotation_obj).data
+                    )
+                    response_message = "Success"
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
             else:
                 if "annotation_status" in dict(request.data) and request.data[
                     "annotation_status"
@@ -1849,16 +1870,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
-                            and "acoustic_enabled_stage"
-                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
                             == 1
-                        ),
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -1875,7 +1895,10 @@ class AnnotationViewSet(
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                annotation_response = super().partial_update(request)
+                try:
+                    annotation_response = super().partial_update(request)
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
                 task = annotation.task
@@ -1926,16 +1949,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
-                            and "acoustic_enabled_stage"
-                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
-                            <= 2
-                        ),
+                            == 2
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -1943,11 +1965,14 @@ class AnnotationViewSet(
                     annotation_obj.review_notes = request.data["review_notes"]
                     update_fields_list.append("review_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(update_fields=update_fields_list)
-                annotation_response = Response(
-                    AnnotationSerializer(annotation_obj).data
-                )
-                response_message = "Success"
+                try:
+                    annotation_obj.save(update_fields=update_fields_list)
+                    annotation_response = Response(
+                        AnnotationSerializer(annotation_obj).data
+                    )
+                    response_message = "Success"
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
 
             else:
                 if "annotation_status" in dict(request.data) and request.data[
@@ -2025,16 +2050,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
-                            and "acoustic_enabled_stage"
-                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
-                            <= 2
-                        ),
+                            == 2
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -2051,7 +2075,10 @@ class AnnotationViewSet(
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                annotation_response = super().partial_update(request)
+                try:
+                    annotation_response = super().partial_update(request)
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
                 task = annotation.task
@@ -2074,6 +2101,7 @@ class AnnotationViewSet(
                     parent.review_notes = annotation.review_notes
                     if review_status == TO_BE_REVISED:
                         parent.annotation_status = TO_BE_REVISED
+                        parent.result = annotation.result
                         task.task_status = INCOMPLETE
                         rev_loop_count = task.revision_loop_count
                         if not is_revised:
@@ -2092,7 +2120,9 @@ class AnnotationViewSet(
                                 supercheck_annotation.save()
                         except:
                             pass
-                    parent.save(update_fields=["review_notes", "annotation_status"])
+                    parent.save(
+                        update_fields=["review_notes", "annotation_status", "result"]
+                    )
                     task.save()
 
                 if review_status in [
@@ -2129,16 +2159,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
-                            and "acoustic_enabled_stage"
-                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
-                            <= 3
-                        ),
+                            == 3
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -2146,11 +2175,14 @@ class AnnotationViewSet(
                     annotation_obj.supercheck_notes = request.data["supercheck_notes"]
                     update_fields_list.append("supercheck_notes")
                 annotation_obj.lead_time = request.data["lead_time"]
-                annotation_obj.save(update_fields=update_fields_list)
-                annotation_response = Response(
-                    AnnotationSerializer(annotation_obj).data
-                )
-                response_message = "Success"
+                try:
+                    annotation_obj.save(update_fields=update_fields_list)
+                    annotation_response = Response(
+                        AnnotationSerializer(annotation_obj).data
+                    )
+                    response_message = "Success"
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
 
             else:
                 if "annotation_status" in dict(request.data) and request.data[
@@ -2219,16 +2251,15 @@ class AnnotationViewSet(
                     ) = self.convert_chitralekha_format_to_LSF(
                         request.data["result"],
                         annotation_obj.task,
-                        is_acoustic_project_type,
+                        is_acoustic_project_type or is_StandardizedTranscriptionEditing,
                         (
                             is_acoustic_project_type
-                            and "acoustic_enabled_stage"
-                            in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
-                            <= 3
-                        ),
+                            == 3
+                        )
+                        or is_StandardizedTranscriptionEditing,
                     )
                     if empty_flag == True and annotation_status in [
                         LABELED,
@@ -2244,7 +2275,10 @@ class AnnotationViewSet(
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-                annotation_response = super().partial_update(request)
+                try:
+                    annotation_response = super().partial_update(request)
+                except IntegrityError as e:
+                    response_message = "This task is having duplicate annotation. Please deallocate this task"
                 annotation_id = annotation_response.data["id"]
                 annotation = Annotation.objects.get(pk=annotation_id)
 
@@ -2264,6 +2298,7 @@ class AnnotationViewSet(
                     parent.supercheck_notes = annotation.supercheck_notes
                     if supercheck_status == REJECTED:
                         parent.annotation_status = REJECTED
+                        parent.result = annotation.result
                         task.task_status = ANNOTATED
                         rev_loop_count = task.revision_loop_count
                         if not is_rejected:
@@ -2273,7 +2308,13 @@ class AnnotationViewSet(
                         task.revision_loop_count = rev_loop_count
                     else:
                         task.task_status = SUPER_CHECKED
-                    parent.save(update_fields=["supercheck_notes", "annotation_status"])
+                    parent.save(
+                        update_fields=[
+                            "supercheck_notes",
+                            "annotation_status",
+                            "result",
+                        ]
+                    )
                     task.save()
 
                 if supercheck_status in [
@@ -2304,6 +2345,10 @@ class AnnotationViewSet(
                 if supercheck_status in [UNVALIDATED, REJECTED, DRAFT, SKIPPED]:
                     task.correct_annotation = None
                     task.save()
+        annotation_obj.meta_stats = compute_meta_stats_for_annotation(
+            annotation_obj, annotation_obj.task.project_id.project_type
+        )
+        annotation_obj.save()
         annotation_response.data["message"] = response_message
         return annotation_response
 
@@ -2348,19 +2393,33 @@ class AnnotationViewSet(
         if result == None or len(result) == 0:
             return modified_result, empty_text_flag
         for idx, val in enumerate(result):
-            if "standardised_transcription" in val:
+            if "acoustic_standardized_text" in val:
                 if acoustic_enabled:
                     standardised_dict = {
                         "id": f"chitralekha_{idx}s{generate_random_string(13 - len(str(idx)))}",
                         "origin": "manual",
                         "to_name": "audio_url",
-                        "from_name": "standardised_transcription",
+                        "from_name": "acoustic_standardised_transcribed_json",
                         "original_length": audio_duration,
                         "type": "textarea",
                         "value": {
-                            "text": [val["standardised_transcription"]],
+                            "start": self.convert_formatted_time_to_fractional(
+                                val["start_time"]
+                            ),
+                            "end": self.convert_formatted_time_to_fractional(
+                                val["end_time"]
+                            ),
+                            "text": [val["acoustic_standardized_text"]],
                         },
                     }
+                    label_dict_st = deepcopy(standardised_dict)
+                    label_dict_st["type"] = "labels"
+                    del label_dict_st["value"]["text"]
+                    label_dict_st["value"]["labels"] = (
+                        [val["speaker_id"]] if "speaker_id" in val else []
+                    )
+                    label_dict_st["from_name"] = "labels"
+                    modified_result.append(label_dict_st)
                     modified_result.append(standardised_dict)
                 continue
             if "type" in val or "value" in val:
@@ -2376,9 +2435,11 @@ class AnnotationViewSet(
             text_dict = {
                 "origin": "manual",
                 "to_name": "audio_url",
-                "from_name": "transcribed_json"
-                if not is_acoustic
-                else "verbatim_transcribed_json",
+                "from_name": (
+                    "transcribed_json"
+                    if not is_acoustic
+                    else "verbatim_transcribed_json"
+                ),
                 "original_length": audio_duration,
             }
 
@@ -2684,3 +2745,61 @@ class TransliterationAPIView(APIView):
 
         transliteration_output = response_transliteration.json()
         return Response(transliteration_output, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+def stopping_celery_tasks(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None or task.state == "PENDING":
+        return JsonResponse({"message": "Task not found or not running"}, status=404)
+
+    if task.state in ["SUCCESS", "FAILURE", "REVOKED"]:
+        return JsonResponse(
+            {"message": "Task already completed or revoked"}, status=400
+        )
+
+    task.revoke(terminate=True)
+
+    return JsonResponse({"message": "Task stopped successfully"}, status=200)
+
+
+@api_view(["GET"])
+def resume_celery_task(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None or task.state not in ["REVOKED", "FAILURE"]:
+        return JsonResponse(
+            {"message": "Task not found or cannot be resumed"}, status=400
+        )
+
+    task.revive()
+
+    return JsonResponse({"message": "Task resumed successfully"}, status=200)
+
+
+@api_view(["GET"])
+def delete_celery_task(req):
+    task_id = req.GET.get("task_id")
+
+    if task_id is None:
+        return JsonResponse({"message": "Task ID is required"}, status=400)
+
+    task = celery_app.AsyncResult(task_id)
+
+    if task is None:
+        return JsonResponse({"message": "Task not found"}, status=404)
+
+    task.forget()
+
+    return JsonResponse({"message": "Task deleted successfully"}, status=200)

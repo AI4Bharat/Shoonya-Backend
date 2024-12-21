@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -35,10 +35,10 @@ services:
     depends_on:
       - db
       - redis
-      - web 
+      - web
 
-  # This is the additional queue which contains the low-priority celery tasks. We can adjust the concurrency and workers alloted to this container. 
-  celery2: 
+  # This is the additional queue which contains the low-priority celery tasks. We can adjust the concurrency and workers alloted to this container.
+  celery2:
     container_name: celery-low-priority
     restart: always
     build: ./backend
@@ -58,6 +58,19 @@ services:
       - ./backend/:/usr/src/backend
     depends_on:
       - db
+      - redis
+      - web
+
+  flower:
+    container_name: flower
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery flower --conf="./usr/src/backend/shoonya_backend/flowerconfig.py" --basic-auth="${FLOWER_USERNAME}:${FLOWER_PASSWORD}"
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./backend/:/usr/src/backend/
+    depends_on:
       - redis
       - web
 
