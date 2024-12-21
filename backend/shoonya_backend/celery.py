@@ -38,6 +38,7 @@ celery_app.conf.beat_schedule = {
         "task": "check_size",
         "schedule": crontab(minute=0, hour=0),  # every mid night
     },
+    "fetchTaskCounts": {"task": "fetchTaskCounts", "schedule": crontab(minute="*/10")},
 }
 
 # Celery Task related settings
