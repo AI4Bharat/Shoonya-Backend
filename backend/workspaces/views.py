@@ -8,7 +8,7 @@ from drf_yasg import openapi
 from projects.models import Project, ANNOTATION_STAGE, REVIEW_STAGE, SUPERCHECK_STAGE
 from users.models import User
 from users.serializers import UserProfileSerializer
-from tasks.models import Task
+from tasks.models import Task, Statistic
 from organizations.models import Organization
 from django.db.models import Q
 from projects.utils import no_of_words
@@ -1654,29 +1654,30 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         }
 
                 else:
-                    reviewer_task_count = (
-                        reviewer_tasks.count()
-                        + reviewer_tasks_exported.count()
-                        + supercheck_tasks_exported.count()
-                    )
+                    # reviewer_task_count = (
+                    #     reviewer_tasks.count()
+                    #     + reviewer_tasks_exported.count()
+                    #     + supercheck_tasks_exported.count()
+                    # )
 
-                    annotation_tasks_count = (
-                        annotation_tasks.count()
-                        + annotation_tasks_exported.count()
-                        + reviewer_tasks_exported.count()
-                        + supercheck_tasks_exported.count()
-                    )
+                    # annotation_tasks_count = (
+                    #     annotation_tasks.count()
+                    #     + annotation_tasks_exported.count()
+                    #     + reviewer_tasks_exported.count()
+                    #     + supercheck_tasks_exported.count()
+                    # )
 
-                    supercheck_tasks_count = (
-                        supercheck_tasks.count() + supercheck_tasks_exported.count()
-                    )
+                    # supercheck_tasks_count = (
+                    #     supercheck_tasks.count() + supercheck_tasks_exported.count()
+                    # )
 
-                    result = {
-                        "language": lang,
-                        "ann_cumulative_tasks_count": annotation_tasks_count,
-                        "rew_cumulative_tasks_count": reviewer_task_count,
-                        "sup_cumulative_tasks_count": supercheck_tasks_count,
-                    }
+                    # result = {
+                    #     "language": lang,
+                    #     "ann_cumulative_tasks_count": annotation_tasks_count,
+                    #     "rew_cumulative_tasks_count": reviewer_task_count,
+                    #     "sup_cumulative_tasks_count": supercheck_tasks_count,
+                    # }
+                    result = {}
 
                 if lang == None or lang == "":
                     other_lang.append(result)
@@ -1698,9 +1699,10 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             rev_sentance_count = 0
             for dat in other_lang:
                 if metainfo != True:
-                    ann_task_count += dat["ann_cumulative_tasks_count"]
-                    rew_task_count += dat["rew_cumulative_tasks_count"]
-                    sup_task_count += dat["sup_cumulative_tasks_count"]
+                    # ann_task_count += dat["ann_cumulative_tasks_count"]
+                    # rew_task_count += dat["rew_cumulative_tasks_count"]
+                    # sup_task_count += dat["sup_cumulative_tasks_count"]
+                    pass
                 else:
                     if project_type in get_audio_project_types():
                         ann_aud_dur += convert_hours_to_seconds(
@@ -1740,12 +1742,13 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
 
             if len(other_lang) > 0:
                 if metainfo != True:
-                    other_language = {
-                        "language": "Others",
-                        "ann_cumulative_tasks_count": ann_task_count,
-                        "rew_cumulative_tasks_count": rew_task_count,
-                        "sup_cumulative_tasks_count": sup_task_count,
-                    }
+                    other_language = {}
+                    # other_language = {
+                    #     "language": "Others",
+                    #     "ann_cumulative_tasks_count": ann_task_count,
+                    #     "rew_cumulative_tasks_count": rew_task_count,
+                    #     "sup_cumulative_tasks_count": sup_task_count,
+                    # }
                 else:
                     if project_type in get_audio_project_types():
                         other_language = {
@@ -1817,6 +1820,18 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 pass
             else:
                 final_result_for_all_types[project_type] = final_result
+
+        if metainfo != True:
+            workspace = Workspace.objects.get(pk=pk)
+            print(workspace.organization_id)
+            task_counts = list(
+                Statistic.objects.filter(
+                    stat_type="workspace_task_counts", org_id=workspace.organization_id
+                )
+            )[0].result
+
+            for pjt_type in project_types:
+                final_result_for_all_types[pjt_type] = task_counts[str(pk)][pjt_type]
         return Response(final_result_for_all_types)
 
     @action(
