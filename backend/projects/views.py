@@ -2727,6 +2727,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     continue
         # check if the project contains eligible tasks to pull
+
         tasks = (
             Task.objects.filter(project_id=pk)
             .filter(task_status=ANNOTATED)
@@ -2734,6 +2735,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=cur_user.id)
             .distinct()
         )
+
+        if project.project_type in get_audio_project_types():
+            tasks = tasks.filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
+
         if not tasks:
             project.release_lock(REVIEW_LOCK)
             return Response(
@@ -2936,6 +2947,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(review_user=cur_user.id)
             .distinct()
         )
+
+        if project.project_type in get_audio_project_types():
+            tasks = tasks.filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
+
         if not tasks:
             project.release_lock(SUPERCHECK_LOCK)
             return Response(
@@ -2949,12 +2970,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
         sup_exp_rev_tasks_count = (
             Task.objects.filter(project_id=pk)
             .filter(task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED])
+            .filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
             .distinct()
             .count()
         )
         sup_exp_tasks_count = (
             Task.objects.filter(project_id=pk)
             .filter(task_status__in=[SUPER_CHECKED, EXPORTED])
+            .filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
             .distinct()
             .count()
         )
