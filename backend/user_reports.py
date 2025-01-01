@@ -377,6 +377,7 @@ def fetch_task_counts():
         "SemanticTextualSimilarity_Scale5",
         "SentenceSplitting",
         "TranslationEditing",
+        "OCRSegmentCategorizationEditing",
     ]
 
     with connection.cursor() as cursor:
