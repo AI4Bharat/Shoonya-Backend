@@ -54,6 +54,7 @@ from tasks.serializers import TaskSerializer
 from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
+from django.db.models import Exists, OuterRef
 
 from dataset.models import (
     DatasetInstance,
@@ -658,9 +659,9 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         result["Rejected Word Count"] = rejected_word_count
     elif proj_type in get_audio_project_types():
         result["Validated Segments Duration"] = validated_audio_duration
-        result[
-            "Validated With Changes Segments Duration"
-        ] = validated_with_changes_audio_duration
+        result["Validated With Changes Segments Duration"] = (
+            validated_with_changes_audio_duration
+        )
         result["Rejected Segments Duration"] = rejected_audio_duration
         result["Total Raw Audio Duration"] = total_raw_audio_duration
         result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
@@ -912,9 +913,9 @@ def convert_prediction_json_to_annotation_result(
                 }
                 if proj_type == "AcousticNormalisedTranscriptionEditing":
                     text_dict["from_name"] = "verbatim_transcribed_json"
-                    text_dict_acoustic[
-                        "from_name"
-                    ] = "acoustic_normalised_transcribed_json"
+                    text_dict_acoustic["from_name"] = (
+                        "acoustic_normalised_transcribed_json"
+                    )
 
                 id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
                 label_dict["id"] = id
@@ -2219,9 +2220,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if automatic_annotation_creation_mode != None:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
-                proj.metadata_json[
-                    "automatic_annotation_creation_mode"
-                ] = automatic_annotation_creation_mode
+                proj.metadata_json["automatic_annotation_creation_mode"] = (
+                    automatic_annotation_creation_mode
+                )
             if proj.project_type == "AcousticNormalisedTranscriptionEditing":
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
@@ -2391,13 +2392,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
             annotation_status__exact=UNLABELED, completed_by=cur_user
         )
         annotation_tasks = [anno.task.id for anno in proj_annotations]
-        pending_tasks = (
-            Task.objects.filter(project_id=pk)
-            .filter(annotation_users=cur_user.id)
-            .filter(task_status__in=[INCOMPLETE, UNLABELED])
-            .filter(id__in=annotation_tasks)
-            .count()
-        )
+        if project.project_type in get_audio_project_types():
+            pending_tasks = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .filter(task_status__in=[INCOMPLETE, UNLABELED])
+                .filter(id__in=annotation_tasks)
+                .filter(
+                    Exists(
+                        SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"), freeze_task=False
+                        )
+                    )
+                )
+                .count()
+            )
+        else:
+            pending_tasks = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .filter(task_status__in=[INCOMPLETE, UNLABELED])
+                .filter(id__in=annotation_tasks)
+                .count()
+            )
         # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
         # assigned_tasks = assigned_tasks_queryset.count()
         # completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
@@ -2434,6 +2451,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=cur_user.id)
             .annotate(annotator_count=Count("annotation_users"))
         )
+        if project.project_type in get_audio_project_types():
+            tasks = tasks.filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
+
         tasks = tasks.filter(
             annotator_count__lt=project.required_annotators_per_task
         ).distinct()
@@ -2701,6 +2727,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     continue
         # check if the project contains eligible tasks to pull
+
         tasks = (
             Task.objects.filter(project_id=pk)
             .filter(task_status=ANNOTATED)
@@ -2708,6 +2735,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=cur_user.id)
             .distinct()
         )
+
+        if project.project_type in get_audio_project_types():
+            tasks = tasks.filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
+
         if not tasks:
             project.release_lock(REVIEW_LOCK)
             return Response(
@@ -2910,6 +2947,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(review_user=cur_user.id)
             .distinct()
         )
+
+        if project.project_type in get_audio_project_types():
+            tasks = tasks.filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
+
         if not tasks:
             project.release_lock(SUPERCHECK_LOCK)
             return Response(
@@ -2923,12 +2970,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
         sup_exp_rev_tasks_count = (
             Task.objects.filter(project_id=pk)
             .filter(task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED])
+            .filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
             .distinct()
             .count()
         )
         sup_exp_tasks_count = (
             Task.objects.filter(project_id=pk)
             .filter(task_status__in=[SUPER_CHECKED, EXPORTED])
+            .filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
             .distinct()
             .count()
         )

@@ -1,6 +1,7 @@
 """
 Model definitions for Dataset Management
 """
+
 from django.db import models
 from users.models import User, LANG_CHOICES
 from organizations.models import Organization
@@ -483,6 +484,12 @@ class SpeechConversation(DatasetBase):
         null=True,
         blank=True,
         help_text=("Prepopulated prediction for the implemented models"),
+    )
+
+    freeze_task = models.BooleanField(
+        verbose_name="freeze_task",
+        default=False,
+        help_text="Field to Indicate whether the current task is frozen by the administrator to prevent being annotated.",
     )
 
     def __str__(self):
