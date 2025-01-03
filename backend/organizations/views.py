@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework import status
 from tasks.models import (
     Task,
+    Statistic,
     ANNOTATOR_ANNOTATION,
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
@@ -461,11 +462,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             participation_type = (
                 "Full Time"
                 if participation_type == 1
-                else "Part Time"
-                if participation_type == 2
-                else "Contract Basis"
-                if participation_type == 4
-                else "N/A"
+                else (
+                    "Part Time"
+                    if participation_type == 2
+                    else "Contract Basis" if participation_type == 4 else "N/A"
+                )
             )
             role = get_role_name(annotator.role)
             user_id = annotator.id
@@ -779,11 +780,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 participation_type = (
                     "Full Time"
                     if participation_type == 1
-                    else "Part Time"
-                    if participation_type == 2
-                    else "Contract Basis"
-                    if participation_type == 4
-                    else "N/A"
+                    else (
+                        "Part Time"
+                        if participation_type == 2
+                        else "Contract Basis" if participation_type == 4 else "N/A"
+                    )
                 )
                 role = get_role_name(annotator.role)
                 user_id = annotator.id
@@ -935,9 +936,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_200_OK,
                     content_type="text/csv",
                 )
-                response[
-                    "Content-Disposition"
-                ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
+                response["Content-Disposition"] = (
+                    f'attachment; filename="{organization.title}_user_analytics.csv"'
+                )
                 return response
 
             return Response(data=final_result, status=status.HTTP_200_OK)
@@ -2993,29 +2994,30 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                         }
 
                 else:
-                    reviewer_task_count = (
-                        reviewer_tasks.count()
-                        + reviewer_tasks_exported.count()
-                        + supercheck_tasks_exported.count()
-                    )
+                    # reviewer_task_count = (
+                    #     reviewer_tasks.count()
+                    #     + reviewer_tasks_exported.count()
+                    #     + supercheck_tasks_exported.count()
+                    # )
 
-                    annotation_tasks_count = (
-                        annotation_tasks.count()
-                        + annotation_tasks_exported.count()
-                        + reviewer_tasks_exported.count()
-                        + supercheck_tasks_exported.count()
-                    )
+                    # annotation_tasks_count = (
+                    #     annotation_tasks.count()
+                    #     + annotation_tasks_exported.count()
+                    #     + reviewer_tasks_exported.count()
+                    #     + supercheck_tasks_exported.count()
+                    # )
 
-                    supercheck_tasks_count = (
-                        supercheck_tasks.count() + supercheck_tasks_exported.count()
-                    )
+                    # supercheck_tasks_count = (
+                    #     supercheck_tasks.count() + supercheck_tasks_exported.count()
+                    # )
 
-                    result = {
-                        "language": lang,
-                        "ann_cumulative_tasks_count": annotation_tasks_count,
-                        "rew_cumulative_tasks_count": reviewer_task_count,
-                        "sup_cumulative_tasks_count": supercheck_tasks_count,
-                    }
+                    # result = {
+                    #     "language": lang,
+                    #     "ann_cumulative_tasks_count": annotation_tasks_count,
+                    #     "rew_cumulative_tasks_count": reviewer_task_count,
+                    #     "sup_cumulative_tasks_count": supercheck_tasks_count,
+                    # }
+                    result = {}
 
                 if lang == None or lang == "":
                     other_lang.append(result)
@@ -3037,9 +3039,10 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             rev_sentance_count = 0
             for dat in other_lang:
                 if metainfo != True:
-                    ann_task_count += dat["ann_cumulative_tasks_count"]
-                    rew_task_count += dat["rew_cumulative_tasks_count"]
-                    sup_task_count += dat["sup_cumulative_tasks_count"]
+                    # ann_task_count += dat["ann_cumulative_tasks_count"]
+                    # rew_task_count += dat["rew_cumulative_tasks_count"]
+                    # sup_task_count += dat["sup_cumulative_tasks_count"]
+                    pass
                 else:
                     if project_type in get_audio_project_types():
                         ann_aud_dur += convert_hours_to_seconds(
@@ -3078,12 +3081,13 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
             if len(other_lang) > 0:
                 if metainfo != True:
-                    other_language = {
-                        "language": "Others",
-                        "ann_cumulative_tasks_count": ann_task_count,
-                        "rew_cumulative_tasks_count": rew_task_count,
-                        "sup_cumulative_tasks_count": sup_task_count,
-                    }
+                    # other_language = {
+                    #     "language": "Others",
+                    #     "ann_cumulative_tasks_count": ann_task_count,
+                    #     "rew_cumulative_tasks_count": rew_task_count,
+                    #     "sup_cumulative_tasks_count": sup_task_count,
+                    # }
+                    other_language = {}
                 else:
                     if project_type in get_audio_project_types():
                         other_language = {
@@ -3155,4 +3159,12 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 pass
             else:
                 final_result_for_all_types[project_type] = final_result
+        if metainfo != True:
+
+            task_counts = list(
+                Statistic.objects.filter(stat_type="task_count", org_id=organization.id)
+            )[0].result
+
+            for pjt_type in project_types:
+                final_result_for_all_types[pjt_type] = task_counts[pjt_type]
         return Response(final_result_for_all_types)

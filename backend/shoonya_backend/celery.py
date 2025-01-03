@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 from datetime import timedelta
 from celery.schedules import crontab
+from celery.signals import worker_ready
 import os
 
 from celery import Celery
@@ -38,7 +39,23 @@ celery_app.conf.beat_schedule = {
         "task": "check_size",
         "schedule": crontab(minute=0, hour=0),  # every mid night
     },
+    "fetchTaskCounts": {
+        "task": "fetchTaskCounts",
+        "schedule": crontab(minute=0, hour="*/1"),
+    },
+    "fetchWorkspaceTaskCounts": {
+        "task": "fetchWorkspaceTaskCounts",
+        "schedule": crontab(minute=0, hour="*/1"),
+    },
 }
+
+
+@worker_ready.connect
+def at_start(sender, **k):
+    with sender.app.connection() as conn:
+        sender.app.send_task("fetchTaskCounts", connection=conn)
+        sender.app.send_task("fetchWorkspaceTaskCounts", connection=conn)
+
 
 # Celery Task related settings
 celery_app.autodiscover_tasks()
