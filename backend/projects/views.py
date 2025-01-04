@@ -2970,26 +2970,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         sup_exp_rev_tasks_count = (
             Task.objects.filter(project_id=pk)
             .filter(task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED])
-            .filter(
-                Exists(
-                    SpeechConversation.objects.filter(
-                        id=OuterRef("input_data_id"), freeze_task=False
-                    )
-                )
-            )
             .distinct()
             .count()
         )
         sup_exp_tasks_count = (
             Task.objects.filter(project_id=pk)
             .filter(task_status__in=[SUPER_CHECKED, EXPORTED])
-            .filter(
-                Exists(
-                    SpeechConversation.objects.filter(
-                        id=OuterRef("input_data_id"), freeze_task=False
-                    )
-                )
-            )
             .distinct()
             .count()
         )
