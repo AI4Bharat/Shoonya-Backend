@@ -1,0 +1,12 @@
+MANIFEST.in
+MIT-LICENSE
+README.md
+ordered_set.py
+pytest.ini
+setup.cfg
+setup.py
+test.py
+ordered_set.egg-info/PKG-INFO
+ordered_set.egg-info/SOURCES.txt
+ordered_set.egg-info/dependency_links.txt
+ordered_set.egg-info/top_level.txt

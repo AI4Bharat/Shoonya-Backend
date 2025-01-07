@@ -1,4 +1,7 @@
-import resource
+# import resource
+import os
+# if os.name != 'nt':  # 'nt' means Windows
+    # import resource  # Only import resource on non-Windows platforms
 from django.contrib import admin
 from import_export.admin import ImportExportActionModelAdmin
 from .resources import *

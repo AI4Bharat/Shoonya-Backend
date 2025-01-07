@@ -1,0 +1,1089 @@
+Metadata-Version: 2.1
+Name: sacrebleu
+Version: 2.3.1
+Summary: Hassle-free computation of shareable, comparable, and reproducible BLEU, chrF, and TER scores
+Home-page: https://github.com/mjpost/sacrebleu
+Author: Matt Post
+Author-email: post@cs.jhu.edu
+Maintainer-email: post@cs.jhu.edu
+License: Apache License 2.0
+Keywords: machine translation, evaluation, NLP, natural language processing, computational linguistics
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Text Processing
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: portalocker
+Requires-Dist: regex
+Requires-Dist: tabulate (>=0.8.9)
+Requires-Dist: numpy (>=1.17)
+Requires-Dist: colorama
+Requires-Dist: lxml
+Provides-Extra: ja
+Requires-Dist: mecab-python3 (==1.0.5) ; extra == 'ja'
+Requires-Dist: ipadic (<2.0,>=1.0) ; extra == 'ja'
+Provides-Extra: ko
+Requires-Dist: mecab-ko (==1.0.0) ; extra == 'ko'
+Requires-Dist: mecab-ko-dic (<2.0,>=1.0) ; extra == 'ko'
+
+# sacreBLEU
+
+[![PyPI version](https://img.shields.io/pypi/v/sacrebleu)](https://img.shields.io/pypi/v/sacrebleu)
+[![Python version](https://img.shields.io/pypi/pyversions/sacrebleu)](https://img.shields.io/pypi/pyversions/sacrebleu)
+[![GitHub issues](https://img.shields.io/github/issues/mjpost/sacreBLEU.svg)](https://github.com/mjpost/sacrebleu/issues)
+
+SacreBLEU ([Post, 2018](http://aclweb.org/anthology/W18-6319)) provides hassle-free computation of shareable, comparable, and reproducible **BLEU** scores.
+Inspired by Rico Sennrich's `multi-bleu-detok.perl`, it produces the official WMT scores but works with plain text.
+It also knows all the standard test sets and handles downloading, processing, and tokenization for you.
+
+The official version is hosted at <https://github.com/mjpost/sacrebleu>.
+
+# Motivation
+
+Comparing BLEU scores is harder than it should be. Every decoder has its own implementation, often borrowed from Moses, but maybe with subtle changes.
+Moses itself has a number of implementations as standalone scripts, with little indication of how they differ (note: they mostly don't, but `multi-bleu.pl` expects tokenized input). Different flags passed to each of these scripts can produce wide swings in the final score. All of these may handle tokenization in different ways. On top of this, downloading and managing test sets is a moderate annoyance.
+
+Sacre bleu! What a mess.
+
+**SacreBLEU** aims to solve these problems by wrapping the original reference implementation ([Papineni et al., 2002](https://www.aclweb.org/anthology/P02-1040.pdf)) together with other useful features.
+The defaults are set the way that BLEU should be computed, and furthermore, the script outputs a short version string that allows others to know exactly what you did.
+As an added bonus, it automatically downloads and manages test sets for you, so that you can simply tell it to score against `wmt14`, without having to hunt down a path on your local file system.
+It is all designed to take BLEU a little more seriously.
+After all, even with all its problems, BLEU is the default and---admit it---well-loved metric of our entire research community.
+Sacre BLEU.
+
+# Features
+
+- It automatically downloads common WMT test sets and processes them to plain text
+- It produces a short version string that facilitates cross-paper comparisons
+- It properly computes scores on detokenized outputs, using WMT ([Conference on Machine Translation](http://statmt.org/wmt17)) standard tokenization
+- It produces the same values as the official script (`mteval-v13a.pl`) used by WMT
+- It outputs the BLEU score without the comma, so you don't have to remove it with `sed` (Looking at you, `multi-bleu.perl`)
+- It supports different tokenizers for BLEU including support for Japanese and Chinese
+- It supports **chrF, chrF++** and **Translation error rate (TER)** metrics
+- It performs paired bootstrap resampling and paired approximate randomization tests for statistical significance reporting
+
+# Breaking Changes
+
+## v2.0.0
+
+As of v2.0.0, the default output format is changed to `json` for less painful parsing experience. This means that software that parse the output of sacreBLEU should be modified to either (i) parse the JSON using for example the `jq` utility or (ii) pass `-f text` to sacreBLEU to preserve the old textual output. The latter change can also be made **persistently** by exporting `SACREBLEU_FORMAT=text` in relevant shell configuration files.
+
+Here's an example of parsing the `score` key of the JSON output using `jq`:
+
+```
+$ sacrebleu -i output.detok.txt -t wmt17 -l en-de | jq -r .score
+20.8
+```
+
+# Installation
+
+Install the official Python module from PyPI (**Python>=3.6 only**):
+
+    pip install sacrebleu
+
+In order to install Japanese tokenizer support through `mecab-python3`, you need to run the
+following command instead, to perform a full installation with dependencies:
+
+    pip install "sacrebleu[ja]"
+
+In order to install Korean tokenizer support through `pymecab-ko`, you need to run the
+following command instead, to perform a full installation with dependencies:
+
+    pip install "sacrebleu[ko]"
+
+# Command-line Usage
+
+You can get a list of available test sets with `sacrebleu --list`. Please see [DATASETS.md](DATASETS.md)
+for an up-to-date list of supported datasets. You can also list available test sets for a given language pair
+with `sacrebleu --list -l en-fr`.
+
+## Basics
+
+### Downloading test sets
+
+Downloading is triggered when you request a test set. If the dataset is not available, it is downloaded
+and unpacked.
+
+E.g., you can use the following commands to download the source, pass it through your translation system
+in `translate.sh`, and then score it:
+
+```
+$ sacrebleu -t wmt17 -l en-de --echo src > wmt17.en-de.en
+$ cat wmt17.en-de.en | translate.sh | sacrebleu -t wmt17 -l en-de
+```
+
+Some test sets also have the outputs of systems that were submitted to the task.
+For example, the `wmt/systems` test set.
+
+```bash
+$ sacrebleu -t wmt21/systems -l zh-en --echo NiuTrans
+```
+
+This provides a convenient way to score:
+
+```bash
+$ sacrebleu -t wmt21/system -l zh-en --echo NiuTrans | sacrebleu -t wmt21/systems -l zh-en
+``
+
+You can see a list of the available outputs by passing an invalid value to `--echo`.
+
+### JSON output
+
+As of version `>=2.0.0`, sacreBLEU prints the computed scores in JSON format to make parsing less painful:
+
+```
+$ sacrebleu -i output.detok.txt -t wmt17 -l en-de
+```
+
+```json
+{
+ "name": "BLEU",
+ "score": 20.8,
+ "signature": "nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0",
+ "verbose_score": "54.4/26.6/14.9/8.7 (BP = 1.000 ratio = 1.026 hyp_len = 62880 ref_len = 61287)",
+ "nrefs": "1",
+ "case": "mixed",
+ "eff": "no",
+ "tok": "13a",
+ "smooth": "exp",
+ "version": "2.0.0"
+}
+```
+
+If you want to keep the old behavior, you can pass `-f text` or export `SACREBLEU_FORMAT=text`:
+
+```
+$ sacrebleu -i output.detok.txt -t wmt17 -l en-de -f text
+BLEU|nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0 = 20.8 54.4/26.6/14.9/8.7 (BP = 1.000 ratio = 1.026 hyp_len = 62880 ref_len = 61287)
+```
+
+### Scoring
+
+(All examples below assume old-style text output for a compact representation that save space)
+
+Let's say that you just translated the `en-de` test set of WMT17 with your fancy MT system and the **detokenized** translations are in a file called `output.detok.txt`:
+
+```
+# Option 1: Redirect system output to STDIN
+$ cat output.detok.txt | sacrebleu -t wmt17 -l en-de
+BLEU|nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0 = 20.8 54.4/26.6/14.9/8.7 (BP = 1.000 ratio = 1.026 hyp_len = 62880 ref_len = 61287)
+
+# Option 2: Use the --input/-i argument
+$ sacrebleu -t wmt17 -l en-de -i output.detok.txt
+BLEU|nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0 = 20.8 54.4/26.6/14.9/8.7 (BP = 1.000 ratio = 1.026 hyp_len = 62880 ref_len = 61287)
+```
+
+You can obtain a short version of the signature with `--short/-sh`:
+
+```
+$ sacrebleu -t wmt17 -l en-de -i output.detok.txt -sh
+BLEU|#:1|c:mixed|e:no|tok:13a|s:exp|v:2.0.0 = 20.8 54.4/26.6/14.9/8.7 (BP = 1.000 ratio = 1.026 hyp_len = 62880 ref_len = 61287)
+```
+
+If you only want the score to be printed, you can use the `--score-only/-b` flag:
+
+```
+$ sacrebleu -t wmt17 -l en-de -i output.detok.txt -b
+20.8
+```
+
+The precision of the scores can be configured via the `--width/-w` flag:
+
+```
+$ sacrebleu -t wmt17 -l en-de -i output.detok.txt -b -w 4
+20.7965
+```
+
+### Using your own reference file
+
+SacreBLEU knows about common test sets (as detailed in the `--list` example above), but you can also use it to score system outputs with arbitrary references. In this case, do not forget to provide **detokenized** reference and hypotheses files:
+
+```
+# Let's save the reference to a text file
+$ sacrebleu -t wmt17 -l en-de --echo ref > ref.detok.txt
+
+# Option 1: Pass the reference file as a positional argument to sacreBLEU
+$ sacrebleu ref.detok.txt -i output.detok.txt -m bleu -b -w 4
+20.7965
+
+# Option 2: Redirect the system into STDIN (Compatible with multi-bleu.perl way of doing things)
+$ cat output.detok.txt | sacrebleu ref.detok.txt -m bleu -b -w 4
+20.7965
+```
+
+### Using multiple metrics
+
+Let's first compute BLEU, chrF and TER with the default settings:
+
+```
+$ sacrebleu -t wmt17 -l en-de -i output.detok.txt -m bleu chrf ter
+        BLEU|nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0 = 20.8 <stripped>
+      chrF2|nrefs:1|case:mixed|eff:yes|nc:6|nw:0|space:no|version:2.0.0 = 52.0
+TER|nrefs:1|case:lc|tok:tercom|norm:no|punct:yes|asian:no|version:2.0.0 = 69.0
+```
+
+Let's now enable `chrF++` which is a revised version of chrF that takes into account word n-grams.
+Observe how the `nw:0` gets changed into `nw:2` in the signature:
+
+```
+$ sacrebleu -t wmt17 -l en-de -i output.detok.txt -m bleu chrf ter --chrf-word-order 2
+        BLEU|nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0 = 20.8 <stripped>
+    chrF2++|nrefs:1|case:mixed|eff:yes|nc:6|nw:2|space:no|version:2.0.0 = 49.0
+TER|nrefs:1|case:lc|tok:tercom|norm:no|punct:yes|asian:no|version:2.0.0 = 69.0
+```
+
+Metric-specific arguments are detailed in the output of `--help`:
+
+```
+BLEU related arguments:
+  --smooth-method {none,floor,add-k,exp}, -s {none,floor,add-k,exp}
+                        Smoothing method: exponential decay, floor (increment zero counts), add-k (increment num/denom by k for n>1), or none. (Default: exp)
+  --smooth-value BLEU_SMOOTH_VALUE, -sv BLEU_SMOOTH_VALUE
+                        The smoothing value. Only valid for floor and add-k. (Defaults: floor: 0.1, add-k: 1)
+  --tokenize {none,zh,13a,char,intl,ja-mecab,ko-mecab}, -tok {none,zh,13a,char,intl,ja-mecab,ko-mecab}
+                        Tokenization method to use for BLEU. If not provided, defaults to `zh` for Chinese, `ja-mecab` for Japanese, `ko-mecab` for Korean and `13a` (mteval) otherwise.
+  --lowercase, -lc      If True, enables case-insensitivity. (Default: False)
+  --force               Insist that your tokenized input is actually detokenized.
+
+chrF related arguments:
+  --chrf-char-order CHRF_CHAR_ORDER, -cc CHRF_CHAR_ORDER
+                        Character n-gram order. (Default: 6)
+  --chrf-word-order CHRF_WORD_ORDER, -cw CHRF_WORD_ORDER
+                        Word n-gram order (Default: 0). If equals to 2, the metric is referred to as chrF++.
+  --chrf-beta CHRF_BETA
+                        Determine the importance of recall w.r.t precision. (Default: 2)
+  --chrf-whitespace     Include whitespaces when extracting character n-grams. (Default: False)
+  --chrf-lowercase      Enable case-insensitivity. (Default: False)
+  --chrf-eps-smoothing  Enables epsilon smoothing similar to chrF++.py, NLTK and Moses; instead of effective order smoothing. (Default: False)
+
+TER related arguments (The defaults replicate TERCOM's behavior):
+  --ter-case-sensitive  Enables case sensitivity (Default: False)
+  --ter-asian-support   Enables special treatment of Asian characters (Default: False)
+  --ter-no-punct        Removes punctuation. (Default: False)
+  --ter-normalized      Applies basic normalization and tokenization. (Default: False)
+```
+
+### Version Signatures
+As you may have noticed, sacreBLEU generates version strings such as `BLEU|nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0` for reproducibility reasons. It's strongly recommended to share these signatures in your papers!
+
+### Outputting other metadata
+
+Sacrebleu knows about metadata for some test sets, and you can output it like this:
+
+```
+$ sacrebleu -t wmt21 -l en-de --echo src docid ref | head 2
+Couple MACED at California dog park for not wearing face masks while having lunch (VIDEO) - RT USA News	rt.com.131279	Paar in Hundepark in Kalifornien mit Pfefferspray besprüht, weil es beim Mittagessen keine Masken trug (VIDEO) - RT USA News
+There's mask-shaming and then there's full on assault.	rt.com.131279	Masken-Shaming ist eine Sache, Körperverletzung eine andere.
+```
+
+If multiple fields are requested, they are output as tab-separated columns (a TSV).
+
+To see the available fields, add `--echo asdf` (or some other garbage data):
+
+```
+$ sacrebleu -t wmt21 -l en-de --echo asdf
+sacreBLEU: No such field asdf in test set wmt21 for language pair en-de.
+sacreBLEU: available fields for wmt21/en-de: src, ref:A, ref, docid, origlang
+```
+
+## Translationese Support
+
+If you are interested in the translationese effect, you can evaluate BLEU on a subset of sentences
+with a given original language (identified based on the `origlang` tag in the raw SGM files).
+E.g., to evaluate only against originally German sentences translated to English use:
+
+    $ sacrebleu -t wmt13 -l de-en --origlang=de -i my-wmt13-output.txt
+
+and to evaluate against the complement (in this case `origlang` en, fr, cs, ru, de) use:
+
+    $ sacrebleu -t wmt13 -l de-en --origlang=non-de -i my-wmt13-output.txt
+
+**Please note** that the evaluator will return a BLEU score only on the requested subset,
+but it expects that you pass through the entire translated test set.
+
+## Languages & Preprocessing
+
+### BLEU
+
+- You can compute case-insensitive BLEU by passing `--lowercase` to sacreBLEU
+- The default tokenizer for BLEU is `13a` which mimics the `mteval-v13a` script from Moses.
+- Other tokenizers are:
+   - `none` which will not apply any kind of tokenization at all
+   - `char` for language-agnostic character-level tokenization
+   - `intl` applies international tokenization and mimics the `mteval-v14` script from Moses
+   - `zh` separates out **Chinese** characters and tokenizes the non-Chinese parts using `13a` tokenizer
+   - `ja-mecab` tokenizes **Japanese** inputs using the [MeCab](https://pypi.org/project/mecab-python3) morphological analyzer
+   - `ko-mecab` tokenizes **Korean** inputs using the [MeCab-ko](https://pypi.org/project/mecab-ko) morphological analyzer
+   - `spm` uses the SentencePiece model built from the Flores-101 dataset (https://github.com/facebookresearch/flores#list-of-languages). Note: the canonical .spm file will be automatically fetched if not found locally.
+- You can switch tokenizers using the `--tokenize` flag of sacreBLEU. Alternatively, if you provide language-pair strings
+  using `--language-pair/-l`, `zh`, `ja-mecab` and `ko-mecab` tokenizers will be used if the target language is `zh` or `ja` or `ko`, respectively.
+- **Note that** there's no automatic language detection from the hypotheses so you need to make sure that you are correctly
+  selecting the tokenizer for **Japanese**, **Korean** and **Chinese**.
+
+
+Default 13a tokenizer will produce poor results for Japanese:
+
+```
+$ sacrebleu kyoto-test.ref.ja -i kyoto-test.hyp.ja -b
+2.1
+```
+
+Let's use the `ja-mecab` tokenizer:
+```
+$ sacrebleu kyoto-test.ref.ja -i kyoto-test.hyp.ja --tokenize ja-mecab -b
+14.5
+```
+
+If you provide the language-pair, sacreBLEU will use ja-mecab automatically:
+
+```
+$ sacrebleu kyoto-test.ref.ja -i kyoto-test.hyp.ja -l en-ja -b
+14.5
+```
+
+### chrF / chrF++
+
+chrF applies minimum to none pre-processing as it deals with character n-grams:
+
+- If you pass `--chrf-whitespace`, whitespace characters will be preserved when computing character n-grams.
+- If you pass `--chrf-lowercase`, sacreBLEU will compute case-insensitive chrF.
+- If you enable non-zero `--chrf-word-order` (pass `2` for `chrF++`), a very simple punctuation tokenization will be internally applied.
+
+
+### TER
+
+Translation Error Rate (TER) has its own special tokenizer that you can configure through the command line.
+The defaults provided are **compatible with the upstream TER implementation (TERCOM)** but you can nevertheless modify the
+behavior through the command-line:
+
+- TER is by default case-insensitive. Pass `--ter-case-sensitive` to enable case-sensitivity.
+- Pass `--ter-normalize` to apply a general Western tokenization
+- Pass `--ter-asian-support` to enable the tokenization of Asian characters. If provided with `--ter-normalize`,
+  both will be applied.
+- Pass `--ter-no-punct` to strip punctuation.
+
+## Multi-reference Evaluation
+
+All three metrics support the use of multiple references during evaluation. Let's first pass all references as positional arguments:
+
+```
+$ sacrebleu ref1 ref2 -i system -m bleu chrf ter
+        BLEU|nrefs:2|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0 = 61.8 <stripped>
+      chrF2|nrefs:2|case:mixed|eff:yes|nc:6|nw:0|space:no|version:2.0.0 = 75.0
+TER|nrefs:2|case:lc|tok:tercom|norm:no|punct:yes|asian:no|version:2.0.0 = 31.2
+```
+
+Alternatively (less recommended), we can concatenate references using tabs as delimiters as well. Don't forget to pass `--num-refs/-nr` in this case!
+
+```
+$ paste ref1 ref2 > refs.tsv
+
+$ sacrebleu refs.tsv --num-refs 2 -i system -m bleu
+BLEU|nrefs:2|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0 = 61.8 <stripped>
+```
+
+## Multi-system Evaluation
+As of version `>=2.0.0`, SacreBLEU supports evaluation of an arbitrary number of systems for a particular
+test set and language-pair. This has the advantage of seeing all results in a
+nicely formatted table.
+
+Let's pass all system output files that match the shell glob `newstest2017.online-*` to sacreBLEU for evaluation:
+
+```
+$ sacrebleu -t wmt17 -l en-de -i newstest2017.online-* -m bleu chrf
+╒═══════════════════════════════╤════════╤═════════╕
+│                        System │  BLEU  │  chrF2  │
+╞═══════════════════════════════╪════════╪═════════╡
+│ newstest2017.online-A.0.en-de │  20.8  │  52.0   │
+├───────────────────────────────┼────────┼─────────┤
+│ newstest2017.online-B.0.en-de │  26.7  │  56.3   │
+├───────────────────────────────┼────────┼─────────┤
+│ newstest2017.online-F.0.en-de │  15.5  │  49.3   │
+├───────────────────────────────┼────────┼─────────┤
+│ newstest2017.online-G.0.en-de │  18.2  │  51.6   │
+╘═══════════════════════════════╧════════╧═════════╛
+
+-----------------
+Metric signatures
+-----------------
+ - BLEU       nrefs:1|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0
+ - chrF2      nrefs:1|case:mixed|eff:yes|nc:6|nw:0|space:no|version:2.0.0
+```
+
+You can also change the output format to `latex`:
+
+```
+$ sacrebleu -t wmt17 -l en-de -i newstest2017.online-* -m bleu chrf -f latex
+\begin{tabular}{rcc}
+\toprule
+                        System &  BLEU  &  chrF2  \\
+\midrule
+ newstest2017.online-A.0.en-de &  20.8  &  52.0   \\
+ newstest2017.online-B.0.en-de &  26.7  &  56.3   \\
+ newstest2017.online-F.0.en-de &  15.5  &  49.3   \\
+ newstest2017.online-G.0.en-de &  18.2  &  51.6   \\
+\bottomrule
+\end{tabular}
+
+...
+```
+
+## Confidence Intervals for Single System Evaluation
+
+When enabled with the `--confidence` flag, SacreBLEU will print
+(1) the actual system score, (2) the true mean estimated from bootstrap resampling and (3),
+the 95% [confidence interval](https://en.wikipedia.org/wiki/Confidence_interval) around the mean.
+By default, the number of bootstrap resamples is 1000 (`bs:1000` in the signature)
+and can be changed with `--confidence-n`:
+
+```
+$ sacrebleu -t wmt17 -l en-de -i output.detok.txt -m bleu chrf --confidence -f text --short
+   BLEU|#:1|bs:1000|rs:12345|c:mixed|e:no|tok:13a|s:exp|v:2.0.0 = 22.675 (μ = 22.669 ± 0.598) ...
+chrF2|#:1|bs:1000|rs:12345|c:mixed|e:yes|nc:6|nw:0|s:no|v:2.0.0 = 51.953 (μ = 51.953 ± 0.462)
+```
+
+**NOTE:** Although provided as a functionality, having access to confidence intervals for just one system
+may not reveal much information about the underlying model. It often makes more sense to perform
+**paired statistical tests** across multiple systems.
+
+**NOTE:** When resampling, the seed of the `numpy`'s random number generator (RNG)
+is fixed to `12345`. If you want to relax this and set your own seed, you can
+export the environment variable `SACREBLEU_SEED` to an integer. Alternatively, you can export
+`SACREBLEU_SEED=None` to skip initializing the RNG's seed and allow for non-deterministic
+behavior.
+
+## Paired Significance Tests for Multi System Evaluation
+Ideally, one would have access to many systems in cases such as (1) investigating
+whether a newly added feature yields significantly different scores than the baseline or
+(2) evaluating submissions for a particular shared task. SacreBLEU offers two different paired significance tests that are widely used in MT research.
+
+### Paired bootstrap resampling (--paired-bs)
+
+This is an efficient implementation of the paper [Statistical Significance Tests for Machine Translation Evaluation](https://www.aclweb.org/anthology/W04-3250.pdf) and is result-compliant with the [reference Moses implementation](https://github.com/moses-smt/mosesdecoder/blob/master/scripts/analysis/bootstrap-hypothesis-difference-significance.pl). The number of bootstrap resamples can be changed with the `--paired-bs-n` flag and its default is 1000.
+
+When launched, paired bootstrap resampling will perform:
+ - Bootstrap resampling to estimate 95% CI for all systems and the baseline
+ - A significance test between the **baseline** and each **system** to compute a [p-value](https://en.wikipedia.org/wiki/P-value).
+
+### Paired approximate randomization (--paired-ar)
+
+Paired approximate randomization (AR) is another type of paired significance test that is claimed to be more accurate than paired bootstrap resampling when it comes to Type-I errors ([Riezler and Maxwell III, 2005](https://www.aclweb.org/anthology/W05-0908.pdf)). Type-I errors indicate failures to reject the null hypothesis when it is true. In other words, AR should in theory be more robust to subtle changes across systems.
+
+Our implementation is verified to be result-compliant with the [Multeval toolkit](https://github.com/jhclark/multeval) that also uses paired AR test for pairwise comparison. The number of approximate randomization trials is set to 10,000 by default. This can be changed with the `--paired-ar-n` flag.
+
+### Running the tests
+
+- The **first system** provided to `--input/-i` will be automatically taken as the **baseline system** against which you want to compare **other systems.**
+- When `--input/-i` is used, the system output files will be automatically named according to the file paths. For the sake of simplicity, SacreBLEU will automatically discard the **baseline system** if it also appears amongst **other systems**. This is useful if you would like to run the tool by passing `-i systems/baseline.txt systems/*.txt`. Here, the `baseline.txt` file will not be also considered as a candidate system.
+- Alternatively, you can also use a tab-separated input file redirected to SacreBLEU. In this case, the first column hypotheses will be taken as the **baseline system**. However, this method is **not recommended** as it won't allow naming your systems in a human-readable way. It will instead enumerate the systems from 1 to N following the column order in the tab-separated input.
+- On Linux and Mac OS X, you can launch the tests on multiple CPU's by passing the flag `--paired-jobs N`. If `N == 0`, SacreBLEU will launch one worker for each pairwise comparison. If `N > 0`, `N` worker processes will be spawned. This feature will substantially speed up the runtime especially if you want the **TER** metric to be computed.
+
+#### Example: Paired bootstrap resampling
+In the example below, we select `newstest2017.LIUM-NMT.4900.en-de` as the baseline and compare it to 4 other WMT17 submissions using paired bootstrap resampling. According to the results, the null hypothesis (i.e. the two systems being essentially the same) could not be rejected (at the significance level of 0.05) for the following comparisons:
+
+- 0.1 BLEU difference between the baseline and the online-B system (p = 0.3077)
+
+```
+$ sacrebleu -t wmt17 -l en-de -i newstest2017.LIUM-NMT.4900.en-de newstest2017.online-* -m bleu chrf --paired-bs
+╒════════════════════════════════════════════╤═════════════════════╤══════════════════════╕
+│                                     System │  BLEU (μ ± 95% CI)  │  chrF2 (μ ± 95% CI)  │
+╞════════════════════════════════════════════╪═════════════════════╪══════════════════════╡
+│ Baseline: newstest2017.LIUM-NMT.4900.en-de │  26.6 (26.6 ± 0.6)  │  55.9 (55.9 ± 0.5)   │
+├────────────────────────────────────────────┼─────────────────────┼──────────────────────┤
+│              newstest2017.online-A.0.en-de │  20.8 (20.8 ± 0.6)  │  52.0 (52.0 ± 0.4)   │
+│                                            │    (p = 0.0010)*    │    (p = 0.0010)*     │
+├────────────────────────────────────────────┼─────────────────────┼──────────────────────┤
+│              newstest2017.online-B.0.en-de │  26.7 (26.6 ± 0.7)  │  56.3 (56.3 ± 0.5)   │
+│                                            │    (p = 0.3077)     │    (p = 0.0240)*     │
+├────────────────────────────────────────────┼─────────────────────┼──────────────────────┤
+│              newstest2017.online-F.0.en-de │  15.5 (15.4 ± 0.5)  │  49.3 (49.3 ± 0.4)   │
+│                                            │    (p = 0.0010)*    │    (p = 0.0010)*     │
+├────────────────────────────────────────────┼─────────────────────┼──────────────────────┤
+│              newstest2017.online-G.0.en-de │  18.2 (18.2 ± 0.5)  │  51.6 (51.6 ± 0.4)   │
+│                                            │    (p = 0.0010)*    │    (p = 0.0010)*     │
+╘════════════════════════════════════════════╧═════════════════════╧══════════════════════╛
+
+------------------------------------------------------------
+Paired bootstrap resampling test with 1000 resampling trials
+------------------------------------------------------------
+ - Each system is pairwise compared to Baseline: newstest2017.LIUM-NMT.4900.en-de.
+   Actual system score / bootstrap estimated true mean / 95% CI are provided for each metric.
+
+ - Null hypothesis: the system and the baseline translations are essentially
+   generated by the same underlying process. For a given system and the baseline,
+   the p-value is roughly the probability of the absolute score difference (delta)
+   or higher occurring due to chance, under the assumption that the null hypothesis is correct.
+
+ - Assuming a significance threshold of 0.05, the null hypothesis can be rejected
+   for p-values < 0.05 (marked with "*"). This means that the delta is unlikely to be attributed
+   to chance, hence the system is significantly "different" than the baseline.
+   Otherwise, the p-values are highlighted in red.
+
+ - NOTE: Significance does not tell whether a system is "better" than the baseline but rather
+   emphasizes the "difference" of the systems in terms of the replicability of the delta.
+
+-----------------
+Metric signatures
+-----------------
+ - BLEU       nrefs:1|bs:1000|seed:12345|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0
+ - chrF2      nrefs:1|bs:1000|seed:12345|case:mixed|eff:yes|nc:6|nw:0|space:no|version:2.0.0
+```
+
+#### Example: Paired approximate randomization
+
+Let's now run the paired approximate randomization test for the same comparison. According to the results, the findings are compatible with the paired bootstrap resampling test. However, the p-value for the `baseline vs. online-B` comparison is much higher (`0.8066`) than the paired bootstrap resampling test.
+
+(**Note that** the AR test does not provide confidence intervals around the true mean as it does not perform bootstrap resampling.)
+
+```
+$ sacrebleu -t wmt17 -l en-de -i newstest2017.LIUM-NMT.4900.en-de newstest2017.online-* -m bleu chrf --paired-ar
+╒════════════════════════════════════════════╤═══════════════╤═══════════════╕
+│                                     System │     BLEU      │     chrF2     │
+╞════════════════════════════════════════════╪═══════════════╪═══════════════╡
+│ Baseline: newstest2017.LIUM-NMT.4900.en-de │     26.6      │     55.9      │
+├────────────────────────────────────────────┼───────────────┼───────────────┤
+│              newstest2017.online-A.0.en-de │     20.8      │     52.0      │
+│                                            │ (p = 0.0001)* │ (p = 0.0001)* │
+├────────────────────────────────────────────┼───────────────┼───────────────┤
+│              newstest2017.online-B.0.en-de │     26.7      │     56.3      │
+│                                            │ (p = 0.8066)  │ (p = 0.0385)* │
+├────────────────────────────────────────────┼───────────────┼───────────────┤
+│              newstest2017.online-F.0.en-de │     15.5      │     49.3      │
+│                                            │ (p = 0.0001)* │ (p = 0.0001)* │
+├────────────────────────────────────────────┼───────────────┼───────────────┤
+│              newstest2017.online-G.0.en-de │     18.2      │     51.6      │
+│                                            │ (p = 0.0001)* │ (p = 0.0001)* │
+╘════════════════════════════════════════════╧═══════════════╧═══════════════╛
+
+-------------------------------------------------------
+Paired approximate randomization test with 10000 trials
+-------------------------------------------------------
+ - Each system is pairwise compared to Baseline: newstest2017.LIUM-NMT.4900.en-de.
+   Actual system score is provided for each metric.
+
+ - Null hypothesis: the system and the baseline translations are essentially
+   generated by the same underlying process. For a given system and the baseline,
+   the p-value is roughly the probability of the absolute score difference (delta)
+   or higher occurring due to chance, under the assumption that the null hypothesis is correct.
+
+ - Assuming a significance threshold of 0.05, the null hypothesis can be rejected
+   for p-values < 0.05 (marked with "*"). This means that the delta is unlikely to be attributed
+   to chance, hence the system is significantly "different" than the baseline.
+   Otherwise, the p-values are highlighted in red.
+
+ - NOTE: Significance does not tell whether a system is "better" than the baseline but rather
+   emphasizes the "difference" of the systems in terms of the replicability of the delta.
+
+-----------------
+Metric signatures
+-----------------
+ - BLEU       nrefs:1|ar:10000|seed:12345|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0
+ - chrF2      nrefs:1|ar:10000|seed:12345|case:mixed|eff:yes|nc:6|nw:0|space:no|version:2.0.0
+```
+
+# Using SacreBLEU from Python
+
+For evaluation, it may be useful to compute BLEU, chrF or TER from a Python script. The recommended
+way of doing this is to use the object-oriented API, by creating an instance of the `metrics.BLEU` class
+for example:
+
+```python
+In [1]: from sacrebleu.metrics import BLEU, CHRF, TER
+   ...:
+   ...: refs = [ # First set of references
+   ...:          ['The dog bit the man.', 'It was not unexpected.', 'The man bit him first.'],
+   ...:          # Second set of references
+   ...:          ['The dog had bit the man.', 'No one was surprised.', 'The man had bitten the dog.'],
+   ...:        ]
+   ...: sys = ['The dog bit the man.', "It wasn't surprising.", 'The man had just bitten him.']
+
+In [2]: bleu = BLEU()
+
+In [3]: bleu.corpus_score(sys, refs)
+Out[3]: BLEU = 48.53 82.4/50.0/45.5/37.5 (BP = 0.943 ratio = 0.944 hyp_len = 17 ref_len = 18)
+
+In [4]: bleu.get_signature()
+Out[4]: nrefs:2|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0
+
+In [5]: chrf = CHRF()
+
+In [6]: chrf.corpus_score(sys, refs)
+Out[6]: chrF2 = 59.73
+```
+
+### Variable Number of References
+
+Let's now remove the first reference sentence for the first system sentence `The dog bit the man.` by replacing it with either `None` or the empty string `''`.
+This allows using a variable number of reference segments per hypothesis. Observe how the signature changes from `nrefs:2` to `nrefs:var`:
+
+```python
+In [1]: from sacrebleu.metrics import BLEU, CHRF, TER
+   ...:
+   ...: refs = [ # First set of references
+                 # 1st sentence does not have a ref here
+   ...:          ['', 'It was not unexpected.', 'The man bit him first.'],
+   ...:          # Second set of references
+   ...:          ['The dog had bit the man.', 'No one was surprised.', 'The man had bitten the dog.'],
+   ...:        ]
+   ...: sys = ['The dog bit the man.', "It wasn't surprising.", 'The man had just bitten him.']
+
+In [2]: bleu = BLEU()
+
+In [3]: bleu.corpus_score(sys, refs)
+Out[3]: BLEU = 29.44 82.4/42.9/27.3/12.5 (BP = 0.889 ratio = 0.895 hyp_len = 17 ref_len = 19)
+
+In [4]: bleu.get_signature()
+Out[4]: nrefs:var|case:mixed|eff:no|tok:13a|smooth:exp|version:2.0.0
+```
+
+## Compatibility API
+
+You can also use the compatibility API that provides wrapper functions around the object-oriented API to
+compute sentence-level and corpus-level BLEU, chrF and TER: (It should be noted that this API can be
+removed in future releases)
+
+```python
+In [1]: import sacrebleu
+   ...: 
+   ...: refs = [ # First set of references
+   ...:          ['The dog bit the man.', 'It was not unexpected.', 'The man bit him first.'],
+   ...:          # Second set of references
+   ...:          ['The dog had bit the man.', 'No one was surprised.', 'The man had bitten the dog.'],
+   ...:        ]
+   ...: sys = ['The dog bit the man.', "It wasn't surprising.", 'The man had just bitten him.']
+
+In [2]: sacrebleu.corpus_bleu(sys, refs)
+Out[2]: BLEU = 48.53 82.4/50.0/45.5/37.5 (BP = 0.943 ratio = 0.944 hyp_len = 17 ref_len = 18)
+```
+
+# License
+
+SacreBLEU is licensed under the [Apache 2.0 License](LICENSE.txt).
+
+# Credits
+
+This was all Rico Sennrich's idea.
+Originally written by Matt Post.
+New features and ongoing support provided by Martin Popel (@martinpopel) and Ozan Caglayan (@ozancaglayan).
+
+If you use SacreBLEU, please cite the following:
+
+```
+@inproceedings{post-2018-call,
+  title = "A Call for Clarity in Reporting {BLEU} Scores",
+  author = "Post, Matt",
+  booktitle = "Proceedings of the Third Conference on Machine Translation: Research Papers",
+  month = oct,
+  year = "2018",
+  address = "Belgium, Brussels",
+  publisher = "Association for Computational Linguistics",
+  url = "https://www.aclweb.org/anthology/W18-6319",
+  pages = "186--191",
+}
+```
+
+# Release Notes
+
+- 2.3.1 (2022-10-18)
+  Bugfix:
+  - Set lru_cache to 2**16 for SPM tokenizer (was set to infinite)
+
+- 2.3.0 (2022-10-18)
+  Features:
+  - (#203) Added `-tok flores101` and `-tok flores200`, a.k.a. `spbleu`.
+    These are multilingual tokenizations that make use of the
+    multilingual SPM models released by Facebook and described in the
+    following papers:
+    * Flores-101: https://arxiv.org/abs/2106.03193
+    * Flores-200: https://arxiv.org/abs/2207.04672
+  - (#213) Added JSON formatting for multi-system output (thanks to Manikanta Inugurthi @me-manikanta)
+  - (#211) You can now list all test sets for a language pair with `--list SRC-TRG`.
+    Thanks to Jaume Zaragoza (@ZJaume) for adding this feature.
+  - Added WMT22 test sets (test set `wmt22`)
+  - System outputs: include with wmt22. Also added wmt21/systems which will produce WMT21 submitted systems.
+    To see available systems, give a dummy system to `--echo`, e.g., `sacrebleu -t wmt22 -l en-de --echo ?`
+
+- 2.2.1 (2022-09-13)
+  Bugfix: Standard usage was returning (and using) each reference twice.
+
+- 2.2.0 (2022-07-25)
+  Features:
+  - Added WMT21 datasets (thanks to @BrighXiaoHan)
+  - `--echo` now exposes document metadata where available (e.g., docid, genre, origlang)
+  - Bugfix: allow empty references (#161)
+  - Adds a Korean tokenizer (thanks to @NoUnique)
+
+  Under the hood:
+  - Moderate code refactoring
+  - Processed files have adopted a more sensible internal naming scheme under ~/.sacrebleu
+    (e.g., wmt17_ms.zh-en.src instead of zh-en.zh)
+  - Processed file extensions correspond to the values passed to `--echo` (e.g., "src")
+  - Now explicitly representing NoneTokenizer
+  - Got rid of the ".lock" lockfile for downloading (using the tarball itself)
+
+  Many thanks to @BrightXiaoHan (https://github.com/BrightXiaoHan) for the bulk of
+  the code contributions in this release.
+
+- 2.1.0 (2022-05-19)
+  Features:
+  - Added `-tok spm` for multilingual SPM tokenization (#168)
+    (thanks to Naman Goyal and James Cross at Facebook)
+
+  Fixes:
+  - Handle potential memory usage issues due to LRU caching in tokenizers (#167)
+  - Bugfix: BLEU.corpus_score() now using max_ngram_order (#173)
+  - Upgraded ja-mecab to 1.0.5 (#196)
+
+- 2.0.0 (2021-07-18)
+  - Build: Add Windows and OS X testing to Travis CI.
+  - Improve documentation and type annotations.
+  - Drop `Python < 3.6` support and migrate to f-strings.
+  - Relax `portalocker` version pinning, add `regex, tabulate, numpy` dependencies.
+  - Drop input type manipulation through `isinstance` checks. If the user does not obey
+    to the expected annotations, exceptions will be raised. Robustness attempts lead to
+    confusions and obfuscated score errors in the past (#121)
+  - Variable # references per segment is supported for all metrics by default. It is
+    still only available through the API.
+  - Use colored strings in tabular outputs (multi-system evaluation mode) through
+    the help of `colorama` package.
+  - tokenizers: Add caching to tokenizers which seem to speed up things a bit.
+  - `intl` tokenizer: Use `regex` module. Speed goes from ~4 seconds to ~0.6 seconds
+    for a particular test set evaluation. (#46)
+  - Signature: Formatting changed (mostly to remove '+' separator as it was
+    interfering with chrF++). The field separator is now '|' and key values
+    are separated with ':' rather than '.'.
+  - Signature: Boolean true / false values are shortened to yes / no.
+  - Signature: Number of references is `var` if variable number of references is used.
+  - Signature: Add effective order (yes/no) to BLEU and chrF signatures.
+  - Metrics: Scale all metrics into the [0, 100] range (#140)
+  - Metrics API: Use explicit argument names and defaults for the metrics instead of
+    passing obscure `argparse.Namespace` objects.
+  - Metrics API: A base abstract `Metric` class is introduced to guide further
+    metric development. This class defines the methods that should be implemented
+    in the derived classes and offers boilerplate methods for the common functionality.
+    A new metric implemented this way will automatically support significance testing.
+  - Metrics API: All metrics now receive an optional `references` argument at
+    initialization time to process and cache the references. Further evaluations
+    of different systems against the same references becomes faster this way
+    for example when using significance testing.
+  - BLEU: In case of no n-gram matches at all, skip smoothing and return 0.0 BLEU (#141).
+  - CHRF: Added multi-reference support, verified the scores against chrF++.py, added test case.
+  - CHRF: Added chrF+ support through `word_order` argument. Added test cases against chrF++.py.
+    Exposed it through the CLI (--chrf-word-order) (#124)
+  - CHRF: Add possibility to disable effective order smoothing (pass --chrf-eps-smoothing).
+    This way, the scores obtained are exactly the same as chrF++, Moses and NLTK implementations.
+    We keep the effective ordering as the default for compatibility, since this only
+    affects sentence-level scoring with very short sentences. (#144)
+  - CLI: `--input/-i` can now ingest multiple systems. For this reason, the positional
+    `references` should always preceed the `-i` flag.
+  - CLI: Allow modifying TER arguments through CLI. We still keep the TERCOM defaults.
+  - CLI: Prefix metric-specific arguments with --chrf and --ter. To maintain compatibility,
+    BLEU argument names are kept the same.
+  - CLI: Separate metric-specific arguments for clarity when `--help` is printed.
+  - CLI: Added `--format/-f` flag. The single-system output mode is now `json` by default.
+    If you want to keep the old text format persistently, you can export `SACREBLEU_FORMAT=text` into your
+    shell.
+  - CLI: For multi-system mode, `json` falls back to plain text. `latex` output can only
+    be generated for multi-system mode.
+  - CLI: sacreBLEU now supports evaluating multiple systems for a given test set
+    in an efficient way. Through the use of `tabulate` package, the results are
+    nicely rendered into a plain text table, LaTeX, HTML or RST (cf. --format/-f argument).
+    The systems can be either given as a list of plain text files to `-i/--input` or
+    as a tab-separated single stream redirected into `STDIN`. In the former case,
+    the basenames of the files will be automatically used as system names.
+  - Statistical tests: sacreBLEU now supports confidence interval estimation
+    through bootstrap resampling for single-system evaluation (`--confidence` flag)
+    as well as paired bootstrap resampling (`--paired-bs`) and paired approximate
+    randomization tests (`--paired-ar`) when evaluating multiple systems (#40 and #78).
+
+- 1.5.1 (2021-03-05)
+  - Fix extraction error for WMT18 extra test sets (test-ts) (#142)
+  - Validation and test datasets are added for multilingual TEDx
+
+- 1.5.0 (2021-01-15)
+  - Fix an assertion error in chrF (#121)
+  - Add missing `__repr__()` methods for BLEU and TER
+  - TER: Fix exception when `--short` is used (#131)
+  - Pin Mecab version to 1.0.3 for Python 3.5 support
+  - [API Change]: Default value for `floor` smoothing is now 0.1 instead of 0.
+  - [API Change]: `sacrebleu.sentence_bleu()` now uses the `exp` smoothing method,
+    exactly the same as the CLI's --sentence-level behavior. This was mainly done
+    to make two methods behave the same.
+  - Add smoothing value to BLEU signature (#98)
+  - dataset: Fix IWSLT links (#128)
+  - Allow variable number of references for BLEU (only via API) (#130).
+    Thanks to Ondrej Dusek (@tuetschek)
+
+- 1.4.14 (2020-09-13)
+  - Added character-based tokenization (`-tok char`).
+    Thanks to Christian Federmann.
+  - Added TER (`-m ter`). Thanks to Ales Tamchyna! (fixes #90)
+  - Allow calling the script as a standalone utility (fixes #86)
+  - Fix type annotation issues (fixes #100) and mark sacrebleu as supporting mypy
+  - Added WMT20 robustness test sets:
+    - wmt20/robust/set1 (en-ja, en-de)
+    - wmt20/robust/set2 (en-ja, ja-en)
+    - wmt20/robust/set3 (de-en)
+
+- 1.4.13 (2020-07-30)
+  - Added WMT20 newstest test sets (#103)
+  - Make mecab3-python an extra dependency, adapt code to new mecab3-python
+    This fixes the recent Windows installation issues as well (#104)
+    Japanese support should now be explicitly installed through sacrebleu[ja] package.
+  - Fix return type annotation of corpus_bleu()
+  - Improve sentence_score's documentation, do not allow single ref string (#98)
+
+- 1.4.12 (2020-07-03)
+  - Fix a deployment bug (#96)
+
+- 1.4.11 (2020-07-03)
+  - Added Multi30k multimodal MT test set metadata
+  - Refactored all tokenizers into respective classes (fixes #85)
+  - Refactored all metrics into respective classes
+  - Moved utility functions into `utils.py`
+  - Implemented signatures using `BLEUSignature` and `CHRFSignature` classes
+  - Simplified checking of Chinese characters (fixes #5)
+  - Unified common regexp tokenization codes for tokenizers (fixes #27)
+  - Fixed --detail failing when no test sets are provided
+  - Fixed multi-reference BLEU failing when tab-delimited reference stream is used
+  - Removed lowercase option for ChrF which was not functional (#85)
+  - Simplified ChrF and used the same I/O logic as BLEU to allow for future
+    multi-reference reading
+  - Added score regression tests for chrF using reference chrF++ implementation
+  - Added multi-reference & tokenizer & signature tests
+
+- 1.4.10 (2020-05-30)
+  - Fixed bug in signature with mecab tokenizer
+  - Cleaned up deprecation warnings (thanks to Karthikeyan Singaravelan @tirkarthi)
+  - Now only lists the external [typing](https://pypi.org/project/typing/)
+    module as a dependency for Python `<= 3.4`, as it was integrated in the standard
+    library in Python 3.5 (thanks to Erwan de Lépinau @ErwanDL).
+  - Added LICENSE to pypi (thanks to Mark Harfouche @hmaarrfk)
+
+- 1.4.9 (2020-04-30)
+  - Changed `get_available_testsets()` to return a list
+  - Remove Japanese MeCab tokenizer from requirements.
+    (Must be installed manually to avoid Windows incompatibility).
+    Many thanks to Makoto Morishita (@MorinoseiMorizo).
+
+- 1.4.8 (2020-04-26)
+  - Added to API:
+    - get_source_file()
+    - get_reference_files()
+    - get_available_testsets()
+    - get_langpairs_for_testset()
+  - Some internal refactoring
+  - Fixed descriptions of some WMT19/google test sets
+  - Added API test case (test/test_apy.py)
+
+- 1.4.7 (2020-04-19)
+  - Added Google's extra wmt19/en-de refs (-t wmt19/google/{ar,arp,hqall,hqp,hqr,wmtp})
+    (Freitag, Grangier, & Caswell
+     BLEU might be Guilty but References are not Innocent
+     https://arxiv.org/abs/2004.06063)
+  - Restored SACREBLEU_DIR and smart_open to exports (thanks to Thomas Liao @tholiao)
+
+- 1.4.6 (2020-03-28)
+  - Large internal reorganization as a module (thanks to Thamme Gowda @thammegowda)
+
+- 1.4.5 (2020-03-28)
+  - Added Japanese MeCab tokenizer (`-tok ja-mecab`) (thanks to Makoto Morishita @MorinoseiMorizo)
+  - Added wmt20/dev test sets (thanks to Martin Popel @martinpopel)
+
+- 1.4.4 (2020-03-10)
+  - Smoothing changes (Sebastian Nickels @sn1c)
+    - Fixed bug that only applied smoothing to n-grams for n > 2
+    - Added default smoothing values for methods "floor" (0) and "add-k" (1)
+  - `--list` now returns a list of all language pairs for a task when combined with `-t`
+    (e.g., `sacrebleu -t wmt19 --list`)
+  - added missing languages for IWSLT17
+  - Minor code improvements (Thomas Liao @tholiao)
+
+- 1.4.3 (2019-12-02)
+  - Bugfix: handling of result object for CHRF
+  - Improved API example
+
+- 1.4.2 (2019-10-11)
+  - Tokenization variant omitted from the chrF signature; it is relevant only for BLEU (thanks to Martin Popel)
+  - Bugfix: call to sentence_bleu (thanks to Rachel Bawden)
+  - Documentation example for Python API (thanks to Vlad Lyalin)
+  - Calls to corpus_chrf and sentence_chrf now return a an object instead of a float (use result.score)
+
+- 1.4.1 (2019-09-11)
+   - Added sentence-level scoring via -sl (--sentence-level)
+
+- 1.4.0 (2019-09-10)
+   - Many thanks to Martin Popel for all the changes below!
+   - Added evaluation on concatenated test sets (e.g., `-t wmt17,wmt18`).
+     Works as long as they all have the same language pair.
+   - Added `sacrebleu --origlang` (both for evaluation on a subset and for `--echo`).
+     Note that while echoing prints just the subset, evaluation expects the complete
+     test set (and just skips the irrelevant parts).
+   - Added `sacrebleu --detail` for breakdown by domain-specific subsets of the test sets.
+     (Available for WMT19).
+   - Minor changes
+     - Improved display of `sacrebleu -h`
+     - Added `sacrebleu --list`
+     - Code refactoring
+     - Documentation and tests updates
+     - Fixed a race condition bug (`os.makedirs(outdir, exist_ok=True)` instead of `if os.path.exists`)
+
+- 1.3.7 (2019-07-12)
+   - Lazy loading of regexes cuts import time from ~1s to nearly nothing (thanks, @louismartin!)
+   - Added a simple (non-atomic) lock on downloading
+   - Can now read multiple refs from a single tab-delimited file.
+     You need to pass `--num-refs N` to tell it to run the split.
+     Only works with a single reference file passed from the command line.
+
+- 1.3.6 (2019-06-10)
+   - Removed another f-string for Python 3.5 compatibility
+
+- 1.3.5 (2019-06-07)
+   - Restored Python 3.5 compatibility
+
+- 1.3.4 (2019-05-28)
+   - Added MTNT 2019 test sets
+   - Added a BLEU object
+
+- 1.3.3 (2019-05-08)
+   - Added WMT'19 test sets
+
+- 1.3.2 (2018-04-24)
+   - Bugfix in test case (thanks to Adam Roberts, @adarob)
+   - Passing smoothing method through `sentence_bleu`
+
+- 1.3.1 (2019-03-20)
+   - Added another smoothing approach (add-k) and a command-line option for choosing the smoothing method
+     (`--smooth exp|floor|add-n|none`) and the associated value (`--smooth-value`), when relevant.
+   - Changed interface to some functions (backwards incompatible)
+     - 'smooth' is now 'smooth_method'
+     - 'smooth_floor' is now 'smooth_value'
+
+- 1.2.21 (19 March 2019)
+   - Ctrl-M characters are now treated as normal characters, previously treated as newline.
+
+- 1.2.20 (28 February 2018)
+   - Tokenization now defaults to "zh" when language pair is known
+
+- 1.2.19 (19 February 2019)
+   - Updated checksum for wmt19/dev (seems to have changed)
+
+- 1.2.18 (19 February 2019)
+   - Fixed checksum for wmt17/dev (copy-paste error)
+
+- 1.2.17 (6 February 2019)
+   - Added kk-en and en-kk to wmt19/dev
+
+- 1.2.16 (4 February 2019)
+   - Added gu-en and en-gu to wmt19/dev
+
+- 1.2.15 (30 January 2019)
+   - Added MD5 checksumming of downloaded files for all datasets.
+
+- 1.2.14 (22 January 2019)
+   - Added mtnt1.1/train mtnt1.1/valid mtnt1.1/test data from [MTNT](http://www.cs.cmu.edu/~pmichel1/mtnt/)
+
+- 1.2.13 (22 January 2019)
+   - Added 'wmt19/dev' task for 'lt-en' and 'en-lt' (development data for new tasks).
+   - Added MD5 checksum for downloaded tarballs.
+
+- 1.2.12 (8 November 2018)
+   - Now outputs only only digit after the decimal
+
+- 1.2.11 (29 August 2018)
+   - Added a function for sentence-level, smoothed BLEU
+
+- 1.2.10 (23 May 2018)
+   - Added wmt18 test set (with references)
+
+- 1.2.9 (15 May 2018)
+   - Added zh-en, en-zh, tr-en, and en-tr datasets for wmt18/test-ts
+
+- 1.2.8 (14 May 2018)
+   - Added wmt18/test-ts, the test sources (only) for [WMT18](http://statmt.org/wmt18/translation-task.html)
+   - Moved README out of `sacrebleu.py` and the CHANGELOG into a separate file
+
+- 1.2.7 (10 April 2018)
+   - fixed another locale issue (with --echo)
+   - grudgingly enabled `-tok none` from the command line
+
+- 1.2.6 (22 March 2018)
+   - added wmt17/ms (Microsoft's [additional ZH-EN references](https://github.com/MicrosoftTranslator/Translator-HumanParityData)).
+     Try `sacrebleu -t wmt17/ms --cite`.
+   - `--echo ref` now pastes together all references, if there is more than one
+
+- 1.2.5 (13 March 2018)
+   - added wmt18/dev datasets (en-et and et-en)
+   - fixed logic with --force
+   - locale-independent installation
+   - added "--echo both" (tab-delimited)
+
+- 1.2.3 (28 January 2018)
+   - metrics (`-m`) are now printed in the order requested
+   - chrF now prints a version string (including the beta parameter, importantly)
+   - attempt to remove dependence on locale setting
+
+- 1.2 (17 January 2018)
+   - added the chrF metric (`-m chrf` or `-m bleu chrf` for both)
+     See 'CHRF: character n-gram F-score for automatic MT evaluation' by Maja Popovic (WMT 2015)
+     [http://www.statmt.org/wmt15/pdf/WMT49.pdf]
+   - added IWSLT 2017 test and tuning sets for DE, FR, and ZH
+     (Thanks to Mauro Cettolo and Marcello Federico).
+   - added `--cite` to produce the citation for easy inclusion in papers
+   - added `--input` (`-i`) to set input to a file instead of STDIN
+   - removed accent mark after objection from UN official
+
+- 1.1.7 (27 November 2017)
+   - corpus_bleu() now raises an exception if input streams are different lengths
+   - thanks to Martin Popel for:
+      - small bugfix in tokenization_13a (not affecting WMT references)
+      - adding `--tok intl` (international tokenization)
+   - added wmt17/dev and wmt17/dev sets (for languages intro'd those years)
+
+- 1.1.6 (15 November 2017)
+   - bugfix for tokenization warning
+
+- 1.1.5 (12 November 2017)
+   - added -b option (only output the BLEU score)
+   - removed fi-en from list of WMT16/17 systems with more than one reference
+   - added WMT16/tworefs and WMT17/tworefs for scoring with both en-fi references
+
+- 1.1.4 (10 November 2017)
+   - added effective order for sentence-level BLEU computation
+   - added unit tests from sockeye
+
+- 1.1.3 (8 November 2017).
+   - Factored code a bit to facilitate API:
+      - compute_bleu: works from raw stats
+      - corpus_bleu for use from the command line
+      - raw_corpus_bleu: turns off tokenization, command-line sanity checks, floor smoothing
+   - Smoothing (type 'exp', now the default) fixed to produce mteval-v13a.pl results
+   - Added 'floor' smoothing (adds 0.01 to 0 counts, more versatile via API), 'none' smoothing (via API)
+   - Small bugfixes, windows compatibility (H/T Christian Federmann)
+
+- 1.0.3 (4 November 2017).
+   - Contributions from Christian Federmann:
+      - Added explicit support for encoding
+      - Fixed Windows support
+      - Bugfix in handling reference length with multiple refs
+
+- version 1.0.1 (1 November 2017).
+   - Small bugfix affecting some versions of Python.
+   - Code reformatting due to Ozan Çağlayan.
+
+- version 1.0 (23 October 2017).
+   - Support for WMT 2008--2017.
+   - Single tokenization (v13a) with lowercase fix (proper lower() instead of just A-Z).
+   - Chinese tokenization.
+   - Tested to match all WMT17 scores on all arcs.
+

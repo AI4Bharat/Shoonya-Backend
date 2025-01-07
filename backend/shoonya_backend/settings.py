@@ -116,6 +116,17 @@ WSGI_APPLICATION = "shoonya_backend.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": os.getenv("DB_NAME"),
+#         "USER": os.getenv("DB_USER"),
+#         "PASSWORD": os.getenv("DB_PASSWORD"),
+#         "HOST": os.getenv("DB_HOST"),
+#         "PORT": os.getenv("DB_PORT"),
+#     }
+# }
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -126,6 +137,24 @@ DATABASES = {
         "PORT": os.getenv("DB_PORT"),
     }
 }
+
+# print("DB_NAME:", os.getenv("DB_NAME"))
+# print("DB_USER:", os.getenv("DB_USER"))
+# print("DB_PASSWORD:", os.getenv("DB_PASSWORD"))
+# print("DB_HOST:", os.getenv("DB_HOST"))
+# print("DB_PORT:", os.getenv("DB_PORT"))
+
+
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": "postgres",
+#         "USER": "postgres",
+#         "PASSWORD": "123",
+#         "HOST": 'localhost',
+#         "PORT": '5432',
+#     }
+# }
 
 
 # Password validation

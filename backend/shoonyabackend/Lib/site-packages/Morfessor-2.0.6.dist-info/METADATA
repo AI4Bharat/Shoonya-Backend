@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: Morfessor
+Version: 2.0.6
+Summary: Morfessor
+Home-page: http://morpho.aalto.fi
+Author: Sami Virpioja, Peter Smit, Stig-Arne Grönroos
+Author-email: morpho@aalto.fi
+License: BSD
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Scientific/Engineering
+Provides-Extra: docs
+Requires-Dist: sphinx ; extra == 'docs'
+Requires-Dist: sphinxcontrib-napoleon ; extra == 'docs'
+
+UNKNOWN
+
+
