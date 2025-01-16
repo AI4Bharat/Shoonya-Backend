@@ -11,6 +11,38 @@ class DatasetInstanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatasetInstance
         fields = "__all__"
+        
+        
+class DatasetInstanceSerializerOptimized(serializers.ModelSerializer):
+    created_by = UserProfileSerializer(read_only=True)
+
+    class Meta:
+        model = DatasetInstance
+        fields = [
+            "id",
+            "instance_id",
+            "name",
+            "description",
+            "dataset_type",
+            "is_archived",
+            "public_to_managers",
+            "organisation_id",
+            "workspace_id",
+            "users",
+            "created_by",
+            "created_at",
+            "last_updated",
+            "file_format",
+            "file_path",
+            "size",
+            "record_count",
+            "status",
+            "last_upload_status",
+            "last_upload_date",
+            "last_upload_time",
+            "last_upload_result",
+        ]
+
 
 
 class DatasetInstanceUploadSerializer(serializers.Serializer):
