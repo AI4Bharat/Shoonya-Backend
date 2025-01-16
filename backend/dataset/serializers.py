@@ -14,8 +14,6 @@ class DatasetInstanceSerializer(serializers.ModelSerializer):
         
         
 class DatasetInstanceSerializerOptimized(serializers.ModelSerializer):
-    created_by = UserProfileSerializer(read_only=True)
-
     class Meta:
         model = DatasetInstance
         fields = [
