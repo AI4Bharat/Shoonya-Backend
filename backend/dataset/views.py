@@ -257,7 +257,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             queryset = DatasetInstance.objects.filter(
                 organisation_id=request.user.organization
             ).filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
-
         if "dataset_visibility" in request.query_params:
             dataset_visibility = request.query_params["dataset_visibility"]
             if dataset_visibility == "all_public_datasets":
@@ -267,18 +266,15 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(public_to_managers=True)
             elif dataset_visibility == "my_datasets":
                 queryset = queryset.filter(users__id=request.user.id)
-
         # Filter the queryset based on the query params
         if "dataset_type" in dict(request.query_params):
             queryset = queryset.filter(
                 dataset_type__exact=request.query_params["dataset_type"]
             )
-
         # Serialize the distinct items and sort by instance ID
         serializer = DatasetInstanceSerializer(
             queryset.distinct().order_by("instance_id"), many=True
         )
-
         # Add status fields to the serializer data
         for dataset_instance in serializer.data:
             # Get the task statuses for the dataset instance
@@ -288,13 +284,11 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_instance_time,
                 dataset_instance_result,
             ) = get_dataset_upload_status(dataset_instance["instance_id"])
-
             # Add the task status and time to the dataset instance response
             dataset_instance["last_upload_status"] = dataset_instance_status
             dataset_instance["last_upload_date"] = dataset_instance_date
             dataset_instance["last_upload_time"] = dataset_instance_time
             dataset_instance["last_upload_result"] = dataset_instance_result
-
         return Response(serializer.data)
 
     @is_organization_owner
