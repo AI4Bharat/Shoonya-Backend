@@ -26,7 +26,6 @@ class DatasetInstanceSerializerOptimized(serializers.ModelSerializer):
             "public_to_managers",
             "organisation_id",
             "workspace_id",
-            "users",
             "created_by",
             "created_at",
             "last_updated",
@@ -34,11 +33,7 @@ class DatasetInstanceSerializerOptimized(serializers.ModelSerializer):
             "file_path",
             "size",
             "record_count",
-            "status",
-            "last_upload_status",
-            "last_upload_date",
-            "last_upload_time",
-            "last_upload_result",
+            "status"
         ]
 
 
