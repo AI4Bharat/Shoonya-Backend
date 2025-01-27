@@ -47,19 +47,19 @@ def process_chunk(annotation_ids):
 if __name__ == "__main__":
 
     project_types = [
-        # "ConversationTranslation",
+        "ConversationTranslation",
         "ConversationTranslationEditing",
-        # "ConversationVerification",
-        # "OCRTranscription",
-        # "OCRTranscriptionEditing",
-        # "OCRSegmentCategorizationEditing",
-        # "AudioTranscription",
-        # "AudioTranscriptionEditing",
-        # "ContextualSentenceVerification",
-        # "ContextualSentenceVerificationAndDomainClassification",
-        # "ContextualTranslationEditing",
-        # "TranslationEditing",
-        # "AcousticNormalisedTranscriptionEditing",
+        "ConversationVerification",
+        "OCRTranscription",
+        "OCRTranscriptionEditing",
+        "OCRSegmentCategorizationEditing",
+        "AudioTranscription",
+        "AudioTranscriptionEditing",
+        "ContextualSentenceVerification",
+        "ContextualSentenceVerificationAndDomainClassification",
+        "ContextualTranslationEditing",
+        "TranslationEditing",
+        "AcousticNormalisedTranscriptionEditing",
     ]
 
     for pjt in tqdm(project_types, total=len(project_types)):
