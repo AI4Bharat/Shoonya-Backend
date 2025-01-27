@@ -74,6 +74,8 @@ if __name__ == "__main__":
 
         chunks = chunk_list(annotations, batch_size=1000)
 
+        print(f"Number of Chunks in current Project: {len(chunks)}")
+
         with ThreadPoolExecutor(
             max_workers=4
         ) as executor:  # Adjust max_workers as needed
