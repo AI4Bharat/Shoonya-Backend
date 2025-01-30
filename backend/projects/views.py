@@ -1443,12 +1443,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             400: "Please Login!",
         },
     )
-    @action(
-        detail=False,
-        methods=["get"],
-        url_name="list-optimized",
-        url_path="projects_list/optimized",
-    )
+    @action(detail=False,methods=["get"],url_name="list-optimized",url_path="projects_list/optimized")
     def list_optimized(self, request):
         """
         List all projects with some optimizations.
@@ -2804,12 +2799,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
         )
 
-    @action(
-        detail=True,
-        methods=["post"],
-        name="Unassign review tasks",
-        url_name="unassign_review_tasks",
-    )
+    @action(detail=True,methods=["post"],name="Unassign review tasks",url_name="unassign_review_tasks",)
     @project_is_archived
     def unassign_review_tasks(self, request, pk, *args, **kwargs):
         """
