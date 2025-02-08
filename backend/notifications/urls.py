@@ -6,4 +6,5 @@ urlpatterns = [
     path("", viewNotifications, name="view_notification"),
     path("create", createNotification, name="create_notification"),
     path("changeState", mark_seen, name="mark_seen"),
+    path("unread/", allunreadNotifications, name='unread-notifications'),
 ]

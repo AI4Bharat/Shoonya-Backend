@@ -2184,6 +2184,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         automatic_annotation_creation_mode = request.data.get(
             "automatic_annotation_creation_mode"
         )
+        user_id= request.data.get("created_by")
+        if(user_id):user = User.objects.get(id=user_id)
+        request.data["created_by"] = user.id
 
         if project_mode == Collection:
             # Create project object
@@ -2192,6 +2195,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_id = project_response.data["id"]
 
             proj = Project.objects.get(id=project_id)
+            proj.created_by=user
             if proj.required_annotators_per_task > 1:
                 proj.project_stage = REVIEW_STAGE
                 proj.save()

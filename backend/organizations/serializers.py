@@ -24,5 +24,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Organization
-        fields = ["id"]
-        # read_only_fields = ["id"]
+        # fields = ["id", "title", "email_domain_name", "created_by", "created_at"]
+        fields = ["id", "title",]
+        # read_only_fields = ["id", "created_by", "created_at"]

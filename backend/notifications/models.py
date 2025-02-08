@@ -38,10 +38,11 @@ class Notification(models.Model):
     metadata_json = models.JSONField(
         blank=True, null=True, help_text="Additional metadata in JSON format."
     )
+    # this field only contains the user id and whether the notification has been seen by the user, if not the user_Id doesn't exist in the JSON.
     seen_json = models.JSONField(
         blank=True,
         null=True,
-        help_text="JSON field to store information about whether the notification has been seen.",
+        help_text="JSON field to store information about whether the notification has been seen by respective user Id.",
     )
 
     class Meta:
