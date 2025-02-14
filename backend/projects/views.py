@@ -1443,12 +1443,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             400: "Please Login!",
         },
     )
-    @action(
-        detail=False,
-        methods=["get"],
-        url_name="list-optimized",
-        url_path="projects_list/optimized",
-    )
+    @action(detail=False,methods=["get"],url_name="list-optimized",url_path="projects_list/optimized")
     def list_optimized(self, request):
         """
         List all projects with some optimizations.
@@ -2189,6 +2184,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         automatic_annotation_creation_mode = request.data.get(
             "automatic_annotation_creation_mode"
         )
+        user_id= request.data.get("created_by")
+        if(user_id):user = User.objects.get(id=user_id)
+        request.data["created_by"] = user.id
 
         if project_mode == Collection:
             # Create project object
@@ -2197,6 +2195,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_id = project_response.data["id"]
 
             proj = Project.objects.get(id=project_id)
+            proj.created_by=user
             if proj.required_annotators_per_task > 1:
                 proj.project_stage = REVIEW_STAGE
                 proj.save()
@@ -2800,12 +2799,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
         )
 
-    @action(
-        detail=True,
-        methods=["post"],
-        name="Unassign review tasks",
-        url_name="unassign_review_tasks",
-    )
+    @action(detail=True,methods=["post"],name="Unassign review tasks",url_name="unassign_review_tasks",)
     @project_is_archived
     def unassign_review_tasks(self, request, pk, *args, **kwargs):
         """

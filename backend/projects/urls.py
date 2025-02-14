@@ -8,4 +8,5 @@ router.register(r"", ProjectViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
+    # path('notifications/', include('notifications.urls')),
 ]

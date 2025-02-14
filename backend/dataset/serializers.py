@@ -11,6 +11,21 @@ class DatasetInstanceSerializer(serializers.ModelSerializer):
     class Meta:
         model = DatasetInstance
         fields = "__all__"
+        
+        
+class DatasetInstanceSerializerOptimized(serializers.ModelSerializer):
+    class Meta:
+        model = DatasetInstance
+        fields = [
+            "instance_id",
+            "parent_instance_id",
+            "instance_name",
+            "instance_description",
+            "dataset_type",
+            "public_to_managers",
+            "organisation_id"
+        ]
+
 
 
 class DatasetInstanceUploadSerializer(serializers.Serializer):
