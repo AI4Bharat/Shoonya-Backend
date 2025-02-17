@@ -1209,7 +1209,6 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
         ).values("instance_id", "dataset_type")
         return Response(data=dataset_instances, status=status.HTTP_200_OK)
 
-    @is_organization_owner
     @action(detail=False, methods=["POST"], name="Get data Items")
     def get_data_items(self, request, *args, **kwargs):
         try:
