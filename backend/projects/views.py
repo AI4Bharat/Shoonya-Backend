@@ -12,6 +12,7 @@ from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
 
+
 import notifications
 from shoonya_backend.pagination import CustomPagination
 from .utils import (
@@ -70,6 +71,8 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     filter_data_items,
+    try_update,
+    try_update_yt
 )
 
 from .decorators import (
@@ -4100,7 +4103,54 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_task_queryset(self, queryset):
         return queryset
+    
+# from here translitrartion work starts
+# For Text
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", url_name="populate_asr_model_predictions")
+    def populate_asr_model_predictions(self, request):
+        try:
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids", [])
+            stage = data.get("stage", "l1")
+            
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
 
+            # Run the Celery task asynchronously
+            try_update.delay(model_language, project_ids, stage)
+
+            return JsonResponse({"message": "try_update started successfully!"})
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+        
+# For Youtube
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
+    def populate_asr_model_predictions_yt(self, request):
+        try:
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids", [])
+            stage = data.get("stage", "l1")
+
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            # Run the Celery task asynchronously
+            try_update_yt(model_language, project_ids, stage)
+
+            return Response({"message": "try_update_yt started successfully!"})
+        except json.JSONDecodeError:
+            return Response({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(ret_dict, status=ret_status)
+# Here translitrartion work ends
+
+    
     @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
     @is_org_owner
