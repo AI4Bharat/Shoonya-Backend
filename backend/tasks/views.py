@@ -1494,6 +1494,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 access_key=os.getenv("MINIO_ACCESS_KEY"),
                 secret_key=os.getenv("MINIO_SECRET_KEY"),
                 secure=True,
+                cert_check=False,
             )
         except Exception as e:
             return Response(
