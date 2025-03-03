@@ -126,6 +126,18 @@ services:
       - redis
       - web
 
+  # for new end point 
+  celery-misc-tasks:
+    container_name : misc_tasks
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker -Q misc_tasks --concurrency=1 --loglevel=info   
+    volumes:
+        - ./backend/:/usr/src/backend/
+        - logs_vol:/logs       
+    depends_on:
+      - redis
+      - web
 volumes:
   logs_vol:
     external: true
