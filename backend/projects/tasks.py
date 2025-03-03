@@ -846,7 +846,7 @@ def add_new_data_items_into_project(project_id, items):
 
 # new task for updating the data items of transcription simple.
 @shared_task(bind=True)
-def try_update(model_language, project__ids=[], stage="l1"):
+def populate_asr_try(model_language, project__ids=[], stage="l1"):
   API_URL = os.getenv("API_URL")
   import requests
   import json
@@ -999,7 +999,7 @@ def try_update(model_language, project__ids=[], stage="l1"):
       )
       
 # new task for updating the data items of transcription from youtube.
-def try_update_yt(model_language, project__ids=[], stage="l1"):
+def populate_asr_yt(model_language, project__ids=[], stage="l1"):
     API_URL = os.getenv("API_URL")
     import requests
     import json

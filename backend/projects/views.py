@@ -71,8 +71,8 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     filter_data_items,
-    try_update,
-    try_update_yt
+    populate_asr_try,
+    populate_asr_yt
 )
 
 from .decorators import (
@@ -4123,8 +4123,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
             # Run the Celery task asynchronously
-            try_update.delay(model_language, project_ids, stage)
-            return JsonResponse({"message": f"try_update started successfully for stage {stage}!"})
+            populate_asr_try.delay(model_language, project_ids, stage)
+            return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
         except Exception as e:
@@ -4147,9 +4147,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
             # Run the Celery task asynchronously
-            try_update_yt(model_language, project_ids, stage)
+            populate_asr_yt(model_language, project_ids, stage)
 
-            return Response({"message": "try_update_yt started successfully!"})
+            return Response({"message": "populate_asr_yt started successfully!"})
         except json.JSONDecodeError:
             return Response({"error": "Invalid JSON format"}, status=400)
         except Exception as e:
