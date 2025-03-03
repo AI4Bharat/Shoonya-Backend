@@ -1502,7 +1502,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
         try:
             encoded_audio_data = base64.b64encode(
-                eos_client.get_object("asr-transcription", audio_url).data
+                eos_client.get_object(os.getenv("MINIO_DIRECTORY"), audio_url).data
             ).decode("utf-8")
         except Exception as e:
             return Response(
