@@ -4106,26 +4106,48 @@ class ProjectViewSet(viewsets.ModelViewSet):
     
 # from here translitrartion work starts
 # For Text
+    # @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", url_name="populate_asr_model_predictions")
+    # def populate_asr_model_predictions(self, request):
+    #     try:
+    #         data = json.loads(request.body)
+    #         model_language = data.get("model_language")
+    #         project_ids = data.get("project_ids", [])
+    #         stage = data.get("stage", "l1")
+            
+    #         if not model_language:
+    #             return JsonResponse({"error": "Missing model_language"}, status=400)
+
+    #         # Run the Celery task asynchronously
+    #         try_update.delay(model_language, project_ids, stage)
+
+    #         return JsonResponse({"message": "try_update started successfully!"})
+    #     except json.JSONDecodeError:
+    #         return JsonResponse({"error": "Invalid JSON format"}, status=400)
+    #     except Exception as e:
+    #         return JsonResponse({"error": str(e)}, status=500)
     @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", url_name="populate_asr_model_predictions")
     def populate_asr_model_predictions(self, request):
         try:
             data = json.loads(request.body)
             model_language = data.get("model_language")
             project_ids = data.get("project_ids", [])
-            stage = data.get("stage", "l1")
-            
+            stage = data.get("stage", "l1")  # Default to "l1"
+
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
             if not model_language:
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
             # Run the Celery task asynchronously
             try_update.delay(model_language, project_ids, stage)
-
-            return JsonResponse({"message": "try_update started successfully!"})
+            return JsonResponse({"message": f"try_update started successfully for stage {stage}!"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-        
+
 # For Youtube
     @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
     def populate_asr_model_predictions_yt(self, request):
@@ -4135,6 +4157,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_ids = data.get("project_ids", [])
             stage = data.get("stage", "l1")
 
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+            
             if not model_language:
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
