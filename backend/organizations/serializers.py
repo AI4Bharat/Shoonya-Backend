@@ -26,3 +26,14 @@ class OrganizationSerializer(serializers.ModelSerializer):
         model = Organization
         fields = ["id", "title", "email_domain_name", "created_by", "created_at"]
         read_only_fields = ["id", "created_by", "created_at"]
+
+
+# optimized version of OrganizationSerializer
+class OrganizationSerializer_optimizer(serializers.ModelSerializer):
+    # created_by = UserReadSerializer(read_only=True)
+
+    class Meta:
+        model = Organization
+        # fields = ["id", "title", "email_domain_name", "created_by", "created_at"]
+        fields = ["id", "title",]
+        # read_only_fields = ["id", "created_by", "created_at"]

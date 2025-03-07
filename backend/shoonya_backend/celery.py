@@ -65,3 +65,5 @@ celery_app.autodiscover_tasks()
 def debug_task(self):
     """First task for task handling testing and to apply migrations to the celery results db"""
     print(f"Request: {self.request!r}")
+
+

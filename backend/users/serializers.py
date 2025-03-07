@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from organizations.serializers import OrganizationSerializer
+from organizations.serializers import OrganizationSerializer,OrganizationSerializer_optimizer
 from .models import User
 from django.contrib.auth import authenticate, password_validation
 
@@ -111,6 +111,35 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "organization",
             "unverified_email",
             "date_joined",
+        ]
+        
+# Optimized version of the above serializer
+class UserProfileSerializer_optimizer(serializers.ModelSerializer):
+    organization = OrganizationSerializer_optimizer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "email",
+            "languages",
+            "availability_status",
+            "enable_mail",
+            "first_name",
+            "last_name",
+            "phone",
+            "profile_photo",
+            "role",
+            "organization",
+            "unverified_email",
+            "date_joined",
+            "participation_type",
+            "prefer_cl_ui",
+            "is_active",
+        ]
+        read_only_fields = [
+            "id","organization",
         ]
 
 

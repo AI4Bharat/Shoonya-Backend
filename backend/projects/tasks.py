@@ -20,6 +20,10 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
 from .annotation_registry import *
+from dotenv import load_dotenv
+# Load environment variables from .env file
+load_dotenv()
+
 
 # Celery logger settings
 logger = get_task_logger(__name__)
@@ -837,3 +841,312 @@ def add_new_data_items_into_project(project_id, items):
     new_tasks = create_tasks_from_dataitems(items, project)
 
     return f"Pulled {len(new_tasks)} new data items into project {project.title}"
+
+
+
+# new task for updating the data items of transcription simple.
+@shared_task(bind=True)
+def populate_asr_try(model_language, project__ids=[], stage="l1"):
+  API_URL = os.getenv("API_URL")
+  import requests
+  import json
+  from dataset.models import SpeechConversation
+  from tasks.models import Task, Annotation
+  from projects.models import Project
+  from tqdm import tqdm
+
+  model_select_endpoint_prefix =  os.getenv("MODEL_SELECT_ENDPOINT_PREFIX")
+  pred_l1 = "l1-multi-verbatim"
+  pred_l2 = "l2-" + model_language
+
+  for project__id in project__ids:
+      lang = model_language
+      pid = project__id
+      data_item_list = [
+          t.input_data_id
+          for t in Task.objects.filter(project_id=pid, task_status="incomplete")
+      ]
+      tasks_objects = Task.objects.filter(project_id=pid, task_status="incomplete")
+      related_tasks_ids = [task.id for task in tasks_objects]
+      related_annos = Annotation.objects.filter(task__id__in=related_tasks_ids)
+      for anno in related_annos:
+          anno.delete()
+      for task in tasks_objects:
+          task.delete()
+      data_items = SpeechConversation.objects.filter(id__in=data_item_list)
+      data_items_list = []
+
+      set_model_l1 = requests.get(model_select_endpoint_prefix + pred_l1)
+      for data_item in tqdm(data_items):
+          # print("Trying data item id: ", data_item.id)
+          # try:
+          MEDIA_URL = data_item.audio_url
+          pred_json = (
+              json.loads(data_item.prediction_json)
+              if isinstance(data_item.prediction_json, str)
+              else data_item.prediction_json
+          )
+
+          assert type(pred_json) in [
+              dict,
+              list,
+          ], "Seems something is wrong with the formatting"
+          if isinstance(pred_json, list):
+              data = [
+                  {
+                      "audioUrl": MEDIA_URL,
+                      "audioJson": pred_json,
+                      "audioLang": lang,
+                  }
+              ]
+          else:
+              data = [
+                  {
+                      "audioUrl": MEDIA_URL,
+                      "audioJson": pred_json["verbatim_transcribed_json"],
+                      "audioLang": lang,
+                  }
+              ]
+
+          pred_text_json = requests.post(
+              API_URL, json=json.dumps(data)
+          )  # [{start, end, text},]
+          try:
+            json_pred_final = json.loads(pred_text_json.text)[0]  # to check
+          except:
+            continue
+          new_pred_json = {"verbatim_transcribed_json":json_pred_final}
+          setattr(data_item, "prediction_json", new_pred_json)
+          data_items_list.append(data_item)
+          # print("Appended data item: ", data_item.id)
+      SpeechConversation.objects.bulk_update(
+          data_items_list, ["prediction_json"], 512
+      )
+      if stage == "l2":
+          set_model_l2 = requests.get(model_select_endpoint_prefix + pred_l2)
+
+          assert set_model_l2.status_code == 200
+
+          data_items_list = []
+          for data_item in tqdm(data_items):
+              # print("Trying data item id: ", data_item.id)
+              # try:
+              MEDIA_URL = data_item.audio_url
+              pred_json = (
+                  json.loads(data_item.prediction_json)
+                  if isinstance(data_item.prediction_json, str)
+                  else data_item.prediction_json
+              )
+
+              assert type(pred_json) in [
+                  dict,
+                  list,
+              ], "Seems something is wrong with the formatting"
+              if isinstance(pred_json, list):
+                  data = [
+                      {
+                          "audioUrl": MEDIA_URL,
+                          "audioJson": pred_json,
+                          "audioLang": lang,
+                      }
+                  ]
+              else:
+                  data = [
+                      {
+                          "audioUrl": MEDIA_URL,
+                          "audioJson": pred_json["verbatim_transcribed_json"],
+                          "audioLang": lang,
+                      }
+                  ]
+
+              pred_text_json = requests.post(
+                  API_URL, json=json.dumps(data)
+              )  # [{start, end, text},]
+              try:
+                json_pred_final = json.loads(pred_text_json.text)[0]  # to check
+              except:
+                continue
+
+              pred_json["acoustic_normalised_transcribed_json"] = json_pred_final
+
+              setattr(data_item, "prediction_json", pred_json)
+              data_items_list.append(data_item)
+              # print("Appended data item: ", data_item.id)
+          SpeechConversation.objects.bulk_update(
+              data_items_list, ["prediction_json"], 512
+          )
+
+      data_items_list = []
+      for data_item in tqdm(data_items):
+          # print("Trying data item id: ", data_item.id)
+          new_draft_data_json = {}
+          pred_json = (
+              json.loads(data_item.prediction_json)
+              if isinstance(data_item.prediction_json, str)
+              else data_item.prediction_json
+          )
+          # try:
+          new_draft_data_json = {"transcribed_json": getattr(
+              data_item, "prediction_json"
+          )}
+          # except:
+          #     continue
+          setattr(data_item, "draft_data_json", new_draft_data_json)
+          data_items_list.append(data_item)
+          # print("Appended data item: ", data_item.id)
+      SpeechConversation.objects.bulk_update(
+          data_items_list, ["draft_data_json"], 512
+      )
+      
+# new task for updating the data items of transcription from youtube.
+def populate_asr_yt(model_language, project__ids=[], stage="l1"):
+    API_URL = os.getenv("API_URL")
+    import requests
+    import json
+    from dataset.models import SpeechConversation
+    from tasks.models import Task, Annotation
+    from projects.models import Project
+    from tqdm import tqdm
+
+    model_select_endpoint_prefix =  os.getenv("MODEL_SELECT_ENDPOINT_PREFIX")
+    pred_l1 = "l2-" + model_language
+    pred_l2 = "l2-" + model_language
+
+    for project__id in project__ids:
+        lang = model_language
+        pid = project__id
+        data_item_list = [
+            t.input_data_id
+            for t in Task.objects.filter(project_id=pid, task_status="incomplete")
+        ]
+        tasks_objects = Task.objects.filter(project_id=pid, task_status="incomplete")
+        related_tasks_ids = [task.id for task in tasks_objects]
+        related_annos = Annotation.objects.filter(task__id__in=related_tasks_ids)
+        for anno in related_annos:
+            anno.delete()
+        for task in tasks_objects:
+            task.delete()
+        data_items = SpeechConversation.objects.filter(id__in=data_item_list)
+        data_items_list = []
+
+        set_model_l1 = requests.get(model_select_endpoint_prefix + pred_l1)
+        for data_item in tqdm(data_items):
+            # print("Trying data item id: ", data_item.id)
+            # try:
+            MEDIA_URL = data_item.audio_url
+            pred_json = (
+                json.loads(data_item.prediction_json)
+                if isinstance(data_item.prediction_json, str)
+                else data_item.prediction_json
+            )
+
+            assert type(pred_json) in [
+                dict,
+                list,
+            ], "Seems something is wrong with the formatting"
+            if isinstance(pred_json, list):
+                data = [
+                    {
+                        "audioUrl": MEDIA_URL,
+                        "audioJson": pred_json,
+                        "audioLang": lang,
+                    }
+                ]
+            else:
+                data = [
+                    {
+                        "audioUrl": MEDIA_URL,
+                        "audioJson": pred_json["verbatim_transcribed_json"],
+                        "audioLang": lang,
+                    }
+                ]
+
+            pred_text_json = requests.post(
+                API_URL, json=json.dumps(data)
+            )  # [{start, end, text},]
+            try:
+                json_pred_final = json.loads(pred_text_json.text)[0]  # to check
+            except:
+                continue
+            new_pred_json = {"verbatim_transcribed_json":json_pred_final}
+            setattr(data_item, "prediction_json", new_pred_json)
+            data_items_list.append(data_item)
+            # print("Appended data item: ", data_item.id)
+        SpeechConversation.objects.bulk_update(
+            data_items_list, ["prediction_json"], 512
+        )
+        if stage == "l2":
+            set_model_l2 = requests.get(model_select_endpoint_prefix + pred_l2)
+
+            assert set_model_l2.status_code == 200
+
+            data_items_list = []
+            for data_item in tqdm(data_items):
+                # print("Trying data item id: ", data_item.id)
+                # try:
+                MEDIA_URL = data_item.audio_url
+                pred_json = (
+                    json.loads(data_item.prediction_json)
+                    if isinstance(data_item.prediction_json, str)
+                    else data_item.prediction_json
+                )
+
+                assert type(pred_json) in [
+                    dict,
+                    list,
+                ], "Seems something is wrong with the formatting"
+                if isinstance(pred_json, list):
+                    data = [
+                        {
+                            "audioUrl": MEDIA_URL,
+                            "audioJson": pred_json,
+                            "audioLang": lang,
+                        }
+                    ]
+                else:
+                    data = [
+                        {
+                            "audioUrl": MEDIA_URL,
+                            "audioJson": pred_json["verbatim_transcribed_json"],
+                            "audioLang": lang,
+                        }
+                    ]
+
+                pred_text_json = requests.post(
+                    API_URL, json=json.dumps(data)
+                )  # [{start, end, text},]
+                try:
+                    json_pred_final = json.loads(pred_text_json.text)[0]  # to check
+                except:
+                    continue
+
+                pred_json["acoustic_normalised_transcribed_json"] = json_pred_final
+
+                setattr(data_item, "prediction_json", pred_json)
+                data_items_list.append(data_item)
+                # print("Appended data item: ", data_item.id)
+            SpeechConversation.objects.bulk_update(
+                data_items_list, ["prediction_json"], 512
+            )
+
+        data_items_list = []
+        for data_item in tqdm(data_items):
+            # print("Trying data item id: ", data_item.id)
+            new_draft_data_json = {}
+            pred_json = (
+                json.loads(data_item.prediction_json)
+                if isinstance(data_item.prediction_json, str)
+                else data_item.prediction_json
+            )
+            # try:
+            new_draft_data_json = {"transcribed_json": getattr(
+                data_item, "prediction_json"
+            )}
+            # except:
+            #     continue
+            setattr(data_item, "draft_data_json", new_draft_data_json)
+            data_items_list.append(data_item)
+            # print("Appended data item: ", data_item.id)
+        SpeechConversation.objects.bulk_update(
+            data_items_list, ["draft_data_json"], 512
+        )

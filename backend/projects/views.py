@@ -12,6 +12,7 @@ from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
 
+
 import notifications
 from shoonya_backend.pagination import CustomPagination
 from .utils import (
@@ -70,6 +71,8 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     filter_data_items,
+    populate_asr_try,
+    populate_asr_yt
 )
 
 from .decorators import (
@@ -378,7 +381,12 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         accepted_rejected_tasks = Annotation_model.objects.filter(
             id__in=parent_anno_ids, completed_by=userid, annotation_status="rejected"
         )
-
+        
+        # Calculate Average Review Time
+        review_times = [anno.lead_time for anno in accepted_objs if anno.lead_time is not None]
+        avg_review_time = round(sum(review_times) / len(review_times), 2) if review_times else 0
+        
+        
         result = {
             "Reviewer Name": userName,
             "Email": email,
@@ -395,6 +403,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "Rejected": accepted_rejected_tasks.count(),
             "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
             "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+             "Average Review Time (in seconds)": avg_review_time,
         }
 
         if is_translation_project or proj_type in [
@@ -632,6 +641,16 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         )
     else:
         avg_word_error_rate = 0
+        
+    # Extract Average lead time for each superchecked annotation
+    lead_time_list = [anno.lead_time for anno in total_sup_annos if anno.lead_time]
+
+    # Compute average supercheck time
+    if lead_time_list:
+        avg_supercheck_time = sum(lead_time_list) / len(lead_time_list)
+    else:
+        avg_supercheck_time = 0
+
 
     result = {
         "SuperChecker Name": userName,
@@ -645,6 +664,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "Rejected": rejected_objs_count,
         "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+        "Average SuperCheck Time (in seconds)": round(avg_supercheck_time),
     }
     if is_translation_project or proj_type in [
         "SemanticTextualSimilarity_Scale5",
@@ -1443,12 +1463,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             400: "Please Login!",
         },
     )
-    @action(
-        detail=False,
-        methods=["get"],
-        url_name="list-optimized",
-        url_path="projects_list/optimized",
-    )
+    @action(detail=False,methods=["get"],url_name="list-optimized",url_path="projects_list/optimized")
     def list_optimized(self, request):
         """
         List all projects with some optimizations.
@@ -2189,6 +2204,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         automatic_annotation_creation_mode = request.data.get(
             "automatic_annotation_creation_mode"
         )
+        user_id= request.data.get("created_by")
+        if(user_id):user = User.objects.get(id=user_id)
+        request.data["created_by"] = user.id
 
         if project_mode == Collection:
             # Create project object
@@ -2197,6 +2215,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_id = project_response.data["id"]
 
             proj = Project.objects.get(id=project_id)
+            proj.created_by=user
             if proj.required_annotators_per_task > 1:
                 proj.project_stage = REVIEW_STAGE
                 proj.save()
@@ -2800,12 +2819,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
         )
 
-    @action(
-        detail=True,
-        methods=["post"],
-        name="Unassign review tasks",
-        url_name="unassign_review_tasks",
-    )
+    @action(detail=True,methods=["post"],name="Unassign review tasks",url_name="unassign_review_tasks",)
     @project_is_archived
     def unassign_review_tasks(self, request, pk, *args, **kwargs):
         """
@@ -3159,12 +3173,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             404: "Project does not exist!",
         },
     )
-    @action(
-        detail=True,
-        methods=["POST"],
-        name="Get Reports  of a Project",
-        url_name="get_analytics",
-    )
+    @action(detail=True,methods=["POST"],name="Get Reports  of a Project",url_name="get_analytics",)
+    
     def get_analytics(self, request, pk=None, *args, **kwargs):
         """
         Get Reports of a Project
@@ -3204,7 +3214,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         users_id = request.user.id
 
         reports_type = request.data.get("reports_type")
-
+        
+        # for review reports
         if reports_type == "review_reports":
             if proj_obj.project_stage > ANNOTATION_STAGE:
                 reviewer_names_list = proj_obj.annotation_reviewers.all()
@@ -3229,6 +3240,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 result = {"message": "disabled task reviews for this project "}
                 return Response(result)
+            
+            # For Superchecker Reports
         elif reports_type == "superchecker_reports":
             if proj_obj.project_stage > REVIEW_STAGE:
                 superchecker_names_list = proj_obj.review_supercheckers.all()
@@ -3254,6 +3267,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 result = {"message": "disabled task supercheck for this project "}
                 return Response(result)
 
+        # for manager reports
         managers = [
             user1.get_username() for user1 in proj_obj.workspace_id.managers.all()
         ]
@@ -3322,6 +3336,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             proj = Project.objects.get(id=pk)
             if proj.project_stage > ANNOTATION_STAGE:
                 items.append(("Labeled", labeled_only_annotations))
+                
                 # get accepted tasks
                 annotations_of_reviewer_accepted = Annotation_model.objects.filter(
                     task__project_id=pk,
@@ -3353,7 +3368,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     id__in=parent_anno_ids_of_minor,
                     completed_by=each_annotator,
                 )
-
                 items.append(
                     (
                         "Accepted With Minor Changes",
@@ -3382,6 +3396,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         annotated_accept_major_changes_tasks.count(),
                     )
                 )
+                
                 # get to_be_revised count
                 annotations_of_reviewer_to_be_revised = Annotation_model.objects.filter(
                     task__project_id=pk,
@@ -3400,6 +3415,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 items.append(("To Be Revised", annotated_to_be_revised_tasks.count()))
             else:
                 items.append(("Labeled", len(labeled_annotations)))
+                
             # get unlabeled count
             total_unlabeled_tasks_count = Annotation_model.objects.filter(
                 task__project_id=pk,
@@ -4102,7 +4118,62 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_task_queryset(self, queryset):
         return queryset
+    
+# from here translitrartion work starts
+# For Text 
+    
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", url_name="populate_asr_model_predictions")
+    def populate_asr_model_predictions(self, request):
+        try:
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids", [])
+            stage = data.get("stage", "l1")  # Default to "l1"
 
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            # Run the Celery task asynchronously
+            populate_asr_try.delay(model_language, project_ids, stage)
+            return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+# For Youtube
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
+    def populate_asr_model_predictions_yt(self, request):
+        try:
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids", [])
+            stage = data.get("stage", "l1")
+
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+            
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            # Run the Celery task asynchronously
+            populate_asr_yt(model_language, project_ids, stage)
+
+            return Response({"message": "populate_asr_yt started successfully!"})
+        except json.JSONDecodeError:
+            return Response({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(ret_dict, status=ret_status)
+# Here translitrartion work ends
+
+    
     @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
     @is_org_owner

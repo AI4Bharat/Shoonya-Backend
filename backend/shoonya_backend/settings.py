@@ -42,6 +42,7 @@ else:
         "0.0.0.0",
         "backend.shoonya.ai4bharat.org",
         "backend.shoonya2.ai4bharat.org",
+        "127.0.0.1",
     ]
 
 # Application definition
@@ -70,6 +71,7 @@ INSTALLED_APPS = [
     "django_celery_results",
     "django_celery_beat",
     "django.contrib.postgres",
+    "django_extensions",
 ]
 
 CSRF_COOKIE_SECURE = False
@@ -183,6 +185,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PAGINATION_CLASS": "shoonya_backend.pagination.CustomPagination",
+    
 }
 
 

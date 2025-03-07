@@ -1,11 +1,184 @@
-version: '3.3'
+# version: '3.3'
+
+# services:
+#   nginx:
+#     build: ./nginx
+#     image: evgeniy-khyst/nginx
+#     env_file:
+#       - ./config.env
+#     volumes:
+#       - nginx_conf:/etc/nginx/sites
+#       - letsencrypt_certs:/etc/letsencrypt
+#       - certbot_acme_challenge:/var/www/certbot
+#       - ./vhosts:/etc/nginx/vhosts
+#       - static_volume:/backend/static
+#     ports:
+#       - "80:80"
+#       - "443:443"
+#     restart: unless-stopped
+
+#   certbot:
+#     build: ./certbot
+#     image: evgeniy-khyst/certbot
+#     env_file:
+#       - ./config.env
+#     volumes:
+#       - letsencrypt_certs:/etc/letsencrypt
+#       - certbot_acme_challenge:/var/www/certbot
+
+#   cron:
+#     build: ./cron
+#     image: evgeniy-khyst/cron
+#     environment:
+#       COMPOSE_PROJECT_NAME: "${COMPOSE_PROJECT_NAME}"
+#     volumes:
+#       - /var/run/docker.sock:/var/run/docker.sock
+#       - ./:/workdir:ro
+#     restart: unless-stopped
+    
+#   web:
+#     build: ./backend
+#     command: gunicorn --bind 0.0.0.0:8000 --workers 4 shoonya_backend.wsgi --timeout 300
+#     volumes:
+#       - ./backend/:/usr/src/backend/
+#       - static_volume:/usr/src/backend/static
+#       - logs_vol:/logs
+#     ports:
+#       - 8000:8000
+#     depends_on:
+#       - redis
+#   redis:
+#     container_name: redis
+#     image: "redis"
+#     ports:
+#       - 6379:6379
+  
+#   celery:
+#     container_name: celery-default
+#     restart: always
+#     build: ./backend
+#     command: celery -A shoonya_backend.celery worker -Q default --concurrency=2 --loglevel=info
+#     volumes:
+#       - ./backend/:/usr/src/backend/
+#       - logs_vol:/logs
+#     depends_on:
+#       - redis
+#       - web 
+
+#   # This is the additional queue which contains the low-priority celery tasks. We can adjust the concurrency and workers alloted to this container. 
+#   celery2: 
+#     container_name: celery-low-priority
+#     restart: always
+#     build: ./backend
+#     command: celery -A shoonya_backend.celery worker -Q functions --concurrency=2 --loglevel=info
+#     volumes:
+#       - ./backend/:/usr/src/backend/
+#       - logs_vol:/logs
+#     depends_on:
+#       - redis
+#       - web
+#   logstash:
+#     container_name: logstash
+#     image: docker.elastic.co/logstash/logstash:7.14.0
+#     hostname: shoonya_dev_logger
+#     volumes:
+#       - ./logstash_dev.conf:/usr/share/logstash/pipeline/logstash.conf
+#       - logs_vol:/logs
+#     extra_hosts:
+#       - "elasticsearch:20.42.57.194"
+#     command: logstash -f /usr/share/logstash/pipeline/logstash.conf  
+
+#   # Celery beats - for scheduling daily e-mails - commented out for dev hostings.
+#   # celery-beat:
+#   #  build: ./backend
+#   #  command: celery -A shoonya_backend.celery beat --loglevel=info
+#   #  volumes:
+#   #    - ./backend/:/usr/src/backend
+#   #  depends_on:
+#   #    - redis
+#   #    - web
+  
+#   celery3:
+#     container_name: celery-reports
+#     restart: always
+#     build: ./backend
+#     command: celery -A shoonya_backend.celery worker -Q reports --concurrency=2 --loglevel=info
+#     volumes:
+#       - ./backend/:/usr/src/backend/
+#       - logs_vol:/logs
+#     depends_on:
+#       - redis
+#       - web
+#   flower:
+#     container_name: flower
+#     restart: always
+#     build: ./backend
+#     command: celery -A shoonya_backend.celery flower --conf="./usr/src/backend/shoonya_backend/flowerconfig.py" --basic-auth="${FLOWER_USERNAME}:${FLOWER_PASSWORD}"
+#     ports:
+#       - "5555:5555"
+#     volumes:
+#       - ./backend/:/usr/src/backend/
+#       - logs_vol:/logs
+#     depends_on:
+#       - redis
+#       - web
+
+# volumes:
+#   logs_vol:
+#     external: true
+#   nginx_conf:
+#     external: true
+#   letsencrypt_certs:
+#     external: true
+#   certbot_acme_challenge:
+#   static_volume:
+
+
+#     # celery-misc-tasks:
+#     #   container_name : celery_misc_tasks
+#     #   restart: always
+#     #   build: ./backend
+#     #   command: celery -A shoonya_backend.celery worker -Q misc_tasks --concurrency=1 --loglevel=info   
+#     #   volumes:
+#     #       - ./backend/:/usr/src/backend/
+#     #       - logs_vol:/logs       
+#     #   depends_on:
+#     #     - redis
+#     #     - web
+
+
+#   # ✅ Moved `celery-misc-tasks` inside `services`
+#   celery-misc-tasks:
+#     container_name: celery_misc_tasks
+#     restart: always
+#     build: ./backend
+#     command: celery -A shoonya_backend.celery worker -Q misc_tasks --concurrency=1 --loglevel=info   
+#     volumes:
+#       - ./backend/:/usr/src/backend/
+#       - logs_vol:/logs       
+#     depends_on:
+#       - redis
+#       - web
+
+# volumes:
+#   logs_vol:
+#     external: true
+#   nginx_conf:
+#     external: true
+#   letsencrypt_certs:
+#     external: true
+#   certbot_acme_challenge:
+#   static_volume:
+
+
+# version: '3.3'
 
 services:
   nginx:
     build: ./nginx
     image: evgeniy-khyst/nginx
     env_file:
-      - ./config.env
+      - /.env
     volumes:
       - nginx_conf:/etc/nginx/sites
       - letsencrypt_certs:/etc/letsencrypt
@@ -21,7 +194,7 @@ services:
     build: ./certbot
     image: evgeniy-khyst/certbot
     env_file:
-      - ./config.env
+      - /.env
     volumes:
       - letsencrypt_certs:/etc/letsencrypt
       - certbot_acme_challenge:/var/www/certbot
@@ -47,6 +220,7 @@ services:
       - 8000:8000
     depends_on:
       - redis
+
   redis:
     container_name: redis
     image: "redis"
@@ -65,7 +239,6 @@ services:
       - redis
       - web 
 
-  # This is the additional queue which contains the low-priority celery tasks. We can adjust the concurrency and workers alloted to this container. 
   celery2: 
     container_name: celery-low-priority
     restart: always
@@ -77,6 +250,7 @@ services:
     depends_on:
       - redis
       - web
+
   logstash:
     container_name: logstash
     image: docker.elastic.co/logstash/logstash:7.14.0
@@ -88,16 +262,6 @@ services:
       - "elasticsearch:20.42.57.194"
     command: logstash -f /usr/share/logstash/pipeline/logstash.conf  
 
-  # Celery beats - for scheduling daily e-mails - commented out for dev hostings.
-  # celery-beat:
-  #  build: ./backend
-  #  command: celery -A shoonya_backend.celery beat --loglevel=info
-  #  volumes:
-  #    - ./backend/:/usr/src/backend
-  #  depends_on:
-  #    - redis
-  #    - web
-  
   celery3:
     container_name: celery-reports
     restart: always
@@ -109,16 +273,30 @@ services:
     depends_on:
       - redis
       - web
+
   flower:
     container_name: flower
     restart: always
     build: ./backend
-    command: celery -A shoonya_backend.celery flower --conf="./usr/src/backend/shoonya_backend/flowerconfig.py" --basic-auth="${FLOWER_USERNAME}:${FLOWER_PASSWORD}"
+    command: celery -A shoonya_backend.celery flower --conf="./usr/src/backend/shoonya_backend/flowerconfig.py" --basic-auth="${shoonya}:${flower123}"
     ports:
       - "5555:5555"
     volumes:
       - ./backend/:/usr/src/backend/
       - logs_vol:/logs
+    depends_on:
+      - redis
+      - web
+
+  # ✅ Moved `celery-misc-tasks` inside `services`
+  celery-misc-tasks:
+    container_name: celery_misc_tasks
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker -Q misc_tasks --concurrency=1 --loglevel=info   
+    volumes:
+      - ./backend/:/usr/src/backend/
+      - logs_vol:/logs       
     depends_on:
       - redis
       - web
