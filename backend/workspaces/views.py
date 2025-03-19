@@ -32,6 +32,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     audio_word_count,
     get_audio_segments_count,
+    get_bounding_box_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     get_translation_dataset_project_types,
     convert_hours_to_seconds,
@@ -612,6 +613,62 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     total_word_error_rate_rs_list = []
                     total_word_error_rate_ar_list = []
                     total_raw_duration_list = []
+                                        
+                    # for OcrTranscriptionEditing project type 669 line
+                    if project_type in "OCRTranscriptionEditing":
+                        total_bounding_boxes = 0
+
+                        for each_task in labeled_tasks:
+                            try:
+                                annotate_annotation = Annotation.objects.filter(
+                                    task=each_task, annotation_type=ANNOTATOR_ANNOTATION
+                                )[0]
+                                total_bounding_boxes += get_bounding_box_count(annotate_annotation.result)
+                            except Exception:
+                                pass
+                            
+                        for each_task in reviewed_tasks:
+                            try:
+                                review_annotation = Annotation.objects.filter(
+                                    task=each_task, annotation_type=REVIEWER_ANNOTATION
+                                )[0]
+                                total_bounding_boxes += get_bounding_box_count(review_annotation.result)
+                            except Exception:
+                                pass
+                            
+                        for each_task in exported_tasks:
+                            try:
+                                total_bounding_boxes += get_bounding_box_count(each_task.correct_annotation.result)
+                            except Exception:
+                                pass
+                            
+                        for each_task in superchecked_tasks:
+                            try:
+                                supercheck_annotation = Annotation.objects.filter(
+                                    task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                                )[0]
+                                total_bounding_boxes += get_bounding_box_count(supercheck_annotation.result)
+                            except Exception:
+                                pass
+                            
+                        result["Total Bounding Boxes"] = total_bounding_boxes
+
+                        # Remove unrelated fields for OCRTranscriptionEditing
+                        fields_to_remove = [
+                            "Annotated Tasks Audio Duration",
+                            "Reviewed Tasks Audio Duration",
+                            "Exported Tasks Audio Duration",
+                            "SuperChecked Tasks Audio Duration",
+                            "Total Raw Audio Duration",
+                            "Average Word Error Rate A/R",
+                            "Average Word Error Rate R/S",
+                        ]
+                    
+                        for field in fields_to_remove:
+                            result.pop(field, None)  # Using .pop() to avoid KeyErrors if a field doesn't exist
+                        # End Here OcrTranscriptionEditing project type: 617 line 
+        
+                    
                     if project_type in get_audio_project_types():
                         for each_task in labeled_tasks:
                             try:
@@ -1218,6 +1275,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                 pass
 
                         total_word_count = sum(total_word_count_list)
+                        
+                        
+                    
+                        
+
                     elif "OCRTranscription" in project_type:
                         total_word_count = 0
                         for each_anno in labeled_annotations:
