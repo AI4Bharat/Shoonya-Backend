@@ -646,6 +646,8 @@ def send_user_reports_mail_ws(
     ws_anno_list = []
     ws_reviewer_list = []
     ws_superchecker_list = []
+    total_bounding_boxes = 0  # Initialize bounding box count
+
     for project in proj_objs:
         anno_list = project.annotators.all()
         reviewer_list = project.annotation_reviewers.all()
@@ -668,6 +670,11 @@ def send_user_reports_mail_ws(
         ws_anno_list.extend(anno_ids)
         ws_reviewer_list.extend(reviewer_ids)
         ws_superchecker_list.extend(superchecker_ids)
+        
+        # If the project type is "OCRTranscriptionEditing", count bounding boxes
+        if project_type == "OCRTranscriptionEditing":
+            annotation_label_result = project.annotations.all().values("type")
+            total_bounding_boxes += get_bounding_box_count(annotation_label_result)
 
     ws_anno_list = list(set(ws_anno_list))
     ws_reviewer_list = list(set(ws_reviewer_list))
@@ -756,7 +763,11 @@ def send_user_reports_mail_ws(
             else ""
         )
     )
-
+     # Include bounding box count if project is OCRTranscriptionEditing
+    if project_type == "OCRTranscriptionEditing":
+        message += f"\nTotal Bounding Boxes: {total_bounding_boxes}"
+        
+        
     email = EmailMessage(
         f"{workspace.workspace_name}" + " Payment Reports",
         message,
@@ -1118,14 +1129,6 @@ def send_project_analysis_reports_mail_ws(
                 del result["Total Raw Audio Duration"]
                 del result["Average Word Error Rate A/R"]
                 del result["Average Word Error Rate R/S"]
-            
-            # for OCRTranscriptionEditing 2188 line
-            if project_type in "OCRTranscriptionEditing":
-                total_label_count = sum(
-                    [get_bounding_box_count(each_anno.result) for each_anno in labeled_tasks]
-                )
-                result["Total Label Count"] = total_label_count
-            final_result.append(result)
 
     df = pd.DataFrame.from_dict(final_result)
 
@@ -2184,7 +2187,7 @@ def send_user_analysis_reports_mail_ws(
                 avg_segment_duration = 0
                 avg_segments_per_task = 0
                 
-                # for OCRTranscriptionEditing project type to 1097 line
+                # for OCRTranscriptionEditing project type to 1121 line
                 if project_type == "OCRTranscriptionEditing":
                     total_label_count = 0
                     for each_anno in labeled_annotations:
