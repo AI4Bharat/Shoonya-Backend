@@ -63,6 +63,7 @@ from .tasks import (
     get_supercheck_reports,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -1223,7 +1224,57 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         total_word_count = sum(total_word_count_list)
                         
                         
-                   
+                    # for OcrTranscriptionEditing project type 1277 line  
+                    elif "OCRTranscriptionEditing" in project_type:
+                        total_bounding_boxes_annotated = 0
+                        total_bounding_boxes_reviewed = 0
+                        total_bounding_boxes_superchecked = 0
+
+                        # Fetch tasks related to the project
+                        tasks = Task.objects.filter(project_id__in=proj_ids)
+
+                        # For Annotator
+                        if reports_type == "annotator":
+                            for each_task in tasks:
+                                try:
+                                    annotate_annotation = Annotation.objects.filter(
+                                        task=each_task, annotation_type=ANNOTATOR_ANNOTATION
+                                    ).first()  # Using .first() for safety
+                                    if annotate_annotation:
+                                        total_bounding_boxes_annotated += get_bounding_box_count(annotate_annotation.result)
+                                except Exception as e:
+                                    logger.error(f"Error in Annotator Bounding Box Counting: {e}")
+
+                        # For Reviewer
+                        if reports_type == "review":
+                            for each_task in tasks:
+                                try:
+                                    review_annotation = Annotation.objects.filter(
+                                        task=each_task, annotation_type=REVIEWER_ANNOTATION
+                                    ).first()
+                                    if review_annotation:
+                                        total_bounding_boxes_reviewed += get_bounding_box_count(review_annotation.result)
+                                except Exception as e:
+                                    logger.error(f"Error in Reviewer Bounding Box Counting: {e}")
+
+                        # For Super Checker
+                        if reports_type == "supercheck":
+                            for each_task in tasks:
+                                try:
+                                    supercheck_annotation = Annotation.objects.filter(
+                                        task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
+                                    ).first()
+                                    if supercheck_annotation:
+                                        total_bounding_boxes_superchecked += get_bounding_box_count(supercheck_annotation.result)
+                                except Exception as e:
+                                    logger.error(f"Error in Superchecker Bounding Box Counting: {e}")
+
+                        # Add results to the final report
+                        result["Bounding Boxes (Annotated)"] = total_bounding_boxes_annotated
+                        result["Bounding Boxes (Reviewed)"] = total_bounding_boxes_reviewed
+                        result["Bounding Boxes (SuperChecked)"] = total_bounding_boxes_superchecked
+                        # end here OcrTranscriptionEditing project type: 1227 line
+
                         
 
                     elif "OCRTranscription" in project_type:
