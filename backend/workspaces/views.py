@@ -63,8 +63,10 @@ from .tasks import (
     get_supercheck_reports,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
-import logging_
-logger = logging.getLogger(__name__)
+
+
+# import logging
+# logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -1244,7 +1246,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     if annotate_annotation:
                                         total_bounding_boxes_annotated += get_bounding_box_count(annotate_annotation.result)
                                 except Exception as e:
-                                    logger.error(f"Error in Annotator Bounding Box Counting: {e}")
+                                    # .error(f"Error in Annotator Bounding Box Counting: {e}")
+                                    pass
 
                         # For Reviewer
                         if reports_type == "review":
@@ -1256,7 +1259,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     if review_annotation:
                                         total_bounding_boxes_reviewed += get_bounding_box_count(review_annotation.result)
                                 except Exception as e:
-                                    logger.error(f"Error in Reviewer Bounding Box Counting: {e}")
+                                    # logger.error(f"Error in Reviewer Bounding Box Counting: {e}")
+                                    pass
 
                         # For Super Checker
                         if reports_type == "supercheck":
@@ -1268,7 +1272,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                                     if supercheck_annotation:
                                         total_bounding_boxes_superchecked += get_bounding_box_count(supercheck_annotation.result)
                                 except Exception as e:
-                                    logger.error(f"Error in Superchecker Bounding Box Counting: {e}")
+                                    # logger.error(f"Error in Superchecker Bounding Box Counting: {e}")
+                                    pass
 
                         # Add results to the final report
                         result["Bounding Boxes (Annotated)"] = total_bounding_boxes_annotated
