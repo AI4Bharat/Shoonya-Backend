@@ -63,7 +63,7 @@ from .tasks import (
     get_supercheck_reports,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
-import logging
+import logging_
 logger = logging.getLogger(__name__)
 
 # Create your views here.
