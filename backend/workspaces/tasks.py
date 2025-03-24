@@ -2183,6 +2183,13 @@ def send_user_analysis_reports_mail_ws(
                             pass
 
                     total_word_count = sum(total_word_count_list)
+                 # for OCRTranscriptionEditing project type to 1121 line
+                if project_type == "OCRTranscriptionEditing":
+                    total_label_count = 0
+                    for each_anno in labeled_annotations:
+                        total_label_count += get_bounding_box_count(each_anno.result) 
+                        
+                        
                 elif "OCRTranscription" in project_type:
                     total_word_count = 0
                     for each_anno in labeled_annotations:
@@ -2193,11 +2200,7 @@ def send_user_analysis_reports_mail_ws(
                 avg_segment_duration = 0
                 avg_segments_per_task = 0
                 
-                # for OCRTranscriptionEditing project type to 1121 line
-                if project_type == "OCRTranscriptionEditing":
-                    total_label_count = 0
-                    for each_anno in labeled_annotations:
-                        total_label_count += get_bounding_box_count(each_anno.result)               
+                             
                 
                 if project_type in get_audio_project_types():
                     total_duration_list = []
