@@ -812,6 +812,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     no_of_projects,
                     no_of_workspaces_objs,
                     total_word_count,
+                    
                     total_duration,
                     total_raw_duration,
                     avg_segment_duration,

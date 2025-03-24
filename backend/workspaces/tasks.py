@@ -1872,8 +1872,10 @@ def un_pack_annotation_tasks(
         total_word_count = sum(total_word_count_list)
     elif "OCRTranscription" in project_type:
         total_word_count = 0
+        total_bounding_boxes=0
         for each_anno in labeled_annotations:
             total_word_count += ocr_word_count(each_anno.result)
+            total_bounding_boxes+= get_bounding_box_count(each_anno.result)
 
     total_duration = "0:00:00"
     total_raw_duration = 0.0
@@ -1914,6 +1916,7 @@ def un_pack_annotation_tasks(
         labeled,
         avg_lead_time,
         total_word_count,
+        total_bounding_boxes,
         total_duration,
         total_raw_duration,
         avg_segment_duration,
