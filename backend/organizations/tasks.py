@@ -28,6 +28,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
     ocr_word_count,
+    get_bounding_box_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 from workspaces.tasks import (
@@ -834,6 +835,7 @@ def get_counts(
             labeled,
             avg_lead_time,
             total_word_count,
+            total_bounding_boxes,
             total_duration,
             total_raw_duration,
             avg_segment_duration,
@@ -875,10 +877,16 @@ def get_counts(
                     pass
 
             total_word_count = sum(total_word_count_list)
+        
         elif "OCRTranscription" in project_type:
             total_word_count = 0
+            total_bounding_boxes=0
             for each_anno in labeled_annotations:
                 total_word_count += ocr_word_count(each_anno.result)
+                total_bounding_boxes+= get_bounding_box_count(each_anno.result)
+                
+                
+                
 
         total_duration = "0:00:00"
         avg_segment_duration = 0
@@ -948,6 +956,7 @@ def get_counts(
         project_count,
         no_of_workspaces_objs,
         total_word_count,
+        total_bounding_boxes,
         total_duration,
         total_raw_duration,
         avg_segment_duration,
@@ -1556,6 +1565,7 @@ def send_user_analytics_mail_org(
                 no_of_projects,
                 no_of_workspaces_objs,
                 total_word_count,
+                total_bounding_boxes,
                 total_duration,
                 total_raw_duration,
                 avg_segment_duration,
@@ -1591,6 +1601,7 @@ def send_user_analytics_mail_org(
                     "Skipped": total_skipped_tasks_count,
                     "Draft": total_draft_tasks_count,
                     "Word Count": total_word_count,
+                    "Total Bounding Boxes": total_bounding_boxes,
                     "Total Segments Duration": total_duration,
                     "Total Raw Audio Duration": total_raw_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
@@ -1627,6 +1638,7 @@ def send_user_analytics_mail_org(
                     "Skipped": total_skipped_tasks_count,
                     "Draft": total_draft_tasks_count,
                     "Word Count": total_word_count,
+                    "Total Bounding Boxes": total_bounding_boxes,
                     "Total Segments Duration": total_duration,
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Participation Type": participation_type,
@@ -1636,6 +1648,7 @@ def send_user_analytics_mail_org(
                 }
 
             if project_type in get_audio_project_types():
+                del temp_result["Total Bounding Boxes"]
                 del temp_result["Word Count"]
             elif is_translation_project or project_type in [
                 "SemanticTextualSimilarity_Scale5",

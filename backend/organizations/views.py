@@ -812,7 +812,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     no_of_projects,
                     no_of_workspaces_objs,
                     total_word_count,
-                    
+                    total_bounding_boxes,
                     total_duration,
                     total_raw_duration,
                     avg_segment_duration,
@@ -848,6 +848,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         "Skipped": total_skipped_tasks_count,
                         "Draft": total_draft_tasks_count,
                         "Word Count": total_word_count,
+                        "Total Bounding Boxes": total_bounding_boxes,
                         "Total Segments Duration": total_duration,
                         "Total Raw Audio Duration": total_raw_duration,
                         "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
@@ -884,6 +885,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         "Skipped": total_skipped_tasks_count,
                         "Draft": total_draft_tasks_count,
                         "Word Count": total_word_count,
+                        "Total Bounding Boxes": total_bounding_boxes,
                         "Total Segments Duration": total_duration,
                         "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                         "Participation Type": participation_type,
@@ -894,6 +896,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 
                 if project_type in get_audio_project_types():
                     del temp_result["Word Count"]
+                    del temp_result["Total Bounding Boxes"]
                 elif is_translation_project or project_type in [
                     "SemanticTextualSimilarity_Scale5",
                     "OCRTranscriptionEditing",

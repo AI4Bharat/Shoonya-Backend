@@ -1876,6 +1876,8 @@ def un_pack_annotation_tasks(
         for each_anno in labeled_annotations:
             total_word_count += ocr_word_count(each_anno.result)
             total_bounding_boxes+= get_bounding_box_count(each_anno.result)
+            
+            
 
     total_duration = "0:00:00"
     total_raw_duration = 0.0
