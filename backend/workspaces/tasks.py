@@ -646,7 +646,7 @@ def send_user_reports_mail_ws(
     ws_anno_list = []
     ws_reviewer_list = []
     ws_superchecker_list = []
-    total_bounding_boxes = 0  # Initialize bounding box count
+    # total_bounding_boxes = 0  # Initialize bounding box count
 
     for project in proj_objs:
         anno_list = project.annotators.all()
@@ -671,10 +671,10 @@ def send_user_reports_mail_ws(
         ws_reviewer_list.extend(reviewer_ids)
         ws_superchecker_list.extend(superchecker_ids)
         
-        # If the project type is "OCRTranscriptionEditing", count bounding boxes
-        if project_type == "OCRTranscriptionEditing":
-            annotation_label_result = project.annotations.all().values("type")
-            total_bounding_boxes += get_bounding_box_count(annotation_label_result)
+        # # If the project type is "OCRTranscriptionEditing", count bounding boxes
+        # if project_type == "OCRTranscriptionEditing":
+        #     annotation_label_result = project.annotations.all().values("type")
+        #     total_bounding_boxes += get_bounding_box_count(annotation_label_result)
 
     ws_anno_list = list(set(ws_anno_list))
     ws_reviewer_list = list(set(ws_reviewer_list))
@@ -763,9 +763,9 @@ def send_user_reports_mail_ws(
             else ""
         )
     )
-     # Include bounding box count if project is OCRTranscriptionEditing
-    if project_type == "OCRTranscriptionEditing":
-        message += f"\nTotal Bounding Boxes: {total_bounding_boxes}"
+    #  # Include bounding box count if project is OCRTranscriptionEditing
+    # if project_type == "OCRTranscriptionEditing":
+    #     message += f"\nTotal Bounding Boxes: {total_bounding_boxes}"
         
         
     email = EmailMessage(
@@ -776,8 +776,9 @@ def send_user_reports_mail_ws(
         attachments=[(filename, content, content_type)],
     )
     email.send()
-
 # send_user_analysis_reports_mail_ws
+
+
 @shared_task(queue="reports")
 def send_project_analysis_reports_mail_ws(
     pk,
