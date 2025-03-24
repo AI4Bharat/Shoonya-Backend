@@ -671,11 +671,6 @@ def send_user_reports_mail_ws(
         ws_reviewer_list.extend(reviewer_ids)
         ws_superchecker_list.extend(superchecker_ids)
         
-        # # If the project type is "OCRTranscriptionEditing", count bounding boxes
-        # if project_type == "OCRTranscriptionEditing":
-        #     annotation_label_result = project.annotations.all().values("type")
-        #     total_bounding_boxes += get_bounding_box_count(annotation_label_result)
-
     ws_anno_list = list(set(ws_anno_list))
     ws_reviewer_list = list(set(ws_reviewer_list))
     ws_superchecker_list = list(set(ws_superchecker_list))
@@ -762,11 +757,7 @@ def send_user_reports_mail_ws(
             if start_date
             else ""
         )
-    )
-    #  # Include bounding box count if project is OCRTranscriptionEditing
-    # if project_type == "OCRTranscriptionEditing":
-    #     message += f"\nTotal Bounding Boxes: {total_bounding_boxes}"
-        
+    )        
         
     email = EmailMessage(
         f"{workspace.workspace_name}" + " Payment Reports",
@@ -2182,18 +2173,14 @@ def send_user_analysis_reports_mail_ws(
                         except:
                             pass
 
-                    total_word_count = sum(total_word_count_list)
-                 # for OCRTranscriptionEditing project type to 1121 line
-                if project_type == "OCRTranscriptionEditing":
-                    total_label_count = 0
-                    for each_anno in labeled_annotations:
-                        total_label_count += get_bounding_box_count(each_anno.result) 
-                        
+                    total_word_count = sum(total_word_count_list)                       
                         
                 elif "OCRTranscription" in project_type:
                     total_word_count = 0
+                    total_bounding_boxes = 0
                     for each_anno in labeled_annotations:
                         total_word_count += ocr_word_count(each_anno.result)
+                        total_bounding_boxes += get_bounding_box_count(each_anno.result)
 
                 total_duration = "0:00:00"
                 total_raw_duration = "0:00:00"
@@ -2282,11 +2269,7 @@ def send_user_analysis_reports_mail_ws(
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Avg Segment Duration": round(avg_segment_duration, 2),
                     "Average Segments Per Task": round(avg_segments_per_task, 2),
-                }
-                # Add Total Label Count only for OCRTranscriptionEditing projects
-                if project_type == "OCRTranscriptionEditing":
-                    result["Total Label Count"] = total_label_count
-                    
+                }                    
             else:
                 result = {
                     "Annotator": name,
@@ -2305,6 +2288,10 @@ def send_user_analysis_reports_mail_ws(
                     "Avg Segment Duration": round(avg_segment_duration, 2),
                     "Average Segments Per Task": round(avg_segments_per_task, 2),
                 }
+            if "OCRTranscription" in project_type:
+                    result["Total Bounding Boxes"] = total_bounding_boxes
+                    
+                    
 
             if project_type in get_audio_project_types():
                 del result["Word Count"]
