@@ -2487,11 +2487,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         task.input_data.id, project.project_type, None, None, False
                     )
                 except Exception as e:
-                    print(
-                        f"The prediction json of the data item-{task.input_data.id} is corrupt."
-                    )
-                    task.delete()
-                    continue
+                    result = []
             annotator_anno_count = Annotation_model.objects.filter(
                 task_id=task, annotation_type=ANNOTATOR_ANNOTATION
             ).count()
