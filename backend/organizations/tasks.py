@@ -784,6 +784,9 @@ def get_counts(
     accepted_wt_minor_changes = 0
     accepted_wt_major_changes = 0
     labeled = 0
+    # total_bounding_boxes = 0 
+    
+    
     if tgt_language == None:
         if project_progress_stage == None:
             projects_objs = Project.objects.filter(
@@ -880,10 +883,10 @@ def get_counts(
         
         elif "OCRTranscription" in project_type:
             total_word_count = 0
-            total_bounding_boxes=0
+            total_bounding_boxes = 0
             for each_anno in labeled_annotations:
                 total_word_count += ocr_word_count(each_anno.result)
-                total_bounding_boxes+= get_bounding_box_count(each_anno.result)
+                total_bounding_boxes += get_bounding_box_count(each_anno.result)
                 
                 
                 
@@ -956,7 +959,7 @@ def get_counts(
         project_count,
         no_of_workspaces_objs,
         total_word_count,
-        total_bounding_boxes,
+        # total_bounding_boxes,
         total_duration,
         total_raw_duration,
         avg_segment_duration,
