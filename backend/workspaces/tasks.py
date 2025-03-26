@@ -1260,10 +1260,12 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         is_translation_project = True if "translation" in project_type_lower else False
 
         validated_word_count_list = []
-        validated_bounding_boxes_list = []
         validated_with_changes_word_count_list = []
-        validated_with_changes_bounding_boxes_list=[]
         rejected_word_count_list = []
+        
+        # Bounding_boxes
+        validated_bounding_boxes_list = []
+        validated_with_changes_bounding_boxes_list=[]
         rejected_bounding_boxes_list=[]
         
         validated_audio_duration_list = []
@@ -1294,15 +1296,16 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         elif "OCRTranscription" in project_type:
             for anno in validated_objs:
                 validated_word_count_list.append(ocr_word_count(anno.result))
-                validated_bounding_boxes_list+= get_bounding_box_count(anno.result)
+                validated_bounding_boxes_list += get_bounding_box_count(anno.result)
+                
             for anno in validated_with_changes_objs:
                 validated_with_changes_word_count_list.append(
                     ocr_word_count(anno.result)
                 )
-                validated_with_changes_bounding_boxes_list+= get_bounding_box_count(anno.result)
+                validated_with_changes_bounding_boxes_list += get_bounding_box_count(anno.result)
             for anno in rejected_objs:
                 rejected_word_count_list.append(ocr_word_count(anno.result))
-                rejected_bounding_boxes_list+= get_bounding_box_count(anno.result)
+                rejected_bounding_boxes_list += get_bounding_box_count(anno.result)
                 
                 
                 
@@ -1404,10 +1407,14 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
             "OCRTranscription",
         ]:
             result["Validated Word Count"] = validated_word_count
-            result[
-                "Validated With Changes Word Count"
-            ] = validated_with_changes_word_count
+            result["Validated With Changes Word Count"] = validated_with_changes_word_count
             result["Rejected Word Count"] = rejected_word_count
+            
+            result["Validated bounding boxes Count"] = validated_bounding_boxes_count
+            result["Validated With Changes bounding boxes Count"] = validated_with_changes_bounding_boxes_count
+            result["Rejected bounding boxes Count"] = rejected_bounding_boxes_count
+            
+            
         elif project_type in get_audio_project_types():
             result["Validated Audio Duration"] = validated_audio_duration
             result[
