@@ -61,5 +61,5 @@ $RECYCLE.BIN/
 **/logs/*
 
 # resources from admin.py in dataset
-**/import resources/*
-**/"127.0.0.1"/*
+/backend/shoonya_backend/settings.py/
+/backend/dataset/admin.py
