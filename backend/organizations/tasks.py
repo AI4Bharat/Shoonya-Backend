@@ -28,7 +28,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
     ocr_word_count,
-    get_bounding_box_count,
+    # get_bounding_box_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 from workspaces.tasks import (
@@ -838,7 +838,7 @@ def get_counts(
             labeled,
             avg_lead_time,
             total_word_count,
-            total_bounding_boxes,
+            # total_bounding_boxes,
             total_duration,
             total_raw_duration,
             avg_segment_duration,

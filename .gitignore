@@ -59,3 +59,7 @@ $RECYCLE.BIN/
 
 # Logs
 **/logs/*
+
+# resources from admin.py in dataset
+**/import resources/*
+**/"127.0.0.1"/*
