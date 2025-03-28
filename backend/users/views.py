@@ -51,6 +51,7 @@ from projects.utils import (
     get_audio_project_types,
     get_audio_transcription_duration,
     ocr_word_count,
+    ocr_boundingbox_count,
 )
 from datetime import datetime
 import calendar
@@ -1175,6 +1176,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
         all_annotated_lead_time_count = 0
         total_annotated_tasks_count = 0
         all_tasks_word_count = 0
+        all_tasks_bbox_count = 0
         all_projects_total_duration = 0
         project_wise_summary = []
         for proj in project_objs:
@@ -1265,9 +1267,11 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 avg_lead_time = round(avg_lead_time, 2)
 
             total_word_count = 0
-            if "OCRTranscription" in project_type:
+            total_bbox_count = 0
+            if "OCRTranscription" in project_type or "OCRTranscriptionEditing" in project_type:
                 for each_anno in annotated_labeled_tasks:
                     total_word_count += ocr_word_count(each_anno.result)
+                    total_bbox_count += ocr_boundingbox_count(each_anno.result)
             elif is_textual_project:
                 total_word_count_list = []
                 for each_task in annotated_labeled_tasks:
@@ -1278,6 +1282,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
                 total_word_count = sum(total_word_count_list)
             all_tasks_word_count += total_word_count
+            all_tasks_bbox_count += total_bbox_count
 
             total_duration = "00:00:00"
             if project_type in get_audio_project_types():
@@ -1304,6 +1309,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     )
                 ): annotated_tasks_count,
                 "Word Count": total_word_count,
+                "Bbox Count": total_bbox_count,
                 "Total Segments Duration": total_duration,
                 (
                     "Avg Review Time (sec)"
@@ -1315,7 +1321,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     )
                 ): avg_lead_time,
             }
-
+            if project_type != "OCRTranscription" or project_type != "OCRTranscriptionEditing":
+                 del total_result["boundingBox"]
             if project_type in get_audio_project_types():
                 del result["Word Count"]
             elif is_textual_project:
@@ -1372,6 +1379,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 else ("SuperChecked Tasks" if supercheck_reports else "Annotated Tasks")
             ): total_annotated_tasks_count,
             "Word Count": all_tasks_word_count,
+            "Bbox Count": all_tasks_bbox_count,
             "Total Segments Duration": convert_seconds_to_hours(
                 all_projects_total_duration
             ),
