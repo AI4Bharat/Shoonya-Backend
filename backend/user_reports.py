@@ -99,11 +99,11 @@ def calculate_reports():
 
         if user in final_annot_unique_list:
             data = {
-                "user_id": 1,
+                "user_id": userId,
                 "project_type": "all",
                 "reports_type": "annotation",
-                "start_date": "2025-01-01",
-                "end_date": "2025-04-01",
+                "start_date": yest_date,
+                "end_date": yest_date,
             }
             try:
                 res = analytics.get_user_analytics(data)
@@ -353,11 +353,11 @@ def calculate_reports():
             "Daily Annotation and Review Reports",
             message,
             settings.DEFAULT_FROM_EMAIL,
-            # [user.email],
-            ["sleya7110@gmail.com"],
+            [user.email],
             html_message=email_to_send,
+            cc=["greeshma@ai4bharat.org"]
         )
-        break
+        
         
 
 
