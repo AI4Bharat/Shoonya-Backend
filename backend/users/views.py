@@ -1245,7 +1245,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 ): avg_lead_time,
             }
             if project_type != "OCRTranscription" or project_type != "OCRTranscriptionEditing":
-                 del total_result["boundingBox"]
+                if "boundingBox" in total_result:
+                    del total_result["boundingBox"]
             if project_type in get_audio_project_types():
                 del result["Word Count"]
             elif is_textual_project:
