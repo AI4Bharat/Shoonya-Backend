@@ -88,7 +88,7 @@ def calculate_reports():
             + final_superchecker_unique_list
         )
     )  # list of all annotators and reviewers
-    final_user_unique_list = final_user_unique_list[0]
+    final_user_unique_list = [final_user_unique_list[0]]
     for user in final_user_unique_list:
         user1 = User.objects.get(id=user.id)
 
