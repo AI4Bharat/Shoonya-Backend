@@ -30,10 +30,15 @@ celery_app.conf.task_routes = {
 
 # Celery Beat tasks registration
 celery_app.conf.beat_schedule = {
+    # "Send_mail_to_Client": {
+    #     "task": "send_mail_task",
+    #     "schedule": crontab(minute=0, hour=6),  # execute every day at 6 am
+    #     #'args': (2,) you can pass arguments also if rquired
+    # },
+
     "Send_mail_to_Client": {
-        "task": "send_mail_task",
-        "schedule": crontab(minute=0, hour=6),  # execute every day at 6 am
-        #'args': (2,) you can pass arguments also if rquired
+    "task": "send_mail_task",
+    "schedule": crontab(minute="*/3"),  # execute every 3 minutes
     },
     "rotate-logs-task": {
         "task": "check_size",

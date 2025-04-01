@@ -88,7 +88,7 @@ def calculate_reports():
             + final_superchecker_unique_list
         )
     )  # list of all annotators and reviewers
-
+    final_user_unique_list = final_user_unique_list[0]
     for user in final_user_unique_list:
         user1 = User.objects.get(id=user.id)
 
@@ -102,8 +102,8 @@ def calculate_reports():
                 "user_id": userId,
                 "project_type": "all",
                 "reports_type": "annotation",
-                "start_date": yest_date,
-                "end_date": yest_date,
+                "start_date": "2025-01-01",
+                "end_date": "2025-04-01",
             }
             try:
                 res = analytics.get_user_analytics(data)
@@ -353,7 +353,8 @@ def calculate_reports():
             "Daily Annotation and Review Reports",
             message,
             settings.DEFAULT_FROM_EMAIL,
-            [user.email],
+            # [user.email],
+            ["sleya7110@gmail.com"],
             html_message=email_to_send,
         )
 
