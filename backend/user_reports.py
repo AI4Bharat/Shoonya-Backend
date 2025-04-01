@@ -191,7 +191,7 @@ def calculate_reports():
 
         if user in final_superchecker_unique_list:
             data = {
-                "user_id": userId,
+                "user_id": 1,
                 "project_type": "all",
                 "reports_type": "supercheck",
                 "start_date": yest_date,
@@ -357,6 +357,7 @@ def calculate_reports():
             ["sleya7110@gmail.com"],
             html_message=email_to_send,
         )
+        break
         
 
 
