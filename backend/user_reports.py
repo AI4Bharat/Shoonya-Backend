@@ -99,7 +99,7 @@ def calculate_reports():
 
         if user in final_annot_unique_list:
             data = {
-                "user_id": userId,
+                "user_id": 1,
                 "project_type": "all",
                 "reports_type": "annotation",
                 "start_date": "2025-01-01",
@@ -191,7 +191,7 @@ def calculate_reports():
 
         if user in final_superchecker_unique_list:
             data = {
-                "user_id": 1,
+                "user_id": userId,
                 "project_type": "all",
                 "reports_type": "supercheck",
                 "start_date": yest_date,
