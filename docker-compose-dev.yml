@@ -89,14 +89,14 @@ services:
     command: logstash -f /usr/share/logstash/pipeline/logstash.conf
 
   # Celery beats - for scheduling daily e-mails - commented out for dev hostings.
-  celery-beat:
-    build: ./backend
-    command: celery -A shoonya_backend.celery beat --loglevel=info
-    volumes:
-      - ./backend/:/usr/src/backend
-    depends_on:
-      - redis
-      - web
+  # celery-beat:
+  #   build: ./backend
+  #   command: celery -A shoonya_backend.celery beat --loglevel=info
+  #   volumes:
+  #     - ./backend/:/usr/src/backend
+  #   depends_on:
+  #     - redis
+  #     - web
 
   celery3:
     container_name: celery-reports
