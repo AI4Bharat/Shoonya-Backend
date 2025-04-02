@@ -355,7 +355,6 @@ def calculate_reports():
             settings.DEFAULT_FROM_EMAIL,
             [user.email],
             html_message=email_to_send,
-            cc=["greeshma@ai4bharat.org"]
         )
         
         
