@@ -4105,9 +4105,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return queryset
     
 # from here translitrartion work starts
-# For Text 
-    
-    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", url_name="populate_asr_model_predictions")
+# For Text    
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", 
+url_name="populate_asr_model_predictions")
     def populate_asr_model_predictions(self, request):
         try:
             data = json.loads(request.body)
@@ -4128,8 +4128,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
-
+            return JsonResponse({"error": str(e)}, status=500)        
+        
 # For Youtube
     @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
     def populate_asr_model_predictions_yt(self, request):

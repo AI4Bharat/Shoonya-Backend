@@ -873,8 +873,9 @@ def get_counts(
                     total_word_count_list.append(each_task.task.data["word_count"])
                 except:
                     pass
-
             total_word_count = sum(total_word_count_list)
+            
+            
         elif "OCRTranscription" in project_type:
             total_word_count = 0
             for each_anno in labeled_annotations:
