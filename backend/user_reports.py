@@ -99,7 +99,7 @@ def calculate_reports():
 
         if user in final_annot_unique_list:
             data = {
-                "user_id": userId,
+                "user_id": 1,
                 "project_type": "all",
                 "reports_type": "annotation",
                 "start_date": yest_date,
@@ -353,9 +353,10 @@ def calculate_reports():
             "Daily Annotation and Review Reports",
             message,
             settings.DEFAULT_FROM_EMAIL,
-            [user.email],
+            ['sleya7110@gmail.com'],
             html_message=email_to_send,
         )
+        break
         
         
 
