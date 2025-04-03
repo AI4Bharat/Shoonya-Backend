@@ -356,7 +356,7 @@ def calculate_reports():
             ['sleya7110@gmail.com'],
             html_message=email_to_send,
         )
-        break
+        
         
         
 
