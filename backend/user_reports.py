@@ -191,10 +191,10 @@ def calculate_reports():
 
         if user in final_superchecker_unique_list:
             data = {
-                "user_id": userId,
-                "project_type": "all",
-                "reports_type": "supercheck",
-                "start_date": yest_date,
+                "user_id": 1,
+                "project_type": "Test Contextual Translation Editing",
+                "reports_type": "annotation",
+                "start_date": "2025-01-01",
                 "end_date": yest_date,
             }
 
