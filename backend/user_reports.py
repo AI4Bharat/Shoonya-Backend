@@ -102,7 +102,7 @@ def calculate_reports():
                 "user_id": 1,
                 "project_type": "all",
                 "reports_type": "annotation",
-                "start_date": yest_date,
+                "start_date": "2025-01-01",
                 "end_date": yest_date,
             }
             try:
