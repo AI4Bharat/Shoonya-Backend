@@ -99,10 +99,10 @@ def calculate_reports():
 
         if user in final_annot_unique_list:
             data = {
-                "user_id": 1,
+                "user_id": user.id,
                 "project_type": "all",
                 "reports_type": "annotation",
-                "start_date": "2025-01-01",
+                "start_date": yest_date,
                 "end_date": yest_date,
             }
             try:
