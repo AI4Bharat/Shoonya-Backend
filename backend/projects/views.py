@@ -12,6 +12,7 @@ from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
 
+
 import notifications
 from shoonya_backend.pagination import CustomPagination
 from .utils import (
@@ -70,6 +71,8 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     filter_data_items,
+    populate_asr_try,
+    populate_asr_yt
 )
 
 from .decorators import (
@@ -1443,12 +1446,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             400: "Please Login!",
         },
     )
-    @action(
-        detail=False,
-        methods=["get"],
-        url_name="list-optimized",
-        url_path="projects_list/optimized",
-    )
+    @action(detail=False,methods=["get"],url_name="list-optimized",url_path="projects_list/optimized")
     def list_optimized(self, request):
         """
         List all projects with some optimizations.
@@ -2189,6 +2187,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         automatic_annotation_creation_mode = request.data.get(
             "automatic_annotation_creation_mode"
         )
+        user_id= request.data.get("created_by")
+        if(user_id):user = User.objects.get(id=user_id)
+        request.data["created_by"] = user.id
 
         if project_mode == Collection:
             # Create project object
@@ -2197,6 +2198,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project_id = project_response.data["id"]
 
             proj = Project.objects.get(id=project_id)
+            proj.created_by=user
             if proj.required_annotators_per_task > 1:
                 proj.project_stage = REVIEW_STAGE
                 proj.save()
@@ -2800,12 +2802,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
         )
 
-    @action(
-        detail=True,
-        methods=["post"],
-        name="Unassign review tasks",
-        url_name="unassign_review_tasks",
-    )
+    @action(detail=True,methods=["post"],name="Unassign review tasks",url_name="unassign_review_tasks",)
     @project_is_archived
     def unassign_review_tasks(self, request, pk, *args, **kwargs):
         """
@@ -4102,7 +4099,62 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_task_queryset(self, queryset):
         return queryset
+    
+# from here translitrartion work starts
+# For Text    
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", 
+url_name="populate_asr_model_predictions")
+    def populate_asr_model_predictions(self, request):
+        try:
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids", [])
+            stage = data.get("stage", "l1")  # Default to "l1"
 
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            # Run the Celery task asynchronously
+            populate_asr_try.delay(model_language, project_ids, stage)
+            return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)        
+        
+# For Youtube
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
+    def populate_asr_model_predictions_yt(self, request):
+        try:
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids", [])
+            stage = data.get("stage", "l1")
+
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+            
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            # Run the Celery task asynchronously
+            populate_asr_yt(model_language, project_ids, stage)
+
+            return Response({"message": "populate_asr_yt started successfully!"})
+        except json.JSONDecodeError:
+            return Response({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(ret_dict, status=ret_status)
+# Here translitrartion work ends
+
+    
     @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
     @is_org_owner

@@ -3,14 +3,12 @@ import random
 from copy import deepcopy
 from collections import OrderedDict
 from urllib.parse import parse_qsl
-
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from dataset import models as dataset_models
 from django.forms.models import model_to_dict
 from filters import filter
 from users.models import User
-
 from tasks.models import Annotation as Annotation_model
 from tasks.models import *
 from tasks.models import Task
@@ -20,6 +18,23 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
 from .annotation_registry import *
+from dotenv import load_dotenv
+ 
+import requests
+import json
+import base64
+import io
+import urllib3  
+from pydub import AudioSegment
+from dataset.models import SpeechConversation
+from tasks.models import Task, Annotation
+from projects.models import Project
+from tqdm import tqdm
+from minio import Minio  
+  
+# Load environment variables from .env file
+load_dotenv()
+
 
 # Celery logger settings
 logger = get_task_logger(__name__)
@@ -837,3 +852,463 @@ def add_new_data_items_into_project(project_id, items):
     new_tasks = create_tasks_from_dataitems(items, project)
 
     return f"Pulled {len(new_tasks)} new data items into project {project.title}"
+
+
+
+# new task for updating the data items of transcription simple.
+@shared_task(bind=True)
+def populate_asr_try(model_language, project__ids=[], stage="l1"):
+  urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+  API_URL = os.getenv('API_URL')
+  SERVICE_ID = os.getenv('SERVICE_ID')
+
+  if stage == "l2":
+    SERVICE_ID = "ai4bharat/conformer-multilingual-all--gpu-t4"  
+    API_URL = "https://api.dhruva.ekstep.ai/services/inference/asr/?input=ai4bharat/conformer-multilingual-all--gpu-t4"
+
+  DHRUVA_KEY = os.getenv('DHRUVA_KEY')
+  MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY')
+  MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY')
+  MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT')
+  MINIO_DIRECTORY = os.getenv('MINIO_DIRECTORY')
+  
+
+
+  for project__id in project__ids:
+      lang = model_language
+      pid = project__id
+      data_item_list = [
+          t.input_data_id
+          for t in Task.objects.filter(project_id=pid, task_status="incomplete")
+      ]
+      tasks_objects = Task.objects.filter(project_id=pid, task_status="incomplete")
+      related_tasks_ids = [task.id for task in tasks_objects]
+      related_annos = Annotation.objects.filter(task__id__in=related_tasks_ids)
+      for anno in related_annos:
+          anno.delete()
+      for task in tasks_objects:
+          task.delete()
+      data_items = SpeechConversation.objects.filter(id__in=data_item_list)
+      data_items_list = []
+
+      for data_item in tqdm(data_items):
+          # print("Trying data item id: ", data_item.id)
+          # try:
+          MEDIA_URL = data_item.audio_url
+          NEW_MEDIA_URL = MEDIA_URL.replace("https://asr-transcription.objectstore.e2enetworks.net/", "asr-transcription/")
+          try:
+              eos_client = Minio(
+                  endpoint=MINIO_ENDPOINT,
+                  access_key=MINIO_ACCESS_KEY,
+                  secret_key=MINIO_SECRET_KEY,
+                  secure=True,
+                  cert_check=False,
+              )
+          except Exception as e:
+              print("Connection to minio failed")
+          try:
+              complete_audio_data = base64.b64encode(
+                  eos_client.get_object(MINIO_DIRECTORY, NEW_MEDIA_URL).data
+              ).decode("utf-8")
+          except Exception as e:
+              print("Could not fetch audio file")
+              continue
+
+          pred_json = (
+              json.loads(data_item.prediction_json)
+              if isinstance(data_item.prediction_json, str)
+              else data_item.prediction_json
+          )
+
+          assert type(pred_json) in [
+              dict,
+              list,
+          ], "Seems something is wrong with the formatting"
+
+
+          if isinstance(pred_json, list):
+              data = pred_json
+          else:
+              data = pred_json["verbatim_transcribed_json"]
+
+          pred_text_json = []
+
+          for chunk in data:
+             
+             start_time_ms = chunk["start"]*1000
+             end_time_ms = chunk["end"]*1000
+
+             # Decode base64 string to bytes
+             audio_bytes = base64.b64decode(complete_audio_data)
+    
+             # Read audio file into a buffer
+             audio_buffer = io.BytesIO(audio_bytes)
+    
+             # Load audio file using pydub
+             audio = AudioSegment.from_file(audio_buffer, format="wav")
+    
+             # Extract the desired chunk
+             chunk = audio[start_time_ms:end_time_ms]
+    
+             # Convert chunk to bytes
+             chunk_buffer = io.BytesIO()
+             chunk.export(chunk_buffer, format="wav")
+    
+             # Encode extracted chunk back to base64
+             base64_chunk = base64.b64encode(chunk_buffer.getvalue()).decode("utf-8")
+    
+             chunk_content = base64_chunk
+
+             chunk_data = {
+                            "config": {
+                                        "serviceId": SERVICE_ID,
+                                        "language": {"sourceLanguage": lang},
+                                        "transcriptionFormat": {"value": "transcript"}
+                                        },
+                            "audio": [
+                                        {
+                                            "audioContent":chunk_content
+                                            }
+                                        ]
+                            }
+             current_text = ""
+             try:
+                response = requests.post(
+                "https://api.dhruva.ekstep.ai/services/inference/asr",
+                headers={"authorization": DHRUVA_KEY},
+                json=chunk_data,
+                )
+                current_text = response.json()["output"][0]["source"]
+             except:
+                print("Error fetching transcript for this chunk")
+            
+             pred_text_json.append({"start":start_time_ms/1000, "end": end_time_ms/1000, "text":current_text, "speaker_id":0})  # [{start, end, text},]
+
+          try:
+            json_pred_final = pred_text_json # to check
+          except:
+            continue
+          new_pred_json = {"verbatim_transcribed_json":json_pred_final}
+          setattr(data_item, "prediction_json", new_pred_json)
+          data_items_list.append(data_item)
+          # print("Appended data item: ", data_item.id)
+      SpeechConversation.objects.bulk_update(
+          data_items_list, ["prediction_json"], 512
+      )
+      """ if stage == "l2":
+          data_items_list = []
+          for data_item in tqdm(data_items):
+              # print("Trying data item id: ", data_item.id)
+              # try:
+              MEDIA_URL = data_item.audio_url
+              pred_json = (
+                  json.loads(data_item.prediction_json)
+                  if isinstance(data_item.prediction_json, str)
+                  else data_item.prediction_json
+              )
+
+              assert type(pred_json) in [
+                  dict,
+                  list,
+              ], "Seems something is wrong with the formatting"
+              if isinstance(pred_json, list):
+                  data = [
+                      {
+                          "audioUrl": MEDIA_URL,
+                          "audioJson": pred_json,
+                          "audioLang": lang,
+                      }
+                  ]
+              else:
+                  data = [
+                      {
+                          "audioUrl": MEDIA_URL,
+                          "audioJson": pred_json["verbatim_transcribed_json"],
+                          "audioLang": lang,
+                      }
+                  ]
+
+              pred_text_json = requests.post(
+                  API_URL, json=json.dumps(data)
+              )  # [{start, end, text},]
+              try:
+                json_pred_final = json.loads(pred_text_json.text)[0]  # to check
+              except:
+                continue
+
+              pred_json["acoustic_normalised_transcribed_json"] = json_pred_final
+
+              setattr(data_item, "prediction_json", pred_json)
+              data_items_list.append(data_item)
+              # print("Appended data item: ", data_item.id)
+          SpeechConversation.objects.bulk_update(
+              data_items_list, ["prediction_json"], 512
+          )
+"""
+      data_items_list = []
+      for data_item in tqdm(data_items):
+          # print("Trying data item id: ", data_item.id)
+          new_draft_data_json = {}
+          pred_json = (
+              json.loads(data_item.prediction_json)
+              if isinstance(data_item.prediction_json, str)
+              else data_item.prediction_json
+          )
+          # try:
+          new_draft_data_json = {"transcribed_json": getattr(
+              data_item, "prediction_json"
+          )}
+          # except:
+          #     continue
+          setattr(data_item, "draft_data_json", new_draft_data_json)
+          data_items_list.append(data_item)
+          # print("Appended data item: ", data_item.id)
+      SpeechConversation.objects.bulk_update(
+          data_items_list, ["draft_data_json"], 512
+      )      
+      
+
+# new task for updating the data items of transcription from youtube.
+@shared_task(bind=True)
+def populate_asr_yt(model_language, project__ids=[], stage="l2"):
+  urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+  
+  API_URL = "https://api.dhruva.ekstep.ai/services/inference/asr/?input="
+  SERVICE_ID_DRAVIDIAN = os.getenv('SERVICE_ID_DRAVIDIAN')
+  SERVICE_ID_INDO_ARYAN = os.getenv('SERVICE_ID_INDO_ARYAN')
+  SERVICE_ID_HINDI = os.getenv('SERVICE_ID_HINDI')
+  SERVICE_ID_CONFORMER = os.getenv('SERVICE_ID_CONFORMER')
+
+
+  if model_language in [
+                    "kn",
+                    "ta",
+                    "te",
+                    "ml"
+                ]:
+    SERVICE_ID = SERVICE_ID_DRAVIDIAN
+  elif model_language in [
+                    "sa",
+                    "hi",
+                    "mr",
+                    "bn",
+                    "pa",
+                    "or",
+                    "gu",
+                    "ur"
+                ]:
+    SERVICE_ID = SERVICE_ID_INDO_ARYAN
+  elif model_language in [
+                    "hi"
+                ]:
+     SERVICE_ID = SERVICE_ID_HINDI
+  else:
+     SERVICE_ID = SERVICE_ID_CONFORMER
+
+  if stage == "l1":
+    SERVICE_ID = os.getenv('SERVICE_ID')  
+    API_URL = os.getenv('API_URL')
+    
+
+  DHRUVA_KEY = os.getenv('DHRUVA_KEY')
+  MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY')
+  MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY')
+  MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT')
+  MINIO_DIRECTORY = os.getenv('MINIO_DIRECTORY')
+  
+
+
+  for project__id in project__ids:
+      lang = model_language
+      pid = project__id
+      data_item_list = [
+          t.input_data_id
+          for t in Task.objects.filter(project_id=pid, task_status="incomplete")
+      ]
+      tasks_objects = Task.objects.filter(project_id=pid, task_status="incomplete")
+      related_tasks_ids = [task.id for task in tasks_objects]
+      related_annos = Annotation.objects.filter(task__id__in=related_tasks_ids)
+      for anno in related_annos:
+          anno.delete()
+      for task in tasks_objects:
+          task.delete()
+      data_items = SpeechConversation.objects.filter(id__in=data_item_list)
+      data_items_list = []
+
+      for data_item in tqdm(data_items):
+          # print("Trying data item id: ", data_item.id)
+          # try:
+          MEDIA_URL = data_item.audio_url
+          NEW_MEDIA_URL = MEDIA_URL.replace("https://indic-asr-public.objectstore.e2enetworks.net/", "speechteam/")
+          try:
+              eos_client = Minio(
+                  endpoint=MINIO_ENDPOINT,
+                  access_key=MINIO_ACCESS_KEY,
+                  secret_key=MINIO_SECRET_KEY,
+                  secure=True,
+                  cert_check=False,
+              )
+          except Exception as e:
+              print("Connection to minio failed")
+          try:
+              complete_audio_data = base64.b64encode(
+                  eos_client.get_object(MINIO_DIRECTORY, NEW_MEDIA_URL).data
+              ).decode("utf-8")
+          except Exception as e:
+              print("Could not fetch audio file")
+              continue
+
+          pred_json = (
+              json.loads(data_item.prediction_json)
+              if isinstance(data_item.prediction_json, str)
+              else data_item.prediction_json
+          )
+
+          assert type(pred_json) in [
+              dict,
+              list,
+          ], "Seems something is wrong with the formatting"
+
+
+          if isinstance(pred_json, list):
+              data = pred_json
+          else:
+              data = pred_json["verbatim_transcribed_json"]
+
+          pred_text_json = []
+          
+          for chunk in data:
+             
+             start_time_ms = chunk["start"]*1000
+             end_time_ms = chunk["end"]*1000
+
+             # Decode base64 string to bytes
+             audio_bytes = base64.b64decode(complete_audio_data)
+    
+             # Read audio file into a buffer
+             audio_buffer = io.BytesIO(audio_bytes)
+    
+             # Load audio file using pydub
+             audio = AudioSegment.from_file(audio_buffer, format="wav")
+    
+             # Extract the desired chunk
+             chunk = audio[start_time_ms:end_time_ms]
+    
+             # Convert chunk to bytes
+             chunk_buffer = io.BytesIO()
+             chunk.export(chunk_buffer, format="wav")
+    
+             # Encode extracted chunk back to base64
+             base64_chunk = base64.b64encode(chunk_buffer.getvalue()).decode("utf-8")
+    
+             chunk_content = base64_chunk
+
+             chunk_data = {
+                            "config": {
+                                        "serviceId": SERVICE_ID,
+                                        "language": {"sourceLanguage": lang},
+                                        "transcriptionFormat": {"value": "transcript"}
+                                        },
+                            "audio": [
+                                        {
+                                            "audioContent":chunk_content
+                                            }
+                                        ]
+                            }
+             current_text = ""
+             try:
+                response = requests.post(
+                "https://api.dhruva.ekstep.ai/services/inference/asr",
+                headers={"authorization": DHRUVA_KEY},
+                json=chunk_data,
+                )
+                current_text = response.json()["output"][0]["source"]
+             except:
+                print("Error fetching transcript for this chunk", response)
+            
+             pred_text_json.append({"start":start_time_ms/1000, "end": end_time_ms/1000, "text":current_text, "speaker_id":0})  # [{start, end, text},]
+
+          try:
+            json_pred_final = pred_text_json # to check
+          except:
+            continue
+          new_pred_json = {"verbatim_transcribed_json":json_pred_final}
+          setattr(data_item, "prediction_json", new_pred_json)
+          data_items_list.append(data_item)
+          # print("Appended data item: ", data_item.id)
+      SpeechConversation.objects.bulk_update(
+          data_items_list, ["prediction_json"], 512
+      )
+      """ if stage == "l2":
+          data_items_list = []
+          for data_item in tqdm(data_items):
+              # print("Trying data item id: ", data_item.id)
+              # try:
+              MEDIA_URL = data_item.audio_url
+              pred_json = (
+                  json.loads(data_item.prediction_json)
+                  if isinstance(data_item.prediction_json, str)
+                  else data_item.prediction_json
+              )
+
+              assert type(pred_json) in [
+                  dict,
+                  list,
+              ], "Seems something is wrong with the formatting"
+              if isinstance(pred_json, list):
+                  data = [
+                      {
+                          "audioUrl": MEDIA_URL,
+                          "audioJson": pred_json,
+                          "audioLang": lang,
+                      }
+                  ]
+              else:
+                  data = [
+                      {
+                          "audioUrl": MEDIA_URL,
+                          "audioJson": pred_json["verbatim_transcribed_json"],
+                          "audioLang": lang,
+                      }
+                  ]
+
+              pred_text_json = requests.post(
+                  API_URL, json=json.dumps(data)
+              )  # [{start, end, text},]
+              try:
+                json_pred_final = json.loads(pred_text_json.text)[0]  # to check
+              except:
+                continue
+
+              pred_json["acoustic_normalised_transcribed_json"] = json_pred_final
+
+              setattr(data_item, "prediction_json", pred_json)
+              data_items_list.append(data_item)
+              # print("Appended data item: ", data_item.id)
+          SpeechConversation.objects.bulk_update(
+              data_items_list, ["prediction_json"], 512
+          )"""
+
+      data_items_list = []
+      for data_item in tqdm(data_items):
+          # print("Trying data item id: ", data_item.id)
+          new_draft_data_json = {}
+          pred_json = (
+              json.loads(data_item.prediction_json)
+              if isinstance(data_item.prediction_json, str)
+              else data_item.prediction_json
+          )
+          # try:
+          new_draft_data_json = {"transcribed_json": getattr(
+              data_item, "prediction_json"
+          )}
+          # except:
+          #     continue
+          setattr(data_item, "draft_data_json", new_draft_data_json)
+          data_items_list.append(data_item)
+          # print("Appended data item: ", data_item.id)
+      SpeechConversation.objects.bulk_update(
+          data_items_list, ["draft_data_json"], 512
+      )# , batch_size=512

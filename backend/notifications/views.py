@@ -1,5 +1,4 @@
 import json
-
 from django.db.models import Q
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -11,6 +10,13 @@ from rest_framework.response import Response
 from notifications.models import Notification
 from notifications.tasks import create_notification_handler
 from notifications.serializers import NotificationSerializer
+import json
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import viewsets
+from .models import Notification
+from .serializers import NotificationSerializer
+
 
 NO_NOTIFICATION_MESSAGE = {"message": "No notifications found"}
 FETCH_NOTIFICATION_ERROR = {"message": "Cannot fetch notifications"}
@@ -96,3 +102,46 @@ def mark_seen(request):
         notif.seen_json = s_json
         notif.save()
     return Response(NOTIFICATION_CHANGED_STATE, status=status.HTTP_200_OK)
+
+
+
+# unreaded notification
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = Notification.objects.all()
+    serializer_class = NotificationSerializer
+
+    @action(detail=False, methods=['get'])
+    def unseen_notifications(self, request):
+        unseen_notifications = self.get_queryset().filter(seen_json__isnull=True)
+        serializer = self.get_serializer(unseen_notifications, many=True)
+        return Response(serializer.data)
+
+
+@swagger_auto_schema(
+    method="get",
+    manual_parameters=[],
+    responses={200: "Unread notifications fetched", 400: "Error while fetching unread notifications"},
+)
+@api_view(["GET"])
+def allunreadNotifications(request):
+    """Fetch all unseen notifications for the authenticated user and return the total count."""
+    try:
+        user = request.user  # Get the authenticated user
+
+        # Fetch notifications where seen_json is empty or does not contain the user's ID marked as seen
+        notifications = Notification.objects.filter(
+            reciever_user_id=user.id
+        ).exclude(Q(seen_json__contains={str(user.id): True})).order_by("-created_at")
+
+        # Get total count
+        total_count = notifications.count()
+
+        # Serialize the notifications
+        serialized_notifications = NotificationSerializer(notifications, many=True).data
+
+    except Exception as e:
+        print(f"Error fetching notifications: {str(e)}")  # Print error in terminal
+        return Response({"error": "Error fetching notifications", "details": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({"notifications": serialized_notifications, "total_count": total_count}, status=status.HTTP_200_OK)
+

@@ -19,6 +19,7 @@ from drf_yasg import openapi
 from .serializers import (
     UserLoginSerializer,
     UserProfileSerializer,
+    UserProfileSerializer_optimizer,
     UserSignUpSerializer,
     UsersPendingSerializer,
     UserUpdateSerializer,
@@ -801,12 +802,12 @@ class UserViewSet(viewsets.ViewSet):
                 {"message": "Not Authorized"}, status=status.HTTP_403_FORBIDDEN
             )
 
-    @swagger_auto_schema(responses={200: UserProfileSerializer, 403: "Not Authorized"})
+    @swagger_auto_schema(responses={200: UserProfileSerializer_optimizer, 403: "Not Authorized"})
     @action(detail=False, methods=["get"], url_path="user_details")
     def user_details(self, request):
         if request.user.role in [User.ADMIN, User.ORGANIZATION_OWNER]:
             user_details = User.objects.all()
-            serializer = UserProfileSerializer(user_details, many=True)
+            serializer = UserProfileSerializer_optimizer(user_details, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             return Response(
