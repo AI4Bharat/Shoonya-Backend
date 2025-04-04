@@ -356,7 +356,7 @@ def calculate_reports():
             [user.email],
             html_message=email_to_send,
         )
-        
+       
         
 
 

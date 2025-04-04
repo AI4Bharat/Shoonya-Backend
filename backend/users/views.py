@@ -1244,7 +1244,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     )
                 ): avg_lead_time,
             }
-            if project_type != "OCRTranscription" or project_type != "OCRTranscriptionEditing":
+            if "OCRTranscription" not in project_type:
                 if "Bbox Count" in result:
                     del result["Bbox Count"]
             if project_type in get_audio_project_types():
@@ -1317,6 +1317,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 )
             ): round(all_annotated_lead_time_count, 2),
         }
+        if "OCRTranscription" not in project_type:
+                if "Bbox Count" in result:
+                    del result["Bbox Count"]
         if project_type_lower != "all" and project_type in get_audio_project_types():
             del total_result["Word Count"]
         elif project_type_lower != "all" and is_textual_project:
