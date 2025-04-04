@@ -19,11 +19,11 @@ log_file_name = "default.log"
 log_file_path = log_file_dir + log_file_name
 
 
-blob_service_client = BlobServiceClient.from_connection_string(
-    AZURE_STORAGE_CONNECTION_STRING
-)
+# blob_service_client = BlobServiceClient.from_connection_string(
+#     AZURE_STORAGE_CONNECTION_STRING
+# )
 
-container_client = blob_service_client.get_container_client(CONTAINER_NAME)
+# container_client = blob_service_client.get_container_client(CONTAINER_NAME)
 
 
 def get_most_recent_creation_date():

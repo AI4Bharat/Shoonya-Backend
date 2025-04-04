@@ -862,7 +862,7 @@ def populate_asr_try(model_language, project__ids=[], stage="l1"):
 
 
   API_URL = os.getenv('API_URL')
-  SERVICE_ID = os.getenv('DHRUVA_SERVICE_ID')
+  SERVICE_ID = os.getenv('SERVICE_ID')
 
   if stage == "l2":
     SERVICE_ID = "ai4bharat/conformer-multilingual-all--gpu-t4"  
@@ -1076,10 +1076,10 @@ def populate_asr_yt(model_language, project__ids=[], stage="l2"):
   urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
   
   API_URL = "https://api.dhruva.ekstep.ai/services/inference/asr/?input="
-  SERVICE_ID_DRAVIDIAN = "ai4bharat/conformer-multilingual-all--gpu-t4"
-  SERVICE_ID_INDO_ARYAN = "ai4bharat/conformer-multilingual-all--gpu-t4"
-  SERVICE_ID_HINDI = "ai4bharat/conformer-multilingual-all--gpu-t4"
-  SERVICE_ID_CONFORMER = "ai4bharat/conformer-multilingual-all--gpu-t4"
+  SERVICE_ID_DRAVIDIAN = os.getenv('SERVICE_ID_DRAVIDIAN')
+  SERVICE_ID_INDO_ARYAN = os.getenv('SERVICE_ID_INDO_ARYAN')
+  SERVICE_ID_HINDI = os.getenv('SERVICE_ID_HINDI')
+  SERVICE_ID_CONFORMER = os.getenv('SERVICE_ID_CONFORMER')
 
 
   if model_language in [
