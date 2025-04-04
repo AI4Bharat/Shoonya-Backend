@@ -102,8 +102,8 @@ def calculate_reports():
                 "user_id": userId,
                 "project_type": "all",
                 "reports_type": "annotation",
-                "start_date": "2025-01-01",
-                "end_date": yest_date,
+                "start_date": "2023-01-01",
+                "end_date": "2023-01-02" ,
             }
             try:
                 res = analytics.get_user_analytics(data)
