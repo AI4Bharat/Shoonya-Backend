@@ -103,7 +103,7 @@ def calculate_reports():
                 "project_type": "all",
                 "reports_type": "annotation",
                 "start_date": yest_date,
-                "end_date": yest_date ,
+                "end_date": yest_date,
             }
             try:
                 res = analytics.get_user_analytics(data)
