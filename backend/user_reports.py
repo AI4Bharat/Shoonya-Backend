@@ -102,8 +102,8 @@ def calculate_reports():
                 "user_id": userId,
                 "project_type": "all",
                 "reports_type": "annotation",
-                "start_date": "2023-01-01",
-                "end_date": "2023-01-02" ,
+                "start_date": yest_date,
+                "end_date": yest_date ,
             }
             try:
                 res = analytics.get_user_analytics(data)
@@ -353,7 +353,7 @@ def calculate_reports():
             "Daily Annotation and Review Reports",
             message,
             settings.DEFAULT_FROM_EMAIL,
-            ['sleya7110@gmail.com'],
+            [user.email],
             html_message=email_to_send,
         )
        
