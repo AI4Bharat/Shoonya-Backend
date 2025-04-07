@@ -16,6 +16,7 @@ logger = get_task_logger(__name__)
 @shared_task(name="send_mail_task")
 def send_mail_task():
     calculate_reports()
+    logger.info("Completed Sending Mail")
 
 
 @shared_task(name="fetchTaskCounts")

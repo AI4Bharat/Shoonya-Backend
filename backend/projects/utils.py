@@ -274,6 +274,15 @@ def ocr_word_count(annotation_result):
 
     return word_count
 
+def ocr_boundingbox_count(annotation_result):
+     bbox_count = 0
+
+     for result in annotation_result:
+         if result["type"] == "rectangle":  
+             bbox_count += 1  
+
+     return bbox_count
+
 
 def get_user_from_query_params(
     request,
