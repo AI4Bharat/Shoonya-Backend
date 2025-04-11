@@ -4107,13 +4107,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 # from here translitrartion work starts
 # For Text    
-    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", 
+    @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions", 
 url_name="populate_asr_model_predictions")
-    def populate_asr_model_predictions(self, request):
+    @is_organization_owner_or_workspace_manager
+    def populate_asr_model_predictions(self, request , pk):
         try:
             data = json.loads(request.body)
             model_language = data.get("model_language")
-            project_ids = data.get("project_ids", [])
+            project_ids = [pk]
             stage = data.get("stage", "l1")  # Default to "l1"
 
             # Ensure the stage is either "l1" or "l2"
@@ -4124,7 +4125,7 @@ url_name="populate_asr_model_predictions")
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
             # Run the Celery task asynchronously
-            populate_asr_try.delay(model_language, project_ids, stage)
+            populate_asr_try(model_language, project_ids, stage)
             return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
@@ -4132,12 +4133,13 @@ url_name="populate_asr_model_predictions")
             return JsonResponse({"error": str(e)}, status=500)        
 
 # For Youtube
-    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
-    def populate_asr_model_predictions_yt(self, request):
+    @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
+    @is_organization_owner_or_workspace_manager
+    def populate_asr_model_predictions_yt(self, request , pk):
         try:
             data = json.loads(request.body)
             model_language = data.get("model_language")
-            project_ids = data.get("project_ids", [])
+            project_ids =[pk]
             stage = data.get("stage", "l1")
 
             # Ensure the stage is either "l1" or "l2"

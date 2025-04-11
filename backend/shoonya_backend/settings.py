@@ -38,6 +38,7 @@ if DEBUG:
     ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
 else:
     ALLOWED_HOSTS = [
+        '127.0.0.1',
         "shoonya.ai4bharat.org",
         "0.0.0.0",
         "backend.shoonya.ai4bharat.org",
@@ -181,6 +182,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
+         'rest_framework.authentication.BasicAuthentication',
     ),
     "DEFAULT_PAGINATION_CLASS": "shoonya_backend.pagination.CustomPagination",
 }
