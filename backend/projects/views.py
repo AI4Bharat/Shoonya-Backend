@@ -4109,7 +4109,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 # For Text    
     @action(detail=False, methods=["POST", "GET"], url_path="populate_asr_model_predictions", 
 url_name="populate_asr_model_predictions")
-    @is_organization_owner_or_workspace_manager
+    @is_org_owner
     def populate_asr_model_predictions(self, request , pk):
         try:
             data = json.loads(request.body)
@@ -4134,7 +4134,7 @@ url_name="populate_asr_model_predictions")
 
 # For Youtube
     @action(detail=False, methods=["POST", "GET"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
-    @is_organization_owner_or_workspace_manager
+    @is_org_owner
     def populate_asr_model_predictions_yt(self, request , pk):
         try:
             data = json.loads(request.body)
