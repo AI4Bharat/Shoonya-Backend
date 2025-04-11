@@ -4107,8 +4107,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 # from here translitrartion work starts
 # For Text    
-    @action(detail=False, methods=["POST", "GET"], url_path="populate_asr_model_predictions", 
-url_name="populate_asr_model_predictions")
+    @action(detail=False, methods=["POST", "GET"], name="Populate asr model predictions")
     @is_org_owner
     def populate_asr_model_predictions(self, request , pk):
         try:
@@ -4133,7 +4132,7 @@ url_name="populate_asr_model_predictions")
             return JsonResponse({"error": str(e)}, status=500)        
 
 # For Youtube
-    @action(detail=False, methods=["POST", "GET"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
+    @action(detail=False, methods=["POST", "GET"], name="Populate asr model predictions yt")
     @is_org_owner
     def populate_asr_model_predictions_yt(self, request , pk):
         try:
