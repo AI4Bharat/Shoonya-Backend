@@ -59,7 +59,3 @@ $RECYCLE.BIN/
 
 # Logs
 **/logs/*
-
-backend/dataset/admin.py/
-
-backend/shoonya_backend/settings.py/
