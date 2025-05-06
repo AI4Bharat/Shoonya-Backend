@@ -154,3 +154,6 @@ class user_profileAPI:
         self.client.get("/notifications/?seen=False",
             headers={"Authorization": f"JWT {self.token}"},
         )
+
+
+# done
