@@ -357,7 +357,7 @@ def get_complete_statistics_detailed_project(self):
         headers={"Authorization": f"JWT {self.token}"},
     )
     
-def get_meta_info_statistics_detailed_project_email(self):
+def get_meta_info_statistics_detailed_project(self):
     """
     Simulates a GET request to the /functions/schedule_project_reports_email endpoint to fetch report project email meta_info_statistics
     """
