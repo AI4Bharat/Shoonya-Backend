@@ -94,6 +94,38 @@ class User(AbstractBaseUser, PermissionsMixin):
         (ADMIN, "Admin"),
     )
 
+    # additional fields
+    GENDER_CHOICES = [
+        ('M', 'Male'),
+        ('F', 'Female'),
+        ('O', 'Other'),
+    ]
+
+    AGE_GROUP_CHOICES = [
+        ('18 - 30', '18 - 30'),
+        ('30 - 45', '30 - 45'),
+        ('45 - 60', '45 - 60'),
+        ('60+', '60+'),
+    ]
+
+    QUALIFICATION_CHOICES = [
+        ('No schooling', 'No schooling'),
+        ('Upto 12th', 'Upto 12th'),
+        ('Undergrad and Grad', 'Undergrad and Grad'),
+        ('PostGrad + PhD', 'PostGrad + PhD'),
+    ]
+
+    JOB_TYPE_CHOICES = [
+        ('Blue Collar', 'Blue Collar'),
+        ('White Collar', 'White Collar'),
+    ]
+
+    AREA_CHOICES = [
+        ('Rural', 'Rural'),
+        ('Urban', 'Urban'),
+    ]
+    
+    
     username = models.CharField(verbose_name="username", max_length=265)
     email = models.EmailField(verbose_name="email_address", unique=True, blank=False)
 
@@ -103,7 +135,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     profile_photo = models.CharField(
         verbose_name="profile_photo", max_length=256, blank=True
     )
-
+    
+    # Adding new  fields Starts
+    gender = models.CharField(verbose_name="Gender", max_length=10, choices=GENDER_CHOICES, blank=False)
+    age_group = models.CharField(verbose_name="Age Group", max_length=10, choices=AGE_GROUP_CHOICES, blank=False)
+    qualification = models.CharField(verbose_name="Qualification", max_length=20, choices=QUALIFICATION_CHOICES, blank=False)
+    job_type = models.CharField(verbose_name="Job Type", max_length=15, choices=JOB_TYPE_CHOICES, blank=False)
+    native_state = models.CharField(verbose_name="Native State", max_length=256, blank=False)
+    native_district = models.CharField(verbose_name="Native District", max_length=256, blank=False)
+    area = models.CharField(verbose_name="Area", max_length=10, choices=AREA_CHOICES, blank=False)
+    # Adding new fields Ends
+    
+     
     role = models.PositiveSmallIntegerField(
         choices=ROLE_CHOICES, blank=False, null=False, default=ANNOTATOR
     )
