@@ -2523,10 +2523,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(
             {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
         )
-    @action(detail=True,methods=["POST"],name="Manually assign tasks to user",
+        
+        
+    @action(detail=True,
+            methods=["POST"],
+            name="Manually assign tasks to user",
         url_name="manual_task_assignment",)
     @project_is_archived
-    def manual_task_assignment(self, request, pk):
+    def manual_task_assignment(self, request,pk):
         """
         Assign specified tasks to a user manually for annotation/review/sc.
         Params (from request.data):
@@ -2534,12 +2538,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             - user_id: ID of the user to assign tasks to
             - allocation_type: 1=annotation, 2=review, 3=supercheck
         """
-        project = Project.objects.get(pk=pk)
-        
+        project = Project.objects.get(id=pk)
         task_ids = request.data.get("task_ids", [])
         user_id = request.data.get("user_id")
         allocation_type = request.data.get("allocation_type")
-    
         if not task_ids or not user_id or allocation_type not in [1, 2, 3]:
             return Response(
                 {"message": "Missing or invalid task_ids, user_id, or allocation_type"},
@@ -2559,9 +2561,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if allocation_type == 1:
                 task.annotation_users.add(user)
             elif allocation_type == 2:
-                task.review_users.add(user)
+                task.review_user = user
             elif allocation_type == 3:
-                task.supercheck_users.add(user)
+                task.supercheck_user = user
     
             # Create base annotation if not already present for this task/user/type
             existing = Annotation_model.objects.filter(
@@ -2603,6 +2605,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "Tasks manually assigned successfully"},
             status=status.HTTP_200_OK,
         )
+        
+        
     @action(
         detail=True, methods=["post"], name="Unassign tasks", url_name="unassign_tasks"
     )
