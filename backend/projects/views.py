@@ -4156,13 +4156,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     if item["id"] not in ids_to_exclude_set
                 ]
                 if not filtered_items:
-                    ret_dict = {"message": "No items to pull into the dataset."}
-                    ret_status = status.HTTP_404_NOT_FOUND
-                    return Response(ret_dict, status=ret_status)
+                    return Response(
+                        {
+                            "message": "All available data has already been pulled. No new items left."
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
             else:
-                ret_dict = {"message": "No items to pull into the dataset."}
-                ret_status = status.HTTP_404_NOT_FOUND
-                return Response(ret_dict, status=ret_status)
+                return Response(
+                    {
+                        "message": "All available data has already been pulled. No new items left."
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
                 # Pull new data items in to the project asynchronously
             add_new_data_items_into_project.delay(project_id=pk, items=filtered_items)
             ret_dict = {"message": "Adding new tasks to the project."}

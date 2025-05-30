@@ -3,6 +3,7 @@ import random
 from copy import deepcopy
 from collections import OrderedDict
 from urllib.parse import parse_qsl
+from django.core.cache import cache
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
@@ -825,15 +826,12 @@ def export_project_new_record(
 
 @shared_task
 def add_new_data_items_into_project(project_id, items):
-    """Function to pull the dataitems into the project
+    lock_key = f"pull_lock_project_{project_id}"
 
-    Args:
-        project_id (int): ID of the project where the new data items have to be pulled
-        items (list) : List of items to be pulled into the project
-    """
+    try:
+        project = Project.objects.get(pk=project_id)
+        new_tasks = create_tasks_from_dataitems(items, project)
+        return f"Pulled {len(new_tasks)} items into {project.title}"
 
-    # Get project instance
-    project = Project.objects.get(pk=project_id)
-    new_tasks = create_tasks_from_dataitems(items, project)
-
-    return f"Pulled {len(new_tasks)} new data items into project {project.title}"
+    finally:
+        cache.delete(lock_key)
