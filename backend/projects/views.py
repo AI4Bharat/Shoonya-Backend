@@ -4172,6 +4172,53 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
 
+    # from here translitrartion work starts
+# For Text    
+    @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions", 
+    url_name="populate_asr_model_predictions")
+    def populate_asr_model_predictions(self, request):
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            print("model_language:", model_language)
+            project_ids = data.get("project_ids", [])
+            stage = data.get("stage", "l1")  # Default to "l1"
+
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            # # Run the Celery task asynchronously
+            # populate_asr_try.delay(model_language, project_ids, stage)
+            return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
+       
+        
+# For Youtube    
+    @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
+    def populate_asr_model_predictions_yt(self, request):
+            data = json.loads(request.body.decode("utf-8"))
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids", [])
+            stage = data.get("stage", "l1")
+
+            # Validate inputs
+            if not model_language:
+                return Response({"error": "Missing 'model_language' parameter."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if stage not in ["l1", "l2"]:
+                return Response({"error": "Invalid 'stage'. Must be either 'l1' or 'l2'."}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not isinstance(project_ids, list) or not all(isinstance(pid, int) for pid in project_ids):
+                return Response({"error": "'project__ids' must be a list of integers."}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Trigger Celery task asynchronously
+            # populate_asr_yt.delay(model_language=model_language, project__ids=project_ids, stage=stage)
+
+            return Response({"message": "populate_asr_yt2 task started successfully."}, status=status.HTTP_202_ACCEPTED)
+# Here translitrartion work ends
+
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
     @is_org_owner
     def download(self, request, pk=None, *args, **kwargs):
