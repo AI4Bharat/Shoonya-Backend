@@ -4179,18 +4179,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions", 
         url_name="populate_asr_model_predictions")
     def populate_asr_model_predictions(self, request):
-        print(">> RAW request.body:", request.body, file=sys.stderr)
-        print(">> DRF-parsed request.data:", request.data, file=sys.stderr)
-        print(">> Content-Type:", request.META.get("CONTENT_TYPE"), file=sys.stderr)
 
         data = request.data
         model_language = data.get("model_language")
         project_ids = data.get("project_ids", [])
         stage = data.get("stage", "l1")
-
-        print("model_language:", model_language, file=sys.stderr)
-        print("project_ids:", project_ids, file=sys.stderr)
-        print("stage:", stage, file=sys.stderr)
 
         if stage not in ["l1", "l2"]:
             return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
@@ -4205,18 +4198,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
 # For Youtube    
     @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
     def populate_asr_model_predictions_yt(self, request):
-        print(">> RAW request.body:", request.body, file=sys.stderr)
-        print(">> DRF-parsed request.data:", request.data, file=sys.stderr)
-        print(">> Content-Type:", request.META.get("CONTENT_TYPE"), file=sys.stderr)
 
         data = request.data
         model_language = data.get("model_language")
         project_ids = data.get("project_ids", [])
         stage = data.get("stage", "l1")
-
-        print("model_language:", model_language, file=sys.stderr)
-        print("project_ids:", project_ids, file=sys.stderr)
-        print("stage:", stage, file=sys.stderr)
 
         if stage not in ["l1", "l2"]:
             return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
