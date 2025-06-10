@@ -4191,7 +4191,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if not model_language:
             return JsonResponse({"error": "Missing model_language"}, status=400)
 
-        populate_asr_try(model_language, project_ids, stage)
+        populate_asr_try.delay(model_language, project_ids, stage)
         return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
 
 
@@ -4210,7 +4210,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if not model_language:
             return JsonResponse({"error": "Missing model_language"}, status=400)
 
-        populate_asr_yt(model_language, project_ids, stage)
+        populate_asr_yt.delay(model_language, project_ids, stage)
         return JsonResponse({"message": f"populate_asr_yt started successfully for stage {stage}!"})
 # Here translitrartion work ends
 
