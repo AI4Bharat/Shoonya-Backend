@@ -20,7 +20,18 @@ from .models import *
 from .registry_helper import ProjectRegistry
 from .utils import conversation_wordcount, no_of_words, conversation_sentence_count
 from .annotation_registry import *
-
+import requests
+import json
+import base64
+import io
+import urllib3
+  
+from pydub import AudioSegment
+from dataset.models import SpeechConversation
+from tasks.models import Task, Annotation
+from projects.models import Project
+from tqdm import tqdm
+from minio import Minio
 # Celery logger settings
 logger = get_task_logger(__name__)
 
@@ -842,29 +853,15 @@ def add_new_data_items_into_project(project_id, items):
 # new task for updating the data items of transcription simple.
 @shared_task(bind=True)
 def populate_asr_try(model_language, project__ids=[], stage="l1"):
-  
-  import requests
-  import json
-  import base64
-  import io
-  import urllib3
-    
-  from pydub import AudioSegment
-  from dataset.models import SpeechConversation
-  from tasks.models import Task, Annotation
-  from projects.models import Project
-  from tqdm import tqdm
-  from minio import Minio
-
 
   urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-  API_URL = "https://api.dhruva.ekstep.ai/services/inference/asr/?input="
-  SERVICE_ID_DRAVIDIAN = "ai4bharat/conformer-multilingual--gpu-t4"
-  SERVICE_ID_INDO_ARYAN = "ai4bharat/conformer-multilingual-all--gpu-t4"
-  SERVICE_ID_HINDI = "ai4bharat/conformer-multilingual-all--gpu-t4"
-  SERVICE_ID_CONFORMER = "ai4bharat/conformer-multilingual-all--gpu-t4"
+  API_URL = os.getenv("API_URL")
+  SERVICE_ID_DRAVIDIAN = os.getenv("SERVICE_ID_DRAVIDIAN")
+  SERVICE_ID_INDO_ARYAN = os.getenv("SERVICE_ID_INDO_ARYAN")
+  SERVICE_ID_HINDI = os.getenv("SERVICE_ID_HINDI")
+  SERVICE_ID_CONFORMER = os.getenv("SERVICE_ID_CONFORMER")
 
 
   if model_language in [
@@ -894,15 +891,15 @@ def populate_asr_try(model_language, project__ids=[], stage="l1"):
   API_URL += SERVICE_ID
 
   if stage == "l1":
-    SERVICE_ID = "ai4bharat/conformer-multilingual-verbatim-all--gpu-t4"  
-    API_URL = "https://api.dhruva.ekstep.ai/services/inference/asr/?input=ai4bharat/conformer-multilingual-verbatim-all--gpu-t4"
+    SERVICE_ID = os.getenv("SERVICE_ID")  
+    API_URL = os.getenv("API_URL")
 
 
-  DHRUVA_KEY = os.getenv('DHRUVA_KEY')
-  MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY')
-  MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY')
-  MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT')
-  MINIO_DIRECTORY = os.getenv('MINIO_DIRECTORY')
+  DHRUVA_KEY=os.getenv("DHRUVA_KEY")
+  MINIO_ACCESS_KEY=os.getenv("MINIO_ACCESS_KEY")
+  MINIO_SECRET_KEY=os.getenv("MINIO_SECRET_KEY")
+  MINIO_ENDPOINT=os.getenv("MINIO_ENDPOINT")
+  MINIO_DIRECTORY=os.getenv("MINIO_DIRECTORY")
   
 
 
@@ -1105,29 +1102,15 @@ def populate_asr_try(model_language, project__ids=[], stage="l1"):
 # new task for updating the data items of transcription from youtube.
 @shared_task(bind=True)
 def populate_asr_yt(model_language, project__ids=[], stage="l2"):
-  
-  import requests
-  import json
-  import base64
-  import io
-  import urllib3
     
-  from pydub import AudioSegment
-  from dataset.models import SpeechConversation
-  from tasks.models import Task, Annotation
-  from projects.models import Project
-  from tqdm import tqdm
-  from minio import Minio
-
   urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-  API_URL = "https://api.dhruva.ekstep.ai/services/inference/asr/?input="
+  API_URL = os.getenv('API_URL_YT')
   SERVICE_ID_DRAVIDIAN = os.getenv('SERVICE_ID_DRAVIDIAN_YT')
   SERVICE_ID_INDO_ARYAN = os.getenv('SERVICE_ID_INDO_ARYAN_YT')
   SERVICE_ID_HINDI = os.getenv('SERVICE_ID_HINDI_YT')
   SERVICE_ID_CONFORMER = os.getenv('SERVICE_ID_CONFORMER_YT')
-
 
 
   if model_language in [

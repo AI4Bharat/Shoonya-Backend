@@ -6,7 +6,7 @@ import pandas as pd
 import ast
 import csv
 import math
-
+import sys
 from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
@@ -70,6 +70,8 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     filter_data_items,
+    populate_asr_try,
+    populate_asr_yt
 )
 
 from .decorators import (
@@ -4175,49 +4177,58 @@ class ProjectViewSet(viewsets.ModelViewSet):
     # from here translitrartion work starts
 # For Text    
     @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions", 
-    url_name="populate_asr_model_predictions")
+        url_name="populate_asr_model_predictions")
     def populate_asr_model_predictions(self, request):
-            data = json.loads(request.body)
-            model_language = data.get("model_language")
-            print("model_language:", model_language)
-            project_ids = data.get("project_ids", [])
-            stage = data.get("stage", "l1")  # Default to "l1"
+        print(">> RAW request.body:", request.body, file=sys.stderr)
+        print(">> DRF-parsed request.data:", request.data, file=sys.stderr)
+        print(">> Content-Type:", request.META.get("CONTENT_TYPE"), file=sys.stderr)
 
-            # Ensure the stage is either "l1" or "l2"
-            if stage not in ["l1", "l2"]:
-                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+        data = request.data
+        model_language = data.get("model_language")
+        project_ids = data.get("project_ids", [])
+        stage = data.get("stage", "l1")
 
-            if not model_language:
-                return JsonResponse({"error": "Missing model_language"}, status=400)
+        print("model_language:", model_language, file=sys.stderr)
+        print("project_ids:", project_ids, file=sys.stderr)
+        print("stage:", stage, file=sys.stderr)
 
-            # # Run the Celery task asynchronously
-            # populate_asr_try.delay(model_language, project_ids, stage)
-            return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
-       
-        
+        if stage not in ["l1", "l2"]:
+            return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+        if not model_language:
+            return JsonResponse({"error": "Missing model_language"}, status=400)
+
+        populate_asr_try(model_language, project_ids, stage)
+        return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
+
+
 # For Youtube    
     @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
     def populate_asr_model_predictions_yt(self, request):
-            data = json.loads(request.body.decode("utf-8"))
-            model_language = data.get("model_language")
-            project_ids = data.get("project_ids", [])
-            stage = data.get("stage", "l1")
+        print(">> RAW request.body:", request.body, file=sys.stderr)
+        print(">> DRF-parsed request.data:", request.data, file=sys.stderr)
+        print(">> Content-Type:", request.META.get("CONTENT_TYPE"), file=sys.stderr)
 
-            # Validate inputs
-            if not model_language:
-                return Response({"error": "Missing 'model_language' parameter."}, status=status.HTTP_400_BAD_REQUEST)
-            
-            if stage not in ["l1", "l2"]:
-                return Response({"error": "Invalid 'stage'. Must be either 'l1' or 'l2'."}, status=status.HTTP_400_BAD_REQUEST)
+        data = request.data
+        model_language = data.get("model_language")
+        project_ids = data.get("project_ids", [])
+        stage = data.get("stage", "l1")
 
-            if not isinstance(project_ids, list) or not all(isinstance(pid, int) for pid in project_ids):
-                return Response({"error": "'project__ids' must be a list of integers."}, status=status.HTTP_400_BAD_REQUEST)
+        print("model_language:", model_language, file=sys.stderr)
+        print("project_ids:", project_ids, file=sys.stderr)
+        print("stage:", stage, file=sys.stderr)
 
-            # Trigger Celery task asynchronously
-            # populate_asr_yt.delay(model_language=model_language, project__ids=project_ids, stage=stage)
+        if stage not in ["l1", "l2"]:
+            return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
 
-            return Response({"message": "populate_asr_yt2 task started successfully."}, status=status.HTTP_202_ACCEPTED)
+        if not model_language:
+            return JsonResponse({"error": "Missing model_language"}, status=400)
+
+        populate_asr_yt(model_language, project_ids, stage)
+        return JsonResponse({"message": f"populate_asr_yt started successfully for stage {stage}!"})
 # Here translitrartion work ends
+
+
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
     @is_org_owner
