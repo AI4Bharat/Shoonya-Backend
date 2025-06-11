@@ -4,6 +4,7 @@ import re
 from base64 import b64encode
 from urllib.parse import parse_qsl
 from utils.pagination import paginate_queryset
+from utils.search import process_search_query
 from django.apps import apps
 from django.db.models import Q
 from django.http import StreamingHttpResponse
@@ -47,6 +48,7 @@ from tasks.models import (
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
 )
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 
 
 ## Utility functions used inside the view functions
@@ -274,28 +276,61 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_type__exact=request.query_params["dataset_type"]
             )
 
-        # Serialize the distinct items and sort by instance ID
-        serializer = DatasetInstanceSerializer(
-            queryset.distinct().order_by("instance_id"), many=True
-        )
+        # Handle search parameter
+        search_query = request.query_params.get("search", "")
+        if search_query:
+            queryset = queryset.filter(
+                Q(instance_name__icontains=search_query)
+                | Q(instance_description__icontains=search_query)
+                | Q(instance_id__icontains=search_query)
+                | Q(dataset_type__icontains=search_query)
+            )
 
-        # Add status fields to the serializer data
-        for dataset_instance in serializer.data:
-            # Get the task statuses for the dataset instance
+        # Get page number and page size from query parameters
+        try:
+            page_number = int(request.query_params.get("page_number", 1))
+            page_size = int(request.query_params.get("page_size", 10))
+        except (TypeError, ValueError):
+            page_number = 1
+            page_size = 10
+
+        # Apply pagination
+        paginator = Paginator(queryset.distinct().order_by("instance_id"), page_size)
+        try:
+            page_obj = paginator.page(page_number)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        serializer = self.get_serializer(page_obj.object_list, many=True)
+        response_data = serializer.data
+
+        # Add upload status information for each dataset instance
+        for dataset in response_data:
             (
                 dataset_instance_status,
                 dataset_instance_date,
                 dataset_instance_time,
                 dataset_instance_result,
-            ) = get_dataset_upload_status(dataset_instance["instance_id"])
+            ) = get_dataset_upload_status(dataset["instance_id"])
 
-            # Add the task status and time to the dataset instance response
-            dataset_instance["last_upload_status"] = dataset_instance_status
-            dataset_instance["last_upload_date"] = dataset_instance_date
-            dataset_instance["last_upload_time"] = dataset_instance_time
-            dataset_instance["last_upload_result"] = dataset_instance_result
+            dataset["last_upload_status"] = dataset_instance_status
+            dataset["last_upload_date"] = dataset_instance_date
+            dataset["last_upload_time"] = dataset_instance_time
+            dataset["last_upload_result"] = dataset_instance_result
 
-        return Response(serializer.data)
+        return Response(
+            {
+                "count": queryset.count(),
+                "next": page_obj.has_next(),
+                "previous": page_obj.has_previous(),
+                "page_number": page_obj.number,
+                "page_size": page_size,
+                "search_query": search_query,
+                "results": response_data,
+            }
+        )
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="Download Dataset in CSV format")
