@@ -97,7 +97,9 @@ from users.utils import generate_random_string
 from notifications.views import createNotification
 from notifications.utils import get_userids_from_project_id
 import json
-
+from threading import Lock
+lock = Lock()
+endpoint_hit = False
 # Create your views here.
 
 
@@ -4178,7 +4180,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
 # For Text    
     @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions", 
         url_name="populate_asr_model_predictions")
-    def populate_asr_model_predictions(self, request):
+    def populate_asr_model_predictions(self, request):       
+        global endpoint_hit
+        with lock:
+            if endpoint_hit:
+                return Response(
+                    {"message": "Endpoint already triggered."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            endpoint_hit = True
 
         data = request.data
         model_language = data.get("model_language")
@@ -4192,13 +4202,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return JsonResponse({"error": "Missing model_language"}, status=400)
 
         populate_asr_try.delay(model_language, project_ids, stage)
+
         return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
 
 
 # For Youtube    
     @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
     def populate_asr_model_predictions_yt(self, request):
-
+        global endpoint_hit
+        with lock:
+            if endpoint_hit:
+                return Response(
+                    {"message": "Endpoint already triggered."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            endpoint_hit = True
         data = request.data
         model_language = data.get("model_language")
         project_ids = data.get("project_ids", [])

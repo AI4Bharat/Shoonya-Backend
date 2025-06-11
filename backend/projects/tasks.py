@@ -851,7 +851,7 @@ def add_new_data_items_into_project(project_id, items):
 
 
 # new task for updating the data items of transcription simple.
-@shared_task(bind=True)
+# @shared_task(bind=True)
 def populate_asr_try(model_language, project__ids=[], stage="l1"):
 
   urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -1100,7 +1100,7 @@ def populate_asr_try(model_language, project__ids=[], stage="l1"):
       
 
 # new task for updating the data items of transcription from youtube.
-@shared_task(bind=True)
+# @shared_task(bind=True)
 def populate_asr_yt(model_language, project__ids=[], stage="l2"):
     
   urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
