@@ -851,7 +851,7 @@ def add_new_data_items_into_project(project_id, items):
 
 
 # new task for updating the data items of transcription simple.
-# @shared_task(bind=True)
+@shared_task(bind=True)
 def populate_asr_try(model_language, project__ids=[], stage="l1"):
 
   urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -924,7 +924,7 @@ def populate_asr_try(model_language, project__ids=[], stage="l1"):
           # print("Trying data item id: ", data_item.id)
           # try:
           MEDIA_URL = data_item.audio_url
-          NEW_MEDIA_URL = MEDIA_URL.replace("https://asr-transcription.objectstore.e2enetworks.net/", "asr-transcription/")
+          NEW_MEDIA_URL = os.getenv("NEW_MEDIA_URL")
           try:
               eos_client = Minio(
                   endpoint=MINIO_ENDPOINT,
@@ -1002,8 +1002,7 @@ def populate_asr_try(model_language, project__ids=[], stage="l1"):
                             }
              current_text = ""
              try:
-                response = requests.post(
-                "https://api.dhruva.ekstep.ai/services/inference/asr",
+                response = requests.post(os.getenv("response_normal"),
                 headers={"authorization": DHRUVA_KEY},
                 json=chunk_data,
                 )
@@ -1100,7 +1099,7 @@ def populate_asr_try(model_language, project__ids=[], stage="l1"):
       
 
 # new task for updating the data items of transcription from youtube.
-# @shared_task(bind=True)
+@shared_task(bind=True)
 def populate_asr_yt(model_language, project__ids=[], stage="l2"):
     
   urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -1173,7 +1172,7 @@ def populate_asr_yt(model_language, project__ids=[], stage="l2"):
           # print("Trying data item id: ", data_item.id)
           # try:
           MEDIA_URL = data_item.audio_url
-          NEW_MEDIA_URL = MEDIA_URL.replace("https://indic-asr-public.objectstore.e2enetworks.net/", "speechteam/")
+          NEW_MEDIA_URL = os.getenv("NEW_MEDIA_URL_YT")
           try:
               eos_client = Minio(
                   endpoint=MINIO_ENDPOINT,
@@ -1251,8 +1250,7 @@ def populate_asr_yt(model_language, project__ids=[], stage="l2"):
                             }
              current_text = ""
              try:
-                response = requests.post(
-                "https://api.dhruva.ekstep.ai/services/inference/asr",
+                response = requests.post(os.getenv("response_yt"),
                 headers={"authorization": DHRUVA_KEY},
                 json=chunk_data,
                 )
