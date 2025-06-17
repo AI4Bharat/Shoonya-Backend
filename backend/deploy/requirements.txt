@@ -117,7 +117,7 @@ portalocker==2.7.0
 pretty-html-table==0.9.16
 prompt-toolkit==3.0.39
 proto-plus==1.22.3
-protobuf==3.20.3
+protobuf==4.25.8
 psycopg2==2.9.7
 psycopg2-binary==2.9.1
 pyasn1==0.5.0
