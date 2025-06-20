@@ -68,5 +68,39 @@ class AdminAPIs:
                 response.success()
             else:
                 response.failure(f"Failed to get task annotations: {response.status_code}")
-                
+
+# get Queued Tasks details:
+def get_queued_tasks(self):
+    """
+    Simulates a GET request to the /tasks/get_celery_tasks/ endpoint to fetch get_queued_tasks details.
+    """
+    with self.client.get(
+        "/tasks/get_celery_tasks/",
+        headers={"Authorization": f"JWT {self.token}"},
+        catch_response=True
+    ) as response:
+        print(f"Status Code: {response.status_code}")
+
+        if response.status_code in (200, 201):
+            response.success()
+        else:
+            response.failure(f"Failed to get queued tasks: {response.status_code}")
+            
+# get useer details:
+def get_user_details(self):
+    """
+    Simulates a GET request to the /users/account/user_details/ endpoint to fetch get_user_details.
+    """
+    with self.client.get(
+        "/users/account/user_details/",
+        headers={"Authorization": f"JWT {self.token}"},
+        catch_response=True
+    ) as response:
+        print(f"Status Code: {response.status_code}")
+
+        if response.status_code in (200, 201):
+            response.success()
+        else:
+            response.failure(f"Failed to get User Details: {response.status_code}")
+            
 # done
