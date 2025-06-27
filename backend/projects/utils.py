@@ -749,11 +749,6 @@ def process_speech_tasks_ex(task, is_audio_segmentation, project_type):
         except Exception:
             continue
 
-
-
-
-
-
 def process_annotation_result_from_annotationOCR(annotation):
     annotation_result = annotation.get("result", [])
     return (
