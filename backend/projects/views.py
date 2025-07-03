@@ -3538,157 +3538,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             final_result.append(dict(items))
         ret_status = status.HTTP_200_OK
         return Response(final_result, status=ret_status)
-
-#  startexport_project_tasks
-    # @is_organization_owner_or_workspace_manager
-    # @action(
-    #     detail=True,
-    #     methods=["GET"],
-    #     name="Get Project tasks and annotations and reviewers text",
-    #     url_name="export_project_tasks",
-    # )
-    # def export_project_tasks(self, request, pk=None):
-    #     supported_types = ["csv", "tsv", "json"]
-    #     export_type = request.query_params.get("export_type", "csv").lower()
-
-    #     if export_type not in supported_types:
-    #         return Response(
-    #             {"message": "Exported type only supports: csv, tsv, json"},
-    #             status=status.HTTP_400_BAD_REQUEST,
-    #         )
-
-    #     try:
-    #         proj_obj = Project.objects.get(id=pk)
-    #     except Project.DoesNotExist:
-    #         return Response({"message": "Project does not exist!"}, status=status.HTTP_404_NOT_FOUND)
-
-    #     tasks = Task.objects.filter(project_id=pk)
-    #     if not tasks.exists():
-    #         return Response({"message": "No tasks in this project."}, status=status.HTTP_204_NO_CONTENT)
-
-    #     # --- Set up project & dataset type flags ---
-    #     project_type = dict(PROJECT_TYPE_CHOICES)[proj_obj.project_type]
-    #     dataset_type = proj_obj.dataset_id.first().dataset_type if proj_obj.dataset_id.exists() else None
-
-    #     is_audio_project_type = project_type in get_audio_project_types()
-    #     is_conversation_translation = project_type == "ConversationTranslation"
-    #     is_conversation_translation_editing = project_type == "ConversationTranslationEditing"
-    #     is_conversation_verification = project_type == "ConversationVerification"
-    #     is_audio_segmentation = project_type == "AudioSegmentation"
-    #     is_ocr_categorization = project_type == "OCRSegmentCategorization"
-    #     is_ocr_categorization_editing = project_type == "OCRSegmentCategorizationEditing"
-
-    #     output_data = []
-
-    #     for task in tasks:
-    #         task_id = task.id
-    #         input_text = task.data.get("input_text", "")
-
-    #         # --- Use process_task for consistent handling ---
-    #         try:
-    #             processed = process_task(
-    #                 task=task,
-    #                 export_type=export_type.upper(),
-    #                 include_input_data_metadata_json=False,
-    #                 dataset_model=None,
-    #                 is_audio_project_type=is_audio_project_type,
-    #             )
-
-    #             # Additional project-type-specific enrichment
-    #             if (
-    #                 is_conversation_translation
-    #                 or is_conversation_translation_editing
-    #                 or is_conversation_verification
-    #             ):
-    #                 process_conversation_tasks_ex(
-    #                     processed,
-    #                     is_conversation_translation,
-    #                     is_conversation_verification,
-    #                 )
-    #             elif dataset_type == "SpeechConversation":
-    #                 process_speech_tasks_ex(processed, is_audio_segmentation, project_type)
-    #             elif dataset_type == "OCRDocument":
-    #                 process_ocr_tasks_ex(
-    #                     processed,
-    #                     is_ocr_categorization,
-    #                     is_ocr_categorization_editing,
-    #                 )
-
-    #         except Exception as e:
-    #             continue  # Skip faulty tasks
-
-    #         # --- Extract annotation/reviewer info manually to keep existing structure ---
-    #         ann = Annotation_model.objects.filter(task_id=task_id, parent_annotation__isnull=True)
-    #         rew = Annotation_model.objects.filter(task_id=task_id, parent_annotation__isnull=False)
-
-    #         annotation_text = []
-    #         reviewer_text = []
-    #         annotator_user = []
-    #         reviewer_user = []
-
-    #         for an in ann:
-    #             try:
-    #                 text_json = an.result[0]["value"]
-    #                 text_json["completed_by"] = an.completed_by.id
-    #                 text_json["email"] = an.completed_by.email
-    #                 text_json["first_name"] = an.completed_by.first_name
-    #                 annotation_text.append(text_json)
-
-    #                 annotator_user.append({
-    #                     "id": an.completed_by.id,
-    #                     "mail": an.completed_by.email,
-    #                     "first_name": an.completed_by.first_name,
-    #                 })
-    #             except Exception:
-    #                 annotation_text.append({})
-
-    #         for an in rew:
-    #             try:
-    #                 text_json = an.result[0]["value"]
-    #                 text_json["completed_by"] = an.completed_by.id
-    #                 text_json["email"] = an.completed_by.email
-    #                 text_json["first_name"] = an.completed_by.first_name
-    #                 reviewer_text.append(text_json)
-
-    #                 reviewer_user.append({
-    #                     "id": an.completed_by.id,
-    #                     "mail": an.completed_by.email,
-    #                     "first_name": an.completed_by.first_name,
-    #                 })
-    #             except Exception:
-    #                 reviewer_text.append({})
-
-    #         # --- Prepare final flat record ---
-    #         output_data.append({
-    #             "task_id": task_id,
-    #             "input_text": input_text,
-    #             "annotators_text": annotation_text,
-    #             "reviewers_text": reviewer_text,
-    #             "annotation_users_final": annotator_user,
-    #             "review_users_final": reviewer_user,
-    #         })
-
-    #     # Convert to DataFrame
-    #     df = pd.DataFrame(output_data)
-
-    #     # Export in selected format
-    #     if export_type == "csv":
-    #         content = df.to_csv(index=False)
-    #         content_type = "text/csv"
-    #         filename = "project_details.csv"
-    #     elif export_type == "tsv":
-    #         content = df.to_csv(sep="\t", index=False)
-    #         content_type = "text/tab-separated-values"
-    #         filename = "project_details.tsv"
-    #     else:  # json
-    #         content = df.to_json(force_ascii=False, indent=4)
-    #         content_type = "application/json"
-    #         filename = "project_details.json"
-
-    #     response = HttpResponse(content, content_type=content_type)
-    #     response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    #     response["filename"] = filename
-    #     return response
     
     @is_organization_owner_or_workspace_manager
     @action(
@@ -3803,6 +3652,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         reviewer_text.append({})
 
                 # Append final record
+                # output_data.append({
+                #     "task_id": task_id,
+                #     "input_text": input_text,
+                #     "annotators_text": annotation_text,
+                #     "reviewers_text": reviewer_text,
+                #     "annotation_users_final": annotator_user,
+                #     "review_users_final": reviewer_user,
+                #     "full_task_data": processed,  # Optional: full JSON export
+                # })
+                # Flatten the processed dict
+                flat_processed = {}
+                for key, value in processed.items():
+                    # If the value is a dict, flatten it with dot notation
+                    if isinstance(value, dict):
+                        for sub_key, sub_value in value.items():
+                            flat_processed[f"{key}.{sub_key}"] = sub_value
+                    else:
+                        flat_processed[key] = value
+                
+                # Now add it to the output
                 output_data.append({
                     "task_id": task_id,
                     "input_text": input_text,
@@ -3810,8 +3679,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     "reviewers_text": reviewer_text,
                     "annotation_users_final": annotator_user,
                     "review_users_final": reviewer_user,
-                    "full_task_data": processed,  # Optional: full JSON export
+                    **flat_processed  # Unpack flat fields here
                 })
+
 
             except Exception as e:
                 continue  # Skip faulty tasks
@@ -3819,23 +3689,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # Convert to DataFrame
         df = pd.DataFrame(output_data)
 
-        # Export format
+        # Clean up project type name for filename
+        clean_project_type = project_type.replace(" ", "_").lower()
+
         if export_type == "csv":
             content = df.to_csv(index=False)
             content_type = "text/csv"
-            filename = "project_details.csv"
+            filename = f"{clean_project_type}_export.csv"
         elif export_type == "tsv":
             content = df.to_csv(sep="\t", index=False)
             content_type = "text/tab-separated-values"
-            filename = "project_details.tsv"
+            filename = f"{clean_project_type}_export.tsv"
         else:  # json
             content = df.to_json(force_ascii=False, indent=4)
             content_type = "application/json"
-            filename = "project_details.json"
+            filename = f"{clean_project_type}_export.json"
+        
 
         response = HttpResponse(content, content_type=content_type)
+        response["Access-Control-Expose-Headers"] = "Content-Disposition, Project-Type"
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
-        response["filename"] = filename
+        # response["filename"] = filename
+        response["Project-Type"] = clean_project_type  # e.g., "ocrsegmentcategorization"
+
         return response
 
 # here end of the file export_project_tasks
