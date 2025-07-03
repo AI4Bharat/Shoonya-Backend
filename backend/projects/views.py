@@ -2363,6 +2363,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
     )
     @project_is_archived
     def assign_new_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of unassigned tasks for this project
+        and assign to the user
+        """
         cur_user = request.user
         project = Project.objects.get(pk=pk)
     
