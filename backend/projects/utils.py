@@ -199,6 +199,14 @@ def get_audio_segments_count(annotation_result):
     return count
 
 
+def get_bounding_box_count(annotation_label_result):
+    count = 0
+    for result in annotation_label_result:
+        if result["type"] == "rectangle":
+            count += 1
+
+    return count
+
 def audio_word_count(annotation_result):
     word_count = 0
 

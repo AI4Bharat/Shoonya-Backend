@@ -32,6 +32,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     audio_word_count,
     get_audio_segments_count,
+    get_bounding_box_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     get_translation_dataset_project_types,
     convert_hours_to_seconds,
@@ -62,6 +63,10 @@ from .tasks import (
     get_supercheck_reports,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
+
+
+# import logging
+# logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -612,6 +617,8 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     total_word_error_rate_rs_list = []
                     total_word_error_rate_ar_list = []
                     total_raw_duration_list = []
+                                              
+                    
                     if project_type in get_audio_project_types():
                         for each_task in labeled_tasks:
                             try:
@@ -1172,6 +1179,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         labeled,
                         avg_lead_time,
                         total_word_count,
+                        total_bounding_boxes,
                         total_duration,
                         total_raw_duration,
                         avg_segment_duration,
@@ -1217,11 +1225,17 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                             except:
                                 pass
 
-                        total_word_count = sum(total_word_count_list)
+                        total_word_count = sum(total_word_count_list)              
+
+
+                        
+
                     elif "OCRTranscription" in project_type:
                         total_word_count = 0
+                        total_bounding_boxes=0
                         for each_anno in labeled_annotations:
                             total_word_count += ocr_word_count(each_anno.result)
+                            total_bounding_boxes+= get_bounding_box_count(each_anno.result)
 
                     total_duration = "0:00:00"
                     total_raw_duration = "0:00:00"
@@ -1309,6 +1323,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                         "Avg Segment Duration": round(avg_segment_duration, 2),
                         "Average Segments Per Task": round(avg_segments_per_task, 2),
+                        "Total Bounding Boxes": total_bounding_boxes,
                     }
                 else:
                     result = {
@@ -1327,20 +1342,23 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                         "Avg Segment Duration": round(avg_segment_duration, 2),
                         "Average Segments Per Task": round(avg_segments_per_task, 2),
+                        "Total Bounding Boxes": total_bounding_boxes,
                     }
 
                 if project_type in get_audio_project_types():
                     del result["Word Count"]
+                    del result["Total Bounding Boxes"]
                 elif is_translation_project or project_type in [
                     "SemanticTextualSimilarity_Scale5",
-                    "OCRTranscriptionEditing",
                     "OCRTranscription",
+                    "OCRTranscriptionEditing"
                 ]:
                     del result["Total Segments Duration"]
                     del result["Total Raw Audio Duration"]
                     del result["Avg Segment Duration"]
                     del result["Average Segments Per Task"]
                 else:
+                    del result["Total Bounding Boxes"]
                     del result["Word Count"]
                     del result["Total Segments Duration"]
                     del result["Total Raw Audio Duration"]
