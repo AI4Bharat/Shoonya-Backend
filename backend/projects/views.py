@@ -2436,7 +2436,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             
             if not tasks:
                 return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
-    
+                
+            tasks = tasks[:tasks_to_be_assigned]
             for task in tasks:
                 task.annotation_users.add(cur_user)
                 task.save()
