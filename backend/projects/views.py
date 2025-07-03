@@ -2490,9 +2490,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         except IntegrityError:
                             print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
                             continue
+                        """except IntegrityError as e:
+                            print(
+                                f"Task and completed_by fields are same while assigning new task "
+                                f"for project id-{project.id}, user-{cur_user.email}"
+                            )
+                        """
                     else:
-                        task.annotation_users.remove(cur_user)
-                        task.save()
+                        cur_user_anno_count = Annotation_model.objects.filter(
+                            task_id=task,
+                            annotation_type=ANNOTATOR_ANNOTATION,
+                            completed_by=cur_user,
+                        ).count()
+                        if cur_user_anno_count == 0:
+                            task.annotation_users.remove(cur_user)
+                            task.save()
     
             return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
