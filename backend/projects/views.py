@@ -2382,12 +2382,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
         )
         annotation_tasks = [anno.task.id for anno in proj_annotations]
     
-        pending_tasks = Task.objects.filter(
-            project_id=pk,
-            annotation_users=cur_user.id,
-            task_status__in=[INCOMPLETE, UNLABELED],
-            id__in=annotation_tasks
-        ).count()
+        if project.project_type in get_audio_project_types():
+            pending_tasks = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .filter(task_status__in=[INCOMPLETE, UNLABELED])
+                .filter(id__in=annotation_tasks)
+                .filter(
+                    Exists(
+                        SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"), freeze_task=False
+                        )
+                    )
+                )
+                .count()
+            )
+        else:
+            pending_tasks = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .filter(task_status__in=[INCOMPLETE, UNLABELED])
+                .filter(id__in=annotation_tasks)
+                .count()
+            )
     
         if pending_tasks >= project.max_pending_tasks_per_user:
             return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
