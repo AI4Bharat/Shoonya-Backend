@@ -2423,8 +2423,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotator_count=Count("annotation_users")
             ).filter(
                 annotator_count__lt=project.required_annotators_per_task
-            ).order_by("id")[:tasks_to_be_assigned]
-    
+            ).order_by("id")[:tasks_to_be_assigned].distinct()
+            
+            if project.project_type in get_audio_project_types():
+            tasks = tasks.filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
+            
             if not tasks:
                 return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
     
