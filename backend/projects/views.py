@@ -2418,17 +2418,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
         tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
     
         with transaction.atomic():
-            tasks = Task.objects.select_for_update(skip_locked=True).filter(
-                project_id=pk,
-                task_status__in=[INCOMPLETE, UNLABELED]
-            ).exclude(
-                annotation_users=cur_user.id
-            ).annotate(
-                annotator_count=Count("annotation_users")
-            ).filter(
-                annotator_count__lt=project.required_annotators_per_task
-            ).order_by("id")
-            
+            tasks = (
+                Task.objects
+                .select_for_update(skip_locked=True)
+                .filter(
+                    project_id=pk,
+                    task_status__in=[INCOMPLETE, UNLABELED]
+                )
+                .exclude(annotation_users=cur_user.id)
+                .order_by("id")
+            )
+    
             if project.project_type in get_audio_project_types():
                 tasks = tasks.filter(
                     Exists(
@@ -2437,12 +2437,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         )
                     )
                 )
-            
-            if not tasks:
-                return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
-                
-            tasks = tasks[:tasks_to_be_assigned]
+    
+            selected_tasks = []
             for task in tasks:
+                if task.annotation_users.count() < project.required_annotators_per_task:
+                    selected_tasks.append(task)
+                if len(selected_tasks) >= tasks_to_be_assigned:
+                    break
+    
+            if not selected_tasks:
+                return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
+    
+            for task in selected_tasks:
                 task.annotation_users.add(cur_user)
                 task.save()
                 result = []
@@ -2459,9 +2465,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         )
                     except Exception as e:
                         result = []
+    
                 annotator_anno_count = Annotation_model.objects.filter(
                     task_id=task, annotation_type=ANNOTATOR_ANNOTATION
                 ).count()
+    
                 if annotator_anno_count < project.required_annotators_per_task:
                     cur_user_anno_count = Annotation_model.objects.filter(
                         task_id=task,
@@ -2480,10 +2488,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                                 print(f"Annotation for task id {task.id} already exists.")
                                 continue
                         except IntegrityError:
-                            # In case race condition still slips through
                             print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
                             continue
-                            
                         """except IntegrityError as e:
                             print(
                                 f"Task and completed_by fields are same while assigning new task "
