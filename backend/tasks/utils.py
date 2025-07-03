@@ -2,6 +2,10 @@ import os
 from requests import RequestException
 import requests
 from dotenv import load_dotenv
+import base64
+import subprocess
+import io
+
 
 Queued_Task_name = {
     "dataset.tasks.deduplicate_dataset_instance_items": "Deduplicate Dataset Instance Items",
@@ -60,3 +64,55 @@ def query_flower(filters=None):
             return {"error": "Failed to retrieve tasks from Flower"}
     except RequestException as e:
         return {"error": f" failed to connect to flower API, {str(e)}"}
+
+
+def convert_audio_base64_to_mp3(input_base64):
+    """Convert base64 audio to MP3 format"""
+    try:
+        input_audio_bytes = base64.b64decode(input_base64)
+        input_buffer = io.BytesIO(input_audio_bytes)
+
+        ffmpeg_command = ["ffmpeg", "-i", "pipe:0", "-f", "mp3", "pipe:1"]
+
+        process = subprocess.Popen(
+            ffmpeg_command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        output_mp3_bytes, _ = process.communicate(input=input_buffer.read())
+        return base64.b64encode(output_mp3_bytes).decode("utf-8")
+
+    except Exception as e:
+        print(f"Audio conversion error: {e}")
+        return None
+
+
+def transcribe_audio(audio_base64, lang="hi"):
+    """Send audio to Dhruva ASR API"""
+    try:
+        mp3_base64 = convert_audio_base64_to_mp3(audio_base64)
+        if not mp3_base64:
+            return None
+
+        payload = {
+            "config": {
+                "serviceId": os.getenv("DHRUVA_SERVICE_ID"),
+                "language": {"sourceLanguage": lang},
+                "transcriptionFormat": {"value": "transcript"},
+            },
+            "audio": [{"audioContent": mp3_base64}],
+        }
+
+        response = requests.post(
+            os.getenv("DHRUVA_API_URL"),
+            headers={"Authorization": os.getenv("DHRUVA_KEY")},
+            json=payload,
+        )
+
+        return response.json()["output"][0]["source"]
+
+    except Exception as e:
+        print(f"Transcription failed: {e}")
+        return None
