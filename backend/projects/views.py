@@ -2427,7 +2427,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 annotator_count=Count("annotation_users")
             ).filter(
                 annotator_count__lt=project.required_annotators_per_task
-            ).order_by("id")[:tasks_to_be_assigned].distinct()
+            ).order_by("id").distinct()
             
             if project.project_type in get_audio_project_types():
             tasks = tasks.filter(
