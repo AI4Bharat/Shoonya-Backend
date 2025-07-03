@@ -2438,29 +2438,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
                 
             tasks = tasks[:tasks_to_be_assigned]
-            for task in tasks:
-                task.annotation_users.add(cur_user)
-                task.save()
-                result = []
-    
-                if project.project_type in [
-                    "AcousticNormalisedTranscriptionEditing",
-                    "AudioTranscriptionEditing",
-                    "OCRTranscriptionEditing",
-                    "OCRSegmentCategorizationEditing",
-                    "StandardizedTranscriptionEditing",
-                    "OCRSegmentCategorisationRelationMappingEditing",
-                ]:
-                    try:
-                        if project.project_type == "StandardizedTranscriptionEditing":
-                            result = parse_json_for_ste(task.input_data.id)
-                        else:
-                            result = convert_prediction_json_to_annotation_result(task.input_data.id, project.project_type)
-                    except Exception as e:
-                        print(f"Corrupt prediction/final JSON for data item-{task.input_data.id}. Deleting task.")
-                        task.delete()
-                        continue
-    
+        for task in tasks:
+            task.annotation_users.add(cur_user)
+            task.save()
+            result = []
+            if project.project_type in [
+                "AcousticNormalisedTranscriptionEditing",
+                "AudioTranscriptionEditing",
+                "OCRTranscriptionEditing",
+                "OCRSegmentCategorizationEditing",
+                "OCRTextlineSegmentation",
+            ]:
+                try:
+                    result = convert_prediction_json_to_annotation_result(
+                        task.input_data.id, project.project_type, None, None, False
+                    )
+                except Exception as e:
+                    result = []
+            annotator_anno_count = Annotation_model.objects.filter(
+                task_id=task, annotation_type=ANNOTATOR_ANNOTATION
+            ).count()
+            if annotator_anno_count < project.required_annotators_per_task:
+                cur_user_anno_count = Annotation_model.objects.filter(
+                    task_id=task,
+                    annotation_type=ANNOTATOR_ANNOTATION,
+                    completed_by=cur_user,
+                ).count()
+                if cur_user_anno_count == 0:
                 try:
                     _, created = Annotation_model.objects.get_or_create(
                         task=task,
@@ -2475,6 +2479,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     # In case race condition still slips through
                     print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
                     continue
+                    
+                    """except IntegrityError as e:
+                        print(
+                            f"Task and completed_by fields are same while assigning new task "
+                            f"for project id-{project.id}, user-{cur_user.email}"
+                        )
+                    """
+            else:
+                cur_user_anno_count = Annotation_model.objects.filter(
+                    task_id=task,
+                    annotation_type=ANNOTATOR_ANNOTATION,
+                    completed_by=cur_user,
+                ).count()
+                if cur_user_anno_count == 0:
+                    task.annotation_users.remove(cur_user)
+                    task.save()
+
+        
+        return Response(
+            {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
+        )
     
         return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
