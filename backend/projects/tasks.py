@@ -824,16 +824,29 @@ def export_project_new_record(
 
 
 @shared_task(queue="default")
-def add_new_data_items_into_project(project_id, items):
+def add_new_data_items_into_project(project_id, items, cache_key=None):
     """Function to pull the dataitems into the project
 
     Args:
         project_id (int): ID of the project where the new data items have to be pulled
         items (list) : List of items to be pulled into the project
+        cache_key (str, optional): Cache key to clear when task completes
     """
 
-    # Get project instance
-    project = Project.objects.get(pk=project_id)
-    new_tasks = create_tasks_from_dataitems(items, project)
+    try:
+        # Get project instance
+        project = Project.objects.get(pk=project_id)
+        new_tasks = create_tasks_from_dataitems(items, project)
 
-    return f"Pulled {len(new_tasks)} new data items into project {project.title}"
+        # Clear the cache lock when task completes successfully
+        if cache_key:
+            cache.delete(cache_key)
+
+        return f"Pulled {len(new_tasks)} new data items into project {project.title}"
+
+    except Exception as e:
+        # Clear the cache lock even if task fails
+        if cache_key:
+            cache.delete(cache_key)
+        # Re-raise the exception to maintain original error handling
+        raise e
