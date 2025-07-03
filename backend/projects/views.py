@@ -2362,142 +2362,139 @@ class ProjectViewSet(viewsets.ModelViewSet):
         url_name="assign_new_tasks",
     )
     @project_is_archived
-from django.db import transaction
-from django.db.models import Exists, OuterRef
-
-def assign_new_tasks(self, request, pk, *args, **kwargs):
-    """
-    Pull a new batch of unassigned tasks for this project
-    and assign to the user
-    """
-    cur_user = request.user
-    project = Project.objects.get(pk=pk)
-
-    if not project.is_published:
-        return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
-
-    serializer = ProjectUsersSerializer(project, many=False)
-    annotator_ids = {annotator["id"] for annotator in serializer.data["annotators"]}
-
-    if cur_user.id not in annotator_ids:
-        return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
-
-    proj_annotations = Annotation_model.objects.filter(
-        task__project_id=pk,
-        annotation_status__exact=UNLABELED,
-        completed_by=cur_user
-    )
-    annotation_tasks = [anno.task.id for anno in proj_annotations]
-
-    if project.project_type in get_audio_project_types():
-        pending_tasks = (
-            Task.objects.filter(project_id=pk)
-            .filter(annotation_users=cur_user.id)
-            .filter(task_status__in=[INCOMPLETE, UNLABELED])
-            .filter(id__in=annotation_tasks)
-            .filter(
-                Exists(
-                    SpeechConversation.objects.filter(
-                        id=OuterRef("input_data_id"), freeze_task=False
-                    )
-                )
-            )
-            .count()
+    def assign_new_tasks(self, request, pk, *args, **kwargs):
+        """
+        Pull a new batch of unassigned tasks for this project
+        and assign to the user
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+    
+        if not project.is_published:
+            return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
+    
+        serializer = ProjectUsersSerializer(project, many=False)
+        annotator_ids = {annotator["id"] for annotator in serializer.data["annotators"]}
+    
+        if cur_user.id not in annotator_ids:
+            return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
+    
+        proj_annotations = Annotation_model.objects.filter(
+            task__project_id=pk,
+            annotation_status__exact=UNLABELED,
+            completed_by=cur_user
         )
-    else:
-        pending_tasks = (
-            Task.objects.filter(project_id=pk)
-            .filter(annotation_users=cur_user.id)
-            .filter(task_status__in=[INCOMPLETE, UNLABELED])
-            .filter(id__in=annotation_tasks)
-            .count()
-        )
-
-    if pending_tasks >= project.max_pending_tasks_per_user:
-        return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
-
-    tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
-    task_pull_count = request.data.get("num_tasks", project.tasks_pull_count_per_batch)
-    tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
-
-    with transaction.atomic():
-        tasks = (
-            Task.objects
-            .select_for_update(skip_locked=True)
-            .filter(
-                project_id=pk,
-                task_status__in=[INCOMPLETE, UNLABELED]
-            )
-            .exclude(annotation_users=cur_user.id)
-            .order_by("id")
-        )
-
+        annotation_tasks = [anno.task.id for anno in proj_annotations]
+    
         if project.project_type in get_audio_project_types():
-            tasks = tasks.filter(
-                Exists(
-                    SpeechConversation.objects.filter(
-                        id=OuterRef("input_data_id"), freeze_task=False
+            pending_tasks = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .filter(task_status__in=[INCOMPLETE, UNLABELED])
+                .filter(id__in=annotation_tasks)
+                .filter(
+                    Exists(
+                        SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"), freeze_task=False
+                        )
                     )
                 )
+                .count()
             )
-
-        selected_tasks = []
-        for task in tasks:
-            if task.annotation_users.count() < project.required_annotators_per_task:
-                selected_tasks.append(task)
-            if len(selected_tasks) >= tasks_to_be_assigned:
-                break
-
-        if not selected_tasks:
-            return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
-
-        for task in selected_tasks:
-            task.annotation_users.add(cur_user)
-            task.save()
-            result = []
-            if project.project_type in [
-                "AcousticNormalisedTranscriptionEditing",
-                "AudioTranscriptionEditing",
-                "OCRTranscriptionEditing",
-                "OCRSegmentCategorizationEditing",
-                "OCRTextlineSegmentation",
-            ]:
-                try:
-                    result = convert_prediction_json_to_annotation_result(
-                        task.input_data.id, project.project_type, None, None, False
-                    )
-                except Exception as e:
-                    result = []
-
-            annotator_anno_count = Annotation_model.objects.filter(
-                task_id=task, annotation_type=ANNOTATOR_ANNOTATION
-            ).count()
-
-            if annotator_anno_count < project.required_annotators_per_task:
-                cur_user_anno_count = Annotation_model.objects.filter(
-                    task_id=task,
-                    annotation_type=ANNOTATOR_ANNOTATION,
-                    completed_by=cur_user,
-                ).count()
-                if cur_user_anno_count == 0:
-                    try:
-                        _, created = Annotation_model.objects.get_or_create(
-                            task=task,
-                            completed_by=cur_user,
-                            annotation_type=ANNOTATOR_ANNOTATION,
-                            defaults={"result": result}
+        else:
+            pending_tasks = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .filter(task_status__in=[INCOMPLETE, UNLABELED])
+                .filter(id__in=annotation_tasks)
+                .count()
+            )
+    
+        if pending_tasks >= project.max_pending_tasks_per_user:
+            return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
+    
+        tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
+        task_pull_count = request.data.get("num_tasks", project.tasks_pull_count_per_batch)
+        tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
+    
+        with transaction.atomic():
+            tasks = (
+                Task.objects
+                .select_for_update(skip_locked=True)
+                .filter(
+                    project_id=pk,
+                    task_status__in=[INCOMPLETE, UNLABELED]
+                )
+                .exclude(annotation_users=cur_user.id)
+                .order_by("id")
+            )
+    
+            if project.project_type in get_audio_project_types():
+                tasks = tasks.filter(
+                    Exists(
+                        SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"), freeze_task=False
                         )
-                        if not created:
-                            print(f"Annotation for task id {task.id} already exists.")
+                    )
+                )
+    
+            selected_tasks = []
+            for task in tasks:
+                if task.annotation_users.count() < project.required_annotators_per_task:
+                    selected_tasks.append(task)
+                if len(selected_tasks) >= tasks_to_be_assigned:
+                    break
+    
+            if not selected_tasks:
+                return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
+    
+            for task in selected_tasks:
+                task.annotation_users.add(cur_user)
+                task.save()
+                result = []
+                if project.project_type in [
+                    "AcousticNormalisedTranscriptionEditing",
+                    "AudioTranscriptionEditing",
+                    "OCRTranscriptionEditing",
+                    "OCRSegmentCategorizationEditing",
+                    "OCRTextlineSegmentation",
+                ]:
+                    try:
+                        result = convert_prediction_json_to_annotation_result(
+                            task.input_data.id, project.project_type, None, None, False
+                        )
+                    except Exception as e:
+                        result = []
+    
+                annotator_anno_count = Annotation_model.objects.filter(
+                    task_id=task, annotation_type=ANNOTATOR_ANNOTATION
+                ).count()
+    
+                if annotator_anno_count < project.required_annotators_per_task:
+                    cur_user_anno_count = Annotation_model.objects.filter(
+                        task_id=task,
+                        annotation_type=ANNOTATOR_ANNOTATION,
+                        completed_by=cur_user,
+                    ).count()
+                    if cur_user_anno_count == 0:
+                        try:
+                            _, created = Annotation_model.objects.get_or_create(
+                                task=task,
+                                completed_by=cur_user,
+                                annotation_type=ANNOTATOR_ANNOTATION,
+                                defaults={"result": result}
+                            )
+                            if not created:
+                                print(f"Annotation for task id {task.id} already exists.")
+                                continue
+                        except IntegrityError:
+                            print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
                             continue
-                    except IntegrityError:
-                        print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
-                        continue
-                else:
-                    task.annotation_users.remove(cur_user)
-                    task.save()
-
-        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+                    else:
+                        task.annotation_users.remove(cur_user)
+                        task.save()
+    
+            return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
 
     @action(
