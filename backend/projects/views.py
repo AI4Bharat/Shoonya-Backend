@@ -2469,38 +2469,38 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         completed_by=cur_user,
                     ).count()
                     if cur_user_anno_count == 0:
-                    try:
-                        _, created = Annotation_model.objects.get_or_create(
-                            task=task,
-                            completed_by=cur_user,
-                            annotation_type=ANNOTATOR_ANNOTATION,
-                            defaults={"result": result}
-                        )
-                        if not created:
-                            print(f"Annotation for task id {task.id} already exists.")
+                        try:
+                            _, created = Annotation_model.objects.get_or_create(
+                                task=task,
+                                completed_by=cur_user,
+                                annotation_type=ANNOTATOR_ANNOTATION,
+                                defaults={"result": result}
+                            )
+                            if not created:
+                                print(f"Annotation for task id {task.id} already exists.")
+                                continue
+                        except IntegrityError:
+                            # In case race condition still slips through
+                            print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
                             continue
-                    except IntegrityError:
-                        # In case race condition still slips through
-                        print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
-                        continue
-                        
+                            
                         """except IntegrityError as e:
                             print(
                                 f"Task and completed_by fields are same while assigning new task "
                                 f"for project id-{project.id}, user-{cur_user.email}"
                             )
                         """
-                else:
-                    cur_user_anno_count = Annotation_model.objects.filter(
-                        task_id=task,
-                        annotation_type=ANNOTATOR_ANNOTATION,
-                        completed_by=cur_user,
-                    ).count()
-                    if cur_user_anno_count == 0:
-                        task.annotation_users.remove(cur_user)
-                        task.save()
+                    else:
+                        cur_user_anno_count = Annotation_model.objects.filter(
+                            task_id=task,
+                            annotation_type=ANNOTATOR_ANNOTATION,
+                            completed_by=cur_user,
+                        ).count()
+                        if cur_user_anno_count == 0:
+                            task.annotation_users.remove(cur_user)
+                            task.save()
     
-        return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+            return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
 
 
     @action(
