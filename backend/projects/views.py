@@ -2477,7 +2477,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         defaults={"result": result}
                     )
                     if not created:
-                        # Already exists, no action needed
+                        print(f"Annotation for task id {task.id} already exists.")
                         continue
                 except IntegrityError:
                     # In case race condition still slips through
