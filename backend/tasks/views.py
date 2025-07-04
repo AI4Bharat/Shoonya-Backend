@@ -24,6 +24,9 @@ from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+from .utils import transcribe_audio
 from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
@@ -2774,3 +2777,28 @@ def delete_celery_task(req):
     task.forget()
 
     return JsonResponse({"message": "Task deleted successfully"}, status=200)
+
+class TranscribeAPIView(APIView):
+    """API for audio transcription"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        audio_base64 = request.data.get("audioBase64")
+        lang = request.data.get("lang", "hi") 
+
+        if not audio_base64:
+            return Response(
+                {"error": "Missing audio data"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        transcript = transcribe_audio(audio_base64, lang)
+
+        if transcript:
+            return Response({"transcript": transcript})
+        else:
+            return Response(
+                {"error": "Transcription failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+

@@ -5,6 +5,7 @@ from tasks.views import (
     TaskViewSet,
     AnnotationViewSet,
     PredictionViewSet,
+    TranscribeAPIView,
     get_celery_tasks,
     stopping_celery_tasks,
     resume_celery_task,
@@ -17,6 +18,11 @@ router = routers.DefaultRouter()
 # router.register(r"annotation", AnnotationViewSet, basename="annotation")
 
 urlpatterns = [
+    path(
+        "asr-api/generic/transcribe",
+        TranscribeAPIView.as_view(),
+        name="transcription-api",
+    ),
     path("get_celery_tasks/", get_celery_tasks),
     path("stopping_celery_tasks/", stopping_celery_tasks),
     path("resume_celery_task/", resume_celery_task),
