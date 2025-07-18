@@ -38,6 +38,11 @@ from projects.utils import (
 from . import resources
 from .models import *
 from .serializers import *
+from django.db.models import Prefetch, Q, F  
+from utils.dataset_utils import get_batch_dataset_upload_status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework import status
 from .tasks import upload_data_to_data_instance, deduplicate_dataset_instance_items
 import dataset
 from tasks.models import (
@@ -244,6 +249,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
+    
+    
     def list(self, request, *args, **kwargs):
         # Org Owners and superusers see all datasets
         if request.user.is_superuser:
@@ -257,7 +264,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             queryset = DatasetInstance.objects.filter(
                 organisation_id=request.user.organization
             ).filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
-
         if "dataset_visibility" in request.query_params:
             dataset_visibility = request.query_params["dataset_visibility"]
             if dataset_visibility == "all_public_datasets":
@@ -267,18 +273,15 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(public_to_managers=True)
             elif dataset_visibility == "my_datasets":
                 queryset = queryset.filter(users__id=request.user.id)
-
         # Filter the queryset based on the query params
         if "dataset_type" in dict(request.query_params):
             queryset = queryset.filter(
                 dataset_type__exact=request.query_params["dataset_type"]
             )
-
         # Serialize the distinct items and sort by instance ID
         serializer = DatasetInstanceSerializer(
             queryset.distinct().order_by("instance_id"), many=True
         )
-
         # Add status fields to the serializer data
         for dataset_instance in serializer.data:
             # Get the task statuses for the dataset instance
@@ -288,14 +291,118 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_instance_time,
                 dataset_instance_result,
             ) = get_dataset_upload_status(dataset_instance["instance_id"])
-
             # Add the task status and time to the dataset instance response
             dataset_instance["last_upload_status"] = dataset_instance_status
             dataset_instance["last_upload_date"] = dataset_instance_date
             dataset_instance["last_upload_time"] = dataset_instance_time
             dataset_instance["last_upload_result"] = dataset_instance_result
-
         return Response(serializer.data)
+    
+    
+    # def get_queryset(self):
+    @action(detail=False, methods=["get"], url_path="optimized-list")
+    def list_optimized(self, request):
+        # Base queryset determination based on user role
+        queryset = DatasetInstance.objects.all()
+        if request.user.is_superuser:
+            queryset = queryset
+        elif request.user.role == User.ORGANIZATION_OWNER:
+            queryset = queryset.filter(
+                organisation_id=request.user.organization
+            )
+        else:
+            queryset = queryset.filter(
+                organisation_id=request.user.organization
+            ).filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
+        # Apply filters using request query parameters
+        dataset_visibility = request.query_params.get("dataset_visibility")
+        if dataset_visibility == "all_public_datasets":
+            queryset = queryset.filter(public_to_managers=True)
+        elif dataset_visibility == "my_datasets":
+            queryset = queryset.filter(users__id=request.user.id)
+        dataset_type = request.query_params.get("dataset_type")
+        if dataset_type:
+            queryset = queryset.filter(dataset_type__exact=dataset_type)
+        archived_datasets = request.query_params.get("archived_datasets")
+        # Sort by criteria
+        sort_type = request.query_params.get("sort_type")
+        if sort_type == "recently_updated":
+            queryset = queryset.order_by(F("last_updated").desc(nulls_last=True))
+        else:
+            queryset = queryset.order_by("instance_id")
+        # Optimize related field loading
+        queryset = queryset.prefetch_related(
+            Prefetch("users"),  # Prefetch the related users
+        )
+        # Serialize the data
+        serializer = DatasetInstanceSerializerOptimized(queryset.distinct(), many=True)
+        # Batch process upload status for all datasets
+        # instance_ids = [instance["instance_id"] for instance in serializer.data]
+        # status_data = get_batch_dataset_upload_status(instance_ids)
+        # # Annotate upload status in the response
+        # for dataset_instance in serializer.data:
+        #     instance_id = dataset_instance["instance_id"]
+        #     if instance_id in status_data:
+        #         dataset_instance.update(status_data[instance_id])
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+    
+    # def list_optimized(self, request):
+    #      # Base queryset determination based on user role
+    #      if request.user.is_superuser:
+    #          queryset = DatasetInstance.objects.all()
+    #      elif request.user.role == User.ORGANIZATION_OWNER:
+    #          queryset = DatasetInstance.objects.filter(
+    #              organisation_id=request.user.organization
+    #          )
+    #      else:
+    #          queryset = DatasetInstance.objects.filter(
+    #              organisation_id=request.user.organization
+    #          ).filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
+    #      # Apply optional filters based on query parameters
+    #      if "dataset_visibility" in request.query_params:
+    #          dataset_visibility = request.query_params["dataset_visibility"]
+    #          if dataset_visibility == "all_public_datasets":
+    #              if (
+    #                  request.user.role == User.WORKSPACE_MANAGER
+    #                  and not request.user.is_superuser
+    #              ):
+    #                  queryset = queryset.filter(public_to_managers=True)
+    #          elif dataset_visibility == "my_datasets":
+    #              queryset = queryset.filter(users__id=request.user.id)
+    #      if "dataset_type" in request.query_params:
+    #          queryset = queryset.filter(
+    #              dataset_type__exact=request.query_params["dataset_type"]
+    #          )
+    #      if "archived_datasets" in request.query_params:
+    #          archived_datasets = request.query_params["archived_datasets"] == "true"
+    #          queryset = queryset.filter(is_archived=archived_datasets)
+    #      # Add sorting by custom criteria
+    #      if (
+    #          "sort_type" in request.query_params
+    #          and request.query_params["sort_type"] == "recently_updated"
+    #      ):
+    #          queryset = queryset.order_by(F("last_updated").desc(nulls_last=True))
+    #      else:
+    #          queryset = queryset.order_by(F("instance_id").asc())
+    #      # Serialize the distinct items using the optimized serializer
+    #      serializer = DatasetInstanceSerializerOptimized(queryset.distinct(), many=True)
+    #      # Add additional status fields to each dataset instance
+    #      for dataset_instance in serializer.data:
+    #          (
+    #              dataset_instance_status,
+    #              dataset_instance_date,
+    #              dataset_instance_time,
+    #              dataset_instance_result,
+    #          ) = get_dataset_upload_status(dataset_instance["instance_id"])
+    #          dataset_instance["last_upload_status"] = dataset_instance_status
+    #          dataset_instance["last_upload_date"] = dataset_instance_date
+    #          dataset_instance["last_upload_time"] = dataset_instance_time
+    #          dataset_instance["last_upload_result"] = dataset_instance_result
+    #      return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="Download Dataset in CSV format")
