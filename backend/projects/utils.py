@@ -351,38 +351,12 @@ def get_annotations_for_project(
     )
 
 
-def process_conversation_tasks(task, is_translation, is_verification):
-    conversation_json = get_conversation_json(
-        task["input_data"], is_translation, is_verification
-    )
-    conversation_json = process_conversation_results(
-        task, conversation_json, is_verification
-    )
-    update_task_data(task, conversation_json, is_verification)
 
 
-def process_speech_tasks(task, is_audio_segmentation, project_type):
-    annotation_result = process_annotation_result(task)
-    speakers_json = task["data"]["speakers_json"]
-    process_speech_results(
-        task, annotation_result, speakers_json, is_audio_segmentation, project_type
-    )
 
 
-def process_ocr_tasks(
-    task,
-    is_OCRSegmentCategorization,
-    is_OCRSegmentCategorizationEditing,
-    is_OCRTextlineSegmentation,
-):
-    annotation_result = process_annotation_result(task)
-    process_ocr_results(
-        task,
-        annotation_result,
-        is_OCRSegmentCategorization,
-        is_OCRSegmentCategorizationEditing,
-        is_OCRTextlineSegmentation,
-    )
+
+
 
 
 def get_conversation_json(input_data, is_translation, is_verification):
@@ -565,3 +539,289 @@ def process_task(
         task_dict["data"] = data
 
     return OrderedDict(task_dict)
+
+def process_conversation_tasks(task, is_translation, is_verification):
+    conversation_json = get_conversation_json(
+        task["input_data"], is_translation, is_verification
+    )
+    conversation_json = process_conversation_results(
+        task, conversation_json, is_verification
+    )
+    update_task_data(task, conversation_json, is_verification)
+
+def process_speech_tasks(task, is_audio_segmentation, project_type):
+    annotation_result = process_annotation_result(task)
+    speakers_json = task["data"]["speakers_json"]
+    process_speech_results(
+        task, annotation_result, speakers_json, is_audio_segmentation, project_type
+    )
+    
+def process_ocr_tasks(
+    task,
+    is_OCRSegmentCategorization,
+    is_OCRSegmentCategorizationEditing,
+    is_OCRTextlineSegmentation,
+):
+    annotation_result = process_annotation_result(task)
+    process_ocr_results(
+        task,
+        annotation_result,
+        is_OCRSegmentCategorization,
+        is_OCRSegmentCategorizationEditing,
+        is_OCRTextlineSegmentation,
+    )
+    
+    
+    
+    
+    
+    
+#  from here functions for export are defined 
+def process_task_ex(
+    task,
+    export_type,
+    include_input_data_metadata_json,
+    dataset_model,
+    is_audio_project_type,
+    fetch_parent_data_field,
+):
+    task_dict = model_to_dict(task)
+
+    if export_type != "JSON":
+        task_dict["data"]["task_status"] = task.task_status
+
+    task_dict["annotations"] = []
+    all_annotations = task.annotations.all().select_related("completed_by")
+
+    for annotation in all_annotations:
+        try:
+            annotation_dict = model_to_dict(annotation)
+            annotation_dict["created_at"] = str(annotation.created_at)
+            annotation_dict["updated_at"] = str(annotation.updated_at)
+            annotation_dict["annotation_type"] = annotation.annotation_type
+            annotation_dict["completed_by_id"] = annotation.completed_by.id if annotation.completed_by else None
+            annotation_dict["completed_by_email"] = annotation.completed_by.email if annotation.completed_by else ""
+            annotation_dict["completed_by_name"] = annotation.completed_by.first_name if annotation.completed_by else ""
+            task_dict["annotations"].append(OrderedDict(annotation_dict))
+        except Exception as e:
+            continue
+
+    # optionally, include annotator emails for filtering
+    task_dict["data"]["annotator_emails"] = [
+        ann.get("completed_by_email", "") for ann in task_dict["annotations"]
+    ]
+
+    # Add input_data_metadata_json if required
+    if include_input_data_metadata_json and dataset_model:
+        try:
+            task_dict["data"]["input_data_metadata_json"] = dataset_model.objects.get(
+                pk=task_dict["input_data"]
+            ).metadata_json
+        except Exception:
+            task_dict["data"]["input_data_metadata_json"] = {}
+
+    # Add fetch_parent_data_field if required
+    try:
+        if fetch_parent_data_field and dataset_model:
+            parent_data_item = dataset_model.objects.get(
+                pk=task_dict["input_data"]
+            ).parent_data
+            if parent_data_item:
+                parent_model = getattr(dataset_models, parent_data_item.instance_id.dataset_type)
+                parent_dataset_model = parent_model.objects.get(pk=parent_data_item.id)
+                task_dict["data"]["fetch_parent_data_field"] = getattr(
+                    parent_dataset_model, fetch_parent_data_field, None
+                )
+    except Exception:
+        pass
+
+    # Clean up unnecessary fields
+    task_dict.pop("annotation_users", None)
+    task_dict.pop("review_user", None)
+
+    # Remove large audio file links if not needed
+    if is_audio_project_type:
+        task_dict["data"].pop("audio_url", None)
+
+    return OrderedDict(task_dict)
+
+
+def process_conversation_resultse_ex(annotation, conversation_json, is_ConversationVerification):
+    if isinstance(conversation_json, str):
+        conversation_json = json.loads(conversation_json)
+
+    # Clear existing text
+    for idx1 in range(len(conversation_json)):
+        for idx2 in range(len(conversation_json[idx1]["sentences"])):
+            conversation_json[idx1]["sentences"][idx2] = ""
+
+    quality_status = None
+
+    for result in annotation.get("result", []):
+        if isinstance(result, str):
+            result_formatted = json.loads(result)
+        else:
+            result_formatted = result
+
+        if result_formatted["to_name"] != "quality_status":
+            to_name_list = result_formatted["to_name"].split("_")
+            idx1 = int(to_name_list[1])
+            idx2 = int(to_name_list[2])
+            conversation_json[idx1]["sentences"][idx2] = ".".join(
+                map(str, result_formatted["value"]["text"])
+            )
+        else:
+            quality_status = result_formatted["value"]["choices"][0]
+
+    return conversation_json, quality_status
+
+def process_conversation_tasks_ex(task, is_translation, is_verification):
+    task["data"]["conversation_outputs"] = []
+
+    for annotation in task.get("annotations", []):
+        try:
+            conversation_json = get_conversation_json(
+                task["input_data"], is_translation, is_verification
+            )
+
+            updated_conversation_json, quality_status = process_conversation_resultse_ex(
+                annotation, conversation_json, is_verification
+            )
+
+            output = {
+                "annotation_id": annotation.get("id"),
+                "email": annotation.get("completed_by_email", ""),
+                "conversation_json": updated_conversation_json
+            }
+
+            if is_verification:
+                output["verified_quality_status"] = quality_status
+
+            task["data"]["conversation_outputs"].append(output)
+
+        except Exception as e:
+            continue
+
+
+def process_annotation_result_from_annotation(annotation):
+    annotation_result = annotation.get("result", [])
+    return (
+        json.loads(annotation_result)
+        if isinstance(annotation_result, str)
+        else annotation_result
+    )
+def process_speech_results_multi(
+    annotation_result, speakers_json, is_audio_segmentation, project_type
+):
+    from projects.views import convert_annotation_result_to_formatted_json
+
+    if is_audio_segmentation:
+        return convert_annotation_result_to_formatted_json(
+            annotation_result, speakers_json, True, False, False
+        )
+    else:
+        return convert_annotation_result_to_formatted_json(
+            annotation_result,
+            speakers_json,
+            True,
+            False,
+            project_type == "AcousticNormalisedTranscriptionEditing",
+        )
+
+def process_speech_tasks_ex(task, is_audio_segmentation, project_type):
+    task["data"]["speech_outputs"] = []
+    speakers_json = task["data"].get("speakers_json", {})
+
+    for annotation in task.get("annotations", []):
+        try:
+            annotation_result = process_annotation_result_from_annotation(annotation)
+
+            result_json = process_speech_results_multi(
+                annotation_result, speakers_json, is_audio_segmentation, project_type
+            )
+
+            task["data"]["speech_outputs"].append({
+                "annotation_id": annotation.get("id"),
+                "email": annotation.get("completed_by_email", ""),
+                "type": "segmentation" if is_audio_segmentation else "transcription",
+                "result_json": result_json
+            })
+        except Exception:
+            continue
+
+def process_annotation_result_from_annotationOCR(annotation):
+    annotation_result = annotation.get("result", [])
+    return (
+        json.loads(annotation_result)
+        if isinstance(annotation_result, str)
+        else annotation_result
+    )
+def process_ocr_results_multi(
+    annotation_result,
+    task_data,
+    is_OCRSegmentCategorization,
+    is_OCRSegmentCategorizationEditing,
+    is_OCRTextlineSegmentation,
+):
+    from projects.views import convert_annotation_result_to_formatted_json
+
+    transcribed_json = convert_annotation_result_to_formatted_json(
+        annotation_result,
+        None,
+        False,
+        is_OCRSegmentCategorization
+        or is_OCRSegmentCategorizationEditing
+        or is_OCRTextlineSegmentation,
+        False,
+    )
+
+    bboxes_relation_json = []
+    if (
+        is_OCRSegmentCategorization
+        or is_OCRSegmentCategorizationEditing
+        or is_OCRTextlineSegmentation
+    ):
+        for ann in annotation_result:
+            if "type" in ann and ann["type"] == "relation":
+                bboxes_relation_json.append(ann)
+
+    task_data = json.loads(task_data) if isinstance(task_data, str) else task_data
+    language = task_data.get("language", [])
+    ocr_domain = task_data.get("ocr_domain", "")
+    doc_details = {
+        "language": language,
+        "ocr_domain": ocr_domain,
+    }
+
+    return transcribed_json, bboxes_relation_json, doc_details
+
+def process_ocr_tasks_ex(
+    task,
+    is_OCRSegmentCategorization,
+    is_OCRSegmentCategorizationEditing,
+    is_OCRTextlineSegmentation,
+):
+    task["data"]["ocr_outputs"] = []
+
+    for annotation in task.get("annotations", []):
+        try:
+            annotation_result = process_annotation_result_from_annotationOCR(annotation)
+
+            transcribed_json, bboxes_json, doc_details = process_ocr_results_multi(
+                annotation_result,
+                task["data"],
+                is_OCRSegmentCategorization,
+                is_OCRSegmentCategorizationEditing,
+                is_OCRTextlineSegmentation,
+            )
+
+            task["data"]["ocr_outputs"].append({
+                "annotation_id": annotation.get("id"),
+                "email": annotation.get("completed_by_email", ""),
+                "ocr_transcribed_json": transcribed_json,
+                "bboxes_relation_json": bboxes_json,
+                "annotated_document_details_json": doc_details,
+            })
+
+        except Exception:
+            continue
