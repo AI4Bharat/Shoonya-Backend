@@ -11,6 +11,7 @@ from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
+from .serializers import ProjectUsersSerializer
 
 import notifications
 from shoonya_backend.pagination import CustomPagination
@@ -659,9 +660,9 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         result["Rejected Word Count"] = rejected_word_count
     elif proj_type in get_audio_project_types():
         result["Validated Segments Duration"] = validated_audio_duration
-        result[
-            "Validated With Changes Segments Duration"
-        ] = validated_with_changes_audio_duration
+        result["Validated With Changes Segments Duration"] = (
+            validated_with_changes_audio_duration
+        )
         result["Rejected Segments Duration"] = rejected_audio_duration
         result["Total Raw Audio Duration"] = total_raw_audio_duration
         result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
@@ -2153,9 +2154,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if automatic_annotation_creation_mode != None:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
-                proj.metadata_json[
-                    "automatic_annotation_creation_mode"
-                ] = automatic_annotation_creation_mode
+                proj.metadata_json["automatic_annotation_creation_mode"] = (
+                    automatic_annotation_creation_mode
+                )
             if proj.project_type in [
                 "AcousticNormalisedTranscriptionEditing",
                 "StandardizedTranscriptionEditing",
@@ -4014,70 +4015,172 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @project_is_archived
     @is_org_owner
     def pull_new_items(self, request, pk=None, *args, **kwargs):
-        """
-        Pull New Data Items to the Project
-        """
         try:
+            # Lock project row during this check
+            with transaction.atomic():
+                project = Project.objects.select_for_update().get(pk=pk)
+
+                if project.is_item_pull_in_progress:
+                    return Response(
+                        {
+                            "message": "Another pull is already in progress. Please wait."
+                        },
+                        status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    )
+
+                # Mark project as in-progress
+                project.is_item_pull_in_progress = True
+                project.save()
+
+            # Reload project without locking
             project = Project.objects.get(pk=pk)
-            if project.sampling_mode != BATCH and project.sampling_mode != FULL:
-                ret_dict = {"message": "Sampling Mode is neither FULL nor BATCH!"}
-                ret_status = status.HTTP_403_FORBIDDEN
-                return Response(ret_dict, status=ret_status)
-            # Get serializer with the project user data
+
+            if project.sampling_mode not in ["FULL", "BATCH"]:
+                return Response(
+                    {"message": "Sampling Mode is neither FULL nor BATCH!"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             try:
                 serializer = ProjectUsersSerializer(project, many=False)
-            except User.DoesNotExist:
-                ret_dict = {"message": "User does not exist!"}
-                ret_status = status.HTTP_404_NOT_FOUND
-                return Response(ret_dict, status=ret_status)
-            # Get project instance and check how many items to pull
+            except Exception:
+                return Response(
+                    {"message": "User does not exist!"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
             project_type = project.project_type
-            ids_to_exclude = Task.objects.filter(project_id__exact=project)
+            ids_to_exclude = Task.objects.filter(project_id=project.pk)
             items = filter_data_items(
                 project_type,
                 list(project.dataset_id.all()),
                 project.filter_string,
             )
-            if items:
-                if project.sampling_mode == BATCH:
-                    try:
-                        batch_size = project.sampling_parameters_json["batch_size"]
-                        batch_number = project.sampling_parameters_json["batch_number"]
-                    except Exception as e:
-                        raise Exception("Sampling parameters are not present")
-                    if not isinstance(batch_number, list):
-                        batch_number = [batch_number]
-                    sampled_items = []
-                    for batch_num in batch_number:
-                        sampled_items += items[
-                            batch_size * (batch_num - 1) : batch_size * batch_num
-                        ]
-                else:
-                    sampled_items = items
-                ids_to_exclude_set = set(
-                    id["input_data"] for id in ids_to_exclude.values("input_data")
+
+            if not items:
+                return Response(
+                    {"message": "No items to pull into the dataset."},
+                    status=status.HTTP_404_NOT_FOUND,
                 )
-                filtered_items = [
-                    item
-                    for item in sampled_items
-                    if item["id"] not in ids_to_exclude_set
-                ]
-                if not filtered_items:
+
+            if project.sampling_mode == "BATCH":
+                try:
+                    batch_size = project.sampling_parameters_json["batch_size"]
+                    batch_number = project.sampling_parameters_json["batch_number"]
+                except Exception:
+                    return Response(
+                        {"message": "Sampling parameters are not present"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                if not isinstance(batch_number, list):
+                    batch_number = [batch_number]
+
+                sampled_items = []
+                for batch_num in batch_number:
+                    sampled_items += items[
+                        batch_size * (batch_num - 1) : batch_size * batch_num
+                    ]
+            else:
+                sampled_items = items
+
+            ids_to_exclude_set = set(
+                id["input_data"] for id in ids_to_exclude.values("input_data")
+            )
+            filtered_items = [
+                item for item in sampled_items if item["id"] not in ids_to_exclude_set
+            ]
+
+            if not filtered_items:
+                return Response(
+                    {"message": "No items to pull into the dataset."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Call Celery async task
+            add_new_data_items_into_project.delay(project_id=pk, items=filtered_items)
+
+            return Response(
+                {"message": "Adding new tasks to the project."},
+                status=status.HTTP_200_OK,
+            )
+
+        except Project.DoesNotExist:
+            return Response(
+                {"message": "Project does not exist!"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        finally:
+            # Always clear the flag
+            Project.objects.filter(pk=pk).update(is_item_pull_in_progress=False)
+            """
+            Pull New Data Items to the Project
+            """
+            try:
+                project = Project.objects.get(pk=pk)
+                if project.sampling_mode != BATCH and project.sampling_mode != FULL:
+                    ret_dict = {"message": "Sampling Mode is neither FULL nor BATCH!"}
+                    ret_status = status.HTTP_403_FORBIDDEN
+                    return Response(ret_dict, status=ret_status)
+                # Get serializer with the project user data
+                try:
+                    serializer = ProjectUsersSerializer(project, many=False)
+                except User.DoesNotExist:
+                    ret_dict = {"message": "User does not exist!"}
+                    ret_status = status.HTTP_404_NOT_FOUND
+                    return Response(ret_dict, status=ret_status)
+                # Get project instance and check how many items to pull
+                project_type = project.project_type
+                ids_to_exclude = Task.objects.filter(project_id__exact=project)
+                items = filter_data_items(
+                    project_type,
+                    list(project.dataset_id.all()),
+                    project.filter_string,
+                )
+                if items:
+                    if project.sampling_mode == BATCH:
+                        try:
+                            batch_size = project.sampling_parameters_json["batch_size"]
+                            batch_number = project.sampling_parameters_json[
+                                "batch_number"
+                            ]
+                        except Exception as e:
+                            raise Exception("Sampling parameters are not present")
+                        if not isinstance(batch_number, list):
+                            batch_number = [batch_number]
+                        sampled_items = []
+                        for batch_num in batch_number:
+                            sampled_items += items[
+                                batch_size * (batch_num - 1) : batch_size * batch_num
+                            ]
+                    else:
+                        sampled_items = items
+                    ids_to_exclude_set = set(
+                        id["input_data"] for id in ids_to_exclude.values("input_data")
+                    )
+                    filtered_items = [
+                        item
+                        for item in sampled_items
+                        if item["id"] not in ids_to_exclude_set
+                    ]
+                    if not filtered_items:
+                        ret_dict = {"message": "No items to pull into the dataset."}
+                        ret_status = status.HTTP_404_NOT_FOUND
+                        return Response(ret_dict, status=ret_status)
+                else:
                     ret_dict = {"message": "No items to pull into the dataset."}
                     ret_status = status.HTTP_404_NOT_FOUND
                     return Response(ret_dict, status=ret_status)
-            else:
-                ret_dict = {"message": "No items to pull into the dataset."}
+                    # Pull new data items in to the project asynchronously
+                add_new_data_items_into_project.delay(
+                    project_id=pk, items=filtered_items
+                )
+                ret_dict = {"message": "Adding new tasks to the project."}
+                ret_status = status.HTTP_200_OK
+            except Project.DoesNotExist:
+                ret_dict = {"message": "Project does not exist!"}
                 ret_status = status.HTTP_404_NOT_FOUND
-                return Response(ret_dict, status=ret_status)
-                # Pull new data items in to the project asynchronously
-            add_new_data_items_into_project.delay(project_id=pk, items=filtered_items)
-            ret_dict = {"message": "Adding new tasks to the project."}
-            ret_status = status.HTTP_200_OK
-        except Project.DoesNotExist:
-            ret_dict = {"message": "Project does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-        return Response(ret_dict, status=ret_status)
+            return Response(ret_dict, status=ret_status)
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
     @is_org_owner
