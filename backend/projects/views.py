@@ -6,7 +6,7 @@ import pandas as pd
 import ast
 import csv
 import math
-
+import sys
 from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
@@ -70,6 +70,8 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     filter_data_items,
+    populate_asr_try,
+    populate_asr_yt
 )
 
 from .decorators import (
@@ -95,7 +97,9 @@ from users.utils import generate_random_string
 from notifications.views import createNotification
 from notifications.utils import get_userids_from_project_id
 import json
-
+from threading import Lock
+lock = Lock()
+endpoint_hit = False
 # Create your views here.
 
 
@@ -4171,6 +4175,64 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
+    # from here translitrartion work starts
+# For Text    
+    @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions", 
+        url_name="populate_asr_model_predictions")
+    def populate_asr_model_predictions(self, request):       
+        global endpoint_hit
+        with lock:
+            if endpoint_hit:
+                return Response(
+                    {"message": "Endpoint already triggered."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            endpoint_hit = True
+
+        data = request.data
+        model_language = data.get("model_language")
+        project_ids = data.get("project_ids", [])
+        stage = data.get("stage", "l1")
+
+        if stage not in ["l1", "l2"]:
+            return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+        if not model_language:
+            return JsonResponse({"error": "Missing model_language"}, status=400)
+
+        populate_asr_try.delay(model_language, project_ids, stage)
+
+        return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
+
+
+# For Youtube    
+    @action(detail=False, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
+    def populate_asr_model_predictions_yt(self, request):
+        global endpoint_hit
+        with lock:
+            if endpoint_hit:
+                return Response(
+                    {"message": "Endpoint already triggered."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            endpoint_hit = True
+        data = request.data
+        model_language = data.get("model_language")
+        project_ids = data.get("project_ids", [])
+        stage = data.get("stage", "l1")
+
+        if stage not in ["l1", "l2"]:
+            return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+        if not model_language:
+            return JsonResponse({"error": "Missing model_language"}, status=400)
+
+        populate_asr_yt.delay(model_language, project_ids, stage)
+        return JsonResponse({"message": f"populate_asr_yt started successfully for stage {stage}!"})
+# Here translitrartion work ends
+
+
 
     @action(detail=True, methods=["POST", "GET"], name="Download a Project")
     @is_org_owner
