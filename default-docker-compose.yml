@@ -1,0 +1,81 @@
+version: '3.3'
+
+services:
+  web:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend/:/usr/src/backend/
+      - static_volume:/usr/src/backend/static
+    ports:
+      - 8000:8000
+    depends_on:
+      - redis
+    networks:
+      - shoonya_backend
+  redis:
+    container_name: redis
+    image: "redis"
+    ports:
+      - 6379:6379
+    networks:
+      - shoonya_backend
+
+  celery:
+    container_name: celery-default
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker -Q default --concurrency=2 --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend/
+    depends_on:
+      - redis
+      - web
+    networks:
+      - shoonya_backend
+
+  # This is the additional queue which contains the low-priority celery tasks. We can adjust the concurrency and workers alloted to this container.
+  celery2:
+    container_name: celery-low-priority
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker -Q functions --concurrency=2 --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend/
+    depends_on:
+      - redis
+      - web
+    networks:
+      - shoonya_backend
+
+  # Celery beats - for scheduling daily e-mails
+  celery-beat:
+    build: ./backend
+    command: celery -A shoonya_backend.celery beat --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend
+    depends_on:
+      - redis
+      - web
+    networks:
+      - shoonya_backend
+
+  celery3:
+    container_name: celery-reports
+    restart: always
+    build: ./backend
+    command: celery -A shoonya_backend.celery worker -Q reports --concurrency=2 --loglevel=info
+    volumes:
+      - ./backend/:/usr/src/backend/
+    depends_on:
+      - redis
+      - web
+    networks:
+      - shoonya_backend
+
+volumes:
+  static_volume:
+
+networks:
+  shoonya_backend:
+    external: true
