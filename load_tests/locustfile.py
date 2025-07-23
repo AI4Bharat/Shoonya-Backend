@@ -50,6 +50,69 @@ class SequentialUser(HttpUser):
             else:
                 raise Exception(f"Failed to create workspace: {response.text}")
             
+from locust import HttpUser, task, between
+
+# Common base class for shared login logic
+class BaseUser(HttpUser):
+    wait_time = between(1, 2)
+
+    email = ""
+    password = ""
+
+    def on_start(self):
+        login_payload = {
+            "email": self.email,
+            "password": self.password
+        }
+        headers = {"Content-Type": "application/json"}
+
+        with self.client.post("/users/auth/jwt/create", json=login_payload, headers=headers, catch_response=True) as response:
+            if response.status_code == 200:
+                self.token = response.json().get("access")
+                self.auth_headers = {
+                    "Authorization": f"Bearer {self.token}",
+                    "Content-Type": "application/json"
+                }
+                response.success()
+            else:
+                response.failure("Login failed")
+
+# 🧑 Annotator Flow
+class AnnotatorUser(BaseUser):
+    email = "annotator@example.com"
+    password = "annotator123"
+
+    @task
+    def annotator_flow(self):
+        self.client.get("/projects/", headers=self.auth_headers)
+        # Add more Annotator APIs here
+
+# 👨 Reviewer Flow
+class ReviewerUser(BaseUser):
+    email = "reviewer@example.com"
+    password = "reviewer123"
+
+    @task
+    def reviewer_flow(self):
+        self.client.post("/projects/2563/get_analytics/", json={
+            "from_date": "2025-04-28",
+            "to_date": "2025-04-29"
+        }, headers=self.auth_headers)
+
+        # Add reviewer-specific APIs
+
+# 🧑‍🏫 Superchecker Flow
+class SupercheckerUser(BaseUser):
+    email = "superchecker@example.com"
+    password = "superchecker123"
+
+    @task
+    def superchecker_flow(self):
+        self.client.get("/projects/2563/get_async_task_results/?task_name=projects.tasks.export_project_new_record",
+                        headers=self.auth_headers)
+        # Add superchecker-specific APIs
+
+                
             
         # Id = 3803927
         # with self.client.get(
