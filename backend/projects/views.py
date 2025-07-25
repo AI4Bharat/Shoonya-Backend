@@ -6,7 +6,6 @@ import pandas as pd
 import ast
 import csv
 import math
-
 from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
@@ -2354,6 +2353,126 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "No tasks found!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
+
+
+    @action(
+    detail=True,
+    methods=["POST"],
+    name="Assign selected tasks to user based on annotation_type",
+    url_name="assign_tasks_to_user",   
+    )
+    
+    @project_is_archived
+    def assign_tasks_to_user(self, request, pk, *args, **kwargs):
+        """
+        Assign manually selected tasks to a user based on annotation_type.
+        """
+        cur_user = request.user
+        project = Project.objects.get(pk=pk)
+        data = request.data
+
+        user_id = data.get("user_id")
+        task_ids = data.get("task_ids", [])
+        annotation_type = data.get("annotation_type")
+
+        if not project.is_published:
+            return Response({"message": "Project is not yet published"}, status=403)
+
+        if not all([user_id, isinstance(task_ids, list), annotation_type in [1, 2, 3]]):
+            return Response({"message": "Invalid or missing input."}, status=400)
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"message": "Target user not found"}, status=404)
+
+        serializer = ProjectUsersSerializer(project, many=False)
+
+        # -----------------------
+        # Annotation type = 1 (Annotation)
+        # -----------------------
+        if annotation_type == 1:
+            annotator_ids = {user["id"] for user in serializer.data["annotators"]}
+            if user_id not in annotator_ids:
+                return Response({"message": "User not assigned as annotator"}, status=403)
+
+            proj_annotations = Annotation_model.objects.filter(
+                task__project_id=pk,
+                annotation_status=UNLABELED,
+                completed_by=target_user
+            )
+            annotation_tasks = [a.task.id for a in proj_annotations]
+
+            pending_tasks = Task.objects.filter(
+                project_id=pk,
+                annotation_users=user_id,
+                task_status__in=[INCOMPLETE, UNLABELED],
+                id__in=annotation_tasks
+            ).count()
+
+            if pending_tasks >= project.max_pending_tasks_per_user:
+                return Response({"message": "User has too many pending tasks"}, status=403)
+
+            assignable_tasks = Task.objects.filter(
+                id__in=task_ids,
+                project_id=pk,
+                task_status__in=[INCOMPLETE, UNLABELED]
+            ).exclude(annotation_users=user_id)
+
+            count = 0
+            for task in assignable_tasks:
+                if task.annotation_users.count() < project.required_annotators_per_task:
+                    task.annotation_users.add(target_user)
+                    task.save()
+                    count += 1
+
+            return Response({"message": f"{count} annotation tasks assigned."}, status=200)
+
+        # -----------------------
+        # Annotation type = 2 (Review)
+        # -----------------------
+        elif annotation_type == 2:
+            reviewer_ids = {user["id"] for user in serializer.data["annotation_reviewers"]}
+            if user_id not in reviewer_ids:
+                return Response({"message": "User not assigned as reviewer"}, status=403)
+
+            assignable_tasks = Task.objects.filter(
+                id__in=task_ids,
+                project_id=pk,
+                task_status=ANNOTATED,
+                review_user__isnull=True
+            ).exclude(annotation_users=user_id)
+
+            count = 0
+            for task in assignable_tasks:
+                task.review_user = target_user
+                task.save()
+                count += 1
+
+            return Response({"message": f"{count} review tasks assigned."}, status=200)
+
+        # -----------------------
+        # Annotation type = 3 (Supercheck)
+        # -----------------------
+        elif annotation_type == 3:
+            superchecker_ids = {user["id"] for user in serializer.data["review_supercheckers"]}
+            if user_id not in superchecker_ids:
+                return Response({"message": "User not assigned as superchecker"}, status=403)
+
+            assignable_tasks = Task.objects.filter(
+                id__in=task_ids,
+                project_id=pk,
+                task_status=REVIEWED,
+                super_check_user__isnull=True
+            ).exclude(annotation_users=user_id).exclude(review_user=user_id)
+
+            count = 0
+            for task in assignable_tasks:
+                task.super_check_user = target_user
+                task.save()
+                count += 1
+
+            return Response({"message": f"{count} supercheck tasks assigned."}, status=200)
 
     @action(
         detail=True,
