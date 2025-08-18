@@ -2353,20 +2353,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ret_dict = {"message": "No tasks found!"}
             ret_status = status.HTTP_404_NOT_FOUND
         return Response(ret_dict, status=ret_status)
-
-
+        
     @action(
-    detail=True,
-    methods=["POST"],
-    name="Assign selected tasks to user based on annotation_type",
-    url_name="assign_tasks_to_user",   
+        detail=True,
+        methods=["POST"],
+        name="Assign selected tasks to user based on annotation_type",
+        url_name="assign_tasks_to_user2",   
     )
-    
     @project_is_archived
-    def assign_tasks_to_user(self, request, pk, *args, **kwargs):
+    def assign_tasks_to_user2(self, request, pk, *args, **kwargs):
         """
         Assign manually selected tasks to a user based on annotation_type.
+        Includes all validation and logic from auto-pull assignment endpoints.
         """
+
         cur_user = request.user
         project = Project.objects.get(pk=pk)
         data = request.data
@@ -2388,91 +2388,236 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         serializer = ProjectUsersSerializer(project, many=False)
 
-        # -----------------------
-        # Annotation type = 1 (Annotation)
-        # -----------------------
-        if annotation_type == 1:
-            annotator_ids = {user["id"] for user in serializer.data["annotators"]}
-            if user_id not in annotator_ids:
-                return Response({"message": "User not assigned as annotator"}, status=403)
+        # Lock types
+        lock_type = {
+            1: ANNOTATION_LOCK,
+            2: REVIEW_LOCK,
+            3: SUPERCHECK_LOCK
+        }.get(annotation_type)
 
-            proj_annotations = Annotation_model.objects.filter(
-                task__project_id=pk,
-                annotation_status=UNLABELED,
-                completed_by=target_user
-            )
-            annotation_tasks = [a.task.id for a in proj_annotations]
+        if lock_type and project.is_locked(lock_type):
+            while project.is_locked(lock_type):
+                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
 
-            pending_tasks = Task.objects.filter(
-                project_id=pk,
-                annotation_users=user_id,
-                task_status__in=[INCOMPLETE, UNLABELED],
-                id__in=annotation_tasks
-            ).count()
+        try:
+            project.set_lock(cur_user, lock_type)
+        except Exception:
+            return Response({"message": "Failed to acquire lock. Try again later."}, status=429)
 
-            if pending_tasks >= project.max_pending_tasks_per_user:
-                return Response({"message": "User has too many pending tasks"}, status=403)
+        try:
+            # Annotation (1)
+            if annotation_type == 1:
+                annotator_ids = {target_user["id"] for target_user in serializer.data["annotators"]}
+                print("target_user", target_user)
+                if user_id not in annotator_ids:
+                    return Response({"message": "User not assigned as annotator"}, status=403)
 
-            assignable_tasks = Task.objects.filter(
-                id__in=task_ids,
-                project_id=pk,
-                task_status__in=[INCOMPLETE, UNLABELED]
-            ).exclude(annotation_users=user_id)
+                proj_annotations = Annotation_model.objects.filter(
+                    task__project_id=pk,
+                    annotation_status=UNLABELED,
+                    completed_by=target_user
+                )
+                annotation_tasks = [a.task.id for a in proj_annotations]
 
-            count = 0
-            for task in assignable_tasks:
-                if task.annotation_users.count() < project.required_annotators_per_task:
+                if project.project_type in get_audio_project_types():
+                    pending_tasks = Task.objects.filter(
+                        project_id=pk,
+                        annotation_users=user_id,
+                        task_status__in=[INCOMPLETE, UNLABELED],
+                        id__in=annotation_tasks
+                    ).filter(
+                        Exists(SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"),
+                            freeze_task=False
+                        ))
+                    ).count()
+                else:
+                    pending_tasks = Task.objects.filter(
+                        project_id=pk,
+                        annotation_users=user_id,
+                        task_status__in=[INCOMPLETE, UNLABELED],
+                        id__in=annotation_tasks
+                    ).count()
+
+                if pending_tasks >= project.max_pending_tasks_per_user:
+                    return Response({"message": "User has too many pending tasks"}, status=403)
+
+                assignable_tasks = Task.objects.filter(
+                    id__in=task_ids,
+                    project_id=pk,
+                    task_status__in=[INCOMPLETE, UNLABELED]
+                ).exclude(annotation_users=user_id).annotate(
+                    annotator_count=Count("annotation_users")
+                ).filter(annotator_count__lt=project.required_annotators_per_task)
+
+                if project.project_type in get_audio_project_types():
+                    assignable_tasks = assignable_tasks.filter(
+                        Exists(SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"),
+                            freeze_task=False
+                        ))
+                    )
+
+                count = 0
+                for task in assignable_tasks:
+                     # Reject assignment if already reviewed or being reviewed
+                    if task.review_user or task.task_status in [ANNOTATED, REVIEWED]:
+                        return Response({"message": f"Task {task.id} already reviewed or in review stage. Cannot assign to annotator."}, status=400)
+                    # Reject re-assigning to another annotator if already assigned
+                    if task.annotation_users.exists():
+                        return Response({"message": f"Task {task.id} already assigned to another annotator."}, status=400)
+
                     task.annotation_users.add(target_user)
                     task.save()
                     count += 1
 
-            return Response({"message": f"{count} annotation tasks assigned."}, status=200)
+                return Response({"message": f"{count} annotation tasks assigned."}, status=200)
 
-        # -----------------------
-        # Annotation type = 2 (Review)
-        # -----------------------
-        elif annotation_type == 2:
-            reviewer_ids = {user["id"] for user in serializer.data["annotation_reviewers"]}
-            if user_id not in reviewer_ids:
-                return Response({"message": "User not assigned as reviewer"}, status=403)
+            # Review (2)
+            elif annotation_type == 2:
+                reviewer_ids = {user["id"] for user in serializer.data["annotation_reviewers"]}
+                if user_id not in reviewer_ids:
+                    return Response({"message": "User not assigned as reviewer"}, status=403)
 
-            assignable_tasks = Task.objects.filter(
-                id__in=task_ids,
-                project_id=pk,
-                task_status=ANNOTATED,
-                review_user__isnull=True
-            ).exclude(annotation_users=user_id)
+                if not (project.project_stage in [REVIEW_STAGE, SUPERCHECK_STAGE]):
+                    return Response({"message": "Review stage not active for this project"}, status=403)
 
-            count = 0
-            for task in assignable_tasks:
-                task.review_user = target_user
-                task.save()
-                count += 1
+                assignable_tasks = Task.objects.filter(
+                    id__in=task_ids,
+                    project_id=pk,
+                    task_status=ANNOTATED,
+                    review_user__isnull=True
+                ).exclude(annotation_users=user_id)
 
-            return Response({"message": f"{count} review tasks assigned."}, status=200)
+                if project.project_type in get_audio_project_types():
+                    assignable_tasks = assignable_tasks.filter(
+                        Exists(SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"),
+                            freeze_task=False
+                        ))
+                    )
 
-        # -----------------------
-        # Annotation type = 3 (Supercheck)
-        # -----------------------
-        elif annotation_type == 3:
-            superchecker_ids = {user["id"] for user in serializer.data["review_supercheckers"]}
-            if user_id not in superchecker_ids:
-                return Response({"message": "User not assigned as superchecker"}, status=403)
+                count = 0
+                for task in assignable_tasks:
+                    # Block if task is not yet annotated (i.e., it's not ready for review)
+                    if task.task_status not in [ANNOTATED]:
+                        return Response({
+                            "message": f"Task {task.id} is not annotated yet. Cannot assign to reviewer."
+                        }, status=400)
 
-            assignable_tasks = Task.objects.filter(
-                id__in=task_ids,
-                project_id=pk,
-                task_status=REVIEWED,
-                super_check_user__isnull=True
-            ).exclude(annotation_users=user_id).exclude(review_user=user_id)
+                    # Block if task is already reviewed or under supercheck
+                    if task.supercheck_user or task.task_status in [REVIEWED, SUPER_CHECKED]:
+                        return Response({
+                            "message": f"Task {task.id} already reviewed or under supercheck. Cannot assign to reviewer."
+                        }, status=400)
 
-            count = 0
-            for task in assignable_tasks:
-                task.super_check_user = target_user
-                task.save()
-                count += 1
+                    # Prevent multiple reviewers
+                    if task.review_user:
+                        return Response({
+                            "message": f"Task {task.id} already assigned to a reviewer."
+                        }, status=400)
 
-            return Response({"message": f"{count} supercheck tasks assigned."}, status=200)
+                    task.review_user = target_user
+                    task.save()
+
+                    rec_ann = Annotation_model.objects.filter(
+                        task=task,
+                        annotation_type=ANNOTATOR_ANNOTATION
+                    ).order_by("-updated_at").first()
+
+                    if rec_ann:
+                        if not Annotation_model.objects.filter(
+                            task=task,
+                            annotation_type=REVIEWER_ANNOTATION,
+                            completed_by=target_user
+                        ).exists():
+                            Annotation_model.objects.create(
+                                result=[],
+                                task=task,
+                                completed_by=target_user,
+                                annotation_status="unreviewed",
+                                parent_annotation=rec_ann,
+                                annotation_type=REVIEWER_ANNOTATION,
+                            )
+                    count += 1
+
+                return Response({"message": f"{count} review tasks assigned."}, status=200)
+
+            # Supercheck (3)
+            elif annotation_type == 3:
+                superchecker_ids = {user["id"] for user in serializer.data["review_supercheckers"]}
+                if user_id not in superchecker_ids:
+                    return Response({"message": "User not assigned as superchecker"}, status=403)
+
+                if not (project.project_stage == SUPERCHECK_STAGE):
+                    return Response({"message": "Supercheck stage not active for this project"}, status=403)
+
+                assignable_tasks = Task.objects.filter(
+                    id__in=task_ids,
+                    project_id=pk,
+                    task_status=REVIEWED,
+                    super_check_user__isnull=True
+                ).exclude(annotation_users=user_id).exclude(review_user=user_id)
+
+                if project.project_type in get_audio_project_types():
+                    assignable_tasks = assignable_tasks.filter(
+                        Exists(SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"),
+                            freeze_task=False
+                        ))
+                    )
+
+                sup_exp_rev_tasks_count = Task.objects.filter(
+                    project_id=pk,
+                    task_status__in=[REVIEWED, EXPORTED, SUPER_CHECKED]
+                ).count()
+
+                sup_exp_tasks_count = Task.objects.filter(
+                    project_id=pk,
+                    task_status__in=[EXPORTED, SUPER_CHECKED]
+                ).count()
+
+                max_super_check_tasks_count = math.ceil(
+                    project.k_value * sup_exp_rev_tasks_count / 100
+                )
+
+                if sup_exp_tasks_count >= max_super_check_tasks_count:
+                    return Response({"message": "Supercheck task quota exceeded"}, status=403)
+
+                remaining = max_super_check_tasks_count - sup_exp_tasks_count
+                assignable_tasks = assignable_tasks[:remaining]
+
+                count = 0
+                for task in assignable_tasks:
+                    task.super_check_user = target_user
+                    task.save()
+
+                    rec_ann = Annotation_model.objects.filter(
+                        task=task,
+                        annotation_type=REVIEWER_ANNOTATION
+                    ).order_by("-updated_at").first()
+
+                    if rec_ann:
+                        if not Annotation_model.objects.filter(
+                            task=task,
+                            annotation_type=SUPER_CHECKER_ANNOTATION,
+                            completed_by=target_user
+                        ).exists():
+                            Annotation_model.objects.create(
+                                result=[],
+                                task=task,
+                                completed_by=target_user,
+                                annotation_status="unvalidated",
+                                parent_annotation=rec_ann,
+                                annotation_type=SUPER_CHECKER_ANNOTATION,
+                            )
+                    count += 1
+
+                return Response({"message": f"{count} supercheck tasks assigned."}, status=200)
+
+        finally:
+            project.release_lock(lock_type)
+
 
     @action(
         detail=True,
@@ -2534,9 +2679,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 .filter(id__in=annotation_tasks)
                 .count()
             )
+        
         # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
+        
         # assigned_tasks = assigned_tasks_queryset.count()
+        
         # completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
+        
         # pending_tasks = assigned_tasks - completed_tasks
         if pending_tasks >= project.max_pending_tasks_per_user:
             return Response(
