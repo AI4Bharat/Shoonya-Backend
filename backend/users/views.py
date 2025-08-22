@@ -1130,7 +1130,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     annotation_type=REVIEWER_ANNOTATION,
                     updated_at__range=[start_date, end_date],
                     completed_by=user_id,
-                ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
+                ).exclude(annotation_status__in=["to_be_revised"])
             elif supercheck_reports:
                 labeld_tasks_objs = Task.objects.filter(
                     Q(project_id=proj.id)
@@ -1191,7 +1191,10 @@ class AnalyticsViewSet(viewsets.ViewSet):
 
             total_word_count = 0
             total_bbox_count = 0
-            if "OCRTranscription" in project_type or "OCRTranscriptionEditing" in project_type:
+            if (
+                "OCRTranscription" in project_type
+                or "OCRTranscriptionEditing" in project_type
+            ):
                 for each_anno in annotated_labeled_tasks:
                     total_word_count += ocr_word_count(each_anno.result)
                     total_bbox_count += ocr_boundingbox_count(each_anno.result)
@@ -1318,8 +1321,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
             ): round(all_annotated_lead_time_count, 2),
         }
         if "OCRTranscription" not in project_type:
-                if "Bbox Count" in result:
-                    del result["Bbox Count"]
+            if "Bbox Count" in result:
+                del result["Bbox Count"]
         if project_type_lower != "all" and project_type in get_audio_project_types():
             del total_result["Word Count"]
         elif project_type_lower != "all" and is_textual_project:
@@ -1645,16 +1648,16 @@ class AnalyticsViewSet(viewsets.ViewSet):
             schedule = (
                 "Daily"
                 if task.schedule == 1
-                else "Weekly"
-                if task.schedule == 2
-                else "Monthly"
+                else "Weekly" if task.schedule == 2 else "Monthly"
             )
             scheduled_day = (
                 calendar.day_name[int(task.celery_task.crontab.day_of_week) - 1]
                 if task.schedule == 2
-                else task.celery_task.crontab.day_of_month
-                if task.schedule == 3
-                else None
+                else (
+                    task.celery_task.crontab.day_of_month
+                    if task.schedule == 3
+                    else None
+                )
             )
             result.append(
                 {
@@ -1667,9 +1670,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     "Scheduled Day": scheduled_day,
                     "Created At": task.created_at,
                     "Run Count": task.celery_task.total_run_count,
-                    "Status": "Enabled"
-                    if task.celery_task.enabled == True
-                    else "Disabled",
+                    "Status": (
+                        "Enabled" if task.celery_task.enabled == True else "Disabled"
+                    ),
                 }
             )
         result = sorted(result, key=lambda x: x["Created At"], reverse=True)
