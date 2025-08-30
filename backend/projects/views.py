@@ -2469,9 +2469,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
                     task.annotation_users.add(target_user)
                     task.save()
+                    # ✅ Ensure Annotation_model is created
+                    annotation, created = Annotation_model.objects.get_or_create(
+                        task=task,
+                        completed_by=target_user,
+                        annotation_type=ANNOTATOR_ANNOTATION,
+                        defaults={
+                            "result": [],
+                            "annotation_status": UNLABELED,
+                        }
+                    )
+                    if created:
+                        print(f"✅ Created Annotation for task {task.id}, user {target_user.id}")
+                    else:
+                        print(f"⚠️ Annotation already existed for task {task.id}, user {target_user.id}")
                     count += 1
 
                 return Response({"message": f"{count} annotation tasks assigned."}, status=200)
+            
 
             # Review (2)
             elif annotation_type == 2:
@@ -2506,7 +2521,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         }, status=400)
 
                     # Block if task is already reviewed or under supercheck
-                    if task.supercheck_user or task.task_status in [REVIEWED, SUPER_CHECKED]:
+                    if task.super_check_user or task.task_status in [REVIEWED, SUPER_CHECKED]:
                         return Response({
                             "message": f"Task {task.id} already reviewed or under supercheck. Cannot assign to reviewer."
                         }, status=400)
@@ -2618,7 +2633,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         finally:
             project.release_lock(lock_type)
 
-
+            
+            
+            
     @action(
         detail=True,
         methods=["POST"],
