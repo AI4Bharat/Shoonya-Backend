@@ -27,6 +27,7 @@ from projects.utils import (
     get_audio_project_types,
     get_audio_transcription_duration,
     get_audio_segments_count,
+    get_bounding_box_count,
     ocr_word_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
