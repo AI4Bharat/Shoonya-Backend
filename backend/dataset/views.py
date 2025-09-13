@@ -39,7 +39,6 @@ from . import resources
 from .models import *
 from .serializers import *
 from django.db.models import Prefetch, Q, F  
-from utils.dataset_utils import get_batch_dataset_upload_status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework import status
@@ -300,7 +299,8 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
     
     
     # def get_queryset(self):
-    @action(detail=False, methods=["get"], url_path="optimized-list")
+    @action(detail=False, methods=["get"], url_path="optimized-list",
+        url_name="optimized-list")
     def list_optimized(self, request):
         # Base queryset determination based on user role
         queryset = DatasetInstance.objects.all()

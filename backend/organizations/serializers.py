@@ -20,7 +20,6 @@ class UserReadSerializer(serializers.ModelSerializer):
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
-    # created_by = UserReadSerializer(read_only=True)
 
     class Meta:
         model = Organization
