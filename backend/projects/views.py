@@ -4088,6 +4088,95 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def get_task_queryset(self, queryset):
         return queryset
 
+
+# from here translitrartion work starts
+# For Text    
+    # @action(detail=False, methods=["POST", "GET"], name="Populate asr model predictions")
+    # @is_org_owner
+    # def populate_asr_model_predictions(self, request , pk):
+    #     try:
+    #         data = json.loads(request.body)
+    #         model_language = data.get("model_language")
+    #         project_ids = [pk]
+    #         stage = data.get("stage", "l1")  # Default to "l1"
+
+    #         # Ensure the stage is either "l1" or "l2"
+    #         if stage not in ["l1", "l2"]:
+    #             return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+    #         if not model_language:
+    #             return JsonResponse({"error": "Missing model_language"}, status=400)
+
+    #         # Run the Celery task asynchronously
+    #         populate_asr_try(model_language, project_ids, stage)
+    #         return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
+    #     except json.JSONDecodeError:
+    #         return JsonResponse({"error": "Invalid JSON format"}, status=400)
+    #     except Exception as e:
+    #         return JsonResponse({"error": str(e)}, status=500)
+    
+    
+    @action(detail=False, methods=["POST"], name="Populate ASR model predictions")
+    # @is_org_owner
+    def populate_asr_model_predictions(self, request, pk=None):
+        try:
+            model_language = request.data.get("model_language")
+            stage = request.data.get("stage", "l1")  # Default to "l1"
+            project_ids = [int(pk)]
+
+            # Validate stage
+            if stage not in ["l1", "l2"]:
+                return Response(
+                    {"error": "Invalid stage. Choose either 'l1' or 'l2'."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Validate language
+            if not model_language:
+                return Response(
+                    {"error": "Missing model_language"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Trigger Celery task
+            populate_asr_try.delay(model_language, project_ids, stage)
+
+            return Response(
+                {"message": f"populate_asr_try started successfully for stage '{stage}'."},
+                status=status.HTTP_202_ACCEPTED
+            )
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)        
+
+# For Youtube
+    @action(detail=False, methods=["POST", "GET"], name="Populate asr model predictions yt")
+    @is_org_owner
+    def populate_asr_model_predictions_yt(self, request , pk):
+        try:
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            project_ids =[pk]
+            stage = data.get("stage", "l1")
+
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            # Run the Celery task asynchronously
+            populate_asr_yt(model_language, project_ids, stage)
+
+            return Response({"message": "populate_asr_yt started successfully!"})
+        except json.JSONDecodeError:
+            return Response({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            ret_dict = {"message": "Project does not exist!"}
+            ret_status = status.HTTP_404_NOT_FOUND
+            return Response(ret_dict, status=ret_status)
+# Here translitrartion work ends
     @action(detail=True, methods=["POST", "GET"], name="Pull new items")
     @project_is_archived
     @is_org_owner
