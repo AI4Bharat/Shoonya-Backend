@@ -2,6 +2,9 @@ import base64
 import os
 from datetime import timezone
 import ast
+import io
+import tarfile
+import soundfile as sf
 
 import requests
 from django.http import JsonResponse
@@ -12,6 +15,7 @@ from django.utils import timezone
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import json
 from celery import Celery
+from azure.storage.blob import BlobServiceClient
 
 # from flower.api import Flower
 # flower_app = Flower()
@@ -1448,6 +1452,17 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    def get_blob_service_client():
+        try:
+            blob_service_client = BlobServiceClient.from_connection_string(
+                os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+            )
+        except Exception as e:
+            return (
+                f"Connection to Azure Blob Storage failed: {str(e)}"
+            )
+        return blob_service_client
+
     @swagger_auto_schema(
         method="get",
         responses={
@@ -1491,31 +1506,97 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     },
                     status=status.HTTP_204_NO_CONTENT,
                 )
-        from minio import Minio
+        if "asr-transcription/bigbang" in audio_url:
+            load_dotenv()
+            azure_blob_client = get_blob_service_client()
+            SAVE_PATH = os.path.join(os.getcwd(), 'cached_audios')
+            try:
+                '''
+                    # This can have two forms 
+                    # 1. Ending with _0.wav or _1.wav - conversational
+                    # 2. .wav - karya
+                '''
+            
+                filename = audio_url.split("/")[-1]
+                is_conversational = filename.endswith(("_0.wav", "_1.wav"))
+            
+                if os.path.exists(os.path.join(SAVE_PATH, filename)):
+                    print(f"File {filename} already exists in {SAVE_PATH}")
+                    with open(os.path.join(SAVE_PATH, filename), "rb") as f:
+                        data_bytes = f.read()
+                    return base64.b64encode(data_bytes).decode("utf-8")
+                else:
+                    container_name = 'role-play-convs' if is_conversational else 'microtask-assignment-output'
+                    blob_name = filename.replace("_0.wav", "_1.wav").replace("_1.wav", ".wav") if is_conversational else filename.replace(".wav", ".tgz")
+                    blob_client = azure_blob_client.get_blob_client(
+                        container=container_name, blob=blob_name
+                    )
+                    download_stream = blob_client.download_blob()  
+                    data_bytes = download_stream.readall()
+            
+                    if is_conversational:
+                        # save the file
+                        # data bytes will be wav bytes and we have to extract the relevant channel and send/save it
+                        # Read wav into numpy
+                        data, samplerate = sf.read(io.BytesIO(data_bytes))
+                        assert data.ndim == 2, 'Something went wrong'
+            
+                        # Write single-channel wav into file
+                        sf.write(os.path.join(SAVE_PATH, blob_name.replace('.wav','_0.wav')), data[:, 0], samplerate, format="WAV")
+                        sf.write(os.path.join(SAVE_PATH, blob_name.replace('.wav','_1.wav')), data[:, 1], samplerate, format="WAV")
+            
+                        # load the relevant file and send it
+                        with open(os.path.join(SAVE_PATH, filename), "rb") as f:
+                            data_bytes = f.read()
+                        return base64.b64encode(data_bytes).decode("utf-8")
+                    else:
+                        # the data bytes will be tgz bytes and we have to extract the relevant file and send/save it
+                        tar_file = tarfile.open(fileobj=io.BytesIO(data_bytes), mode="r:*")
+                        member = tar_file.getmember(filename)
+                        extracted_file = tar_file.extractfile(member)
+                        if not extracted_file:
+                            return f"File {filename} not found in tarball"
+                        data_bytes = extracted_file.read()
+                        with open(os.path.join(SAVE_PATH, filename), "wb") as f:
+                            f.write(data_bytes)
+                        
+                        return base64.b64encode(data_bytes).decode("utf-8")
 
-        try:
-            eos_client = Minio(
-                endpoint=os.getenv("MINIO_ENDPOINT"),
-                access_key=os.getenv("MINIO_ACCESS_KEY"),
-                secret_key=os.getenv("MINIO_SECRET_KEY"),
-                secure=True,
-            )
-        except Exception as e:
-            return Response(
-                {"message": "Connection to minio failed"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-        try:
-            encoded_audio_data = base64.b64encode(
-                eos_client.get_object("asr-transcription", audio_url).data
-            ).decode("utf-8")
-        except Exception as e:
-            return Response(
-                {"message": f"Could not fetch audio file"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        return Response(data=encoded_audio_data, status=status.HTTP_200_OK)
+            
+            except Exception as e:
+                return Response(
+                    {"message": f"Could not fetch audio file"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+    
+            return Response(data=encoded_audio_data, status=status.HTTP_200_OK)
+        
+        else:
+            from minio import Minio
+    
+            try:
+                eos_client = Minio(
+                    endpoint=os.getenv("MINIO_ENDPOINT"),
+                    access_key=os.getenv("MINIO_ACCESS_KEY"),
+                    secret_key=os.getenv("MINIO_SECRET_KEY"),
+                    secure=True,
+                )
+            except Exception as e:
+                return Response(
+                    {"message": "Connection to minio failed"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            try:
+                encoded_audio_data = base64.b64encode(
+                    eos_client.get_object("asr-transcription", audio_url).data
+                ).decode("utf-8")
+            except Exception as e:
+                return Response(
+                    {"message": f"Could not fetch audio file"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+    
+            return Response(data=encoded_audio_data, status=status.HTTP_200_OK)
 
 
 def update_notification(annotation_obj, task):
