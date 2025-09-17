@@ -18,6 +18,7 @@ from utils.pagination import paginate_queryset
 from rest_framework import viewsets
 from rest_framework import mixins
 from rest_framework import status
+from .utils import transcribe_audio
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
@@ -1494,6 +1495,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 access_key=os.getenv("MINIO_ACCESS_KEY"),
                 secret_key=os.getenv("MINIO_SECRET_KEY"),
                 secure=True,
+                cert_check=False,
             )
         except Exception as e:
             return Response(
@@ -1502,7 +1504,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             )
         try:
             encoded_audio_data = base64.b64encode(
-                eos_client.get_object("asr-transcription", audio_url).data
+                eos_client.get_object(os.getenv("MINIO_DIRECTORY"), audio_url).data
             ).decode("utf-8")
         except Exception as e:
             return Response(
@@ -2684,3 +2686,28 @@ class TransliterationAPIView(APIView):
 
         transliteration_output = response_transliteration.json()
         return Response(transliteration_output, status=status.HTTP_200_OK)
+
+
+class TranscribeAPIView(APIView):
+    """API for audio transcription"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        audio_base64 = request.data.get("audioBase64")
+        lang = request.data.get("lang", "hi") 
+
+        if not audio_base64:
+            return Response(
+                {"error": "Missing audio data"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        transcript = transcribe_audio(audio_base64, lang)
+
+        if transcript:
+            return Response({"transcript": transcript})
+        else:
+            return Response(
+                {"error": "Transcription failed"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

@@ -1,4 +1,4 @@
-version: '3.3'
+version: "3.3"
 
 services:
   nginx:
@@ -35,7 +35,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./:/workdir:ro
     restart: unless-stopped
-    
+
   web:
     build: ./backend
     command: gunicorn --bind 0.0.0.0:8000 --workers 4 shoonya_backend.wsgi --timeout 300
@@ -52,7 +52,7 @@ services:
     image: "redis"
     ports:
       - 6379:6379
-  
+
   celery:
     container_name: celery-default
     restart: always
@@ -63,10 +63,10 @@ services:
       - logs_vol:/logs
     depends_on:
       - redis
-      - web 
+      - web
 
-  # This is the additional queue which contains the low-priority celery tasks. We can adjust the concurrency and workers alloted to this container. 
-  celery2: 
+  # This is the additional queue which contains the low-priority celery tasks. We can adjust the concurrency and workers alloted to this container.
+  celery2:
     container_name: celery-low-priority
     restart: always
     build: ./backend
@@ -86,18 +86,18 @@ services:
       - logs_vol:/logs
     extra_hosts:
       - "elasticsearch:20.42.57.194"
-    command: logstash -f /usr/share/logstash/pipeline/logstash.conf  
+    command: logstash -f /usr/share/logstash/pipeline/logstash.conf
 
   # Celery beats - for scheduling daily e-mails - commented out for dev hostings.
   # celery-beat:
-  #  build: ./backend
-  #  command: celery -A shoonya_backend.celery beat --loglevel=info
-  #  volumes:
-  #    - ./backend/:/usr/src/backend
-  #  depends_on:
-  #    - redis
-  #    - web
-  
+  #   build: ./backend
+  #   command: celery -A shoonya_backend.celery beat --loglevel=info
+  #   volumes:
+  #     - ./backend/:/usr/src/backend
+  #   depends_on:
+  #     - redis
+  #     - web
+
   celery3:
     container_name: celery-reports
     restart: always
