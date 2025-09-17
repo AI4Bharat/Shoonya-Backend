@@ -1504,8 +1504,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     {"message": f"Could not fetch audio file"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
+                
+            directory_path = os.path.join(os.getcwd(), 'cached_audios')
             
-            SAVE_PATH = os.path.join(os.getcwd(), 'cached_audios')
+            if not os.path.exists(directory_path):
+                os.mkdir(directory_path)
+                print(f"Directory '{directory_path}' created successfully.")
+
+            SAVE_PATH = os.path.join(directory_path)
             try:
                 '''
                     # This can have two forms 
