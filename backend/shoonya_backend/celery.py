@@ -36,7 +36,10 @@ celery_app.conf.beat_schedule = {
         "schedule": crontab(minute=0, hour=6),  # execute every day at 6 am
         #'args': (2,) you can pass arguments also if rquired
     },
-
+    "prune_audio_files": {
+        "task": "prune_audio_files",
+        "schedule": crontab(minute=0, hour="*/1"),
+    },
     # "Send_mail_to_Client": {
     # "task": "send_mail_task",
     # "schedule": crontab(minute="*/3"),  # execute every 3 minutes
@@ -71,3 +74,4 @@ celery_app.autodiscover_tasks()
 def debug_task(self):
     """First task for task handling testing and to apply migrations to the celery results db"""
     print(f"Request: {self.request!r}")
+
