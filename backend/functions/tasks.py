@@ -3,6 +3,7 @@ import json
 import time
 import zipfile
 import threading
+import glob
 
 import requests
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -70,6 +71,21 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+@shared_task(name="prune_audio_files")
+def prune_audio_files():
+    max_files = 500
+    files = glob.glob(os.path.join(os.getcwd(),"cached_audios", "*"))
+    if len(files) >= max_files:
+        files.sort(key=os.path.getctime)  # oldest first
+        oldest_files = files[:-max_files//2]
+        for old_file in oldest_files:
+            try:
+                os.remove(old_file)
+            except Exception as e:
+                return f"Failed to delete {old_file}: {e}"
+                
+        return f"Pruned {len(oldest_files)} old cached audios"
+    
 
 ## CELERY SHARED TASKS
 @shared_task(bind=True)
@@ -1857,3 +1873,8 @@ def update_SpeechConversation(self, lang, pid, auto_annotation, user_id):
         data_items_list.append(data_item)
     SpeechConversation.objects.bulk_update(data_items_list, ["draft_data_json"], 512)
     print(f"SpeechConversation Dataset updated for {pid} by {user_name}")
+
+
+
+
+

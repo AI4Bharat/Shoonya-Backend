@@ -22,6 +22,7 @@ Queued_Task_name = {
     "projects.tasks.create_parameters_for_task_creation": "Create Tasks for new Project",
     "projects.tasks.export_project_in_place": "Export Project In Place",
     "projects.tasks.export_project_new_record": "Export Project New Record",
+    "prune_audio_files": "Prune Audio Files From Local Disk",
     "send_mail_task": "Daily User Mails Scheduler",
     "send_user_reports_mail": "Send User Reports Mail ",
     "workspaces.tasks.send_project_analysis_reports_mail_ws": "Send Project Analysis Reports Mail At Workspace Level",
