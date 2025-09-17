@@ -1526,7 +1526,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     print(f"File {filename} already exists in {SAVE_PATH}")
                     with open(os.path.join(SAVE_PATH, filename), "rb") as f:
                         data_bytes = f.read()
-                    return base64.b64encode(data_bytes).decode("utf-8")
+                    return Response(data=base64.b64encode(data_bytes).decode("utf-8"), status=status.HTTP_200_OK)
                 else:
                     container_name = 'role-play-convs' if is_conversational else 'microtask-assignment-output'
                     blob_name = filename.replace("_0.wav", "_1.wav").replace("_1.wav", ".wav") if is_conversational else filename.replace(".wav", ".tgz")
@@ -1550,7 +1550,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         # load the relevant file and send it
                         with open(os.path.join(SAVE_PATH, filename), "rb") as f:
                             data_bytes = f.read()
-                        return base64.b64encode(data_bytes).decode("utf-8")
+                        return Response(data=base64.b64encode(data_bytes).decode("utf-8"), status=status.HTTP_200_OK)
                     else:
                         # the data bytes will be tgz bytes and we have to extract the relevant file and send/save it
                         tar_file = tarfile.open(fileobj=io.BytesIO(data_bytes), mode="r:*")
@@ -1562,7 +1562,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         with open(os.path.join(SAVE_PATH, filename), "wb") as f:
                             f.write(data_bytes)
 
-                        return base64.b64encode(data_bytes).decode("utf-8")
+                        return Response(data=base64.b64encode(data_bytes).decode("utf-8"), status=status.HTTP_200_OK)
 
 
             except Exception as e:
