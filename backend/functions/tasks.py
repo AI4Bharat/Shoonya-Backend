@@ -81,9 +81,10 @@ def prune_audio_files():
         for old_file in oldest_files:
             try:
                 os.remove(old_file)
-                print(f"Pruned oldest cached audio: {old_file}")
             except Exception as e:
-                print(f"Failed to delete {old_file}: {e}")
+                return f"Failed to delete {old_file}: {e}"
+                
+        return f"Pruned {len(oldest_files)} old cached audios"
     
 
 ## CELERY SHARED TASKS
@@ -1872,6 +1873,7 @@ def update_SpeechConversation(self, lang, pid, auto_annotation, user_id):
         data_items_list.append(data_item)
     SpeechConversation.objects.bulk_update(data_items_list, ["draft_data_json"], 512)
     print(f"SpeechConversation Dataset updated for {pid} by {user_name}")
+
 
 
 
