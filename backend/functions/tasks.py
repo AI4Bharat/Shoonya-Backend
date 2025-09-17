@@ -72,7 +72,7 @@ logging.basicConfig(level=logging.INFO)
 
 @shared_task(name="prune_audio_files")
 def prune_audio_files():
-    max_files = 500
+    max_files = 6
     files = glob.glob(os.path.join(os.getcwd(),"cached_audios", "*"))
     if len(files) >= max_files:
         files.sort(key=os.path.getctime)  # oldest first
@@ -1871,4 +1871,5 @@ def update_SpeechConversation(self, lang, pid, auto_annotation, user_id):
         data_items_list.append(data_item)
     SpeechConversation.objects.bulk_update(data_items_list, ["draft_data_json"], 512)
     print(f"SpeechConversation Dataset updated for {pid} by {user_name}")
+
 
