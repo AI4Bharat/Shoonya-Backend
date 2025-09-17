@@ -1583,6 +1583,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     access_key=os.getenv("MINIO_ACCESS_KEY"),
                     secret_key=os.getenv("MINIO_SECRET_KEY"),
                     secure=True,
+                    cert_check=False,
                 )
             except Exception as e:
                 return Response(
@@ -1591,7 +1592,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
             try:
                 encoded_audio_data = base64.b64encode(
-                    eos_client.get_object("asr-transcription", audio_url).data
+                    eos_client.get_object(os.getenv("MINIO_DIRECTORY"), audio_url).data
                 ).decode("utf-8")
             except Exception as e:
                 print(e)
