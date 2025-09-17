@@ -1446,17 +1446,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 {"message": "Invalid parameters in request body!"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    def get_blob_service_client():
-        try:
-            blob_service_client = BlobServiceClient.from_connection_string(
-                os.getenv("AZURE_STORAGE_CONNECTION_STRING_DMU")
-            )
-        except Exception as e:
-            return (
-                f"Connection to Azure Blob Storage failed: {str(e)}"
-            )
-        return blob_service_client
-        
+
     @swagger_auto_schema(
         method="get",
         responses={
@@ -1501,8 +1491,20 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     status=status.HTTP_204_NO_CONTENT,
                 )
         if "asr-transcription/bigbang" in audio_url:
+
+            try:
+                azure_blob_client = BlobServiceClient.from_connection_string(
+                    os.getenv("AZURE_STORAGE_CONNECTION_STRING_DMU")
+                )
+            except Exception as e:
+                print(
+                    f"Connection to Azure Blob Storage failed: {str(e)}"
+                )
+                return Response(
+                    {"message": f"Could not fetch audio file"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
             
-            azure_blob_client = get_blob_service_client()
             SAVE_PATH = os.path.join(os.getcwd(), 'cached_audios')
             try:
                 '''
