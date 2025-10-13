@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from users.models import User
 from organizations.models import Organization
 from workspaces.models import Workspace
@@ -347,3 +348,23 @@ class ProjectTaskRequestLock(models.Model):
         verbose_name="lock_context",
     )
     expires_at = models.DateTimeField("expires_at")
+
+
+class ProjectBookmark(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bookmarks"
+    )
+    project = models.ForeignKey(
+        "Project",
+        on_delete=models.CASCADE,
+        related_name="bookmarked_by"
+    )
+    bookmarked_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        unique_together = ("user", "project")
+        indexes = [
+            models.Index(fields=["user", "-bookmarked_at"]),
+        ]
