@@ -603,7 +603,74 @@ class AuthViewSet(viewsets.ViewSet):
 
 
 class UserViewSet(viewsets.ViewSet):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = [IsAuthenticated]
+    queryset = User.objects.all()
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="get_prefered_workspace",
+        url_name="get-prefered-workspace",
+        permission_classes=[IsAuthenticated]
+    )
+    @swagger_auto_schema(
+        request_body=UserUpdateSerializer,
+        operation_description="Save preferred workspace mapping for the authenticated user",
+    )
+    def get_prefered_workspace(self, request):
+        """
+        Get preferred workspace mapping for the authenticated user.
+
+        Expected JSON format:
+          {
+            "2125": [188, 189, 190],
+            "2126": [188, 189, 191]
+          }
+        """
+        user = request.user
+
+        return Response(
+            {"message": "Preferred workspace fetched successfully.","data":user.workspace_prefered},
+            status=status.HTTP_200_OK,
+        )
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="save_prefered_workspace",
+        url_name="save-prefered-workspace",
+        permission_classes=[IsAuthenticated]
+    )
+    @swagger_auto_schema(
+        request_body=UserUpdateSerializer,
+        operation_description="Save preferred workspace mapping for the authenticated user",
+    )
+    def save_prefered_workspace(self, request):
+        """
+        Save preferred workspace mapping for the authenticated user.
+
+        Expected JSON format:
+          {
+            "2125": [188, 189, 190],
+            "2126": [188, 189, 191]
+          }
+        """
+        user = request.user
+
+        # Ensure data is a dict
+        workspace_prefered = request.data
+        if not isinstance(workspace_prefered, dict):
+            return Response(
+                {"error": "Invalid format. Expected a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Update and save
+        user.workspace_prefered = workspace_prefered
+        user.save(update_fields=["workspace_prefered"])
+
+        return Response(
+            {"message": "Preferred workspace saved successfully."},
+            status=status.HTTP_200_OK,
+        )
 
     @swagger_auto_schema(request_body=UserUpdateSerializer)
     @action(detail=False, methods=["patch"], url_path="update", url_name="edit_profile")
