@@ -580,13 +580,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         
         # ✅ --- Preferred Workspace Filter ---
         user = request.user
-        print(user.id)         # 15
-        print(user.username)   # "munish"
-        print(user.email)
         workspace_prefered = getattr(user, "workspace_prefered", {}) or {}
-        print(workspace_prefered)
         org_id_str = str(pk)
-        print("org_id_str",org_id_str)
 
         if org_id_str not in workspace_prefered:
             return Response(
@@ -806,7 +801,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 annotators = User.objects.filter(organization=organization).order_by(
                     "username"
                 )
-                print("Annotators found:", annotators)
 
             else:
                 proj_objects = Project.objects.filter(
@@ -821,14 +815,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 ]
                 proj_users = sum(proj_users_list, [])
                 annotators = list(set(proj_users))
-            print("Annotators before filter:", len(annotators))
             annotators = [
                 ann_user
                 for ann_user in annotators
                 if (ann_user.participation_type in [1, 2, 4])
             ]
-            print("Annotators after filter:", len(annotators))
-
 
             result = []
             for annotator in annotators:
@@ -1034,9 +1025,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
         prefered_id = getattr(user, "workspace_prefered", {})
-        print("user workspace_prefered:", prefered_id)
         org_workspaces = prefered_id.get(str(organization.id), [])
-        print("org_workspaces:", org_workspaces)
 
         if not org_workspaces:
             return Response(
@@ -1044,7 +1033,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        print("✅ Preferred workspaces for org", organization.id, ":", org_workspaces)
 
         if send_mail == True:
             send_project_analytics_mail_org.delay(
@@ -2729,8 +2717,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "Preferred workspaces not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-    
-        print(f"✅ Preferred workspaces for user {user.username}: {org_workspaces}")
 
         participation_types = request.data.get("participation_types")
         if not set(participation_types).issubset({1, 2, 3, 4}):
