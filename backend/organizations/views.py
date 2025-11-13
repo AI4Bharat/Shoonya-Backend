@@ -801,7 +801,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 annotators = User.objects.filter(organization=organization).order_by(
                     "username"
                 )
-
+                proj_objects = Project.objects.filter(
+                    organization_id=pk,
+                    workspace_id__in=preferred_ids,
+                    project_type=project_type,
+                )
             else:
                 proj_objects = Project.objects.filter(
                     organization_id_id=pk,
