@@ -801,25 +801,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 annotators = User.objects.filter(organization=organization).order_by(
                     "username"
                 )
-                if project_type == None:
-                    proj_objects = Project.objects.filter(
-                    organization_id=pk,
-                    workspace_id__in=preferred_ids,
-                    )
-                else:
-                    proj_objects = Project.objects.filter(
-                        organization_id=pk,
-                        workspace_id__in=preferred_ids,
-                        project_type=project_type,
-                    )
+                proj_objects = Project.objects.filter(
+                organization_id=pk,
+                workspace_id__in=preferred_ids
+            )
+               
             else:
-                if project_type == None:
-                    proj_objects = Project.objects.filter(
-                    organization_id_id=pk,
-                    workspace_id__in=preferred_ids,
-                    tgt_language=tgt_language,
-                    )
-                else:
                     proj_objects = Project.objects.filter(
                         organization_id_id=pk,
                         workspace_id__in=preferred_ids,
@@ -827,11 +814,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         tgt_language=tgt_language,
                     )
 
-                proj_users_list = [
+                
+            proj_users_list = [
                     list(pro_obj.annotators.all()) for pro_obj in proj_objects
                 ]
-                proj_users = sum(proj_users_list, [])
-                annotators = list(set(proj_users))
+            proj_users = sum(proj_users_list, [])
+            annotators = list(set(proj_users))
             annotators = [
                 ann_user
                 for ann_user in annotators
