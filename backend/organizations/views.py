@@ -803,13 +803,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 )
                 proj_objects = Project.objects.filter(
                 organization_id=pk,
-                workspace_id__in=preferred_ids
+                workspace_id__in=preferred_ids,
             )
                
             else:
                     proj_objects = Project.objects.filter(
                         organization_id_id=pk,
-                        workspace_id__in=preferred_ids,
                         project_type=project_type,
                         tgt_language=tgt_language,
                     )
@@ -876,7 +875,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     end_date,
                     is_translation_project,
                     project_progress_stage,
-                    None if tgt_language == None else tgt_language,
+                    tgt_language,
                 )
 
                 if (
@@ -909,16 +908,23 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     }
                     if project_type != None and is_translation_project:
                         (
+                            all_reviewd_tasks_count,
+                            accepted_count,
+                            reviewed_except_accepted,
+                            minor_changes_count,
+                            major_changes_count,
                             avg_char_score,
                             avg_bleu_score,
+                            avg_lead_time,
                         ) = get_translation_quality_reports(
                             pk,
                             annotator,
                             project_type,
                             start_date,
                             end_date,
-                            project_progress_stage,
-                            tgt_language,
+                            is_translation_project,      # ✔ CORRECT
+                            project_progress_stage,      # ✔ CORRECT
+                            tgt_language,                # ✔ CORRECT
                         )
                         temp_result["Average Bleu Score"] = avg_bleu_score
                         temp_result["Avergae Char Score"] = avg_char_score
