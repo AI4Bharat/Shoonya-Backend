@@ -922,9 +922,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             project_type,
                             start_date,
                             end_date,
-                            is_translation_project,      # ✔ CORRECT
-                            project_progress_stage,      # ✔ CORRECT
-                            tgt_language,                # ✔ CORRECT
+                            is_translation_project,      
+                            project_progress_stage,      
+                            tgt_language,                
                         )
                         temp_result["Average Bleu Score"] = avg_bleu_score
                         temp_result["Avergae Char Score"] = avg_char_score
