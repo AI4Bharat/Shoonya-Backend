@@ -6,6 +6,8 @@
     <Label value="Header" background="green"/>
     <Label value="Body" background="blue"/>
     <Label value="Footer" background="orange"/>
+    <Label value="subscript" background="#FF6B9D"/>
+    <Label value="superscript" background="#A166FF"/>
   </Labels>
 
   <Rectangle name="annotation_bboxes" toName="image_url" strokeWidth="3" className="ignore_assertion"/>
