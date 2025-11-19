@@ -34,6 +34,8 @@
     <Label value="sub-headline" name="sub-headline" background="#8E44AD" className="ignore_assertion"/>
     <Label value="sub-ordered-list" name="sub-ordered-list" background="#E67E22" className="ignore_assertion"/>
     <Label value="sub-section-title" name="sub-section-title" background="#C0392B" className="ignore_assertion"/>
+    <Label value="subscript" name="subscript" background="#FF6B9D" className="ignore_assertion"/>
+    <Label value="superscript" name="superscript" background="#A166FF" className="ignore_assertion"/>
     <Label value="subsub-ordered-list" name="subsub-ordered-list" background="#AAD9BB" className="ignore_assertion"/>
     <Label value="subsub-section-title" name="subsub-section-title" background="#27AE60" className="ignore_assertion"/>
     <Label value="sub-unordered-list" name="sub-unordered-list" background="#E0AED0" className="ignore_assertion"/>
