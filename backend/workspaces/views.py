@@ -198,6 +198,20 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             {"message": "Deleting of Workspaces is not supported!"},
             status=status.HTTP_403_FORBIDDEN,
         )
+        
+    @action(
+        detail=False,
+        methods=["GET"],
+        url_path="prefered_workspaces",
+        url_name="prefered_workspaces",
+    )
+    def prefered_workspaces(self, request):
+        if request.user.is_anonymous:
+            return Response({"message": "Access Denied."})
+        workspaces = Workspace.objects.filter(members__in=[request.user.pk])
+        workspaces_serializer = WorkspaceNameSerializer(workspaces, many=True)
+        return Response(workspaces_serializer.data)
+
 
 
 class WorkspaceCustomViewSet(viewsets.ViewSet):
@@ -3609,3 +3623,5 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
         workspaces = Workspace.objects.filter(members__in=[request.user.pk])
         workspaces_serializer = WorkspaceNameSerializer(workspaces, many=True)
         return Response(workspaces_serializer.data)
+    
+   
