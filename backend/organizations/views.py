@@ -53,6 +53,8 @@ from .tasks import (
     send_user_analytics_mail_org,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
+from users.models import User
+from django.contrib.auth import get_user_model
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -573,11 +575,42 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 {"message": "'To' Date should be after 'From' Date"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # ✅ --- Preferred Workspace Filter ---
+        user = request.user
+        workspace_prefered = getattr(user, "workspace_prefered", {}) or {}
+        org_id_str = str(pk)
 
+        if org_id_str not in workspace_prefered:
+            return Response(
+                {
+                    "message": f"No preferred workspaces found for organization ID {pk}.",
+                    "filtered": False,
+                    "results": [],
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Extract workspace IDs
+        preferred_ids = [
+            int(ws.get("id"))
+            for ws in workspace_prefered.get(org_id_str, [])
+            if ws.get("id") is not None
+        ]
+
+        if not preferred_ids:
+            return Response(
+                {
+                    "message": f"No valid workspace IDs found for organization ID {pk}.",
+                    "filtered": False,
+                    "results": [],
+                },
+                status=status.HTTP_200_OK,
+            )
         final_reports = []
 
         if reports_type == "review":
-            proj_objs = Project.objects.filter(organization_id=pk)
+            proj_objs = Project.objects.filter(organization_id=pk,
+                                               workspace_id__in=preferred_ids)
             if project_type != None:
                 proj_objs = proj_objs.filter(project_type=project_type)
             if project_progress_stage == None:
@@ -619,6 +652,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     reviewer_projs = Project.objects.filter(
                         organization_id=pk,
                         annotation_reviewers=id,
+                        workspace_id__in=preferred_ids,
                         id__in=review_projects_ids,
                     )
                     reviewer_projs_ids = [
@@ -638,6 +672,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 reviewer_projs = Project.objects.filter(
                     organization_id=pk,
                     annotation_reviewers=user_id,
+                    workspace_id__in=preferred_ids,
                     id__in=review_projects_ids,
                 )
                 reviewer_projs_ids = [review_proj.id for review_proj in reviewer_projs]
@@ -659,7 +694,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 )
 
         elif reports_type == "supercheck":
-            proj_objs = Project.objects.filter(organization_id=pk)
+            proj_objs = Project.objects.filter(organization_id=pk
+                                               ,workspace_id__in=preferred_ids)
             if project_type != None:
                 proj_objs = proj_objs.filter(project_type=project_type)
             supercheck_projects = [
@@ -685,6 +721,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     superchecker_projs = Project.objects.filter(
                         organization_id=pk,
                         review_supercheckers=id,
+                        workspace_id__in=preferred_ids,
                         id__in=supercheck_projects_ids,
                     )
                     superchecker_projs_ids = [
@@ -698,7 +735,8 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             elif user_id in workspace_superchecker_list:
                 superchecker_projs = Project.objects.filter(
                     organization_id=pk,
-                    review_supercheckers=id,
+                    workspace_id__in=preferred_ids,
+                    review_supercheckers=user_id,
                     id__in=supercheck_projects_ids,
                 )
                 superchecker_projs_ids = [
@@ -754,12 +792,17 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 annotators = User.objects.filter(organization=organization).order_by(
                     "username"
                 )
-            else:
                 proj_objects = Project.objects.filter(
-                    organization_id_id=pk,
-                    project_type=project_type,
-                    tgt_language=tgt_language,
-                )
+                    organization_id=pk,
+                    workspace_id__in=preferred_ids,
+            )
+
+            else:
+                    proj_objects = Project.objects.filter(
+                        organization_id_id=pk,
+                        project_type=project_type,
+                        tgt_language=tgt_language,
+                    )
 
                 proj_users_list = [
                     list(pro_obj.annotators.all()) for pro_obj in proj_objects
@@ -823,7 +866,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     end_date,
                     is_translation_project,
                     project_progress_stage,
-                    None if tgt_language == None else tgt_language,
+                    tgt_language,
                 )
 
                 if (
@@ -856,6 +899,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     }
                     if project_type != None and is_translation_project:
                         (
+                            all_reviewd_tasks_count,
+                            accepted_count,
+                            reviewed_except_accepted,
+                            minor_changes_count,
+                            major_changes_count,
                             avg_char_score,
                             avg_bleu_score,
                         ) = get_translation_quality_reports(
@@ -864,8 +912,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                             project_type,
                             start_date,
                             end_date,
-                            project_progress_stage,
-                            tgt_language,
+                            is_translation_project,      
+                            project_progress_stage,      
+                            tgt_language, 
                         )
                         temp_result["Average Bleu Score"] = avg_bleu_score
                         temp_result["Avergae Char Score"] = avg_char_score
@@ -964,7 +1013,28 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         descending_order = request.data.get("descending_order")
         user_id = request.data.get("user_id")
         send_mail = request.data.get("send_mail", False)
+        
+        
+        # ✅ Fetch user and their preferred workspaces
+        User = get_user_model()
 
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        prefered_id = getattr(user, "workspace_prefered", {})
+        org_workspaces = prefered_id.get(str(organization.id), [])
+
+        if not org_workspaces:
+            return Response(
+                {"message": "Preferred workspaces not found for this organization"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+            
+            
         if send_mail == True:
             send_project_analytics_mail_org.delay(
                 org_id=organization.id,
@@ -988,12 +1058,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             if tgt_language == None:
                 selected_language = "-"
                 projects_obj = Project.objects.filter(
-                    organization_id=organization.id, project_type=project_type
+                    organization_id=organization.id, project_type=project_type,workspace_id__in=prefered_id,
                 )
             else:
                 selected_language = tgt_language
                 projects_obj = Project.objects.filter(
                     organization_id=organization.id,
+                    workspace_id__in=prefered_id,
                     tgt_language=tgt_language,
                     project_type=project_type,
                 )
@@ -2633,6 +2704,20 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+            
+        prefered_workspaces = getattr(user, "workspace_prefered", None)
+        if isinstance(prefered_workspaces, dict):  # JSONField case
+            org_workspaces = prefered_workspaces.get(str(organization.id), [])
+        else:  # ManyToMany case
+            org_workspaces = list(
+                user.workspace_prefered.filter(organization=organization).values_list("id", flat=True)
+            )
+
+        if not org_workspaces:
+            return Response(
+                {"message": "Preferred workspaces not found"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         participation_types = request.data.get("participation_types")
