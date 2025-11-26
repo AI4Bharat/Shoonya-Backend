@@ -798,7 +798,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             )
 
             else:
-                    proj_objects = Project.objects.filter(
+                proj_objects = Project.objects.filter(
                         organization_id_id=pk,
                         project_type=project_type,
                         tgt_language=tgt_language,
