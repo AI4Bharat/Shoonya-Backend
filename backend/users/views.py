@@ -632,21 +632,23 @@ class UserViewSet(viewsets.ViewSet):
             {"message": "Preferred workspace fetched successfully.","prefered_workspace":user.workspace_prefered},
             status=status.HTTP_200_OK,
         )
+
+
     @action(
     detail=False,
     methods=["POST"],
     url_path="save_prefered_workspace",
     url_name="save-prefered-workspace",
     permission_classes=[IsAuthenticated],
-)
+    )
     @swagger_auto_schema(
         operation_description=(
             "Save preferred workspace mapping for the authenticated user.\n\n"
             "Expected JSON format:\n"
             "{\n"
-            '  "2125": [\n'
-            '    {"id": 189, "workspace_name": "Review Workspace"},\n'
-            '    {"id": 190, "workspace_name": "Translation Workspace"}\n'
+            '  \"2125\": [\n'
+            '    {\"id\": 189, \"workspace_name\": \"Review Workspace\"},\n'
+            '    {\"id\": 190, \"workspace_name\": \"Translation Workspace\"}\n'
             "  ]\n"
             "}"
         )
@@ -654,40 +656,38 @@ class UserViewSet(viewsets.ViewSet):
     def save_prefered_workspace(self, request):
         """
         Save preferred workspace mapping for the authenticated user.
-        Example valid input:
-          {
-            "2125": [
-              {"id": 189, "workspace_name": "Review Workspace"},
-              {"id": 190, "workspace_name": "Translation Workspace"}
-            ]
-          }
+        Completely replaces previous workspace lists for each organization.
         """
         user = request.user
         data = request.data
-    
-        # Ensure data is a dict
+
+        # Ensure input is a dict
         if not isinstance(data, dict):
             return Response(
                 {"error": "Invalid format. Expected a JSON object like {'2125': [...]}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    
+
         existing_pref = user.workspace_prefered or {}
-    
+
+        valid_org_found = False
+
         for org_id, workspace_list in data.items():
-            
+
+            # org_id must be numeric
             if not org_id or not str(org_id).isdigit():
-                continue  
-            
+                continue
+
+            valid_org_found = True
+
+            # workspace_list must be list
             if not isinstance(workspace_list, list):
                 return Response(
                     {"error": f"Value for org_id {org_id} must be a list of workspace objects."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-    
-            if org_id not in existing_pref:
-                existing_pref[org_id] = []
-    
+
+            # validate each workspace inside list
             for workspace in workspace_list:
                 if (
                     not isinstance(workspace, dict)
@@ -695,25 +695,28 @@ class UserViewSet(viewsets.ViewSet):
                     or "workspace_name" not in workspace
                 ):
                     return Response(
-                        {"error": f"Invalid workspace format for org_id {org_id}. "
-                                  "Each workspace must include 'id' and 'workspace_name'."},
+                        {
+                            "error": f"Invalid workspace format for org_id {org_id}. "
+                                     "Each workspace must include 'id' and 'workspace_name'."
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-    
-                existing_pref[org_id] = [
-                    w for w in existing_pref[org_id] if w["id"] != workspace["id"]
-                ]
-                existing_pref[org_id].append(workspace)
-    
-        if not any(str(org_id).isdigit() for org_id in data.keys()):
+
+            # --------------- IMPORTANT CHANGE ------------------
+            # Delete all previous workspaces & save only new ones
+            existing_pref[org_id] = workspace_list
+            # ---------------------------------------------------
+
+        if not valid_org_found:
             return Response(
                 {"error": "No valid organization_id provided. Nothing was saved."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    
+
+        # Save updates
         user.workspace_prefered = existing_pref
         user.save(update_fields=["workspace_prefered"])
-    
+
         return Response(
             {
                 "message": "Preferred workspace saved successfully.",
@@ -721,76 +724,6 @@ class UserViewSet(viewsets.ViewSet):
             },
             status=status.HTTP_200_OK,
         )
-        
-    @action(
-    detail=False,
-    methods=["DELETE"],
-    url_path="delete_prefered_workspace",
-    url_name="delete-prefered-workspace",
-    permission_classes=[IsAuthenticated],
-)
-    def delete_prefered_workspace(self, request):
-        """
-        DELETE /users/account/delete_prefered_workspace/
-        Body:
-        {
-            "organization_id": "123",
-            "workspace_ids": [8, 9]
-        }
-        """
-        user = request.user
-        if not user.is_authenticated:
-            return Response(
-                {"error": "User not authenticated."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-    
-        org_id = request.data.get("organization_id")
-        workspace_ids = request.data.get("workspace_ids", [])
-    
-        if not org_id:
-            return Response(
-                {"error": "organization_id is required in request body."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if not isinstance(workspace_ids, list) or not workspace_ids:
-            return Response(
-                {"error": "workspace_ids must be a non-empty list."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-    
-        workspace_data = user.workspace_prefered or {}
-    
-        if str(org_id) not in workspace_data:
-            return Response(
-                {"error": f"No data found for organization_id {org_id}."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-    
-        updated_list = [
-            ws for ws in workspace_data[str(org_id)]
-            if ws.get("id") not in workspace_ids
-        ]
-    
-        if updated_list:
-            workspace_data[str(org_id)] = updated_list
-        else:
-            del workspace_data[str(org_id)]
-    
-        user.workspace_prefered = workspace_data
-        user.save(update_fields=["workspace_prefered"])
-    
-        return Response(
-            {
-                "message": f"Workspace(s) deleted successfully for organization_id {org_id}.",
-                "workspace_prefered": user.workspace_prefered,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-
-
 
 
     @swagger_auto_schema(request_body=UserUpdateSerializer)
