@@ -208,7 +208,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def prefered_workspaces(self, request):
         if request.user.is_anonymous:
             return Response({"message": "Access Denied."})
-        workspaces = Workspace.objects.filter(members__in=[request.user.pk])
+        workspaces = Workspace.objects.all()
         workspaces_serializer = WorkspaceNameSerializer(workspaces, many=True)
         return Response(workspaces_serializer.data)
 
