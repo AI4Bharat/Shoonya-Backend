@@ -588,6 +588,7 @@ def send_user_reports_mail_org(
     user_id,
     project_type,
     participation_types=None,
+    preferred_workspace_ids=None,
     start_date=None,
     end_date=None,
     period=None,
