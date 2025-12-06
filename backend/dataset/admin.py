@@ -1,4 +1,4 @@
-import resource
+# import resource
 from django.contrib import admin
 from import_export.admin import ImportExportActionModelAdmin
 from .resources import *

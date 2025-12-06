@@ -105,7 +105,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "is_active",
         ]
         read_only_fields = [
-            "id"
+            "id",
+            "email",
+            "role",
+            "organization",
+            "unverified_email",
+            "date_joined",
         ]
 
 
