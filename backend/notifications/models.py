@@ -41,7 +41,7 @@ class Notification(models.Model):
     seen_json = models.JSONField(
         blank=True,
         null=True,
-        help_text="JSON field to store information about whether the notification has been seen by respective user Id.",
+        help_text="JSON field to store information about whether the notification has been seen",
     )
 
     class Meta:
