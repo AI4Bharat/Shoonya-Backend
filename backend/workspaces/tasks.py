@@ -29,6 +29,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     get_audio_segments_count,
+    get_bounding_box_count,
     ocr_word_count,
 )
 from tasks.views import SentenceOperationViewSet
@@ -158,6 +159,8 @@ def get_all_annotation_reports(
     total_audio_duration_list = []
     total_raw_audio_duration_list = []
     total_word_count_list = []
+    total_bounding_boxes_count_list = []
+    
     only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
@@ -168,6 +171,7 @@ def get_all_annotation_reports(
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
             total_word_count_list.append(ocr_word_count(anno.result))
+            total_bounding_boxes_count_list.append(get_bounding_box_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
@@ -183,6 +187,8 @@ def get_all_annotation_reports(
         only_tasks = True
 
     total_word_count = sum(total_word_count_list)
+    total_bounding_boxes_count = sum(total_bounding_boxes_count_list)
+    
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
     total_raw_audio_duration = convert_seconds_to_hours(
         sum(total_raw_audio_duration_list)
@@ -201,6 +207,7 @@ def get_all_annotation_reports(
         "Total Segments Duration": total_audio_duration,
         "Total Raw Audio Duration": total_raw_audio_duration,
         "Word Count": total_word_count,
+        "Total Bounding Boxes Count": total_bounding_boxes_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
         "Average Word Error Rate Annotator Vs Reviewer": ar_wer_score
@@ -229,6 +236,7 @@ def get_all_annotation_reports(
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
+        del result["Total Bounding Boxes Count"]
     elif only_tasks:
         del result["Total Segments Duration"]
         del result["Total Raw Audio Duration"]
@@ -365,6 +373,8 @@ def get_all_review_reports(
     total_audio_duration_list = []
     total_raw_audio_duration_list = []
     total_word_count_list = []
+    total_bounding_boxes_count_list = []
+    
     only_tasks = False
     if is_translation_project:
         for anno in submitted_tasks:
@@ -375,6 +385,7 @@ def get_all_review_reports(
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
             total_word_count_list.append(ocr_word_count(anno.result))
+            total_bounding_boxes_count_list.append(get_bounding_box_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
@@ -388,7 +399,10 @@ def get_all_review_reports(
                 pass
     else:
         only_tasks = True
+        
     total_word_count = sum(total_word_count_list)
+    total_bounding_boxes_count = sum(total_bounding_boxes_count_list)
+    
     total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
     total_raw_audio_duration = convert_seconds_to_hours(
         sum(total_raw_audio_duration_list)
@@ -412,6 +426,7 @@ def get_all_review_reports(
         "Total Segments Duration": total_audio_duration,
         "Total Raw Audio Duration": total_raw_audio_duration,
         "Word Count": total_word_count,
+        "total bounding boxes count" : total_bounding_boxes_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
         "Average Word Error Rate Reviewer Vs Superchecker": rs_wer_score
@@ -437,6 +452,7 @@ def get_all_review_reports(
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
+        del result["total bounding boxes count"]
     elif only_tasks:
         del result["Total Segments Duration"]
         del result["Total Raw Audio Duration"]
@@ -507,6 +523,8 @@ def get_all_supercheck_reports(
         else False
     )
     validated_word_count_list = []
+    validated_bounding_boxes_count_list = []
+    
     validated_audio_duration_list = []
     validated_raw_audio_duration_list = []
     only_tasks = False
@@ -519,6 +537,7 @@ def get_all_supercheck_reports(
     elif "OCRTranscription" in project_type:
         for anno in submitted_tasks:
             validated_word_count_list.append(ocr_word_count(anno.result))
+            validated_bounding_boxes_count_list.append(get_bounding_box_count(anno.result))
     elif (
         project_type in get_audio_project_types() or project_type == "AllAudioProjects"
     ):
@@ -536,6 +555,8 @@ def get_all_supercheck_reports(
         only_tasks = True
 
     validated_word_count = sum(validated_word_count_list)
+    validated_bounding_boxes_count = sum(validated_bounding_boxes_count_list)
+
     validated_audio_duration = convert_seconds_to_hours(
         sum(validated_audio_duration_list)
     )
@@ -556,6 +577,7 @@ def get_all_supercheck_reports(
         "Total Segments Duration": validated_audio_duration,
         "Total Raw Audio Duration": validated_raw_audio_duration,
         "Word Count": validated_word_count,
+        "validated bounding boxes count" : validated_bounding_boxes_count,
         "Submitted Tasks": submitted_tasks_count,
         "Language": user_lang,
         "Average Rejection Count Reviewer Vs Superchecker": cumulative_rejection_score_rs
@@ -566,6 +588,8 @@ def get_all_supercheck_reports(
 
     if project_type in get_audio_project_types() or project_type == "AllAudioProjects":
         del result["Word Count"]
+        del result["validated bounding boxes count"]
+        
     elif only_tasks:
         del result["Total Segments Duration"]
         del result["Total Raw Audio Duration"]
@@ -645,6 +669,7 @@ def send_user_reports_mail_ws(
     ws_anno_list = []
     ws_reviewer_list = []
     ws_superchecker_list = []
+
     for project in proj_objs:
         anno_list = project.annotators.all()
         reviewer_list = project.annotation_reviewers.all()
@@ -667,7 +692,7 @@ def send_user_reports_mail_ws(
         ws_anno_list.extend(anno_ids)
         ws_reviewer_list.extend(reviewer_ids)
         ws_superchecker_list.extend(superchecker_ids)
-
+        
     ws_anno_list = list(set(ws_anno_list))
     ws_reviewer_list = list(set(ws_reviewer_list))
     ws_superchecker_list = list(set(ws_superchecker_list))
@@ -754,8 +779,8 @@ def send_user_reports_mail_ws(
             if start_date
             else ""
         )
-    )
-
+    )        
+        
     email = EmailMessage(
         f"{workspace.workspace_name}" + " Payment Reports",
         message,
@@ -764,6 +789,7 @@ def send_user_reports_mail_ws(
         attachments=[(filename, content, content_type)],
     )
     email.send()
+# send_user_analysis_reports_mail_ws
 
 
 @shared_task(queue="reports")
@@ -1085,14 +1111,14 @@ def send_project_analysis_reports_mail_ws(
                 "Average Word Error Rate A/R": round(avg_word_error_rate_ar, 2),
                 "Average Word Error Rate R/S": round(avg_word_error_rate_rs, 2),
                 "Project Progress": round(project_progress, 3),
-            }
-
+            }               
+                
             if project_type in get_audio_project_types():
                 del result["Annotated Tasks Word Count"]
                 del result["Reviewed Tasks Word Count"]
                 del result["Exported Tasks Word Count"]
                 del result["SuperChecked Tasks Word Count"]
-
+                
             elif is_translation_project or project_type in [
                 "SemanticTextualSimilarity_Scale5",
                 "OCRTranscriptionEditing",
@@ -1117,8 +1143,6 @@ def send_project_analysis_reports_mail_ws(
                 del result["Total Raw Audio Duration"]
                 del result["Average Word Error Rate A/R"]
                 del result["Average Word Error Rate R/S"]
-
-            final_result.append(result)
 
     df = pd.DataFrame.from_dict(final_result)
 
@@ -1261,6 +1285,12 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         validated_word_count_list = []
         validated_with_changes_word_count_list = []
         rejected_word_count_list = []
+        
+        # Bounding_boxes
+        validated_bounding_boxes_list = []
+        validated_with_changes_bounding_boxes_list=[]
+        rejected_bounding_boxes_list=[]
+        
         validated_audio_duration_list = []
         validated_with_changes_audio_duration_list = []
         rejected_audio_duration_list = []
@@ -1284,15 +1314,25 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
                     rejected_word_count_list.append(anno.task.data["word_count"])
                 except:
                     pass
+                
+                
         elif "OCRTranscription" in project_type:
             for anno in validated_objs:
                 validated_word_count_list.append(ocr_word_count(anno.result))
+                validated_bounding_boxes_list += get_bounding_box_count(anno.result)
+                
             for anno in validated_with_changes_objs:
                 validated_with_changes_word_count_list.append(
                     ocr_word_count(anno.result)
                 )
+                validated_with_changes_bounding_boxes_list += get_bounding_box_count(anno.result)
             for anno in rejected_objs:
                 rejected_word_count_list.append(ocr_word_count(anno.result))
+                rejected_bounding_boxes_list += get_bounding_box_count(anno.result)
+                
+                
+                
+                
         elif project_type in get_audio_project_types():
             for anno in validated_objs:
                 try:
@@ -1340,6 +1380,13 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         validated_word_count = sum(validated_word_count_list)
         validated_with_changes_word_count = sum(validated_with_changes_word_count_list)
         rejected_word_count = sum(rejected_word_count_list)
+        
+        validated_bounding_boxes_count = sum(validated_bounding_boxes_list)
+        validated_with_changes_bounding_boxes_count = sum(validated_with_changes_bounding_boxes_list)
+        rejected_bounding_boxes_count = sum(rejected_bounding_boxes_list)
+        
+        
+        
         validated_audio_duration = convert_seconds_to_hours(
             sum(validated_audio_duration_list)
         )
@@ -1383,10 +1430,14 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
             "OCRTranscription",
         ]:
             result["Validated Word Count"] = validated_word_count
-            result[
-                "Validated With Changes Word Count"
-            ] = validated_with_changes_word_count
+            result["Validated With Changes Word Count"] = validated_with_changes_word_count
             result["Rejected Word Count"] = rejected_word_count
+            
+            result["Validated bounding boxes Count"] = validated_bounding_boxes_count
+            result["Validated With Changes bounding boxes Count"] = validated_with_changes_bounding_boxes_count
+            result["Rejected bounding boxes Count"] = rejected_bounding_boxes_count
+            
+            
         elif project_type in get_audio_project_types():
             result["Validated Audio Duration"] = validated_audio_duration
             result[
@@ -1579,14 +1630,20 @@ def get_review_reports(
         total_audio_duration_list = []
         total_raw_audio_duration_list = []
         total_word_count_list = []
+        total_bounding_boxes_list = 0
         total_word_error_rate_ar_list = []
         total_word_error_rate_rs_list = []
         if is_translation_project or project_type == "SemanticTextualSimilarity_Scale5":
             for anno in total_rev_annos_accepted:
                 total_word_count_list.append(anno.task.data["word_count"])
+                
+                
         elif "OCRTranscription" in project_type:
             for anno in total_rev_annos_accepted:
                 total_word_count_list.append(ocr_word_count(anno.result))
+                total_bounding_boxes_list+= get_bounding_box_count(anno.result)
+                
+                
         elif project_type in get_audio_project_types():
             for anno in total_rev_annos_accepted:
                 try:
@@ -1614,6 +1671,8 @@ def get_review_reports(
                     pass
 
         total_word_count = sum(total_word_count_list)
+        total_bounding_boxes=total_bounding_boxes_list
+        
         total_audio_duration = convert_seconds_to_hours(sum(total_audio_duration_list))
         total_raw_audio_duration = convert_seconds_to_hours(
             sum(total_raw_audio_duration_list)
@@ -1698,6 +1757,7 @@ def get_review_reports(
             "Rejected": accepted_rejected_tasks.count(),
             "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
             "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+            "Total Bounding Boxes": total_bounding_boxes,             
         }
 
         if project_type != None:
@@ -1707,6 +1767,7 @@ def get_review_reports(
                 "OCRTranscription",
             ]:
                 result["Total Word Count"] = total_word_count
+                result["Total Bounding Boxes"]= total_bounding_boxes
             elif project_type in get_audio_project_types():
                 result["Total Segments Duration"] = total_audio_duration
                 result["Total Raw Audio Duration"] = total_raw_audio_duration
@@ -1731,6 +1792,7 @@ def get_review_reports(
         "Draft": draft_tasks_count,
         "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+        "Total Bounding Boxes": total_bounding_boxes,
     }
 
     if project_type != None:
@@ -1740,6 +1802,7 @@ def get_review_reports(
             "OCRTranscription",
         ]:
             result["Total Word Count"] = total_word_count
+            # result["Total Bounding Boxes"]= total_bounding_boxes,
         elif project_type in get_audio_project_types():
             result["Total Segments Duration"] = total_audio_duration
             result["Total Raw Audio Duration"] = total_raw_audio_duration
@@ -1859,10 +1922,15 @@ def un_pack_annotation_tasks(
                 pass
 
         total_word_count = sum(total_word_count_list)
+        
     elif "OCRTranscription" in project_type:
         total_word_count = 0
+        total_bounding_boxes=0
         for each_anno in labeled_annotations:
             total_word_count += ocr_word_count(each_anno.result)
+            total_bounding_boxes += get_bounding_box_count(each_anno.result)
+            
+            
 
     total_duration = "0:00:00"
     total_raw_duration = 0.0
@@ -1903,6 +1971,7 @@ def un_pack_annotation_tasks(
         labeled,
         avg_lead_time,
         total_word_count,
+        total_bounding_boxes,
         total_duration,
         total_raw_duration,
         avg_segment_duration,
@@ -2121,7 +2190,7 @@ def send_user_analysis_reports_mail_ws(
                     labeled,
                     avg_lead_time,
                     total_word_count,
-                    total_duration,
+                    total_bounding_boxes,
                     total_raw_duration,
                     avg_segment_duration,
                     avg_segments_per_task,
@@ -2166,16 +2235,22 @@ def send_user_analysis_reports_mail_ws(
                         except:
                             pass
 
-                    total_word_count = sum(total_word_count_list)
+                    total_word_count = sum(total_word_count_list)                       
+                        
                 elif "OCRTranscription" in project_type:
                     total_word_count = 0
+                    total_bounding_boxes = 0
                     for each_anno in labeled_annotations:
                         total_word_count += ocr_word_count(each_anno.result)
+                        total_bounding_boxes += get_bounding_box_count(each_anno.result)
 
                 total_duration = "0:00:00"
                 total_raw_duration = "0:00:00"
                 avg_segment_duration = 0
                 avg_segments_per_task = 0
+                
+                             
+                
                 if project_type in get_audio_project_types():
                     total_duration_list = []
                     total_raw_duration_list = []
@@ -2256,7 +2331,7 @@ def send_user_analysis_reports_mail_ws(
                     "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                     "Avg Segment Duration": round(avg_segment_duration, 2),
                     "Average Segments Per Task": round(avg_segments_per_task, 2),
-                }
+                }                    
             else:
                 result = {
                     "Annotator": name,
@@ -2275,6 +2350,10 @@ def send_user_analysis_reports_mail_ws(
                     "Avg Segment Duration": round(avg_segment_duration, 2),
                     "Average Segments Per Task": round(avg_segments_per_task, 2),
                 }
+            if "OCRTranscription" in project_type:
+                    result["Total Bounding Boxes"] = total_bounding_boxes
+                    
+                    
 
             if project_type in get_audio_project_types():
                 del result["Word Count"]
