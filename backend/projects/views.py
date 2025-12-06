@@ -2901,7 +2901,11 @@ url_name="populate_asr_model_predictions")
             model_language = data.get("model_language")
             project_ids = data.get("project_ids",[])
             stage = data.get("stage", "l1")  # Default to "l1"
-
+            print("Model:", model_language)
+            print("Projects:", project_ids)
+            print("Stage:", stage)
+            print("Inside populate_asr_model_predictions")
+            print
             # Ensure the stage is either "l1" or "l2"
             if stage not in ["l1", "l2"]:
                 return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
@@ -2910,42 +2914,48 @@ url_name="populate_asr_model_predictions")
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
             # Run the Celery task asynchronously
-            populate_asr_try.delay(model_language, project_ids, stage)
+            populate_asr_try(model_language, project_ids, stage)
             return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)        
-
-# For Youtube
-    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions_yt", url_name="populate_asr_model_predictions_yt")
-    def populate_asr_model_predictions_yt(self, request,pk=None):
+    
+    @action(
+    detail=True,
+    methods=["POST"],
+    url_path="populate_asr_model_predictions_yt",
+    url_name="populate_asr_model_predictions_yt"
+    )
+    def populate_asr_model_predictions_yt(self, request, pk=None):
         try:
-            print("Model:", model_language)
-            print("Projects:", project_ids,[])
-            print("Stage:", stage)
             data = json.loads(request.body)
+
             model_language = data.get("model_language")
             project_ids = data.get("project_ids")
             stage = data.get("stage", "l1")
 
-            # Ensure the stage is either "l1" or "l2"
+            print("Model:", model_language)
+            print("Projects:", project_ids)
+            print("Stage:", stage)
+
             if stage not in ["l1", "l2"]:
                 return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
 
             if not model_language:
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
-            # Run the Celery task asynchronously
-            populate_asr_yt.delay(model_language, project_ids, stage)
+            populate_asr_yt(model_language, project_ids, stage)
 
             return Response({"message": "populate_asr_yt started successfully!"})
+
         except json.JSONDecodeError:
             return Response({"error": "Invalid JSON format"}, status=400)
+
         except Exception as e:
-            ret_dict = {"message": "Project does not exist!"}
-            ret_status = status.HTTP_404_NOT_FOUND
-            return Response(ret_dict, status=ret_status)
+            # Return the REAL error so you can debug properly
+            return Response({"error": str(e)}, status=500)
+
 # Here translitrartion work ends
 
     
