@@ -12,7 +12,6 @@ from notifications.models import Notification
 from notifications.tasks import create_notification_handler
 from notifications.serializers import NotificationSerializer
 
-
 NO_NOTIFICATION_MESSAGE = {"message": "No notifications found"}
 FETCH_NOTIFICATION_ERROR = {"message": "Cannot fetch notifications"}
 MISSING_REQUEST_PARAMETERS = {
