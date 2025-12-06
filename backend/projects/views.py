@@ -1447,7 +1447,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         detail=False,
         methods=["get"],
         url_name="list-optimized",
-        url_path="projects_list/optimized"
+        url_path="projects_list/optimized",
     )
     def list_optimized(self, request):
         """
