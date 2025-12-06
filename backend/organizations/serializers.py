@@ -20,8 +20,8 @@ class UserReadSerializer(serializers.ModelSerializer):
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
-
+    created_by = UserReadSerializer(read_only=True)
     class Meta:
         model = Organization
-        fields = ["id"]
-        # read_only_fields = ["id"]
+        fields = ["id", "title", "email_domain_name", "created_by", "created_at"]
+        read_only_fields = ["id", "created_by", "created_at"]
