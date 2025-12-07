@@ -2914,7 +2914,7 @@ url_name="populate_asr_model_predictions")
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
             # Run the Celery task asynchronously
-            populate_asr_try(model_language, project_ids, stage)
+            populate_asr_try.delay(model_language, project_ids, stage)
             return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
@@ -2945,7 +2945,7 @@ url_name="populate_asr_model_predictions")
             if not model_language:
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
-            populate_asr_yt(model_language, project_ids, stage)
+            populate_asr_yt.delay(model_language, project_ids, stage)
 
             return Response({"message": "populate_asr_yt started successfully!"})
 
