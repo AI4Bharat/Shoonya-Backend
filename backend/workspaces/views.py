@@ -3650,22 +3650,19 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
     )
     @is_particular_organization_owner
     def bulk_add_members_to_projects(self, request, pk=None, *args, **kwargs):
-        """
-        Bulk add users to multiple projects with a given role.
-        """
-    
-        # Extract data
+
+        # Extract Data
         user_emails = request.data.get("user_emails", [])
         project_ids = request.data.get("project_ids", [])
         role = request.data.get("user_role", None)
-    
+
         # Validate list inputs
         if not isinstance(user_emails, list) or not isinstance(project_ids, list):
             return Response(
                 {"message": "user_emails and project_ids must be lists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    
+
         # Validate role
         allowed_roles = ["annotator", "reviewer", "super_checker"]
         if role not in allowed_roles:
@@ -3673,108 +3670,105 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
                 {"message": "Invalid role. Must be annotator, reviewer or super_checker."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-    
-        # Collect valid + invalid users
+
+        # ---------------------------------------
+        # Role → Stage Mapping
+        # ---------------------------------------
+        ROLE_STAGE_MAPPING = {
+            "annotator": [1, 2, 3],
+            "reviewer": [2, 3],
+            "super_checker": [3],
+        }
+
+        required_stage_list = ROLE_STAGE_MAPPING[role]
+
+        # ---------------------------------------
+        # Validate Users
+        # ---------------------------------------
         valid_users = []
         invalid_user_emails = []
+
         for email in user_emails:
             try:
                 valid_users.append(User.objects.get(email=email))
             except User.DoesNotExist:
                 invalid_user_emails.append(email)
-    
-        # Collect valid + invalid projects
+
+        # ---------------------------------------
+        # Validate Projects
+        # ---------------------------------------
         valid_projects = []
         invalid_project_ids = []
+
         for pid in project_ids:
             try:
                 valid_projects.append(Project.objects.get(pk=pid))
             except Project.DoesNotExist:
                 invalid_project_ids.append(pid)
-    
-        # # Track users that could not be added due to already present
-        # already_added = []
-    
-        # # Process project-user-role additions
-        # for project in valid_projects:
-        #     for user in valid_users:
-            
-        #         # Add to workspace if not already present
-        #         if user not in project.workspace_id.members.all():
-        #             project.workspace_id.members.add(user)
-        #             project.workspace_id.save()
-    
-        #         # Apply role
-        #         if role == "annotator":
-        #             if user in project.annotators.all():
-        #                 already_added.append(user.email)
-        #             else:
-        #                 project.annotators.add(user)
-    
-        #         elif role == "reviewer":
-        #             if user in project.annotation_reviewers.all():
-        #                 already_added.append(user.email)
-        #             else:
-        #                 project.annotation_reviewers.add(user)
-    
-        #         elif role == "super_checker":
-        #             if user in project.review_supercheckers.all():
-        #                 already_added.append(user.email)
-        #             else:
-        #                 project.review_supercheckers.add(user)
-    
-        #         project.save()
-    
-        # # Build response message
-        # response_msg = "Users added to projects successfully."
-        # Track expected and actual adds
+
+        # ---------------------------------------
+        # VALIDATE: role must match project stage
+        # ---------------------------------------
+        projects_with_wrong_stage = [
+            project.id
+            for project in valid_projects
+            if project.project_stage not in required_stage_list
+        ]
+
+        if projects_with_wrong_stage:
+            return Response(
+                {
+                    "message": (
+                        f"Role '{role}' can only be assigned to projects in stages "
+                        f"{required_stage_list}. "
+                        f"Stage mismatch in projects: {projects_with_wrong_stage}"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ---------------------------------------
+        # Process Additions
+        # ---------------------------------------
         successful_adds = 0
         already_added = []
 
-        # Total expected additions
-        total_expected_adds = len(valid_users) * len(valid_projects)
-
         for project in valid_projects:
             for user in valid_users:
-            
-                # Add to workspace
+
+                # Add user to workspace
                 if user not in project.workspace_id.members.all():
                     project.workspace_id.members.add(user)
                     project.workspace_id.save()
-                    successful_adds += 1
 
-                # Add role
+                # Depending on role, add into correct field
                 if role == "annotator":
-                    if user in project.annotators.all():
-                        already_added.append(user.email)
-                    else:
+                    if user not in project.annotators.all():
                         project.annotators.add(user)
                         successful_adds += 1
+                    else:
+                        already_added.append(user.email)
 
                 elif role == "reviewer":
-                    if user in project.annotation_reviewers.all():
-                        already_added.append(user.email)
-                    else:
+                    if user not in project.annotation_reviewers.all():
                         project.annotation_reviewers.add(user)
                         successful_adds += 1
+                    else:
+                        already_added.append(user.email)
 
                 elif role == "super_checker":
-                    if user in project.review_supercheckers.all():
-                        already_added.append(user.email)
-                    else:
+                    if user not in project.review_supercheckers.all():
                         project.review_supercheckers.add(user)
                         successful_adds += 1
+                    else:
+                        already_added.append(user.email)
 
                 project.save()
 
-        # -----------------------------
-        # Build response
-        # -----------------------------
-
-        if successful_adds == total_expected_adds and not invalid_user_emails and not invalid_project_ids:
-            response_msg = "Users added to projects successfully."
-        else:
-            response_msg = "Some users could not be added."
+        # ---------------------------------------
+        # Build Final Response
+        # ---------------------------------------
+        response_msg = "Users added to projects successfully."
 
         if invalid_user_emails:
             response_msg += f" Invalid user emails: {invalid_user_emails}."
@@ -3784,6 +3778,7 @@ class WorkspaceusersViewSet(viewsets.ViewSet):
 
         if already_added:
             response_msg += f" Already existed for this role: {already_added}."
-    
+
         return Response({"message": response_msg}, status=status.HTTP_200_OK)
-    
+
+
