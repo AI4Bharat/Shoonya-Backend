@@ -333,7 +333,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         )
     else:
         avg_word_error_rate_ar = 0
-
+        
+    avg_review_time = 0
     if project_obj.project_stage > REVIEW_STAGE:
         annotations_of_superchecker_validated = Annotation_model.objects.filter(
             task__project_id=proj_id,
@@ -432,6 +433,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         "To Be Revised": to_be_revised_tasks_count,
         "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+        "Average Review Time (in seconds)": avg_review_time,
     }
 
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
