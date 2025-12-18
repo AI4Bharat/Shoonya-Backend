@@ -580,8 +580,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         
         # ✅ --- Preferred Workspace Filter ---
         user = request.user
+        print("user:",user)
         workspace_prefered = getattr(user, "workspace_prefered", {}) or {}
+        print("workspace_prefered:",workspace_prefered)
         org_id_str = str(pk)
+        print("org_id_str:",org_id_str)
 
         if org_id_str not in workspace_prefered:
             return Response(
@@ -599,6 +602,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             for ws in workspace_prefered.get(org_id_str, [])
             if ws.get("id") is not None
         ]
+        print("preferred_ids:",preferred_ids)
 
         if not preferred_ids:
             return Response(
@@ -807,7 +811,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             )
                
             else:
-                    proj_objects = Project.objects.filter(
+                proj_objects = Project.objects.filter(
                         organization_id_id=pk,
                         project_type=project_type,
                         tgt_language=tgt_language,
@@ -1025,31 +1029,39 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         user_id = request.data.get("user_id")
         
         send_mail = request.data.get("send_mail", False)
-        # ✅ Fetch user and their preferred workspaces
-        User = get_user_model()
+        
+        # ✅ --- Preferred Workspace Filter ---
+        user = request.user
+        print("user:",user)
+        workspace_prefered = getattr(user, "workspace_prefered", {}) or {}
+        print("workspace_prefered:",workspace_prefered)
+        org_id_str = str(pk)
+        print("org_id_str:",org_id_str)
 
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
+        if org_id_str not in workspace_prefered:
             return Response(
-                {"message": "User not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        prefered_id = getattr(user, "workspace_prefered", {})
-        org_workspaces = prefered_id.get(str(organization.id), [])
-
-        if not org_workspaces:
-            return Response(
-                {"message": "Preferred workspaces not found for this organization"},
-                status=status.HTTP_404_NOT_FOUND,
+                {
+                    "message": f"No preferred workspaces found for organization ID {pk}.",
+                    "filtered": False,
+                    "results": [],
+                },
+                status=status.HTTP_200_OK,
             )
 
+        # Extract workspace IDs
+        preferred_ids = [
+            int(ws.get("id"))
+            for ws in workspace_prefered.get(org_id_str, [])
+            if ws.get("id") is not None
+        ]
+        print("preferred_ids:",len(preferred_ids))
 
         if send_mail == True:
             send_project_analytics_mail_org.delay(
                 org_id=organization.id,
                 tgt_language=tgt_language,
                 project_type=project_type,
+                workspace_id__in=preferred_ids,
                 user_id=user_id,
                 sort_by_column_name=sort_by_column_name,
                 descending_order=descending_order,
@@ -1068,13 +1080,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             if tgt_language == None:
                 selected_language = "-"
                 projects_obj = Project.objects.filter(
-                    organization_id=organization.id, project_type=project_type,workspace_id__in=prefered_id,
+                    organization_id=organization.id, project_type=project_type,workspace_id__in=preferred_ids,
+
                 )
             else:
                 selected_language = tgt_language
                 projects_obj = Project.objects.filter(
                     organization_id=organization.id,
-                    workspace_id__in=prefered_id,
+                    workspace_id__in=preferred_ids,
                     tgt_language=tgt_language,
                     project_type=project_type,
                 )
@@ -2706,24 +2719,46 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         except Organization.DoesNotExist:
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-
+            )   
+        
+        
         user_id = request.data.get("user_id")
+        print("user_id", user_id)
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
             )
-        prefered_workspaces = getattr(user, "workspace_prefered", None)
-        if isinstance(prefered_workspaces, dict):  # JSONField case
-            org_workspaces = prefered_workspaces.get(str(organization.id), [])
-        else:  # ManyToMany case
-            org_workspaces = list(
-                user.workspace_prefered.filter(organization=organization).values_list("id", flat=True)
+            
+        preferred_workspaces = getattr(user, "workspace_prefered", None)
+        print(preferred_workspaces)
+            
+        preferred_ids = []
+        org_workspaces = []
+        
+        
+        if isinstance(preferred_workspaces, dict):
+            org_workspaces = preferred_workspaces.get(str(organization.id), [])
+            print("org_workspaces = 1", org_workspaces)
+            preferred_ids = [
+                int(ws.get("id"))
+                for ws in org_workspaces
+                if ws.get("id") is not None
+            ]
+            print("preferred_ids = 1", preferred_ids)
+        else:
+            preferred_ids = list(
+                user.workspace_preferred.filter(
+                    organization=organization
+                ).values_list("id", flat=True)
             )
-    
-        if not org_workspaces:
+            print("preferred_ids = 2", preferred_ids)
+            org_workspaces = preferred_ids
+            print("org_workspaces = 2", org_workspaces)
+            
+
+        if not preferred_ids:
             return Response(
                 {"message": "Preferred workspaces not found"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -2763,6 +2798,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             org_id=organization.id,
             user_id=user_id,
             project_type=project_type,
+            preferred_workspace_ids=preferred_ids,
             participation_types=participation_types,
             start_date=from_date,
             end_date=to_date,
