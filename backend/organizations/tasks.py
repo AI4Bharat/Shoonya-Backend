@@ -1161,6 +1161,7 @@ def send_project_analytics_mail_org(
     user_id,
     sort_by_column_name,
     descending_order,
+    workspace_id__in,
 ):
     organization = Organization.objects.get(pk=org_id)
     user = User.objects.get(id=user_id)
@@ -1174,7 +1175,7 @@ def send_project_analytics_mail_org(
     if tgt_language == None:
         selected_language = "-"
         projects_obj = Project.objects.filter(
-            organization_id=org_id, project_type=project_type
+            organization_id=org_id, project_type=project_type,workspace_id__in=workspace_id__in
         )
     else:
         selected_language = tgt_language
@@ -1182,7 +1183,9 @@ def send_project_analytics_mail_org(
             organization_id=org_id,
             tgt_language=tgt_language,
             project_type=project_type,
+            workspace_id__in=workspace_id__in
         )
+        
     final_result = []
     if projects_obj.count() != 0:
         for proj in projects_obj:
