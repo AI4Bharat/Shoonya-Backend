@@ -604,9 +604,14 @@ def send_user_reports_mail_org(
         end_date (datetime, optional): End date of the report. Defaults to None.
         period (str, optional): Period of the report. Defaults to None.
     """
-
+    print("📌 Task started: send_user_reports_mail_org")
+    print(f"Org ID: {org_id}, User ID: {user_id}, Project Type: {project_type},preferred_workspace_ids:{preferred_workspace_ids}")
+    
     user = User.objects.get(id=user_id)
     organization = Organization.objects.get(pk=org_id)
+    
+    print(f"User: {user.username}, Organization: {organization.title}")
+    
     if project_type == "AllAudioProjects":
         proj_objs = Project.objects.filter(
             organization_id=org_id,
@@ -615,11 +620,22 @@ def send_user_reports_mail_org(
                 "AudioTranscriptionEditing",
                 "AcousticNormalisedTranscriptionEditing",
             ],
+            workspace_id__in=preferred_workspace_ids
         )
     else:
         proj_objs = Project.objects.filter(
-            organization_id=org_id, project_type=project_type
+            organization_id=org_id, project_type=project_type,workspace_id__in=preferred_workspace_ids
         )
+    print("Projects count:", proj_objs.count())
+    print("Project IDs:", list(proj_objs.values_list("id", flat=True)))
+    print(f"Preferred workspace IDs: {preferred_workspace_ids}")
+
+    print(
+    "Workspace IDs:",
+    preferred_workspace_ids
+    )
+
+
 
     if period:
         if period == "Daily":
@@ -1161,21 +1177,27 @@ def send_project_analytics_mail_org(
     user_id,
     sort_by_column_name,
     descending_order,
-    workspace_id__in,
+    workspace_ids,
 ):
     organization = Organization.objects.get(pk=org_id)
     user = User.objects.get(id=user_id)
-
+    print("📩 Analytics Mail Task")
+    print("Org ID:", org_id)
+    print("Workspace IDs:", workspace_ids)
+    
     if sort_by_column_name == None:
         sort_by_column_name = "User Name"
 
     if descending_order == None:
         descending_order = False
 
+    if not workspace_ids:
+        print("❌ No workspace IDs provided, exiting task")
+        return
     if tgt_language == None:
         selected_language = "-"
         projects_obj = Project.objects.filter(
-            organization_id=org_id, project_type=project_type,workspace_id__in=workspace_id__in
+            organization_id=org_id, project_type=project_type,workspace_id__in=workspace_ids
         )
     else:
         selected_language = tgt_language
@@ -1183,8 +1205,10 @@ def send_project_analytics_mail_org(
             organization_id=org_id,
             tgt_language=tgt_language,
             project_type=project_type,
-            workspace_id__in=workspace_id__in
+            workspace_id__in=workspace_ids
         )
+    print("Projects count:", projects_obj.count())
+    print("Project IDs:", list(projects_obj.values_list("id", flat=True)))
         
     final_result = []
     if projects_obj.count() != 0:
