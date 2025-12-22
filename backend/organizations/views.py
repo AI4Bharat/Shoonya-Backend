@@ -1061,7 +1061,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 org_id=organization.id,
                 tgt_language=tgt_language,
                 project_type=project_type,
-                workspace_id__in=preferred_ids,
+                workspace_ids=preferred_ids,
                 user_id=user_id,
                 sort_by_column_name=sort_by_column_name,
                 descending_order=descending_order,
