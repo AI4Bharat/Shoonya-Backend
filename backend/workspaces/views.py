@@ -1298,7 +1298,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     updated_at__range=[start_date, end_date],
                     completed_by=each_annotation_user,
                 ).count()
-
+                total_bounding_boxes = 0
                 if (
                     project_progress_stage != None
                     and project_progress_stage > ANNOTATION_STAGE
@@ -1323,7 +1323,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                         "Avg Segment Duration": round(avg_segment_duration, 2),
                         "Average Segments Per Task": round(avg_segments_per_task, 2),
-                        "Total Bounding Boxes": total_bounding_boxes,
                     }
                 else:
                     result = {
@@ -1342,12 +1341,14 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                         "Average Annotation Time (In Seconds)": round(avg_lead_time, 2),
                         "Avg Segment Duration": round(avg_segment_duration, 2),
                         "Average Segments Per Task": round(avg_segments_per_task, 2),
-                        "Total Bounding Boxes": total_bounding_boxes,
                     }
+                # ✅ ADD HERE
+                if "OCRTranscription" in project_type:
+                    result["Total Bounding Boxes"] = total_bounding_boxes
 
                 if project_type in get_audio_project_types():
                     del result["Word Count"]
-                    del result["Total Bounding Boxes"]
+                    
                 elif is_translation_project or project_type in [
                     "SemanticTextualSimilarity_Scale5",
                     "OCRTranscription",
@@ -1358,7 +1359,6 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     del result["Avg Segment Duration"]
                     del result["Average Segments Per Task"]
                 else:
-                    del result["Total Bounding Boxes"]
                     del result["Word Count"]
                     del result["Total Segments Duration"]
                     del result["Total Raw Audio Duration"]
