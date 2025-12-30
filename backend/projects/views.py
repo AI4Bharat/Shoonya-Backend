@@ -92,7 +92,7 @@ from .utils import (
     get_audio_project_types,
     get_audio_transcription_duration,
     get_audio_segments_count,
-    calculate_word_error_rate_between_two_audio_transcription_annotation
+    calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 
 from users.utils import generate_random_string
@@ -3679,7 +3679,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     "reviewers_text": reviewer_text,
                     "annotation_users_final": annotator_user,
                     "review_users_final": reviewer_user,
-                    **flat_processed  # Unpack flat fields here
+                    **flat_processed  
                 })
 
 
@@ -3690,7 +3690,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         df = pd.DataFrame(output_data)
 
         # Clean up project type name for filename
-        clean_project_type = project_type.replace(" ", "_").lower()
+        # clean_project_type = project_type.replace(" ", "_").lower()
+        clean_project_type = (proj_obj.get_project_type_display() or "unknown_project_type").replace(" ", "_").lower()
+
 
         if export_type == "csv":
             content = df.to_csv(index=False)
