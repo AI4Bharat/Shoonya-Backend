@@ -1884,6 +1884,7 @@ class AnnotationViewSet(
                         is_acoustic_project_type,
                         (
                             is_acoustic_project_type
+                            and annotation_obj.task.project_id.metadata_json
                             and "acoustic_enabled_stage"
                             in annotation_obj.task.project_id.metadata_json
                             and annotation_obj.task.project_id.metadata_json[
