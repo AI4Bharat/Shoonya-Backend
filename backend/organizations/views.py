@@ -3399,13 +3399,12 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 final_result_for_all_types[project_type] = final_result
         if metainfo != True:
 
-            # Fetch workspace-level statistics
             stat = Statistic.objects.get(
                 stat_type="workspace_task_counts",
                 org_id=organization.id
             )
             
-            preferred_ids = set(map(str, preferred_ids))  # workspace IDs as strings
+            preferred_ids = set(map(str, preferred_ids)) 
             project_type_filter = request.query_params.get("project_type_filter")
             
             final_result_for_all_types = {}
@@ -3415,7 +3414,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     continue
                 
                 for pjt_type, lang_stats in project_map.items():
-                    # Apply project type filter if provided
+                    
                     if project_type_filter and pjt_type != project_type_filter:
                         continue
                     
@@ -3424,4 +3423,4 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             
                     final_result_for_all_types[pjt_type].extend(lang_stats)
             
-            return Response(final_result_for_all_types)
+        return Response(final_result_for_all_types)
