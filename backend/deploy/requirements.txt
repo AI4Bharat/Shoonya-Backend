@@ -5,7 +5,7 @@ asgiref==3.7.2
 async-timeout==4.0.3
 attr==0.3.1
 attrs==23.1.0
-azure-core==1.29.2
+azure-core==1.38.0
 azure-storage-blob==12.17.0
 Babel==2.12.1
 beautifulsoup4==4.12.2
