@@ -117,6 +117,15 @@ ANNOTATION_REGISTRY_DICT = {
             "type": ["rectangle"],
         },
     },
+    "OCRTableEditing": {
+        "ocr_transcribed_json": {
+            "to_name": "image_url",
+            "from_name": [
+                "annotation_bboxes",
+            ],
+            "type": ["rectangle"],
+        },
+    },
     "OCRTranscription": {
         "ocr_transcribed_json": {
             "to_name": "image_url",

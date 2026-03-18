@@ -2458,6 +2458,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     "AcousticNormalisedTranscriptionEditing",
                     "AudioTranscriptionEditing",
                     "OCRTranscriptionEditing",
+                    "OCRTableEditing",
                     "OCRSegmentCategorizationEditing",
                     "OCRTextlineSegmentation",
                 ]:
