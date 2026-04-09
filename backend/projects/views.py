@@ -3471,7 +3471,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         tas = Task.objects.filter(project_id=pk)
         tas_id = [ts.id for ts in tas]
-        tas_intext = [ts.data["input_text"] for ts in tas]
+        tas_intext = [ts.data.get("input_text", "") for ts in tas]
 
         annotation_text_final = []
         reviewer_text_final = []
