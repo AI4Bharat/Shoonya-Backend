@@ -10,7 +10,7 @@ import math
 from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
-from django.db import IntegrityError
+from django.db import transaction, IntegrityError
 
 import notifications
 from shoonya_backend.pagination import CustomPagination
@@ -25,8 +25,6 @@ from .utils import (
     process_speech_tasks,
     process_ocr_tasks,
     process_task,
-    convert_time_to_seconds,
-    parse_json_for_ste,
 )
 from django.http import HttpResponse, JsonResponse
 from rest_framework import status, viewsets
@@ -56,6 +54,7 @@ from tasks.serializers import TaskSerializer
 from .models import *
 from .registry_helper import ProjectRegistry
 from dataset import models as dataset_models
+from django.db.models import Exists, OuterRef
 
 from dataset.models import (
     DatasetInstance,
@@ -71,6 +70,8 @@ from .tasks import (
     export_project_in_place,
     export_project_new_record,
     filter_data_items,
+    populate_asr_try,
+    populate_asr_yt
 )
 
 from .decorators import (
@@ -90,7 +91,6 @@ from .utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
-    ann_result_for_ste,
 )
 
 from users.utils import generate_random_string
@@ -405,6 +405,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "OCRTranscription",
             "OCRSegmentCategorization",
             "OCRSegmentCategorizationEditing",
+            "OCRTextlineSegmentation",
         ]:
             result["Total Word Count"] = total_word_count
         elif proj_type in get_audio_project_types():
@@ -653,15 +654,16 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "OCRTranscription",
         "OCRSegmentCategorization",
         "OCRSegmentCategorizationEditing",
+        "OCRTextlineSegmentation",
     ]:
         result["Validated Word Count"] = validated_word_count
         result["Validated With Changes Word Count"] = validated_with_changes_word_count
         result["Rejected Word Count"] = rejected_word_count
     elif proj_type in get_audio_project_types():
         result["Validated Segments Duration"] = validated_audio_duration
-        result[
-            "Validated With Changes Segments Duration"
-        ] = validated_with_changes_audio_duration
+        result["Validated With Changes Segments Duration"] = (
+            validated_with_changes_audio_duration
+        )
         result["Rejected Segments Duration"] = rejected_audio_duration
         result["Total Raw Audio Duration"] = total_raw_audio_duration
         result["Average Word Error Rate R/S"] = round(avg_word_error_rate, 2)
@@ -857,71 +859,153 @@ def get_task_count_unassigned(pk, user):
     return len(proj_tasks_unassigned)
 
 
-def convert_prediction_json_to_annotation_result(pk, proj_type):
+def convert_prediction_json_to_annotation_result(
+    pk, proj_type, data_item, prediction_json, populate_draft_data=False
+):
     result = []
     if (
         proj_type == "AudioTranscriptionEditing"
         or proj_type == "AcousticNormalisedTranscriptionEditing"
     ):
-        data_item = SpeechConversation.objects.get(pk=pk)
-        prediction_json = (
-            json.loads(data_item.prediction_json)
-            if isinstance(data_item.prediction_json, str)
-            else data_item.prediction_json
-        )
+        if not data_item and not prediction_json:
+            data_item = SpeechConversation.objects.get(pk=pk)
+            prediction_json = (
+                json.loads(data_item.prediction_json)
+                if isinstance(data_item.prediction_json, str)
+                else data_item.prediction_json
+            )
+        assert type(prediction_json) in [
+            dict,
+            list,
+        ], "Seems something is wrong with the formatting"
+        # see if the prediction is a list, then it seems that only verbatim json is present
+        if isinstance(prediction_json, list):
+            prediction_json = {"verbatim_transcribed_json": prediction_json}
+
         speakers_json = data_item.speakers_json
         audio_duration = data_item.audio_duration
         # converting prediction_json to result (wherever it exists) for every task.
         if prediction_json == None:
             return result
-        for idx, val in enumerate(prediction_json):
-            label_dict = {
-                "origin": "manual",
-                "to_name": "audio_url",
-                "from_name": "labels",
-                "original_length": audio_duration,
-            }
-            text_dict = {
-                "origin": "manual",
-                "to_name": "audio_url",
-                "from_name": "transcribed_json",
-                "original_length": audio_duration,
-            }
-            if proj_type == "AcousticNormalisedTranscriptionEditing":
-                text_dict["from_name"] = "verbatim_transcribed_json"
-            id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
-            label_dict["id"] = id
-            text_dict["id"] = id
-            label_dict["type"] = "labels"
-            text_dict["type"] = "textarea"
+        # for pred_type, pred_json in prediction_json.items():
+        if "acoustic_normalised_transcribed_json" in prediction_json.keys():
+            for idx, (val, val_acoustic) in enumerate(
+                zip(
+                    prediction_json["verbatim_transcribed_json"],
+                    prediction_json["acoustic_normalised_transcribed_json"],
+                )
+            ):
+                label_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "labels",
+                    "original_length": audio_duration,
+                }
+                text_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "transcribed_json",
+                    "original_length": audio_duration,
+                }
+                text_dict_acoustic = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "transcribed_json",
+                    "original_length": audio_duration,
+                }
+                if proj_type == "AcousticNormalisedTranscriptionEditing":
+                    text_dict["from_name"] = "verbatim_transcribed_json"
+                    text_dict_acoustic["from_name"] = (
+                        "acoustic_normalised_transcribed_json"
+                    )
 
-            value_labels = {
-                "start": val["start"],
-                "end": val["end"],
-                "labels": [
-                    next(
-                        speaker
-                        for speaker in speakers_json
-                        if speaker["speaker_id"] == val["speaker_id"]
-                    )["name"]
-                ],
-            }
-            value_text = {
-                "start": val["start"],
-                "end": val["end"],
-                "text": [val["text"]],
-            }
+                id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+                label_dict["id"] = id
+                text_dict["id"] = id
+                text_dict_acoustic["id"] = id
 
-            label_dict["value"] = value_labels
-            text_dict["value"] = value_text
-            # mainly label_dict and text_dict are sent as result
-            result.append(label_dict)
-            result.append(text_dict)
-    elif proj_type in [
-        "OCRTranscriptionEditing",
-        "OCRSegmentCategorizationEditing",
-        "OCRSegmentCategorisationRelationMappingEditing",
-    ]:
+                label_dict["type"] = "labels"
+                text_dict["type"] = "textarea"
+                text_dict_acoustic["type"] = "textarea"
+
+                value_labels = {
+                    "start": val["start"],
+                    "end": val["end"],
+                    "labels": [
+                        next(
+                            speaker
+                            for speaker in speakers_json
+                            if speaker["speaker_id"] == val["speaker_id"]
+                        )["name"]
+                    ],
+                }
+                value_text = {
+                    "start": val["start"],
+                    "end": val["end"],
+                    "text": [val["text"]],
+                }
+                value_text_acoustic = {
+                    "start": val_acoustic["start"],
+                    "end": val_acoustic["end"],
+                    "text": [val_acoustic["text"]],
+                }
+
+                label_dict["value"] = value_labels
+                text_dict["value"] = value_text
+                text_dict_acoustic["value"] = value_text_acoustic
+                # mainly label_dict and text_dict are sent as result
+                result.append(label_dict)
+                result.append(text_dict)
+                result.append(text_dict_acoustic)
+        else:
+            for idx, val in enumerate(prediction_json["verbatim_transcribed_json"]):
+                label_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "labels",
+                    "original_length": audio_duration,
+                }
+                text_dict = {
+                    "origin": "manual",
+                    "to_name": "audio_url",
+                    "from_name": "transcribed_json",
+                    "original_length": audio_duration,
+                }
+                if proj_type == "AcousticNormalisedTranscriptionEditing":
+                    text_dict["from_name"] = "verbatim_transcribed_json"
+                id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
+                label_dict["id"] = id
+                text_dict["id"] = id
+                label_dict["type"] = "labels"
+                text_dict["type"] = "textarea"
+
+                value_labels = {
+                    "start": val["start"],
+                    "end": val["end"],
+                    "labels": [
+                        next(
+                            speaker
+                            for speaker in speakers_json
+                            if speaker["speaker_id"] == val["speaker_id"]
+                        )["name"]
+                    ],
+                }
+                value_text = {
+                    "start": val["start"],
+                    "end": val["end"],
+                    "text": [val["text"]],
+                }
+
+                label_dict["value"] = value_labels
+                text_dict["value"] = value_text
+                # mainly label_dict and text_dict are sent as result
+                result.append(label_dict)
+                result.append(text_dict)
+    elif (
+        proj_type == "OCRTranscriptionEditing"
+        or proj_type == "OCRSegmentCategorizationEditing"
+        or proj_type == "OCRTextlineSegmentation"
+    ):
         data_item = OCRDocument.objects.get(pk=pk)
         ocr_prediction_json = (
             json.loads(data_item.ocr_prediction_json)
@@ -930,10 +1014,6 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
         )
         if ocr_prediction_json == None:
             return result
-        is_OCRSegmentCategorisationRelationMappingEditing = (
-            proj_type == "OCRSegmentCategorisationRelationMappingEditing"
-        )
-        id_set = set()
         for idx, val in enumerate(ocr_prediction_json):
             image_rotation = (
                 ocr_prediction_json["image_rotation"]
@@ -941,8 +1021,6 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 else 0
             )
             custom_id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
-            if is_OCRSegmentCategorisationRelationMappingEditing:
-                id_set.add(custom_id)
             # creating values
             common_value = {
                 "x": val["x"],
@@ -995,20 +1073,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             result.append(rectangle_dict)
             result.append(label_dict)
             result.append(text_dict)
-        bboxes_relation_prediction_json = (
-            json.loads(data_item.bboxes_relation_prediction_json)
-            if isinstance(data_item.bboxes_relation_prediction_json, str)
-            else data_item.bboxes_relation_prediction_json
-        )
-        bboxes_relation_prediction_json = (
-            []
-            if bboxes_relation_prediction_json is None
-            else bboxes_relation_prediction_json
-        )
-        for b in bboxes_relation_prediction_json:
-            if "from_id" in b and "to_id" in b:
-                if b["from_id"] in id_set and b["to_id"] in id_set:
-                    result.append(b)
+
     return result
 
 
@@ -1016,17 +1081,14 @@ def convert_annotation_result_to_formatted_json(
     annotation_result,
     speakers_json,
     is_SpeechConversation,
-    is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing,
+    is_OCRSegmentCategorizationOROCRSegmentCategorizationEditingOROCRTextlineSegmentation,
     is_acoustic=False,
-    is_StandardisedTranscriptionEditing=False,
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
     standardised_transcription = ""
     transcribed_json_modified, acoustic_transcribed_json_modified = [], []
-    if is_StandardisedTranscriptionEditing:
-        transcribed_json = ann_result_for_ste(annotation_result)
-    elif is_SpeechConversation:
+    if is_SpeechConversation:
         ids_formatted = {}
         for idx1 in range(len(annotation_result)):
             formatted_result_dict = {}
@@ -1045,6 +1107,9 @@ def convert_annotation_result_to_formatted_json(
                     annotation_result[idx1], ensure_ascii=False
                 )
                 acoustic_text_dict = annotation_result[idx1]
+            elif annotation_result[idx1]["from_name"] == "standardised_transcription":
+                standardised_transcription = annotation_result[idx1]["value"]["text"][0]
+                continue
             else:
                 text_dict = json.dumps(annotation_result[idx1], ensure_ascii=False)
                 text_dict = annotation_result[idx1]
@@ -1112,14 +1177,18 @@ def convert_annotation_result_to_formatted_json(
                 acoustic_transcribed_json, ensure_ascii=False
             )
     else:
-        dicts = 2 if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing else 3
+        dicts = (
+            2
+            if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditingOROCRTextlineSegmentation
+            else 3
+        )
         for idx1 in range(0, len(annotation_result), dicts):
             rectangle_dict = {}
             labels_dict = {}
             text_dict = {}
             if isinstance(annotation_result[idx1], str):
                 annotation_result[idx1] = json.loads(annotation_result[idx1])
-            if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditing:
+            if is_OCRSegmentCategorizationOROCRSegmentCategorizationEditingOROCRTextlineSegmentation:
                 custom_text_dict = {"value": {"text": ""}}
                 text_dict = json.dumps(custom_text_dict, indent=2)
             for idx2 in range(idx1, idx1 + dicts):
@@ -2153,13 +2222,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if automatic_annotation_creation_mode != None:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
-                proj.metadata_json[
-                    "automatic_annotation_creation_mode"
-                ] = automatic_annotation_creation_mode
-            if proj.project_type in [
-                "AcousticNormalisedTranscriptionEditing",
-                "StandardizedTranscriptionEditing",
-            ]:
+                proj.metadata_json["automatic_annotation_creation_mode"] = (
+                    automatic_annotation_creation_mode
+                )
+            if proj.project_type == "AcousticNormalisedTranscriptionEditing":
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
                 proj.metadata_json["acoustic_enabled_stage"] = (
@@ -2305,152 +2371,146 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         cur_user = request.user
         project = Project.objects.get(pk=pk)
+    
         if not project.is_published:
-            return Response(
-                {"message": "This project is not yet published"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
+    
         serializer = ProjectUsersSerializer(project, many=False)
-        annotators = serializer.data["annotators"]
-        annotator_ids = set()
-        for annotator in annotators:
-            annotator_ids.add(annotator["id"])
-        # verify if user belongs in project annotators
-        if not cur_user.id in annotator_ids:
-            return Response(
-                {"message": "You are not assigned to this project"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        # check if user has pending tasks
-        # the below logic will work only for required_annotators_per_task=1
-        # TO-DO Modify and use the commented logic to cover all cases
-        proj_annotations = Annotation_model.objects.filter(task__project_id=pk).filter(
-            annotation_status__exact=UNLABELED, completed_by=cur_user
+        annotator_ids = {annotator["id"] for annotator in serializer.data["annotators"]}
+    
+        if cur_user.id not in annotator_ids:
+            return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
+    
+        proj_annotations = Annotation_model.objects.filter(
+            task__project_id=pk,
+            annotation_status__exact=UNLABELED,
+            completed_by=cur_user
         )
         annotation_tasks = [anno.task.id for anno in proj_annotations]
-        pending_tasks = (
-            Task.objects.filter(project_id=pk)
-            .filter(annotation_users=cur_user.id)
-            .filter(task_status__in=[INCOMPLETE, UNLABELED])
-            .filter(id__in=annotation_tasks)
-            .count()
-        )
-        # assigned_tasks_queryset = Task.objects.filter(project_id=pk).filter(annotation_users=cur_user.id)
-        # assigned_tasks = assigned_tasks_queryset.count()
-        # completed_tasks = Annotation_model.objects.filter(task__in=assigned_tasks_queryset).filter(completed_by__exact=cur_user.id).count()
-        # pending_tasks = assigned_tasks - completed_tasks
-        if pending_tasks >= project.max_pending_tasks_per_user:
-            return Response(
-                {"message": "Your pending task count is too high"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
-
-        if "num_tasks" in dict(request.data):
-            task_pull_count = request.data["num_tasks"]
-        else:
-            task_pull_count = project.tasks_pull_count_per_batch
-        tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
-
-        lock_set = False
-        while lock_set == False:
-            if project.is_locked(ANNOTATION_LOCK):
-                sleep(settings.PROJECT_LOCK_RETRY_INTERVAL)
-                continue
-            else:
-                try:
-                    project.set_lock(cur_user, ANNOTATION_LOCK)
-                    lock_set = True
-                except Exception as e:
-                    continue
-        # check if the project contains eligible tasks to pull
-        tasks = Task.objects.filter(project_id=pk)
-        tasks = tasks.order_by("id")
-        tasks = (
-            tasks.filter(task_status__in=[INCOMPLETE, UNLABELED])
-            .exclude(annotation_users=cur_user.id)
-            .annotate(annotator_count=Count("annotation_users"))
-        )
-        tasks = tasks.filter(
-            annotator_count__lt=project.required_annotators_per_task
-        ).distinct()
-        if not tasks:
-            project.release_lock(ANNOTATION_LOCK)
-            return Response(
-                {"message": "No tasks left for assignment in this project"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        tasks = tasks[:tasks_to_be_assigned]
-        # tasks = tasks.order_by("id")
-        for task in tasks:
-            task.annotation_users.add(cur_user)
-            task.save()
-            result = []
-            if project.project_type in [
-                "AcousticNormalisedTranscriptionEditing",
-                "AudioTranscriptionEditing",
-                "OCRTranscriptionEditing",
-                "OCRSegmentCategorizationEditing",
-                "StandardizedTranscriptionEditing",
-                "OCRSegmentCategorisationRelationMappingEditing",
-            ]:
-                if project.project_type == "StandardizedTranscriptionEditing":
-                    try:
-                        # gather trascribed_json
-                        result = parse_json_for_ste(task.input_data.id)
-                    except Exception as e:
-                        print(
-                            f"The final_transcribed_json json of the data item-{task.input_data.id} is corrupt."
+    
+        if project.project_type in get_audio_project_types():
+            pending_tasks = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .filter(task_status__in=[INCOMPLETE, UNLABELED])
+                .filter(id__in=annotation_tasks)
+                .filter(
+                    Exists(
+                        SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"), freeze_task=False
                         )
-                        task.delete()
-                        continue
-                else:
+                    )
+                )
+                .count()
+            )
+        else:
+            pending_tasks = (
+                Task.objects.filter(project_id=pk)
+                .filter(annotation_users=cur_user.id)
+                .filter(task_status__in=[INCOMPLETE, UNLABELED])
+                .filter(id__in=annotation_tasks)
+                .count()
+            )
+    
+        if pending_tasks >= project.max_pending_tasks_per_user:
+            return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
+    
+        tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
+        task_pull_count = request.data.get("num_tasks", project.tasks_pull_count_per_batch)
+        tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
+    
+        with transaction.atomic():
+            tasks = (
+                Task.objects
+                .select_for_update(skip_locked=True)
+                .filter(
+                    project_id=pk,
+                    task_status__in=[INCOMPLETE, UNLABELED]
+                )
+                .exclude(annotation_users=cur_user.id)
+                .order_by("id")
+            )
+    
+            if project.project_type in get_audio_project_types():
+                tasks = tasks.filter(
+                    Exists(
+                        SpeechConversation.objects.filter(
+                            id=OuterRef("input_data_id"), freeze_task=False
+                        )
+                    )
+                )
+    
+            selected_tasks = []
+            for task in tasks:
+                if task.annotation_users.count() < project.required_annotators_per_task:
+                    selected_tasks.append(task)
+                if len(selected_tasks) >= tasks_to_be_assigned:
+                    break
+    
+            if not selected_tasks:
+                return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
+    
+            for task in selected_tasks:
+                task.annotation_users.add(cur_user)
+                task.save()
+                result = []
+                if project.project_type in [
+                    "AcousticNormalisedTranscriptionEditing",
+                    "AudioTranscriptionEditing",
+                    "OCRTranscriptionEditing",
+                    "OCRTableEditing",
+                    "OCRSegmentCategorizationEditing",
+                    "OCRTextlineSegmentation",
+                ]:
                     try:
                         result = convert_prediction_json_to_annotation_result(
-                            task.input_data.id, project.project_type
+                            task.input_data.id, project.project_type, None, None, False
                         )
                     except Exception as e:
-                        print(
-                            f"The prediction json of the data item-{task.input_data.id} is corrupt."
-                        )
-                        task.delete()
-                        continue
-            annotator_anno_count = Annotation_model.objects.filter(
-                task_id=task, annotation_type=ANNOTATOR_ANNOTATION
-            ).count()
-
-            if annotator_anno_count < project.required_annotators_per_task:
-                cur_user_anno_count = Annotation_model.objects.filter(
-                    task_id=task,
-                    annotation_type=ANNOTATOR_ANNOTATION,
-                    completed_by=cur_user,
+                        result = []
+    
+                annotator_anno_count = Annotation_model.objects.filter(
+                    task_id=task, annotation_type=ANNOTATOR_ANNOTATION
                 ).count()
-                if cur_user_anno_count == 0:
-                    base_annotation_obj = Annotation_model(
-                        result=result,
-                        task=task,
+    
+                if annotator_anno_count < project.required_annotators_per_task:
+                    cur_user_anno_count = Annotation_model.objects.filter(
+                        task_id=task,
+                        annotation_type=ANNOTATOR_ANNOTATION,
                         completed_by=cur_user,
-                    )
-                    try:
-                        base_annotation_obj.save()
-                    except IntegrityError as e:
-                        print(
-                            f"Task and completed_by fields are same while assigning new task "
-                            f"for project id-{project.id}, user-{cur_user.email}"
-                        )
-            else:
-                cur_user_anno_count = Annotation_model.objects.filter(
-                    task_id=task,
-                    annotation_type=ANNOTATOR_ANNOTATION,
-                    completed_by=cur_user,
-                ).count()
-                if cur_user_anno_count == 0:
-                    task.annotation_users.remove(cur_user)
-                    task.save()
-        project.release_lock(ANNOTATION_LOCK)
-        return Response(
-            {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
-        )
+                    ).count()
+                    if cur_user_anno_count == 0:
+                        try:
+                            _, created = Annotation_model.objects.get_or_create(
+                                task=task,
+                                completed_by=cur_user,
+                                annotation_type=ANNOTATOR_ANNOTATION,
+                                defaults={"result": result}
+                            )
+                            if not created:
+                                print(f"Annotation for task id {task.id} already exists.")
+                                continue
+                        except IntegrityError:
+                            print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
+                            continue
+                        """except IntegrityError as e:
+                            print(
+                                f"Task and completed_by fields are same while assigning new task "
+                                f"for project id-{project.id}, user-{cur_user.email}"
+                            )
+                        """
+                    else:
+                        cur_user_anno_count = Annotation_model.objects.filter(
+                            task_id=task,
+                            annotation_type=ANNOTATOR_ANNOTATION,
+                            completed_by=cur_user,
+                        ).count()
+                        if cur_user_anno_count == 0:
+                            task.annotation_users.remove(cur_user)
+                            task.save()
+    
+            return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+
 
     @action(
         detail=True, methods=["post"], name="Unassign tasks", url_name="unassign_tasks"
@@ -2651,6 +2711,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     continue
         # check if the project contains eligible tasks to pull
+
         tasks = (
             Task.objects.filter(project_id=pk)
             .filter(task_status=ANNOTATED)
@@ -2658,6 +2719,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(annotation_users=cur_user.id)
             .distinct()
         )
+
+        if project.project_type in get_audio_project_types():
+            tasks = tasks.filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
+
         if not tasks:
             project.release_lock(REVIEW_LOCK)
             return Response(
@@ -2806,6 +2877,74 @@ class ProjectViewSet(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    # from here translitrartion work starts
+# For Text    
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", 
+url_name="populate_asr_model_predictions")
+    def populate_asr_model_predictions(self, request,pk=None):
+        try:
+            data = json.loads(request.body)
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids",[])
+            stage = data.get("stage", "l1")  # Default to "l1"
+            print("Model:", model_language)
+            print("Projects:", project_ids)
+            print("Stage:", stage)
+            print("Inside populate_asr_model_predictions")
+            print
+            # Ensure the stage is either "l1" or "l2"
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            # Run the Celery task asynchronously
+            populate_asr_try.delay(model_language, project_ids, stage)
+            return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON format"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)        
+    
+    @action(
+    detail=True,
+    methods=["POST"],
+    url_path="populate_asr_model_predictions_yt",
+    url_name="populate_asr_model_predictions_yt"
+    )
+    def populate_asr_model_predictions_yt(self, request, pk=None):
+        try:
+            data = json.loads(request.body)
+
+            model_language = data.get("model_language")
+            project_ids = data.get("project_ids")
+            stage = data.get("stage", "l1")
+
+            print("Model:", model_language)
+            print("Projects:", project_ids)
+            print("Stage:", stage)
+
+            if stage not in ["l1", "l2"]:
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
+
+            if not model_language:
+                return JsonResponse({"error": "Missing model_language"}, status=400)
+
+            populate_asr_yt.delay(model_language, project_ids, stage)
+
+            return Response({"message": "populate_asr_yt started successfully!"})
+
+        except json.JSONDecodeError:
+            return Response({"error": "Invalid JSON format"}, status=400)
+
+        except Exception as e:
+            # Return the REAL error so you can debug properly
+            return Response({"error": str(e)}, status=500)
+
+# Here translitrartion work ends
+
+    
     @action(
         detail=True,
         methods=["POST"],
@@ -2860,6 +2999,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             .exclude(review_user=cur_user.id)
             .distinct()
         )
+
+        if project.project_type in get_audio_project_types():
+            tasks = tasks.filter(
+                Exists(
+                    SpeechConversation.objects.filter(
+                        id=OuterRef("input_data_id"), freeze_task=False
+                    )
+                )
+            )
+
         if not tasks:
             project.release_lock(SUPERCHECK_LOCK)
             return Response(
@@ -4088,7 +4237,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         try:
             project = Project.objects.get(pk=pk)
             project_type = dict(PROJECT_TYPE_CHOICES)[project.project_type]
-
+            fetch_parent_data_field = request.query_params.get(
+                "fetch_parent_data_field", None
+            )
             include_input_data_metadata_json = request.query_params.get(
                 "include_input_data_metadata_json", False
             )
@@ -4130,10 +4281,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
             is_OCRSegmentCategorizationEditing = (
                 project_type == "OCRSegmentCategorizationEditing"
             )
+            is_OCRTextlineSegmentation = project_type == "OCRTextlineSegmentation"
             is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
-            is_OCRSegmentCategorisationRelationMappingEditing = (
-                project_type == "OCRSegmentCategorisationRelationMappingEditing"
-            )
             for task in tasks:
                 try:
                     curr_task = process_task(
@@ -4142,6 +4291,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         include_input_data_metadata_json,
                         dataset_model,
                         is_audio_project_type,
+                        fetch_parent_data_field,
                     )
                     if (
                         is_ConversationTranslation
@@ -4164,6 +4314,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                                 curr_task,
                                 is_OCRSegmentCategorization,
                                 is_OCRSegmentCategorizationEditing,
+                                is_OCRTextlineSegmentation,
                             )
                 except Exception as e:
                     continue
