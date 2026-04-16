@@ -6,12 +6,10 @@ from rest_framework.decorators import action
 from rest_framework import status
 from tasks.models import (
     Task,
-    Statistic,
     ANNOTATOR_ANNOTATION,
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
 )
-from users.models import User
 from datetime import datetime
 from .models import Organization
 from .serializers import OrganizationSerializer
@@ -55,7 +53,6 @@ from .tasks import (
     send_user_analytics_mail_org,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
-from django.contrib.auth import get_user_model
 
 
 def get_task_count(proj_ids, status, annotator, return_count=True):
@@ -464,11 +461,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             participation_type = (
                 "Full Time"
                 if participation_type == 1
-                else (
-                    "Part Time"
-                    if participation_type == 2
-                    else "Contract Basis" if participation_type == 4 else "N/A"
-                )
+                else "Part Time"
+                if participation_type == 2
+                else "Contract Basis"
+                if participation_type == 4
+                else "N/A"
             )
             role = get_role_name(annotator.role)
             user_id = annotator.id
@@ -577,48 +574,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        
-        # ✅ --- Preferred Workspace Filter ---
-        user = request.user
-        print("user:",user)
-        workspace_prefered = getattr(user, "workspace_prefered", {}) or {}
-        print("workspace_prefered:",workspace_prefered)
-        org_id_str = str(pk)
-        print("org_id_str:",org_id_str)
-
-        if org_id_str not in workspace_prefered:
-            return Response(
-                {
-                    "message": f"No preferred workspaces found for organization ID {pk}.",
-                    "filtered": False,
-                    "results": [],
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        # Extract workspace IDs
-        preferred_ids = [
-            int(ws.get("id"))
-            for ws in workspace_prefered.get(org_id_str, [])
-            if ws.get("id") is not None
-        ]
-        print("preferred_ids:",preferred_ids)
-
-        if not preferred_ids:
-            return Response(
-                {
-                    "message": f"No valid workspace IDs found for organization ID {pk}.",
-                    "filtered": False,
-                    "results": [],
-                },
-                status=status.HTTP_200_OK,
-            )
-
         final_reports = []
 
         if reports_type == "review":
-            proj_objs = Project.objects.filter(organization_id=pk,
-                                               workspace_id__in=preferred_ids)
+            proj_objs = Project.objects.filter(organization_id=pk)
             if project_type != None:
                 proj_objs = proj_objs.filter(project_type=project_type)
             if project_progress_stage == None:
@@ -659,7 +618,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 for id in org_reviewer_list:
                     reviewer_projs = Project.objects.filter(
                         organization_id=pk,
-                        workspace_id__in=preferred_ids,
                         annotation_reviewers=id,
                         id__in=review_projects_ids,
                     )
@@ -676,11 +634,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         project_type,
                     )
                     final_reports.append(result)
-                    print("final_reports_review:",final_reports)
             elif user_id in org_reviewer_list:
                 reviewer_projs = Project.objects.filter(
                     organization_id=pk,
-                    workspace_id__in=preferred_ids,
                     annotation_reviewers=user_id,
                     id__in=review_projects_ids,
                 )
@@ -701,12 +657,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         "message": "You do not have enough permissions to access this view!"
                     }
                 )
-            return Response(final_reports, status=status.HTTP_200_OK)
-
 
         elif reports_type == "supercheck":
-            proj_objs = Project.objects.filter(organization_id=pk
-                                               ,workspace_id__in=preferred_ids)
+            proj_objs = Project.objects.filter(organization_id=pk)
             if project_type != None:
                 proj_objs = proj_objs.filter(project_type=project_type)
             supercheck_projects = [
@@ -731,7 +684,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 for id in workspace_superchecker_list:
                     superchecker_projs = Project.objects.filter(
                         organization_id=pk,
-                        workspace_id__in=preferred_ids,
                         review_supercheckers=id,
                         id__in=supercheck_projects_ids,
                     )
@@ -746,8 +698,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             elif user_id in workspace_superchecker_list:
                 superchecker_projs = Project.objects.filter(
                     organization_id=pk,
-                    workspace_id__in=preferred_ids,
-                    review_supercheckers=user_id,
+                    review_supercheckers=id,
                     id__in=supercheck_projects_ids,
                 )
                 superchecker_projs_ids = [
@@ -762,11 +713,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             else:
                 return Response(
                     {
-                        "message": "You do not have enough permissions to access this view!",
+                        "message": "You do not have enough permissions to access this view!"
                     }
                 )
-            return Response(final_reports, status=status.HTTP_200_OK)
-
 
         if not (
             request.user.is_authenticated
@@ -805,24 +754,19 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 annotators = User.objects.filter(organization=organization).order_by(
                     "username"
                 )
-                proj_objects = Project.objects.filter(
-                organization_id=pk,
-                workspace_id__in=preferred_ids,
-            )
-               
             else:
                 proj_objects = Project.objects.filter(
-                        organization_id_id=pk,
-                        project_type=project_type,
-                        tgt_language=tgt_language,
-                    )
+                    organization_id_id=pk,
+                    project_type=project_type,
+                    tgt_language=tgt_language,
+                )
 
-                
-            proj_users_list = [
+                proj_users_list = [
                     list(pro_obj.annotators.all()) for pro_obj in proj_objects
                 ]
-            proj_users = sum(proj_users_list, [])
-            annotators = list(set(proj_users))
+                proj_users = sum(proj_users_list, [])
+                annotators = list(set(proj_users))
+
             annotators = [
                 ann_user
                 for ann_user in annotators
@@ -835,11 +779,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 participation_type = (
                     "Full Time"
                     if participation_type == 1
-                    else (
-                        "Part Time"
-                        if participation_type == 2
-                        else "Contract Basis" if participation_type == 4 else "N/A"
-                    )
+                    else "Part Time"
+                    if participation_type == 2
+                    else "Contract Basis"
+                    if participation_type == 4
+                    else "N/A"
                 )
                 role = get_role_name(annotator.role)
                 user_id = annotator.id
@@ -879,7 +823,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     end_date,
                     is_translation_project,
                     project_progress_stage,
-                    tgt_language,
+                    None if tgt_language == None else tgt_language,
                 )
 
                 if (
@@ -912,23 +856,16 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     }
                     if project_type != None and is_translation_project:
                         (
-                            all_reviewd_tasks_count,
-                            accepted_count,
-                            reviewed_except_accepted,
-                            minor_changes_count,
-                            major_changes_count,
                             avg_char_score,
                             avg_bleu_score,
-                            avg_lead_time,
                         ) = get_translation_quality_reports(
                             pk,
                             annotator,
                             project_type,
                             start_date,
                             end_date,
-                            is_translation_project,      
-                            project_progress_stage,      
-                            tgt_language,                
+                            project_progress_stage,
+                            tgt_language,
                         )
                         temp_result["Average Bleu Score"] = avg_bleu_score
                         temp_result["Avergae Char Score"] = avg_char_score
@@ -972,7 +909,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             final_result = sorted(
                 result, key=lambda x: x[sort_by_column_name], reverse=descending_order
             )
-            print("final_result", final_result)
 
             download_csv = request.data.get("download_csv", False)
 
@@ -999,9 +935,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_200_OK,
                     content_type="text/csv",
                 )
-                response["Content-Disposition"] = (
-                    f'attachment; filename="{organization.title}_user_analytics.csv"'
-                )
+                response[
+                    "Content-Disposition"
+                ] = f'attachment; filename="{organization.title}_user_analytics.csv"'
                 return response
 
             return Response(data=final_result, status=status.HTTP_200_OK)
@@ -1027,41 +963,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         sort_by_column_name = request.data.get("sort_by_column_name")
         descending_order = request.data.get("descending_order")
         user_id = request.data.get("user_id")
-        
         send_mail = request.data.get("send_mail", False)
-        
-        # ✅ --- Preferred Workspace Filter ---
-        user = request.user
-        print("user:",user)
-        workspace_prefered = getattr(user, "workspace_prefered", {}) or {}
-        print("workspace_prefered:",workspace_prefered)
-        org_id_str = str(pk)
-        print("org_id_str:",org_id_str)
-
-        if org_id_str not in workspace_prefered:
-            return Response(
-                {
-                    "message": f"No preferred workspaces found for organization ID {pk}.",
-                    "filtered": False,
-                    "results": [],
-                },
-                status=status.HTTP_200_OK,
-            )
-
-        # Extract workspace IDs
-        preferred_ids = [
-            int(ws.get("id"))
-            for ws in workspace_prefered.get(org_id_str, [])
-            if ws.get("id") is not None
-        ]
-        print("preferred_ids:",len(preferred_ids))
 
         if send_mail == True:
             send_project_analytics_mail_org.delay(
                 org_id=organization.id,
                 tgt_language=tgt_language,
                 project_type=project_type,
-                workspace_ids=preferred_ids,
                 user_id=user_id,
                 sort_by_column_name=sort_by_column_name,
                 descending_order=descending_order,
@@ -1080,14 +988,12 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             if tgt_language == None:
                 selected_language = "-"
                 projects_obj = Project.objects.filter(
-                    organization_id=organization.id, project_type=project_type,workspace_id__in=preferred_ids,
-
+                    organization_id=organization.id, project_type=project_type
                 )
             else:
                 selected_language = tgt_language
                 projects_obj = Project.objects.filter(
                     organization_id=organization.id,
-                    workspace_id__in=preferred_ids,
                     tgt_language=tgt_language,
                     project_type=project_type,
                 )
@@ -2719,49 +2625,14 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         except Organization.DoesNotExist:
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
-            )   
-        
-        
+            )
+
         user_id = request.data.get("user_id")
-        print("user_id", user_id)
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response(
                 {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-            
-        preferred_workspaces = getattr(user, "workspace_prefered", None)
-        print(preferred_workspaces)
-            
-        preferred_ids = []
-        org_workspaces = []
-        
-        
-        if isinstance(preferred_workspaces, dict):
-            org_workspaces = preferred_workspaces.get(str(organization.id), [])
-            print("org_workspaces = 1", org_workspaces)
-            preferred_ids = [
-                int(ws.get("id"))
-                for ws in org_workspaces
-                if ws.get("id") is not None
-            ]
-            print("preferred_ids = 1", preferred_ids)
-        else:
-            preferred_ids = list(
-                user.workspace_preferred.filter(
-                    organization=organization
-                ).values_list("id", flat=True)
-            )
-            print("preferred_ids = 2", preferred_ids)
-            org_workspaces = preferred_ids
-            print("org_workspaces = 2", org_workspaces)
-            
-
-        if not preferred_ids:
-            return Response(
-                {"message": "Preferred workspaces not found"},
-                status=status.HTTP_404_NOT_FOUND,
             )
 
         participation_types = request.data.get("participation_types")
@@ -2798,7 +2669,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             org_id=organization.id,
             user_id=user_id,
             project_type=project_type,
-            preferred_workspace_ids=preferred_ids,
             participation_types=participation_types,
             start_date=from_date,
             end_date=to_date,
@@ -2853,6 +2723,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 "ConversationVerification",
                 "MonolingualTranslation",
                 "OCRTranscriptionEditing",
+                "OCRTableEditing",
                 "SemanticTextualSimilarity_Scale5",
                 "SentenceSplitting",
                 "TranslationEditing",
@@ -3121,32 +2992,83 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                             "ann_ocr_cumulative_tasks_count": total_anno_word_count,
                             "rew_ocr_cumulative_tasks_count": total_rev_word_count,
                         }
+                    elif "OCRTableEditing" in project_type:
+                        # For OCR Table Editing, you need to define what metrics to return
+                        total_rev_word_count = 0
+                        total_anno_word_count = 0
+                        
+                        for each_task in reviewer_tasks:
+                            try:
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=REVIEWER_ANNOTATION,
+                                    )[0]
+                                elif each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = each_task.correct_annotation
+                                # You'll need a function similar to ocr_word_count for table editing
+                                total_rev_word_count += ocr_word_count(anno.result)  # Or create a table_word_count function
+                            except:
+                                pass
+                        
+                        for each_task in annotation_tasks:
+                            try:
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=REVIEWER_ANNOTATION,
+                                    )[0]
+                                elif each_task.task_status == "exported":
+                                    anno = each_task.correct_annotation
+                                elif each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=ANNOTATOR_ANNOTATION,
+                                    )[0]
+                                total_anno_word_count += ocr_word_count(anno.result)
+                            except:
+                                pass
+                        
+                        result = {
+                            "language": lang,
+                            "ann_ocr_cumulative_tasks_count": total_anno_word_count,
+                            "rew_ocr_cumulative_tasks_count": total_rev_word_count,
+                        }
 
                 else:
-                    # reviewer_task_count = (
-                    #     reviewer_tasks.count()
-                    #     + reviewer_tasks_exported.count()
-                    #     + supercheck_tasks_exported.count()
-                    # )
+                    reviewer_task_count = (
+                        reviewer_tasks.count()
+                        + reviewer_tasks_exported.count()
+                        + supercheck_tasks_exported.count()
+                    )
 
-                    # annotation_tasks_count = (
-                    #     annotation_tasks.count()
-                    #     + annotation_tasks_exported.count()
-                    #     + reviewer_tasks_exported.count()
-                    #     + supercheck_tasks_exported.count()
-                    # )
+                    annotation_tasks_count = (
+                        annotation_tasks.count()
+                        + annotation_tasks_exported.count()
+                        + reviewer_tasks_exported.count()
+                        + supercheck_tasks_exported.count()
+                    )
 
-                    # supercheck_tasks_count = (
-                    #     supercheck_tasks.count() + supercheck_tasks_exported.count()
-                    # )
+                    supercheck_tasks_count = (
+                        supercheck_tasks.count() + supercheck_tasks_exported.count()
+                    )
 
-                    # result = {
-                    #     "language": lang,
-                    #     "ann_cumulative_tasks_count": annotation_tasks_count,
-                    #     "rew_cumulative_tasks_count": reviewer_task_count,
-                    #     "sup_cumulative_tasks_count": supercheck_tasks_count,
-                    # }
-                    result = {}
+                    result = {
+                        "language": lang,
+                        "ann_cumulative_tasks_count": annotation_tasks_count,
+                        "rew_cumulative_tasks_count": reviewer_task_count,
+                        "sup_cumulative_tasks_count": supercheck_tasks_count,
+                    }
 
                 if lang == None or lang == "":
                     other_lang.append(result)
@@ -3168,10 +3090,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             rev_sentance_count = 0
             for dat in other_lang:
                 if metainfo != True:
-                    # ann_task_count += dat["ann_cumulative_tasks_count"]
-                    # rew_task_count += dat["rew_cumulative_tasks_count"]
-                    # sup_task_count += dat["sup_cumulative_tasks_count"]
-                    pass
+                    ann_task_count += dat["ann_cumulative_tasks_count"]
+                    rew_task_count += dat["rew_cumulative_tasks_count"]
+                    sup_task_count += dat["sup_cumulative_tasks_count"]
                 else:
                     if project_type in get_audio_project_types():
                         ann_aud_dur += convert_hours_to_seconds(
@@ -3210,13 +3131,12 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
 
             if len(other_lang) > 0:
                 if metainfo != True:
-                    # other_language = {
-                    #     "language": "Others",
-                    #     "ann_cumulative_tasks_count": ann_task_count,
-                    #     "rew_cumulative_tasks_count": rew_task_count,
-                    #     "sup_cumulative_tasks_count": sup_task_count,
-                    # }
-                    other_language = {}
+                    other_language = {
+                        "language": "Others",
+                        "ann_cumulative_tasks_count": ann_task_count,
+                        "rew_cumulative_tasks_count": rew_task_count,
+                        "sup_cumulative_tasks_count": sup_task_count,
+                    }
                 else:
                     if project_type in get_audio_project_types():
                         other_language = {
@@ -3262,7 +3182,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                                 "ann_cumulative_word_count": ann_word_count,
                                 "rew_cumulative_word_count": rew_word_count,
                             }
-                    elif "OCRTranscription" in project_type:
+                    elif "OCRTranscription" in project_type or "OCRTableEditing" in project_type:
                         other_language = {
                             "language": "Others",
                             "ann_ocr_cumulative_word_count": ann_word_count,
@@ -3284,16 +3204,9 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     or "ConversationTranslation" in project_type
                 )
                 or "OCRTranscription" in project_type
+                or "OCRTableEditing" in project_type
             ):
                 pass
             else:
                 final_result_for_all_types[project_type] = final_result
-        if metainfo != True:
-
-            task_counts = list(
-                Statistic.objects.filter(stat_type="task_count", org_id=organization.id)
-            )[0].result
-
-            for pjt_type in project_types:
-                final_result_for_all_types[pjt_type] = task_counts[pjt_type]
         return Response(final_result_for_all_types)
