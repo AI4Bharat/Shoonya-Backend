@@ -1481,6 +1481,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     day_of_week="*",
                     day_of_month="*",
                     month_of_year="*",
+                    timezone="Asia/Kolkata"
                 )
             except CrontabSchedule.DoesNotExist:
                 crontab_schedule = CrontabSchedule.objects.create(
@@ -1489,6 +1490,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     day_of_week="*",
                     day_of_month="*",
                     month_of_year="*",
+                    timezone="Asia/Kolkata"
                 )
         elif schedule == "Weekly":
             try:
@@ -1498,6 +1500,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     day_of_week=schedule_day,
                     day_of_month="*",
                     month_of_year="*",
+                    timezone="Asia/Kolkata"
                 )
             except CrontabSchedule.DoesNotExist:
                 crontab_schedule = CrontabSchedule.objects.create(
@@ -1506,6 +1509,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     day_of_week=schedule_day,
                     day_of_month="*",
                     month_of_year="*",
+                    timezone="Asia/Kolkata"
                 )
         elif schedule == "Monthly":
             try:
@@ -1515,6 +1519,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     day_of_week="*",
                     day_of_month=schedule_day,
                     month_of_year="*",
+                    timezone="Asia/Kolkata"
                 )
             except CrontabSchedule.DoesNotExist:
                 crontab_schedule = CrontabSchedule.objects.create(
@@ -1523,6 +1528,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     day_of_week="*",
                     day_of_month=schedule_day,
                     month_of_year="*",
+                    timezone="Asia/Kolkata"
                 )
         else:
             return Response(
