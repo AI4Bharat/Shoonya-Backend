@@ -105,7 +105,7 @@ class InviteViewSet(viewsets.ViewSet):
                     continue
                 try:
                     user = User(
-                        username=generate_random_string(12),
+                        username=email.split("@")[0],
                         email=email.lower(),
                         organization_id=org.id,
                         role=request.data.get("role"),
@@ -414,7 +414,7 @@ class InviteViewSet(viewsets.ViewSet):
                     continue
                 try:
                     user = User(
-                        username=generate_random_string(12),
+                        username=email.split("@")[0],
                         email=email.lower(),
                         organization_id=org.id,
                         role=request.data.get("role"),
