@@ -79,3 +79,44 @@ def fix_booleans_in_dict(d):
         elif v == "false":
             d[k] = False
     return d
+
+def filter_by_language_status_domain(queryset, request):
+    """
+    Apply optional language / status / domain filters from query params.
+    Composable — missing param = no change to queryset.
+    Works for both Project and Task querysets.
+    """
+    from django.db.models import Q
+
+    language = request.query_params.get("language")
+    req_status = request.query_params.get("status")
+    domain = request.query_params.get("domain")
+
+    if language:
+        # Project has src_language / tgt_language; Task inherits language
+        # from its project — filter via project FK traversal as fallback
+        model_fields = {f.name for f in queryset.model._meta.get_fields()}
+        if "src_language" in model_fields or "tgt_language" in model_fields:
+            queryset = queryset.filter(
+                Q(src_language=language) | Q(tgt_language=language)
+            )
+        elif "project_id" in model_fields:
+            # Task model — traverse to project language fields
+            queryset = queryset.filter(
+                Q(project_id__src_language=language)
+                | Q(project_id__tgt_language=language)
+            )
+
+    if req_status:
+        model_fields = {f.name for f in queryset.model._meta.get_fields()}
+        if "task_status" in model_fields:
+            queryset = queryset.filter(task_status=req_status)
+        elif "annotation_status" in model_fields:
+            queryset = queryset.filter(annotation_status=req_status)
+
+    if domain:
+        # Domain is stored inside metadata_json on Project
+        # e.g. metadata_json = {"domain": "medical"}
+        queryset = queryset.filter(metadata_json__domain=domain)
+
+    return queryset

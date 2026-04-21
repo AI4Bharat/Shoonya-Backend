@@ -1295,6 +1295,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             projects = projects.filter(is_published=True).filter(is_archived=False)
 
             projects = projects.distinct()
+            projects = filter_by_language_status_domain(projects, request)
 
             if (
                 "sort_type" in request.query_params
@@ -1437,7 +1438,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 projects = projects.filter(is_archived=archived_projects)
 
             projects = projects.distinct()
-
+            projects = filter_by_language_status_domain(projects, request)
+            
             if (
                 "sort_type" in request.query_params
                 and request.query_params["sort_type"] == "most_recent_worked_projects"

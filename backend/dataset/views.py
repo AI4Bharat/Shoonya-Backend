@@ -1247,6 +1247,15 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
 
             query_params = dict(parse_qsl(filter_string))
             query_params = filter.fix_booleans_in_dict(query_params)
+            for param_key, field_name in [
+                ("language", "language"),
+                ("status", "status"),
+                ("domain", "domain"),
+            ]:
+                val = request.data.get(param_key)
+                if val:
+                    query_params[field_name] = val
+
             filtered_set = filter.filter_using_dict_and_queryset(
                 query_params, data_items
             )

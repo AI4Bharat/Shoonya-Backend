@@ -59,8 +59,27 @@ import sacrebleu
 
 from utils.date_time_conversions import utc_to_ist
 from django.db import IntegrityError
+from django.db.models import Q
 
 # Create your views here.
+
+
+def apply_common_filters(queryset, request):
+    """Apply optional language, domain, and status filters from query params."""
+    language = request.query_params.get("language")
+    domain = request.query_params.get("domain")
+    generic_status = request.query_params.get("status")
+
+    if language:
+        queryset = queryset.filter(
+            Q(project_id__src_language=language) | Q(project_id__tgt_language=language)
+        )
+    if domain:
+        queryset = queryset.filter(project_id__metadata_json__domain=domain)
+    if generic_status:
+        queryset = queryset.filter(task_status=generic_status)
+
+    return queryset
 
 
 def annotation_result_compare(base_annotation_result, review_annotation_result):
@@ -190,6 +209,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
 
         if "project_id" in dict(request.query_params):
             proj_id = request.query_params["project_id"]
+            language = request.query_params.get("language")
+            domain = request.query_params.get("domain")
+            generic_status = request.query_params.get("status")
             proj_objs = Project.objects.filter(id=proj_id)
             if len(proj_objs) == 0:
                 return Response(
@@ -241,8 +263,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 annotations__in=ann,
                                 revision_loop_count__review_count__gte=1,
                             )
+                            tasks = apply_common_filters(tasks, request)
                         else:
                             tasks = Task.objects.filter(annotations__in=ann)
+                            tasks = apply_common_filters(tasks, request)
                         tasks = tasks.distinct()
                         # Handle search query (if any)
                         if len(tasks):
@@ -317,8 +341,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         annotations__in=ann,
                         revision_loop_count__review_count__gte=1,
                     )
+                    tasks = apply_common_filters(tasks, request)
                 else:
                     tasks = Task.objects.filter(annotations__in=ann)
+                    tasks = apply_common_filters(tasks, request)
                 tasks = tasks.distinct()
                 # Handle search query (if any)
                 if len(tasks):
@@ -426,8 +452,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                 annotations__in=ann,
                                 revision_loop_count__super_check_count__gte=1,
                             )
+                            tasks = apply_common_filters(tasks, request)
                         else:
                             tasks = Task.objects.filter(annotations__in=ann)
+                            tasks = apply_common_filters(tasks, request)
                         tasks = tasks.distinct()
                         # Handle search query (if any)
                         if len(tasks):
@@ -505,8 +533,10 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         annotations__in=ann,
                         revision_loop_count__super_check_count__gte=1,
                     )
+                    tasks = apply_common_filters(tasks, request)
                 else:
                     tasks = Task.objects.filter(annotations__in=ann)
+                    tasks = apply_common_filters(tasks, request)
                 tasks = tasks.distinct()
                 tasks = tasks.order_by("id")
                 # Handle search query (if any)
@@ -663,6 +693,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             annotation_type=SUPER_CHECKER_ANNOTATION,
                         )
                         tasks = Task.objects.filter(annotations__in=ann)
+                        tasks = apply_common_filters(tasks, request)
                         tasks = tasks.distinct()
                         # Handle search query (if any)
                         if len(tasks):
@@ -732,15 +763,8 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     completed_by=user_id,
                 )
                 tasks = Task.objects.filter(annotations__in=ann)
+                tasks = apply_common_filters(tasks, request)
                 tasks = tasks.distinct()
-                # Handle search query (if any)
-                if len(tasks):
-                    tasks = tasks.filter(
-                        **process_search_query(
-                            request.GET, "data", list(tasks.first().data.keys())
-                        )
-                    )
-                ann_filter1 = ann.filter(task__in=tasks).order_by("id")
 
                 task_objs = []
                 for an in ann_filter1:
@@ -848,6 +872,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         project_id__exact=proj_id,
                         task_status__in=tas_status,
                     )
+                    tasks = apply_common_filters(tasks, request)
 
                     # Handle search query (if any)
                     if len(tasks):
@@ -899,6 +924,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     task_status__in=tas_status,
                     annotation_users=user_id,
                 )
+                tasks = apply_common_filters(tasks, request)
 
                 # Handle search query (if any)
                 if len(tasks):
@@ -947,6 +973,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     task_status__in=tas_status,
                     review_user_id=user_id,
                 )
+                tasks = apply_common_filters(tasks, request)
 
                 # Handle search query (if any)
                 if len(tasks):
@@ -995,6 +1022,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     task_status__in=tas_status,
                     super_checker_user_id=user_id,
                 )
+                tasks = apply_common_filters(tasks, request)
                 tasks = tasks.order_by("id")
 
                 # Handle search query (if any)
