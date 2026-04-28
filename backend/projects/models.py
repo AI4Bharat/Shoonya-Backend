@@ -5,7 +5,7 @@ from organizations.models import Organization
 from workspaces.models import Workspace
 from dataset.models import DatasetInstance
 from .registry_helper import ProjectRegistry
-from django.utils.timezone import now
+from django.utils import timezone
 from datetime import datetime, timedelta
 from users.models import LANG_CHOICES
 
@@ -277,7 +277,7 @@ class Project(models.Model):
     )
 
     def clear_expired_lock(self):
-        self.lock.filter(expires_at__lt=now()).delete()
+        self.lock.filter(expires_at__lt=timezone.now()).delete()
 
     def release_lock(self, context):
         self.lock.filter(lock_context=context).delete()
@@ -285,7 +285,7 @@ class Project(models.Model):
     def is_locked(self, context):
         self.clear_expired_lock()
         return (
-            self.lock.filter(lock_context=context).filter(expires_at__gt=now()).count()
+            self.lock.filter(lock_context=context).filter(expires_at__gt=timezone.now()).count()
         )
 
     def set_lock(self, annotator, context):
@@ -297,7 +297,7 @@ class Project(models.Model):
                 project=self,
                 user=annotator,
                 lock_context=context,
-                expires_at=now() + timedelta(seconds=settings.PROJECT_LOCK_TTL),
+                expires_at=timezone.now() + timedelta(seconds=settings.PROJECT_LOCK_TTL),
             )
         else:
             raise Exception("Project already locked")
@@ -348,3 +348,21 @@ class ProjectTaskRequestLock(models.Model):
         verbose_name="lock_context",
     )
     expires_at = models.DateTimeField("expires_at")
+
+
+class ProjectBookmark(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="bookmarks",
+    )
+    project = models.ForeignKey(
+        "Project", on_delete=models.CASCADE, related_name="bookmarked_by"
+    )
+    bookmarked_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        unique_together = ("user", "project")
+        indexes = [
+            models.Index(fields=["user", "-bookmarked_at"]),
+        ]
