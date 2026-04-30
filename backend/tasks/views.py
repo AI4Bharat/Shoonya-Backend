@@ -1616,7 +1616,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         endpoint=os.getenv("MINIO_IITM_ENDPOINT"),
                         access_key=os.getenv("MINIO_IITM_ACCESS_KEY"),
                         secret_key=os.getenv("MINIO_IITM_SECRET_KEY"),
-                        secure=False,  # likely needed
+                        secure=True,  # likely needed
                         cert_check=False,
                     )
     
