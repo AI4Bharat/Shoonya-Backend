@@ -1456,7 +1456,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
             400: "Invalid parameters in the request body!",
             500: "Connection to Minio Failed",
         },
-    )
+        )
     @action(
         detail=False,
         methods=["GET"],
@@ -1465,6 +1465,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     )
     def get_audio_file(self, request):
         audio_url, taskid = "", ""
+    
         if "audio_url" in request.query_params:
             audio_url = request.query_params.get("audio_url")
         elif "task_id" in request.query_params:
@@ -1475,17 +1476,24 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 status=status.HTTP_400_BAD_REQUEST,
             )
     
+        print("\n========== NEW REQUEST ==========")
+        print("Incoming audio_url:", audio_url)
+        print("Task ID:", taskid)
+    
+        # ---------------- TASK LOOKUP ----------------
         if taskid:
             try:
                 task = Task.objects.filter(id=taskid)[0]
             except ObjectDoesNotExist as e:
+                print("Task fetch error:", str(e))
                 return Response(
                     {"message": f"Task with id {taskid} does not exist: {e}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             try:
                 audio_url = task.data["audio_url"]
-            except KeyError as e:
+                print("Resolved audio_url from task:", audio_url)
+            except KeyError:
                 return Response(
                     {"message": f"Audio url for task with id - {taskid} does not exist"},
                     status=status.HTTP_204_NO_CONTENT,
@@ -1493,30 +1501,34 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     
         # ---------------- AZURE FLOW ----------------
         if "asr-transcription/bigbang" in audio_url:
+            print("\n--- USING AZURE FLOW ---")
     
             try:
                 azure_blob_client = BlobServiceClient.from_connection_string(
                     os.getenv("AZURE_STORAGE_CONNECTION_STRING_DMU")
                 )
             except Exception as e:
-                print(f"Connection to Azure Blob Storage failed: {str(e)}")
+                print("Azure connection error:", str(e))
                 return Response(
                     {"message": f"Could not fetch audio file"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
     
             directory_path = os.path.join(os.getcwd(), "cached_audios")
-    
             if not os.path.exists(directory_path):
                 os.mkdir(directory_path)
     
-            SAVE_PATH = os.path.join(directory_path)
+            SAVE_PATH = directory_path
     
             try:
                 filename = audio_url.split("/")[-1]
                 is_conversational = filename.endswith(("_0.wav", "_1.wav"))
     
+                print("Filename:", filename)
+                print("Is conversational:", is_conversational)
+    
                 if os.path.exists(os.path.join(SAVE_PATH, filename)):
+                    print("Serving from cache")
                     with open(os.path.join(SAVE_PATH, filename), "rb") as f:
                         data_bytes = f.read()
                     return Response(
@@ -1524,75 +1536,60 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         status=status.HTTP_200_OK,
                     )
     
+                container_name = (
+                    "role-play-convs"
+                    if is_conversational
+                    else "microtask-assignment-output"
+                )
+    
+                blob_name = (
+                    filename.replace("_0.wav", "_1.wav")
+                    .replace("_1.wav", ".wav")
+                    if is_conversational
+                    else filename.replace(".wav", ".tgz")
+                )
+    
+                print("Azure container:", container_name)
+                print("Azure blob:", blob_name)
+    
+                blob_client = azure_blob_client.get_blob_client(
+                    container=container_name, blob=blob_name
+                )
+    
+                download_stream = blob_client.download_blob()
+                data_bytes = download_stream.readall()
+    
+                if is_conversational:
+                    data, samplerate = sf.read(io.BytesIO(data_bytes))
+                    sf.write(os.path.join(SAVE_PATH, blob_name.replace(".wav", "_0.wav")), data[:, 0], samplerate)
+                    sf.write(os.path.join(SAVE_PATH, blob_name.replace(".wav", "_1.wav")), data[:, 1], samplerate)
+    
+                    with open(os.path.join(SAVE_PATH, filename), "rb") as f:
+                        data_bytes = f.read()
+    
                 else:
-                    container_name = (
-                        "role-play-convs"
-                        if is_conversational
-                        else "microtask-assignment-output"
-                    )
+                    tar_file = tarfile.open(fileobj=io.BytesIO(data_bytes), mode="r:*")
+                    member = tar_file.getmember(filename)
+                    extracted_file = tar_file.extractfile(member)
     
-                    blob_name = (
-                        filename.replace("_0.wav", "_1.wav")
-                        .replace("_1.wav", ".wav")
-                        if is_conversational
-                        else filename.replace(".wav", ".tgz")
-                    )
-    
-                    blob_client = azure_blob_client.get_blob_client(
-                        container=container_name, blob=blob_name
-                    )
-    
-                    download_stream = blob_client.download_blob()
-                    data_bytes = download_stream.readall()
-    
-                    if is_conversational:
-                        data, samplerate = sf.read(io.BytesIO(data_bytes))
-                        assert data.ndim == 2
-    
-                        sf.write(
-                            os.path.join(SAVE_PATH, blob_name.replace(".wav", "_0.wav")),
-                            data[:, 0],
-                            samplerate,
-                            format="WAV",
-                        )
-                        sf.write(
-                            os.path.join(SAVE_PATH, blob_name.replace(".wav", "_1.wav")),
-                            data[:, 1],
-                            samplerate,
-                            format="WAV",
-                        )
-    
-                        with open(os.path.join(SAVE_PATH, filename), "rb") as f:
-                            data_bytes = f.read()
-    
+                    if not extracted_file:
+                        print("File not found in tar")
                         return Response(
-                            data=base64.b64encode(data_bytes).decode("utf-8"),
-                            status=status.HTTP_200_OK,
+                            {"message": f"File {filename} not found in tarball"},
+                            status=status.HTTP_404_NOT_FOUND,
                         )
     
-                    else:
-                        tar_file = tarfile.open(fileobj=io.BytesIO(data_bytes), mode="r:*")
-                        member = tar_file.getmember(filename)
-                        extracted_file = tar_file.extractfile(member)
+                    data_bytes = extracted_file.read()
+                    with open(os.path.join(SAVE_PATH, filename), "wb") as f:
+                        f.write(data_bytes)
     
-                        if not extracted_file:
-                            return Response(
-                                {"message": f"File {filename} not found in tarball"},
-                                status=status.HTTP_404_NOT_FOUND,
-                            )
-    
-                        data_bytes = extracted_file.read()
-    
-                        with open(os.path.join(SAVE_PATH, filename), "wb") as f:
-                            f.write(data_bytes)
-    
-                        return Response(
-                            data=base64.b64encode(data_bytes).decode("utf-8"),
-                            status=status.HTTP_200_OK,
-                        )
+                return Response(
+                    data=base64.b64encode(data_bytes).decode("utf-8"),
+                    status=status.HTTP_200_OK,
+                )
     
             except Exception as e:
-                print(e)
+                print("Azure processing error:", str(e))
                 return Response(
                     {"message": f"Could not fetch audio file"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1600,24 +1597,38 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
     
         # ---------------- MINIO FLOW ----------------
         else:
+            print("\n--- USING MINIO FLOW ---")
+    
             from minio import Minio
     
             try:
-                # Detect IITM bucket via prefix
                 if audio_url.startswith("iitmnewbkt/"):
+                    print("\n--- IITM BUCKET DETECTED ---")
+    
                     bucket_name = os.getenv("MINIO_IITM_BUCKET")
                     object_name = audio_url.replace("iitmnewbkt/", "", 1)
+    
+                    print("IITM bucket:", bucket_name)
+                    print("IITM object:", object_name)
+                    print("IITM endpoint:", os.getenv("MINIO_IITM_ENDPOINT"))
     
                     minio_client = Minio(
                         endpoint=os.getenv("MINIO_IITM_ENDPOINT"),
                         access_key=os.getenv("MINIO_IITM_ACCESS_KEY"),
                         secret_key=os.getenv("MINIO_IITM_SECRET_KEY"),
-                        secure=True,
+                        secure=True,  # likely needed
                         cert_check=False,
                     )
+    
                 else:
+                    print("\n--- DEFAULT BUCKET ---")
+    
                     bucket_name = os.getenv("MINIO_DIRECTORY")
                     object_name = audio_url
+    
+                    print("Default bucket:", bucket_name)
+                    print("Default object:", object_name)
+                    print("Default endpoint:", os.getenv("MINIO_ENDPOINT"))
     
                     minio_client = Minio(
                         endpoint=os.getenv("MINIO_ENDPOINT"),
@@ -1627,27 +1638,39 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         cert_check=False,
                     )
     
-            except Exception:
+            except Exception as e:
+                print("MinIO connection error:", str(e))
                 return Response(
                     {"message": "Connection to minio failed"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
     
             try:
+                print("\nFetching object from MinIO...")
+                print("Bucket:", bucket_name)
+                print("Object:", object_name)
+    
                 response = minio_client.get_object(bucket_name, object_name)
                 data_bytes = response.read()
+    
+                print("SUCCESS: bytes fetched =", len(data_bytes))
+    
+                response.close()
+                response.release_conn()
     
                 encoded_audio_data = base64.b64encode(data_bytes).decode("utf-8")
     
             except Exception as e:
-                print(e)
+                print("\n❌ MINIO ERROR")
+                print("Type:", type(e))
+                print("Message:", str(e))
+    
                 return Response(
                     {"message": f"Could not fetch audio file"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
     
             return Response(data=encoded_audio_data, status=status.HTTP_200_OK)
-
 
 def update_notification(annotation_obj, task):
     project_id = task.project_id.id
