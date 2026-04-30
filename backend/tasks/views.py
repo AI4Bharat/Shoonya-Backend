@@ -1485,7 +1485,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 )
             try:
                 audio_url = task.data["audio_url"]
-            except KeyError:
+            except KeyError as e:
                 return Response(
                     {"message": f"Audio url for task with id - {taskid} does not exist"},
                     status=status.HTTP_204_NO_CONTENT,
