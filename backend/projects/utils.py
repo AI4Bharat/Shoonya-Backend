@@ -20,6 +20,7 @@ from tasks.models import (
     ANNOTATOR_ANNOTATION,
     REVIEWED,
     REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
 )
 import datetime
 import yaml
@@ -507,6 +508,26 @@ def process_ocr_results(
             }
 
 
+def get_audio_transcription_text(annotation_result):
+    text = ""
+    if not annotation_result:
+        return text
+    for result in annotation_result:
+        if (
+            "from_name" in result
+            and result["from_name"] == "acoustic_normalised_transcribed_json"
+        ):
+            try:
+                if isinstance(result["value"]["text"], list):
+                    for s in result["value"]["text"]:
+                        text += s
+                else:
+                    text += result["value"]["text"]
+            except:
+                pass
+    return text
+
+
 def process_task(
     task,
     export_type,
@@ -566,6 +587,54 @@ def process_task(
 
     del task_dict["annotation_users"]
     del task_dict["review_user"]
+
+    if (
+        task.project_id.project_type == "AcousticNormalisedTranscriptionEditing"
+        and export_type == "CSV"
+    ):
+        annotations = task.annotations.all()
+
+        annotator_ann = annotations.filter(
+            annotation_type=ANNOTATOR_ANNOTATION
+        ).first()
+        reviewer_ann = annotations.filter(annotation_type=REVIEWER_ANNOTATION).first()
+        superchecker_ann = annotations.filter(
+            annotation_type=SUPER_CHECKER_ANNOTATION
+        ).first()
+
+        annotator_text = (
+            get_audio_transcription_text(annotator_ann.result) if annotator_ann else ""
+        )
+        reviewer_text = (
+            get_audio_transcription_text(reviewer_ann.result) if reviewer_ann else ""
+        )
+        superchecker_text = (
+            get_audio_transcription_text(superchecker_ann.result)
+            if superchecker_ann
+            else ""
+        )
+
+        task_dict["data"]["annotator_transcription"] = annotator_text
+        task_dict["data"]["reviewer_transcription"] = reviewer_text
+        task_dict["data"]["superchecker_transcription"] = superchecker_text
+
+        # WER A/R
+        if annotator_text and reviewer_text:
+            task_dict["data"]["wer_a_r"] = wer(annotator_text, reviewer_text)
+        else:
+            task_dict["data"]["wer_a_r"] = None
+
+        # WER A/S
+        if annotator_text and superchecker_text:
+            task_dict["data"]["wer_a_s"] = wer(annotator_text, superchecker_text)
+        else:
+            task_dict["data"]["wer_a_s"] = None
+
+        # WER R/S
+        if reviewer_text and superchecker_text:
+            task_dict["data"]["wer_r_s"] = wer(reviewer_text, superchecker_text)
+        else:
+            task_dict["data"]["wer_r_s"] = None
 
     if is_audio_project_type:
         data = task_dict["data"]

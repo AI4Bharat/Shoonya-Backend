@@ -11,6 +11,8 @@ from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
 from django.forms.models import model_to_dict
 from django.db import transaction, IntegrityError
+from django.core.mail import EmailMessage
+from django.conf import settings
 
 import notifications
 from shoonya_backend.pagination import CustomPagination
@@ -4329,10 +4331,20 @@ url_name="populate_asr_model_predictions")
                 filename = filename.split(".")
                 filename[-1] = "tsv"
                 filename = ".".join(filename)
-            response = HttpResponse(File(export_stream), content_type=content_type)
-            response["Content-Disposition"] = 'attachment; filename="%s"' % filename
-            response["filename"] = filename
-            return response
+
+            email = EmailMessage(
+                f"Exported Project Report - {project.title}",
+                f"Please find the attached {export_type} report for project: {project.title}",
+                settings.DEFAULT_FROM_EMAIL,
+                [request.user.email],
+            )
+            email.attach(filename, export_stream.read(), content_type)
+            email.send()
+
+            return Response(
+                {"message": "The report has been generated and sent to your email."},
+                status=status.HTTP_200_OK,
+            )
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND
