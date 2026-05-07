@@ -208,6 +208,7 @@ def get_bounding_box_count(annotation_label_result):
 
     return count
 
+
 def audio_word_count(annotation_result):
     word_count = 0
 
@@ -275,14 +276,15 @@ def ocr_word_count(annotation_result):
 
     return word_count
 
+
 def ocr_boundingbox_count(annotation_result):
-     bbox_count = 0
+    bbox_count = 0
 
-     for result in annotation_result:
-         if result["type"] == "rectangle":  
-             bbox_count += 1  
+    for result in annotation_result:
+        if result["type"] == "rectangle":
+            bbox_count += 1
 
-     return bbox_count
+    return bbox_count
 
 
 def get_user_from_query_params(
@@ -512,20 +514,50 @@ def get_audio_transcription_text(annotation_result):
     text = ""
     if not annotation_result:
         return text
+
+    segments = []
     for result in annotation_result:
-        if (
-            "from_name" in result
-            and result["from_name"] == "acoustic_normalised_transcribed_json"
-        ):
+        if "from_name" in result and result["from_name"] in [
+            "acoustic_normalised_transcribed_json",
+            "transcribed_json",
+        ]:
             try:
-                if isinstance(result["value"]["text"], list):
-                    for s in result["value"]["text"]:
-                        text += s
-                else:
-                    text += result["value"]["text"]
+                res_text = result["value"]["text"]
+                if isinstance(res_text, str):
+                    try:
+                        res_text = json.loads(res_text)
+                    except:
+                        # If not JSON, treat as single segment text or part of a list
+                        segments.append(
+                            {
+                                "text": res_text,
+                                "start_time": result["value"].get("start", 0),
+                            }
+                        )
+
+                if isinstance(res_text, list):
+                    segments.extend(res_text)
+                elif isinstance(res_text, dict):
+                    segments.append(res_text)
             except:
                 pass
-    return text
+
+    if not segments:
+        return ""
+
+    # Sort segments by start_time to ensure correct chronological order
+    try:
+        segments.sort(key=lambda x: x.get("start_time", "00:00:00.000"))
+    except:
+        pass
+
+    for segment in segments:
+        if isinstance(segment, dict) and "text" in segment:
+            text += segment["text"] + " "
+        elif isinstance(segment, str):
+            text += segment + " "
+
+    return text.strip()
 
 
 def process_task(
@@ -592,15 +624,12 @@ def process_task(
         task.project_id.project_type == "AcousticNormalisedTranscriptionEditing"
         and export_type == "CSV"
     ):
-        annotations = task.annotations.all()
+        # Use in-memory filtering to avoid extra DB queries (annotations are prefetched)
+        all_anns = list(task.annotations.all())
 
-        annotator_ann = annotations.filter(
-            annotation_type=ANNOTATOR_ANNOTATION
-        ).first()
-        reviewer_ann = annotations.filter(annotation_type=REVIEWER_ANNOTATION).first()
-        superchecker_ann = annotations.filter(
-            annotation_type=SUPER_CHECKER_ANNOTATION
-        ).first()
+        annotator_ann = next((a for a in all_anns if a.annotation_type == ANNOTATOR_ANNOTATION), None)
+        reviewer_ann = next((a for a in all_anns if a.annotation_type == REVIEWER_ANNOTATION), None)
+        superchecker_ann = next((a for a in all_anns if a.annotation_type == SUPER_CHECKER_ANNOTATION), None)
 
         annotator_text = (
             get_audio_transcription_text(annotator_ann.result) if annotator_ann else ""
