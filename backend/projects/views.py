@@ -4310,6 +4310,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
             is_OCRTextlineSegmentation = project_type == "OCRTextlineSegmentation"
             is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
+            delivery = request.query_params.get("delivery", "email")
             for task in tasks:
                 try:
                     curr_task = process_task(
@@ -4319,6 +4320,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         dataset_model,
                         is_audio_project_type,
                         fetch_parent_data_field,
+                        delivery,
                     )
                     if (
                         is_ConversationTranslation
@@ -4351,6 +4353,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if (
                 project.project_type == "AcousticNormalisedTranscriptionEditing"
                 and export_type == "CSV"
+                and delivery == "email"
             ):
                 wer_fields = [
                     "annotator_transcription",
@@ -4381,22 +4384,29 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 filename[-1] = "tsv"
                 filename = ".".join(filename)
 
-            # Send report via email
-            email = EmailMessage(
-                f"Exported Project Report - {project.title}",
-                f"Please find the attached {export_type} report for project: {project.title}",
-                settings.DEFAULT_FROM_EMAIL,
-                [request.user.email],
-            )
-            email.attach(filename, export_stream.read(), content_type)
-            email.send()
+            if delivery == "email":
+                # Send report via email
+                email = EmailMessage(
+                    f"Exported Project Report - {project.title}",
+                    f"Please find the attached {export_type} report for project: {project.title}",
+                    settings.DEFAULT_FROM_EMAIL,
+                    [request.user.email],
+                )
+                email.attach(filename, export_stream.read(), content_type)
+                email.send()
 
-            return Response(
-                {
-                    "message": "The report has been generated and sent to your email."
-                },
-                status=status.HTTP_200_OK,
-            )
+                return Response(
+                    {
+                        "message": "The report has been generated and sent to your email."
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                # Default: direct file download
+                response = HttpResponse(export_stream, content_type=content_type)
+                response["Content-Disposition"] = f'attachment; filename="{filename}"'
+                response["filename"] = filename
+                return response
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND

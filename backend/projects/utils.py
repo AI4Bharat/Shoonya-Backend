@@ -567,6 +567,7 @@ def process_task(
     dataset_model,
     is_audio_project_type,
     fetch_parent_data_field,
+    delivery="email",
 ):
     task_dict = model_to_dict(task)
     if export_type != "JSON":
@@ -623,6 +624,7 @@ def process_task(
     if (
         task.project_id.project_type == "AcousticNormalisedTranscriptionEditing"
         and export_type == "CSV"
+        and delivery == "email"
     ):
         # Use in-memory filtering to avoid extra DB queries (annotations are prefetched)
         all_anns = list(task.annotations.all())
