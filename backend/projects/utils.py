@@ -643,9 +643,9 @@ def process_task(
             else ""
         )
 
-        task_dict["data"]["annotator_transcription"] = annotator_text
-        task_dict["data"]["reviewer_transcription"] = reviewer_text
-        task_dict["data"]["superchecker_transcription"] = superchecker_text
+        task_dict["data"]["annotator_transcription"] = annotator_ann.result if annotator_ann else ""
+        task_dict["data"]["reviewer_transcription"] = reviewer_ann.result if reviewer_ann else ""
+        task_dict["data"]["superchecker_transcription"] = superchecker_ann.result if superchecker_ann else ""
 
         # WER A/R
         if annotator_text and reviewer_text:
