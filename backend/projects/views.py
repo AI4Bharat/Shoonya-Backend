@@ -6,6 +6,8 @@ import pandas as pd
 import ast
 import csv
 import math
+import io
+import zipfile
 
 from django.core.files import File
 from django.db.models import Count, Q, F, Case, When
@@ -2376,19 +2378,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = Project.objects.get(pk=pk)
 
         if not project.is_published:
-            return Response(
-                {"message": "This project is not yet published"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = ProjectUsersSerializer(project, many=False)
         annotator_ids = {annotator["id"] for annotator in serializer.data["annotators"]}
 
         if cur_user.id not in annotator_ids:
-            return Response(
-                {"message": "You are not assigned to this project"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
 
         proj_annotations = Annotation_model.objects.filter(
             task__project_id=pk,
@@ -2422,21 +2418,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
 
         if pending_tasks >= project.max_pending_tasks_per_user:
-            return Response(
-                {"message": "Your pending task count is too high"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
 
         tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
-        task_pull_count = request.data.get(
-            "num_tasks", project.tasks_pull_count_per_batch
-        )
+        task_pull_count = request.data.get("num_tasks", project.tasks_pull_count_per_batch)
         tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
 
         with transaction.atomic():
             tasks = (
-                Task.objects.select_for_update(skip_locked=True)
-                .filter(project_id=pk, task_status__in=[INCOMPLETE, UNLABELED])
+                Task.objects
+                .select_for_update(skip_locked=True)
+                .filter(
+                    project_id=pk,
+                    task_status__in=[INCOMPLETE, UNLABELED]
+                )
                 .exclude(annotation_users=cur_user.id)
                 .order_by("id")
             )
@@ -2458,10 +2453,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                     break
 
             if not selected_tasks:
-                return Response(
-                    {"message": "No tasks left for assignment in this project"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
+                return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
 
             for task in selected_tasks:
                 task.annotation_users.add(cur_user)
@@ -2498,17 +2490,13 @@ class ProjectViewSet(viewsets.ModelViewSet):
                                 task=task,
                                 completed_by=cur_user,
                                 annotation_type=ANNOTATOR_ANNOTATION,
-                                defaults={"result": result},
+                                defaults={"result": result}
                             )
                             if not created:
-                                print(
-                                    f"Annotation for task id {task.id} already exists."
-                                )
+                                print(f"Annotation for task id {task.id} already exists.")
                                 continue
                         except IntegrityError:
-                            print(
-                                f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}"
-                            )
+                            print(f"IntegrityError while creating annotation for task {task.id}, user {cur_user.email}")
                             continue
                         """except IntegrityError as e:
                             print(
@@ -2526,9 +2514,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                             task.annotation_users.remove(cur_user)
                             task.save()
 
-            return Response(
-                {"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK
-            )
+            return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+
+
 
     @action(
         detail=True, methods=["post"], name="Unassign tasks", url_name="unassign_tasks"
@@ -2897,12 +2885,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     # from here translitrartion work starts
     # For Text
-    @action(
-        detail=True,
-        methods=["POST"],
-        url_path="populate_asr_model_predictions",
-        url_name="populate_asr_model_predictions",
-    )
+    @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", 
+url_name="populate_asr_model_predictions")
     def populate_asr_model_predictions(self, request, pk=None):
         try:
             data = json.loads(request.body)
@@ -2916,28 +2900,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
             print
             # Ensure the stage is either "l1" or "l2"
             if stage not in ["l1", "l2"]:
-                return JsonResponse(
-                    {"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400
-                )
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
 
             if not model_language:
                 return JsonResponse({"error": "Missing model_language"}, status=400)
 
             # Run the Celery task asynchronously
             populate_asr_try.delay(model_language, project_ids, stage)
-            return JsonResponse(
-                {"message": f"populate_asr_try started successfully for stage {stage}!"}
-            )
+            return JsonResponse({"message": f"populate_asr_try started successfully for stage {stage}!"})
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
     @action(
-        detail=True,
-        methods=["POST"],
-        url_path="populate_asr_model_predictions_yt",
-        url_name="populate_asr_model_predictions_yt",
+    detail=True,
+    methods=["POST"],
+    url_path="populate_asr_model_predictions_yt",
+    url_name="populate_asr_model_predictions_yt"
     )
     def populate_asr_model_predictions_yt(self, request, pk=None):
         try:
@@ -2952,9 +2932,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             print("Stage:", stage)
 
             if stage not in ["l1", "l2"]:
-                return JsonResponse(
-                    {"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400
-                )
+                return JsonResponse({"error": "Invalid stage. Choose either 'l1' or 'l2'."}, status=400)
 
             if not model_language:
                 return JsonResponse({"error": "Missing model_language"}, status=400)
@@ -2972,6 +2950,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     # Here translitrartion work ends
 
+    
     @action(
         detail=True,
         methods=["POST"],
@@ -4279,7 +4258,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 export_type = request.query_params["export_type"]
             else:
                 export_type = "CSV"
-            tasks = Task.objects.filter(project_id__exact=project).prefetch_related("annotations")
+            tasks = Task.objects.filter(project_id__exact=project).select_related(
+                "correct_annotation", "correct_annotation__completed_by", "project_id", "input_data"
+            ).prefetch_related(
+                "annotations", "annotations__completed_by", "annotation_users"
+            )
 
             if "task_status" in dict(request.query_params):
                 task_status = request.query_params["task_status"]
@@ -4387,12 +4370,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if delivery == "email":
                 # Send report via email
                 email = EmailMessage(
-                    f"Exported Project Report - {project.title}",
-                    f"Please find the attached {export_type} report for project: {project.title}",
+                    f"Exported Project Report - {project.title} (ID: {project.id})",
+                    f"Please find the attached {export_type} report for project: {project.title} (ID: {project.id})",
                     settings.DEFAULT_FROM_EMAIL,
                     [request.user.email],
                 )
-                email.attach(filename, export_stream.read(), content_type)
+                data = export_stream.read()
+
+                # Compress the data before attaching to avoid the 10 MB limit
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+                    zip_file.writestr(filename, data)
+                
+                zip_data = zip_buffer.getvalue()
+                
+                email.attach(filename + ".zip", zip_data, "application/zip")
                 email.send()
 
                 return Response(

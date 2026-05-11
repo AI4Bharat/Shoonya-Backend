@@ -517,30 +517,28 @@ def get_audio_transcription_text(annotation_result):
 
     segments = []
     for result in annotation_result:
-        if "from_name" in result and result["from_name"] in [
-            "acoustic_normalised_transcribed_json",
-            "transcribed_json",
-        ]:
-            try:
-                res_text = result["value"]["text"]
-                if isinstance(res_text, str):
-                    try:
-                        res_text = json.loads(res_text)
-                    except:
-                        # If not JSON, treat as single segment text or part of a list
-                        segments.append(
-                            {
-                                "text": res_text,
-                                "start_time": result["value"].get("start", 0),
-                            }
-                        )
+        if "type" in result and result["type"] == "textarea":
+            if "from_name" in result and result["from_name"] != "acoustic_normalised_transcribed_json":
+                try:
+                    res_text = result["value"]["text"]
+                    if isinstance(res_text, str):
+                        try:
+                            res_text = json.loads(res_text)
+                        except:
+                            # If not JSON, treat as single segment text or part of a list
+                            segments.append(
+                                {
+                                    "text": res_text,
+                                    "start_time": result["value"].get("start", 0),
+                                }
+                            )
 
-                if isinstance(res_text, list):
-                    segments.extend(res_text)
-                elif isinstance(res_text, dict):
-                    segments.append(res_text)
-            except:
-                pass
+                    if isinstance(res_text, list):
+                        segments.extend(res_text)
+                    elif isinstance(res_text, dict):
+                        segments.append(res_text)
+                except:
+                    pass
 
     if not segments:
         return ""
@@ -575,13 +573,15 @@ def process_task(
 
     correct_annotation = task.correct_annotation
     if correct_annotation is None and task.task_status in [ANNOTATED]:
-        correct_annotation = task.annotations.all().filter(
-            annotation_type=ANNOTATOR_ANNOTATION
-        )[0]
+        correct_annotation = next(
+            (a for a in task.annotations.all() if a.annotation_type == ANNOTATOR_ANNOTATION),
+            None
+        )
     if correct_annotation is None and task.task_status in [REVIEWED]:
-        correct_annotation = task.annotations.all().filter(
-            annotation_type=REVIEWER_ANNOTATION
-        )[0]
+        correct_annotation = next(
+            (a for a in task.annotations.all() if a.annotation_type == REVIEWER_ANNOTATION),
+            None
+        )
 
     annotator_email = ""
     if correct_annotation is not None:
