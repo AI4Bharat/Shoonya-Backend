@@ -6,6 +6,8 @@ import pandas as pd
 import ast
 import csv
 import math
+import io
+import zipfile
 
 from django.core.files import File
 from django.db.models import (
@@ -22,7 +24,10 @@ from django.db.models import (
 )
 
 from django.forms.models import model_to_dict
+from django.http import HttpResponse
 from django.db import transaction, IntegrityError
+from django.core.mail import EmailMessage
+from django.conf import settings
 
 import notifications
 from shoonya_backend.pagination import CustomPagination
@@ -87,7 +92,7 @@ from .tasks import (
     export_project_new_record,
     filter_data_items,
     populate_asr_try,
-    populate_asr_yt
+    populate_asr_yt,
 )
 
 from .decorators import (
@@ -2401,23 +2406,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         cur_user = request.user
         project = Project.objects.get(pk=pk)
-    
+
         if not project.is_published:
             return Response({"message": "This project is not yet published"}, status=status.HTTP_403_FORBIDDEN)
-    
+
         serializer = ProjectUsersSerializer(project, many=False)
         annotator_ids = {annotator["id"] for annotator in serializer.data["annotators"]}
-    
+
         if cur_user.id not in annotator_ids:
             return Response({"message": "You are not assigned to this project"}, status=status.HTTP_403_FORBIDDEN)
-    
+
         proj_annotations = Annotation_model.objects.filter(
             task__project_id=pk,
             annotation_status__exact=UNLABELED,
-            completed_by=cur_user
+            completed_by=cur_user,
         )
         annotation_tasks = [anno.task.id for anno in proj_annotations]
-    
+
         if project.project_type in get_audio_project_types():
             pending_tasks = (
                 Task.objects.filter(project_id=pk)
@@ -2441,14 +2446,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 .filter(id__in=annotation_tasks)
                 .count()
             )
-    
+
         if pending_tasks >= project.max_pending_tasks_per_user:
             return Response({"message": "Your pending task count is too high"}, status=status.HTTP_403_FORBIDDEN)
-    
+
         tasks_to_be_assigned = project.max_pending_tasks_per_user - pending_tasks
         task_pull_count = request.data.get("num_tasks", project.tasks_pull_count_per_batch)
         tasks_to_be_assigned = min(tasks_to_be_assigned, task_pull_count)
-    
+
         with transaction.atomic():
             tasks = (
                 Task.objects
@@ -2460,7 +2465,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 .exclude(annotation_users=cur_user.id)
                 .order_by("id")
             )
-    
+
             if project.project_type in get_audio_project_types():
                 tasks = tasks.filter(
                     Exists(
@@ -2469,17 +2474,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         )
                     )
                 )
-    
+
             selected_tasks = []
             for task in tasks:
                 if task.annotation_users.count() < project.required_annotators_per_task:
                     selected_tasks.append(task)
                 if len(selected_tasks) >= tasks_to_be_assigned:
                     break
-    
+
             if not selected_tasks:
                 return Response({"message": "No tasks left for assignment in this project"}, status=status.HTTP_404_NOT_FOUND)
-    
+
             for task in selected_tasks:
                 task.annotation_users.add(cur_user)
                 task.save()
@@ -2498,11 +2503,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         )
                     except Exception as e:
                         result = []
-    
+
                 annotator_anno_count = Annotation_model.objects.filter(
                     task_id=task, annotation_type=ANNOTATOR_ANNOTATION
                 ).count()
-    
+
                 if annotator_anno_count < project.required_annotators_per_task:
                     cur_user_anno_count = Annotation_model.objects.filter(
                         task_id=task,
@@ -2538,8 +2543,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         if cur_user_anno_count == 0:
                             task.annotation_users.remove(cur_user)
                             task.save()
-    
+
             return Response({"message": "Tasks assigned successfully"}, status=status.HTTP_200_OK)
+
 
 
     @action(
@@ -2908,14 +2914,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
         )
 
     # from here translitrartion work starts
-# For Text    
+    # For Text
     @action(detail=True, methods=["POST"], url_path="populate_asr_model_predictions", 
 url_name="populate_asr_model_predictions")
-    def populate_asr_model_predictions(self, request,pk=None):
+    def populate_asr_model_predictions(self, request, pk=None):
         try:
             data = json.loads(request.body)
             model_language = data.get("model_language")
-            project_ids = data.get("project_ids",[])
+            project_ids = data.get("project_ids", [])
             stage = data.get("stage", "l1")  # Default to "l1"
             print("Model:", model_language)
             print("Projects:", project_ids)
@@ -2935,8 +2941,8 @@ url_name="populate_asr_model_predictions")
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)        
-    
+            return JsonResponse({"error": str(e)}, status=500)
+
     @action(
     detail=True,
     methods=["POST"],
@@ -2972,7 +2978,7 @@ url_name="populate_asr_model_predictions")
             # Return the REAL error so you can debug properly
             return Response({"error": str(e)}, status=500)
 
-# Here translitrartion work ends
+    # Here translitrartion work ends
 
     
     @action(
@@ -4282,7 +4288,11 @@ url_name="populate_asr_model_predictions")
                 export_type = request.query_params["export_type"]
             else:
                 export_type = "CSV"
-            tasks = Task.objects.filter(project_id__exact=project)
+            tasks = Task.objects.filter(project_id__exact=project).select_related(
+                "correct_annotation", "correct_annotation__completed_by", "project_id", "input_data"
+            ).prefetch_related(
+                "annotations", "annotations__completed_by", "annotation_users"
+            )
 
             if "task_status" in dict(request.query_params):
                 task_status = request.query_params["task_status"]
@@ -4313,6 +4323,7 @@ url_name="populate_asr_model_predictions")
             )
             is_OCRTextlineSegmentation = project_type == "OCRTextlineSegmentation"
             is_OCRSegmentCategorization = project_type == "OCRSegmentCategorization"
+            delivery = request.query_params.get("delivery", "email")
             for task in tasks:
                 try:
                     curr_task = process_task(
@@ -4322,6 +4333,7 @@ url_name="populate_asr_model_predictions")
                         dataset_model,
                         is_audio_project_type,
                         fetch_parent_data_field,
+                        delivery,
                     )
                     if (
                         is_ConversationTranslation
@@ -4349,6 +4361,31 @@ url_name="populate_asr_model_predictions")
                 except Exception as e:
                     continue
                 tasks_list.append(curr_task)
+
+            # Remove WER/transcription columns that are empty across all tasks
+            if (
+                project.project_type == "AcousticNormalisedTranscriptionEditing"
+                and export_type == "CSV"
+                and delivery == "email"
+            ):
+                wer_fields = [
+                    "annotator_transcription",
+                    "reviewer_transcription",
+                    "superchecker_transcription",
+                    "wer_a_r",
+                    "wer_a_s",
+                    "wer_r_s",
+                ]
+                for field in wer_fields:
+                    # Check if all values for this field are empty/None across all tasks
+                    has_value = any(
+                        t.get("data", {}).get(field) not in (None, "", 0, 0.0)
+                        for t in tasks_list
+                    )
+                    if not has_value:
+                        for t in tasks_list:
+                            t.get("data", {}).pop(field, None)
+
             download_resources = True
             export_stream, content_type, filename = DataExport.generate_export_file(
                 project, tasks_list, export_type, download_resources, request.GET
@@ -4359,10 +4396,39 @@ url_name="populate_asr_model_predictions")
                 filename = filename.split(".")
                 filename[-1] = "tsv"
                 filename = ".".join(filename)
-            response = HttpResponse(File(export_stream), content_type=content_type)
-            response["Content-Disposition"] = 'attachment; filename="%s"' % filename
-            response["filename"] = filename
-            return response
+
+            if delivery == "email":
+                # Send report via email
+                email = EmailMessage(
+                    f"Exported Project Report - {project.title} (ID: {project.id})",
+                    f"Please find the attached {export_type} report for project: {project.title} (ID: {project.id})",
+                    settings.DEFAULT_FROM_EMAIL,
+                    [request.user.email],
+                )
+                data = export_stream.read()
+
+                # Compress the data before attaching to avoid the 10 MB limit
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+                    zip_file.writestr(filename, data)
+                
+                zip_data = zip_buffer.getvalue()
+                
+                email.attach(filename + ".zip", zip_data, "application/zip")
+                email.send()
+
+                return Response(
+                    {
+                        "message": "The report has been generated and sent to your email."
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            else:
+                # Default: direct file download
+                response = HttpResponse(export_stream, content_type=content_type)
+                response["Content-Disposition"] = f'attachment; filename="{filename}"'
+                response["filename"] = filename
+                return response
         except Project.DoesNotExist:
             ret_dict = {"message": "Project does not exist!"}
             ret_status = status.HTTP_404_NOT_FOUND

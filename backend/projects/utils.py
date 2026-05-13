@@ -20,6 +20,7 @@ from tasks.models import (
     ANNOTATOR_ANNOTATION,
     REVIEWED,
     REVIEWER_ANNOTATION,
+    SUPER_CHECKER_ANNOTATION,
 )
 import datetime
 import yaml
@@ -207,6 +208,7 @@ def get_bounding_box_count(annotation_label_result):
 
     return count
 
+
 def audio_word_count(annotation_result):
     word_count = 0
 
@@ -274,14 +276,15 @@ def ocr_word_count(annotation_result):
 
     return word_count
 
+
 def ocr_boundingbox_count(annotation_result):
-     bbox_count = 0
+    bbox_count = 0
 
-     for result in annotation_result:
-         if result["type"] == "rectangle":  
-             bbox_count += 1  
+    for result in annotation_result:
+        if result["type"] == "rectangle":
+            bbox_count += 1
 
-     return bbox_count
+    return bbox_count
 
 
 def get_user_from_query_params(
@@ -507,6 +510,54 @@ def process_ocr_results(
             }
 
 
+def get_audio_transcription_text(annotation_result):
+    text = ""
+    if not annotation_result:
+        return text
+
+    segments = []
+    for result in annotation_result:
+        if "type" in result and result["type"] == "textarea":
+            if "from_name" in result and result["from_name"] != "acoustic_normalised_transcribed_json":
+                try:
+                    res_text = result["value"]["text"]
+                    if isinstance(res_text, str):
+                        try:
+                            res_text = json.loads(res_text)
+                        except:
+                            # If not JSON, treat as single segment text or part of a list
+                            segments.append(
+                                {
+                                    "text": res_text,
+                                    "start_time": result["value"].get("start", 0),
+                                }
+                            )
+
+                    if isinstance(res_text, list):
+                        segments.extend(res_text)
+                    elif isinstance(res_text, dict):
+                        segments.append(res_text)
+                except:
+                    pass
+
+    if not segments:
+        return ""
+
+    # Sort segments by start_time to ensure correct chronological order
+    try:
+        segments.sort(key=lambda x: x.get("start_time", "00:00:00.000"))
+    except:
+        pass
+
+    for segment in segments:
+        if isinstance(segment, dict) and "text" in segment:
+            text += segment["text"] + " "
+        elif isinstance(segment, str):
+            text += segment + " "
+
+    return text.strip()
+
+
 def process_task(
     task,
     export_type,
@@ -514,6 +565,7 @@ def process_task(
     dataset_model,
     is_audio_project_type,
     fetch_parent_data_field,
+    delivery="email",
 ):
     task_dict = model_to_dict(task)
     if export_type != "JSON":
@@ -521,13 +573,15 @@ def process_task(
 
     correct_annotation = task.correct_annotation
     if correct_annotation is None and task.task_status in [ANNOTATED]:
-        correct_annotation = task.annotations.all().filter(
-            annotation_type=ANNOTATOR_ANNOTATION
-        )[0]
+        correct_annotation = next(
+            (a for a in task.annotations.all() if a.annotation_type == ANNOTATOR_ANNOTATION),
+            None
+        )
     if correct_annotation is None and task.task_status in [REVIEWED]:
-        correct_annotation = task.annotations.all().filter(
-            annotation_type=REVIEWER_ANNOTATION
-        )[0]
+        correct_annotation = next(
+            (a for a in task.annotations.all() if a.annotation_type == REVIEWER_ANNOTATION),
+            None
+        )
 
     annotator_email = ""
     if correct_annotation is not None:
@@ -566,6 +620,52 @@ def process_task(
 
     del task_dict["annotation_users"]
     del task_dict["review_user"]
+
+    if (
+        task.project_id.project_type == "AcousticNormalisedTranscriptionEditing"
+        and export_type == "CSV"
+        and delivery == "email"
+    ):
+        # Use in-memory filtering to avoid extra DB queries (annotations are prefetched)
+        all_anns = list(task.annotations.all())
+
+        annotator_ann = next((a for a in all_anns if a.annotation_type == ANNOTATOR_ANNOTATION), None)
+        reviewer_ann = next((a for a in all_anns if a.annotation_type == REVIEWER_ANNOTATION), None)
+        superchecker_ann = next((a for a in all_anns if a.annotation_type == SUPER_CHECKER_ANNOTATION), None)
+
+        annotator_text = (
+            get_audio_transcription_text(annotator_ann.result) if annotator_ann else ""
+        )
+        reviewer_text = (
+            get_audio_transcription_text(reviewer_ann.result) if reviewer_ann else ""
+        )
+        superchecker_text = (
+            get_audio_transcription_text(superchecker_ann.result)
+            if superchecker_ann
+            else ""
+        )
+
+        task_dict["data"]["annotator_transcription"] = annotator_ann.result if annotator_ann else ""
+        task_dict["data"]["reviewer_transcription"] = reviewer_ann.result if reviewer_ann else ""
+        task_dict["data"]["superchecker_transcription"] = superchecker_ann.result if superchecker_ann else ""
+
+        # WER A/R
+        if annotator_text and reviewer_text:
+            task_dict["data"]["wer_a_r"] = wer(annotator_text, reviewer_text)
+        else:
+            task_dict["data"]["wer_a_r"] = None
+
+        # WER A/S
+        if annotator_text and superchecker_text:
+            task_dict["data"]["wer_a_s"] = wer(annotator_text, superchecker_text)
+        else:
+            task_dict["data"]["wer_a_s"] = None
+
+        # WER R/S
+        if reviewer_text and superchecker_text:
+            task_dict["data"]["wer_r_s"] = wer(reviewer_text, superchecker_text)
+        else:
+            task_dict["data"]["wer_r_s"] = None
 
     if is_audio_project_type:
         data = task_dict["data"]
