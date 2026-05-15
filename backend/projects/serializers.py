@@ -10,6 +10,8 @@ class ProjectSerializer(serializers.ModelSerializer):
     review_supercheckers = UserProfileSerializer(read_only=True, many=True)
     created_by = UserProfileSerializer(read_only=True)
     frozen_users = UserProfileSerializer(read_only=True, many=True)
+    is_bookmarked = serializers.BooleanField(read_only=True, default=False)
+    bookmarked_at = serializers.DateTimeField(read_only=True, allow_null=True)
 
     class Meta:
         model = Project
@@ -18,6 +20,8 @@ class ProjectSerializer(serializers.ModelSerializer):
         # project_type = serializers.ChoiceField(choices=PROJECT_TYPE_CHOICES, default='friendly')
         fields = [
             "id",
+            "is_bookmarked",
+            "bookmarked_at",
             "title",
             "description",
             "created_by",
@@ -70,6 +74,8 @@ class ProjectUsersSerializer(serializers.ModelSerializer):
 
 class ProjectSerializerOptimized(serializers.ModelSerializer):
     created_by = UserProfileSerializer(read_only=True)
+    is_bookmarked = serializers.BooleanField(read_only=True, default=False)
+    bookmarked_at = serializers.DateTimeField(read_only=True, allow_null=True)
 
     class Meta:
         model = Project
@@ -78,6 +84,8 @@ class ProjectSerializerOptimized(serializers.ModelSerializer):
         # project_type = serializers.ChoiceField(choices=PROJECT_TYPE_CHOICES, default='friendly')
         fields = [
             "id",
+            "is_bookmarked",
+            "bookmarked_at",
             "title",
             "description",
             "created_by",
@@ -101,3 +109,9 @@ class ProjectSerializerOptimized(serializers.ModelSerializer):
             "created_at",
             "project_stage",
         ]
+
+class ProjectBookmarkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectBookmark
+        fields = ["id", "user", "project", "bookmarked_at"]
+        read_only_fields = ["bookmarked_at"]

@@ -8,7 +8,19 @@ import csv
 import math
 
 from django.core.files import File
-from django.db.models import Count, Q, F, Case, When
+from django.db.models import (
+    Count,
+    Q,
+    F,
+    Case,
+    When,
+    DateTimeField,
+    Value,
+    OuterRef,
+    Subquery,
+    Exists,
+    BooleanField,
+)
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
 
@@ -29,10 +41,12 @@ from .utils import (
     parse_json_for_ste,
 )
 from django.http import HttpResponse, JsonResponse
-from rest_framework import status, viewsets
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from users.models import LANG_CHOICES
 from users.serializers import UserEmailSerializer
 from dataset.serializers import TaskResultSerializer
@@ -1191,6 +1205,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
     permission_classes = (IsAuthenticated,)
+
+    def get_queryset(self):
+        user = self.request.user
+        bookmark_qs = ProjectBookmark.objects.filter(
+            user=user, project=OuterRef("pk")
+        ).order_by("-bookmarked_at")
+        
+        return Project.objects.annotate(
+            is_bookmarked=Exists(bookmark_qs),
+            bookmarked_at=Subquery(
+                bookmark_qs.values("bookmarked_at")[:1],
+                output_field=DateTimeField(),
+            ),
+        )
 
     def retrieve(self, request, pk, *args, **kwargs):
         """
@@ -4498,3 +4526,39 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "language field of task data succesfully updated!"},
             status=status.HTTP_200_OK,
         )
+
+class UserProjectListView(generics.ListAPIView):
+    serializer_class = ProjectSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Project.objects.filter(
+            bookmarked_by__user=self.request.user
+        ).annotate(
+            is_bookmarked=Value(True, output_field=BooleanField()),
+            bookmarked_at=F("bookmarked_by__bookmarked_at")
+        ).order_by("-bookmarked_at")
+
+class BookmarkProjectView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, project_id):
+        user = request.user
+        project = get_object_or_404(Project, pk=project_id)
+        bookmark, created = ProjectBookmark.objects.get_or_create(
+            user=user, project=project
+        )
+        if created:
+            return Response({"detail": "Bookmarked"}, status=status.HTTP_201_CREATED)
+        return Response({"detail": "Already bookmarked"}, status=status.HTTP_200_OK)
+
+class UnbookmarkProjectView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, project_id):
+        deleted, _ = ProjectBookmark.objects.filter(
+            user=request.user, project__id=project_id
+        ).delete()
+        if deleted:
+            return Response({"detail": "Unbookmarked"}, status=status.HTTP_200_OK)
+        return Response({"detail": "Not bookmarked"}, status=status.HTTP_200_OK)
