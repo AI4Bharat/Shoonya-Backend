@@ -236,11 +236,13 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
     annotation_result1_text = ""
     annotation_result2_text = ""
 
+    target_from_name = "verbatim_transcribed_json" if project_type == "AcousticNormalisedTranscriptionEditing" else "transcribed_json"
+
     for result in annotation_result1:
         if "type" in result and result["type"] == "textarea":
             if (
                 "from_name" in result
-                and result["from_name"] != "acoustic_normalised_transcribed_json"
+                and result["from_name"] == target_from_name
             ):
                 try:
                     for s in result["value"]["text"]:
@@ -252,7 +254,7 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
         if "type" in result and result["type"] == "textarea":
             if (
                 "from_name" in result
-                and result["from_name"] != "acoustic_normalised_transcribed_json"
+                and result["from_name"] == target_from_name
             ):
                 try:
                     for s in result["value"]["text"]:
@@ -518,7 +520,7 @@ def get_audio_transcription_text(annotation_result):
     segments = []
     for result in annotation_result:
         if "type" in result and result["type"] == "textarea":
-            if "from_name" in result and result["from_name"] != "acoustic_normalised_transcribed_json":
+            if "from_name" in result and result["from_name"] in ["verbatim_transcribed_json", "transcribed_json"]:
                 try:
                     res_text = result["value"]["text"]
                     if isinstance(res_text, str):
@@ -649,21 +651,21 @@ def process_task(
         task_dict["data"]["reviewer_transcription"] = reviewer_ann.result if reviewer_ann else ""
         task_dict["data"]["superchecker_transcription"] = superchecker_ann.result if superchecker_ann else ""
 
-        # WER A/R
-        if annotator_text and reviewer_text:
-            task_dict["data"]["wer_a_r"] = wer(annotator_text, reviewer_text)
+        # WER A/R (Reviewer as Reference)
+        if reviewer_text and annotator_text:
+            task_dict["data"]["wer_a_r"] = wer(reviewer_text, annotator_text)
         else:
             task_dict["data"]["wer_a_r"] = None
 
-        # WER A/S
-        if annotator_text and superchecker_text:
-            task_dict["data"]["wer_a_s"] = wer(annotator_text, superchecker_text)
+        # WER A/S (Superchecker as Reference)
+        if superchecker_text and annotator_text:
+            task_dict["data"]["wer_a_s"] = wer(superchecker_text, annotator_text)
         else:
             task_dict["data"]["wer_a_s"] = None
 
-        # WER R/S
-        if reviewer_text and superchecker_text:
-            task_dict["data"]["wer_r_s"] = wer(reviewer_text, superchecker_text)
+        # WER R/S (Superchecker as Reference)
+        if superchecker_text and reviewer_text:
+            task_dict["data"]["wer_r_s"] = wer(superchecker_text, reviewer_text)
         else:
             task_dict["data"]["wer_r_s"] = None
 
