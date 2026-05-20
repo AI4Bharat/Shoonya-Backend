@@ -6,7 +6,7 @@ from urllib.parse import parse_qsl
 from utils.pagination import paginate_queryset
 from django.apps import apps
 from django.db.models import Q
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
 from users.serializers import UserFetchSerializer
@@ -336,6 +336,56 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         return StreamingHttpResponse(
             exported_items, status=status.HTTP_200_OK, content_type=content_type
         )
+
+    @action(
+        methods=["GET"],
+        detail=True,
+        url_path="download_sample_dataset",
+        url_name="download_sample_dataset",
+        name="Download Sample Dataset",
+    )
+    def download_sample_dataset(self, request, pk):
+        """
+        View to download a sample dataset(CSV, TSV, JSON file format supported)
+        URL: /data/instances/<instance-id>/download/sampledataset/
+        Accepted methods: GET
+        """
+
+        export_type = request.GET.get("export_type", "csv").lower()
+
+        try:
+            dataset_instance = DatasetInstance.objects.get(instance_id=pk)
+        except DatasetInstance.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        data_item = apps.get_model(
+            "dataset",
+            dataset_instance.dataset_type,
+        ).objects.filter(instance_id=pk).first()
+
+        if not data_item:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        exported_sample = resources.RESOURCE_MAP[
+            dataset_instance.dataset_type
+        ]().export_sample(export_type, data_item)
+
+        content_types = {
+            "csv": "text/csv",
+            "tsv": "text/tab-separated-values",
+            "json": "application/json",
+        }
+
+        filename = dataset_instance.instance_name or str(dataset_instance.instance_id)
+
+        response = HttpResponse(
+            exported_sample,
+            status=status.HTTP_200_OK,
+            content_type=content_types.get(export_type, "text/csv"),
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}_sample.{export_type}"'
+
+        return response
 
     @is_organization_owner
     @action(methods=["POST"], detail=True, name="Upload Dataset File")
