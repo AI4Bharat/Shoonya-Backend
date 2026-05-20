@@ -6,7 +6,7 @@ from urllib.parse import parse_qsl
 from utils.pagination import paginate_queryset
 from django.apps import apps
 from django.db.models import Q
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
 from users.serializers import UserFetchSerializer
@@ -342,96 +342,50 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         detail=True,
         url_path="download_sample_dataset",
         url_name="download_sample_dataset",
-        name="Download Sample Dataset in CSV format",
+        name="Download Sample Dataset",
     )
     def download_sample_dataset(self, request, pk):
         """
-        View to download a sample dataset in CSV format (only one format support for now)
+        View to download a sample dataset(CSV, TSV, JSON file format supported)
         URL: /data/instances/<instance-id>/download/sampledataset/
         Accepted methods: GET
         """
+
+        export_type = request.GET.get("export_type", "csv").lower()
+
         try:
-            # Get the dataset instance for the id
             dataset_instance = DatasetInstance.objects.get(instance_id=pk)
         except DatasetInstance.DoesNotExist:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
-        dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
-        dataset_resource = resources.RESOURCE_MAP[dataset_instance.dataset_type]
-        data_item = dataset_model.objects.filter(instance_id=pk).first()
+        data_item = apps.get_model(
+            "dataset",
+            dataset_instance.dataset_type,
+        ).objects.filter(instance_id=pk).first()
+
         if not data_item:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        dataset = dataset_resource().export([data_item])
+        exported_sample = resources.RESOURCE_MAP[
+            dataset_instance.dataset_type
+        ]().export_sample(export_type, data_item)
 
-        excluded_headers = [
-            "id",
-            "instance_id",
-            "instruction_id",
-            "no_of_turns",
-            "time_taken",
-            "datetime",
-            "meta_info_structure",
-            "meta_info_language",
-            "interaction_id",
-            "eval_form_json",
-            "no_of_models",
-        ]
+        content_types = {
+            "csv": "text/csv",
+            "tsv": "text/tab-separated-values",
+            "json": "application/json",
+        }
 
-        shorten_fields = [
-            "instruction_data",
-            "output",
-        ]
-
-        if len(dataset) > 0:
-            row = list(dataset[0])
-            for i, header in enumerate(dataset.headers):
-                if header in excluded_headers:
-                    row[i] = ""
-                    continue
-
-                if header in shorten_fields and row[i]:
-                    value = str(row[i])
-                    cleaned_value = value.replace("!", ".").replace("?", ".")
-                    sentences = [s.strip() for s in cleaned_value.split(".") if s.strip()]
-                    short = ". ".join(sentences[:2])
-                    if len(short) > 200:
-                        row[i] = short[:200] + "..."
-                    else:
-                        row[i] = short if short.endswith(".") else short + "."
-            dataset[0] = tuple(row)
-
-        for field in dataset_model._meta.fields:
-            if field.blank and field.null:
-                excluded_headers.append(field.name)
-
-        mandatory_fields = [
-            header for header in dataset.headers if header not in excluded_headers
-        ]
-
-        updated_headers = [
-            f"{header}*" if header in mandatory_fields else header
-            for header in dataset.headers
-        ]
-        dataset.headers = updated_headers
-
-        field_instructions = ["Field Headers marked with * are mandatory."] + [""] * (
-            len(dataset.headers) - 1
-        )
-        instructions = [
-            "Fields instance_id & id are auto-generated and should be left blank."
-        ] + [""] * (len(dataset.headers) - 1)
-        dataset.insert(2, field_instructions)
-        dataset.insert(3, instructions)
-
-        response = StreamingHttpResponse(dataset.csv, content_type="text/csv")
         filename = dataset_instance.instance_name or str(dataset_instance.instance_id)
-        response["Content-Disposition"] = (
-            f'attachment; filename="{filename}_sample.csv"'
+
+        response = HttpResponse(
+            exported_sample,
+            status=status.HTTP_200_OK,
+            content_type=content_types.get(export_type, "text/csv"),
         )
+        response["Content-Disposition"] = f'attachment; filename="{filename}_sample.{export_type}"'
+
         return response
-
-
 
     @is_organization_owner
     @action(methods=["POST"], detail=True, name="Upload Dataset File")
