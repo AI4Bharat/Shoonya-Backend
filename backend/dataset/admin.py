@@ -1,4 +1,10 @@
-import resource
+try:    
+    try:
+        import resource
+    except ImportError:
+        resource = None
+except ImportError:   
+    resource = None
 from django.contrib import admin
 from import_export.admin import ImportExportActionModelAdmin
 from .resources import *

@@ -251,7 +251,7 @@ handlers = {
 # If logging is enabled, add file handlers
 if os.getenv("LOGGING", "False").lower() in ("true", "1", "t", "yes", "y"):
     # Make a new directory for logs
-    Path("/logs/logs_web").mkdir(exist_ok=True)
+    Path("./logs/logs_web").mkdir(parents=True, exist_ok=True)
     handlers["file"] = {
         "level": "WARNING",
         "class": "logging.FileHandler",

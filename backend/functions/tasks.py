@@ -537,7 +537,32 @@ def generate_ocr_prediction_json(
         if automate_missing_data_items and row["ocr_prediction_json"]:
             continue
         total_count += 1
-        ocr_predictions = get_batch_ocr_predictions(curr_id, image_url, api_type)
+        ocr_predictions = get_batch_ocr_predictions(
+            curr_id,
+            image_url,
+            api_type,
+            provider=project_ocr_provider if api_type == "arena" else None,
+        )
+        if ocr_data_items_df.shape[0] == 0:
+            raise Exception("The OCR data is empty.")
+        # Phase 4 — resolve project-level OCR provider from metadata_json
+        # If the caller passed api_type="arena" but the project has a specific
+        # provider set, forward it to the microservice.
+        project_ocr_provider = None
+        try:
+            from projects.models import Project
+            project = Project.objects.filter(
+                dataset_id__ocr_documents__id__in=ocr_data_items_df["id"].tolist()
+            ).first()
+            if project and project.metadata_json:
+                project_ocr_provider = project.metadata_json.get("ocr_provider", None)
+                # If project has an ocr_provider set and caller did not explicitly
+                # choose a provider, use the project setting as api_type
+                if project_ocr_provider and api_type not in ["google"]:
+                    api_type = "arena"
+        except Exception as e:
+            print(f"[Phase 4] Could not resolve project OCR provider: {e}")
+            project_ocr_provider = None
         if ocr_predictions["status"] == "Success":
             success_count += 1
             ocr_predictions_json = ocr_predictions["output"]
@@ -586,6 +611,80 @@ def generate_ocr_prediction_json(
     except Exception as e:
         print(f"Error while releasing the lock for {task_name}: {str(e)}")
     return f"{success_count} out of {total_count} populated"
+
+@shared_task(bind=True)
+def regenerate_ocr_for_task(self, task_id, provider=None):
+    """Re-run OCR for a single Task and update both OCRDocument and task.data.
+
+    Args:
+        task_id (int): Primary key of the Task to regenerate OCR for.
+        provider (str|None): Optional provider override, e.g. "openai".
+                             If None, the microservice uses its default.
+
+    Returns:
+        str: Human-readable result message.
+    """
+    import json
+    from tasks.models import Task
+    from dataset import models as dataset_models
+    from .utils import get_batch_ocr_predictions_using_arena
+
+    try:
+        task = Task.objects.get(pk=task_id)
+    except Task.DoesNotExist:
+        raise ValueError(f"Task {task_id} does not exist")
+
+    # Resolve the linked OCRDocument via input_data
+    try:
+        ocr_document = dataset_models.OCRDocument.objects.get(
+            pk=task.input_data_id
+        )
+    except dataset_models.OCRDocument.DoesNotExist:
+        raise ValueError(
+            f"No OCRDocument found for task {task_id} "
+            f"(input_data_id={task.input_data_id})"
+        )
+
+    image_url = ocr_document.image_url
+    language = ocr_document.language or "hi"
+
+    # Call the OCR microservice
+    raw_json = get_batch_ocr_predictions_using_arena(
+        id=ocr_document.id,
+        image_url=image_url,
+        language=language,
+        provider=provider,
+    )
+
+    if not raw_json:
+        raise RuntimeError(
+            f"OCR microservice returned empty result for task {task_id}"
+        )
+
+    # Persist on OCRDocument
+    ocr_document.ocr_prediction_json = raw_json
+    ocr_document.save(update_fields=["ocr_prediction_json"])
+
+    # Build the HTML table string expected by OCRTableAnnotation.jsx
+    bboxes = json.loads(raw_json)
+    rows = [
+        f"<tr>{''.join(f'<td>{cell.get(\"text\", \"\")}</td>' for cell in [bbox])}</tr>"
+        for bbox in bboxes
+    ]
+    html_table = (
+        "<table>"
+        "<thead><tr><th>Text</th></tr></thead>"
+        "<tbody>" + "".join(rows) + "</tbody>"
+        "</table>"
+    )
+
+    # Update task.data in place — do not wipe other keys
+    task_data = task.data or {}
+    task_data["ocr_prediction_json"] = {"text": html_table}
+    task.data = task_data
+    task.save(update_fields=["data"])
+
+    return f"OCR regenerated for task {task_id} ({len(bboxes)} bboxes)"
 
 
 @shared_task(bind=True)

@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework import routers
 from django.urls import path
+
 from tasks.views import (
     TaskViewSet,
     AnnotationViewSet,
@@ -13,7 +14,8 @@ from tasks.views import (
 
 router = routers.DefaultRouter()
 
-# router.register(r"task", TaskViewSet, basename="task")
+
+router.register(r"task", TaskViewSet, basename="task")
 # router.register(r"annotation", AnnotationViewSet, basename="annotation")
 
 urlpatterns = [

@@ -1,7 +1,12 @@
 import json
 import os
 import re
+import json
+import os
+import requests
+import requests as http_requests
 
+OCR_MICROSERVICE_URL = os.getenv("OCR_MICROSERVICE_URL", "http://ocr-service:8001")
 import requests
 from dataset import models as dataset_models
 from google.cloud import translate_v2 as translate
@@ -464,7 +469,7 @@ def get_batch_translations(
         return {"status": "success", "output": translations_output}
 
 
-def get_batch_ocr_predictions(id, image_url, api_type):
+def get_batch_ocr_predictions(id, image_url, api_type, provider=None):
     """Function to get the ocr predictions for the images using various APIs.
 
     Args:
@@ -478,6 +483,10 @@ def get_batch_ocr_predictions(id, image_url, api_type):
     # checking the API type
     if api_type == "google":
         ocr_predictions = get_batch_ocr_predictions_using_google(id, image_url)
+    elif api_type == "arena":
+        ocr_predictions = get_batch_ocr_predictions_using_arena(
+            id, image_url, provider=provider
+        )
     else:
         raise ValueError(f"{api_type} is an invalid API type")
 
@@ -536,6 +545,52 @@ def get_batch_ocr_predictions_using_google(id, image_url):
     ocr_predictions_json = json.dumps(ocr_predictions, ensure_ascii=False)
     return ocr_predictions_json
 
+
+def get_batch_ocr_predictions_using_arena(id, image_url, language="hi", provider=None):
+    """Call the Node.js OCR microservice and return Shoonya-format predictions.
+
+    The response is normalised to match the format produced by
+    get_batch_ocr_predictions_using_google(), so the rest of the pipeline
+    (Celery task, export, frontend) requires no changes.
+
+    Args:
+        id (int): OCRDocument id, used only for log messages.
+        image_url (str): URL of the image to process.
+        language (str): BCP-47 language hint, e.g. "hi", "ta". Default: "hi".
+        provider (str|None): Override provider, e.g. "openai". If None,
+            the microservice uses its configured default.
+
+    Returns:
+        str: JSON string of bbox list, or empty string on failure.
+    """
+    payload = {"image_url": image_url, "language": language}
+    if provider:
+        payload["provider"] = provider
+
+    try:
+        response = http_requests.post(
+            f"{OCR_MICROSERVICE_URL}/ocr",
+            json=payload,
+            timeout=120,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        # data["bboxes"] is already in Shoonya's % coordinate format
+        return json.dumps(data["bboxes"], ensure_ascii=False)
+
+    except http_requests.exceptions.ConnectionError:
+        print(f"[OCR arena] Cannot reach microservice for doc {id}")
+        return ""
+    except http_requests.exceptions.Timeout:
+        print(f"[OCR arena] Timeout processing doc {id}")
+        return ""
+    except http_requests.exceptions.HTTPError as e:
+        print(f"[OCR arena] HTTP error for doc {id}: {e}")
+        return ""
+    except Exception as e:
+        print(f"[OCR arena] Unexpected error for doc {id}: {e}")
+        return ""
 
 # Function to get the bounding box for a feature
 def ocr_get_bounding_box(feature):

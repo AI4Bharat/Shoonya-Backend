@@ -168,6 +168,80 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         serializer = AnnotationSerializer(annotations, many=True)
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+    method="post",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            "provider": openapi.Schema(
+                type=openapi.TYPE_STRING,
+                description="Optional OCR provider override, e.g. 'openai'. Omit to use microservice default.",
+            )
+        },
+        required=[],
+    ),
+    responses={
+        202: "OCR regeneration job queued",
+        400: "Bad request",
+        403: "Permission denied",
+        404: "Task not found",
+    },
+)
+
+
+@action(detail=True, methods=["post"], url_path="regenerate_ocr")
+def regenerate_ocr(self, request, pk=None):
+    """
+    Queue an async OCR re-run for a single task.
+    Caller must be workspace manager, organization owner, or admin.
+    Returns HTTP 202 with the Celery task ID.
+    """
+    from functions.tasks import regenerate_ocr_for_task
+
+    # Role check
+    allowed_roles = [
+        User.WORKSPACE_MANAGER,
+        User.ORGANIZATION_OWNER,
+        User.ADMIN,
+    ]
+    if request.user.role not in allowed_roles:
+        return Response(
+            {"message": "You do not have permission to perform this action."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        task = Task.objects.get(pk=pk)
+    except Task.DoesNotExist:
+        return Response(
+            {"message": f"Task {pk} not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # Use explicitly passed provider first, then fall back to project setting
+        provider = request.data.get("provider", None)
+
+        if not provider:
+            try:
+                from projects.models import Project
+                project = Project.objects.filter(tasks=task).first()
+                if project and project.metadata_json:
+                    provider = project.metadata_json.get("ocr_provider", None)
+            except Exception as e:
+                print(f"[Phase 4] Could not read project OCR provider: {e}")
+                provider = None
+
+        celery_task = regenerate_ocr_for_task.delay(task.id, provider)
+
+    return Response(
+        {
+            "message": "OCR regeneration job queued successfully.",
+            "task_id": task.id,
+            "celery_task_id": celery_task.id,
+        },
+        status=status.HTTP_202_ACCEPTED,
+    )
+
     @action(detail=True, methods=["get"], url_path="predictions")
     def predictions(self, request, pk):
         """
