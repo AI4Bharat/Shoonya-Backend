@@ -48,6 +48,7 @@ urlpatterns = [
     path("projects/", include("projects.urls")),
     path("functions/", include("functions.urls")),
     path("data/", include("dataset.urls")),
+    path("silk/", include("silk.urls", namespace="silk")),
     path("logs/", include("loging.urls")),
     re_path(
         r"^swagger(?P<format>\.json|\.yaml)$",
