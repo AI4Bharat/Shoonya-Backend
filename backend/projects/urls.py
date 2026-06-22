@@ -8,4 +8,7 @@ router.register(r"", ProjectViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("user-projects/", UserProjectListView.as_view(), name="user-projects"),
+    path("<int:project_id>/bookmark/", BookmarkProjectView.as_view(), name="bookmark-project"),
+    path("<int:project_id>/unbookmark/", UnbookmarkProjectView.as_view(), name="unbookmark-project"),
 ]
