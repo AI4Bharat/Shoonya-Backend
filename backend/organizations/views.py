@@ -958,6 +958,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 elif is_translation_project or project_type in [
                     "SemanticTextualSimilarity_Scale5",
                     "OCRTranscriptionEditing",
+                    "OCRTESTTranscriptionEditing",
                     "OCRTranscription",
                 ]:
                     del temp_result["Total Segments Duration"]
@@ -1353,6 +1354,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     elif is_translation_project or project_type in [
                         "SemanticTextualSimilarity_Scale5",
                         "OCRTranscriptionEditing",
+                        "OCRTESTTranscriptionEditing",
                         "OCRTranscription",
                     ]:
                         del result["Annotated Tasks Audio Duration"]
@@ -2853,6 +2855,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 "ConversationVerification",
                 "MonolingualTranslation",
                 "OCRTranscriptionEditing",
+                "OCRTESTTranscriptionEditing",
                 "SemanticTextualSimilarity_Scale5",
                 "SentenceSplitting",
                 "TranslationEditing",
