@@ -1161,6 +1161,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 elif is_translation_project or project_type in [
                     "SemanticTextualSimilarity_Scale5",
                     "OCRTranscriptionEditing",
+                    "OCRTESTTranscriptionEditing",
                     "OCRTranscription",
                 ]:
                     del result["Annotated Tasks Segments Duration"]

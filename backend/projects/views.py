@@ -286,6 +286,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
                 pass
     elif (
         proj_type == "OCRTranscriptionEditing"
+        or proj_type == "OCRTESTTranscriptionEditing"
         or proj_type == "OCRSegmentCategorizationEditing"
     ):
         for anno in total_rev_annos_accepted:
@@ -402,6 +403,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         if is_translation_project or proj_type in [
             "SemanticTextualSimilarity_Scale5",
             "OCRTranscriptionEditing",
+            "OCRTESTTranscriptionEditing"
             "OCRTranscription",
             "OCRSegmentCategorization",
             "OCRSegmentCategorizationEditing",
@@ -650,6 +652,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
     if is_translation_project or proj_type in [
         "SemanticTextualSimilarity_Scale5",
         "OCRTranscriptionEditing",
+        "OCRTESTTranscriptionEditing",
         "OCRTranscription",
         "OCRSegmentCategorization",
         "OCRSegmentCategorizationEditing",
@@ -919,6 +922,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
             result.append(text_dict)
     elif proj_type in [
         "OCRTranscriptionEditing",
+        "OCRTESTTranscriptionEditing",
         "OCRSegmentCategorizationEditing",
         "OCRSegmentCategorisationRelationMappingEditing",
     ]:
@@ -2162,9 +2166,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ]:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
-                proj.metadata_json["acoustic_enabled_stage"] = (
-                    acoustic_enabled_stage if acoustic_enabled_stage != None else 2
-                )
             if proj.required_annotators_per_task > 1:
                 proj.project_stage = REVIEW_STAGE
             proj.save()
@@ -2390,6 +2391,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "AcousticNormalisedTranscriptionEditing",
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
+                "OCRTESTTranscriptionEditing",
                 "OCRSegmentCategorizationEditing",
                 "StandardizedTranscriptionEditing",
                 "OCRSegmentCategorisationRelationMappingEditing",

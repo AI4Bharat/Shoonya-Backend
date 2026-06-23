@@ -777,6 +777,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                     elif is_translation_project or project_type in [
                         "SemanticTextualSimilarity_Scale5",
                         "OCRTranscriptionEditing",
+                        "OCRTESTTranscriptionEditing",
                         "OCRTranscription",
                     ]:
                         del result["Annotated Tasks Audio Duration"]
@@ -1334,6 +1335,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 elif is_translation_project or project_type in [
                     "SemanticTextualSimilarity_Scale5",
                     "OCRTranscriptionEditing",
+                    "OCRTESTTranscriptionEditing",
                     "OCRTranscription",
                 ]:
                     del result["Total Segments Duration"]
@@ -1385,6 +1387,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
                 "ConversationVerification",
                 "MonolingualTranslation",
                 "OCRTranscriptionEditing",
+                "OCRTESTTranscriptionEditing",
                 "SemanticTextualSimilarity_Scale5",
                 "SentenceSplitting",
                 "TranslationEditing",
