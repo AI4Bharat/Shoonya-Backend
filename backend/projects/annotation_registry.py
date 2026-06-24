@@ -130,6 +130,17 @@ ANNOTATION_REGISTRY_DICT = {
             "type": ["textarea", "labels", "textarea"],
         },
     },
+    "OCRTESTTranscriptionEditing": {
+        "ocr_transcribed_json": {
+            "to_name": "image_url",
+            "from_name": [
+                "annotation_bboxes",
+                "annotation_labels",
+                "annotation_transcripts",
+            ],
+            "type": ["textarea", "labels", "textarea"],
+        },
+    },
     "OCRSegmentCategorization": {
         "ocr_transcribed_json": {
             "to_name": "image_url",
