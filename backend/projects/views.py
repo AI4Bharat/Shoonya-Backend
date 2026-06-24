@@ -2166,9 +2166,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ]:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
-                proj.metadata_json["acoustic_enabled_stage"] = (
-                    acoustic_enabled_stage if acoustic_enabled_stage != None else 2
-                )
+                proj.metadata_json["acoustic_enabled_stage"] = acoustic_enabled_stage
             if proj.required_annotators_per_task > 1:
                 proj.project_stage = REVIEW_STAGE
             proj.save()
