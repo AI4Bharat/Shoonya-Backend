@@ -2856,6 +2856,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                 "MonolingualTranslation",
                 "OCRTranscriptionEditing",
                 "OCRTESTTranscriptionEditing",
+                "OCRTableEditing",
                 "SemanticTextualSimilarity_Scale5",
                 "SentenceSplitting",
                 "TranslationEditing",
@@ -3271,7 +3272,58 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                             "ann_ocr_cumulative_word_count": ann_word_count,
                             "rew_ocr_cumulative_word_count": rew_word_count,
                         }
-
+                    elif "OCRTableEditing" in project_type:
+                        # For OCR Table Editing, you need to define what metrics to return
+                        total_rev_word_count = 0
+                        total_anno_word_count = 0
+                        
+                        for each_task in reviewer_tasks:
+                            try:
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=REVIEWER_ANNOTATION,
+                                    )[0]
+                                elif each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = each_task.correct_annotation
+                                # You'll need a function similar to ocr_word_count for table editing
+                                total_rev_word_count += ocr_word_count(anno.result)  # Or create a table_word_count function
+                            except:
+                                pass
+                        
+                        for each_task in annotation_tasks:
+                            try:
+                                if each_task.task_status == "reviewed":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=REVIEWER_ANNOTATION,
+                                    )[0]
+                                elif each_task.task_status == "exported":
+                                    anno = each_task.correct_annotation
+                                elif each_task.task_status == "super_checked":
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=SUPER_CHECKER_ANNOTATION,
+                                    )[0]
+                                else:
+                                    anno = Annotation.objects.filter(
+                                        task=each_task,
+                                        annotation_type=ANNOTATOR_ANNOTATION,
+                                    )[0]
+                                total_anno_word_count += ocr_word_count(anno.result)
+                            except:
+                                pass
+                        
+                        result = {
+                            "language": lang,
+                            "ann_ocr_cumulative_tasks_count": total_anno_word_count,
+                            "rew_ocr_cumulative_tasks_count": total_rev_word_count,
+                        }
                 general_lang.append(other_language)
             try:
                 final_result = sorted(
@@ -3287,6 +3339,7 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
                     or "ConversationTranslation" in project_type
                 )
                 or "OCRTranscription" in project_type
+                or "OCRTableEditing" in project_type
             ):
                 pass
             else:

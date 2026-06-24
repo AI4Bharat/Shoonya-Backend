@@ -377,9 +377,14 @@ class Prediction(models.Model):
     #     db_table = 'prediction'
 
 
-EXPORT_DIR = "/usr"
-UPLOAD_DIR = "/usr"
-MEDIA_ROOT = "/usr"
+EXPORT_DIR = os.path.join(settings.BASE_DIR, "media", "export")
+UPLOAD_DIR = os.path.join(settings.BASE_DIR, "media", "upload")
+MEDIA_ROOT = os.path.join(settings.BASE_DIR, "media")
+
+if not os.path.exists(EXPORT_DIR):
+    os.makedirs(EXPORT_DIR)
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 
 class DataExport(object):
