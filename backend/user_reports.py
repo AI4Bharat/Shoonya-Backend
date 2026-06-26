@@ -376,7 +376,6 @@ def fetch_task_counts():
         "ConversationVerification",
         "MonolingualTranslation",
         "OCRTranscriptionEditing",
-        "OCRTESTTranscriptionEditing",
         "SemanticTextualSimilarity_Scale5",
         "SentenceSplitting",
         "TranslationEditing",
