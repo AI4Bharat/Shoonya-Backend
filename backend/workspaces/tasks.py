@@ -1122,7 +1122,6 @@ def send_project_analysis_reports_mail_ws(
             elif is_translation_project or project_type in [
                 "SemanticTextualSimilarity_Scale5",
                 "OCRTranscriptionEditing",
-                "OCRTESTTranscriptionEditing"
                 "OCRTranscription",
             ]:
                 del result["Annotated Tasks Audio Duration"]
@@ -1428,7 +1427,6 @@ def get_supercheck_reports(proj_ids, userid, start_date, end_date, project_type=
         if is_translation_project or project_type in [
             "SemanticTextualSimilarity_Scale5",
             "OCRTranscriptionEditing",
-            "OCRTESTTranscriptionEditing"
             "OCRTranscription",
         ]:
             result["Validated Word Count"] = validated_word_count
@@ -1766,7 +1764,6 @@ def get_review_reports(
             if is_translation_project or project_type in [
                 "SemanticTextualSimilarity_Scale5",
                 "OCRTranscriptionEditing",
-                "OCRTESTTranscriptionEditing"
                 "OCRTranscription",
             ]:
                 result["Total Word Count"] = total_word_count
@@ -1802,7 +1799,6 @@ def get_review_reports(
         if is_translation_project or project_type in [
             "SemanticTextualSimilarity_Scale5",
             "OCRTranscriptionEditing",
-            "OCRTESTTranscriptionEditing"
             "OCRTranscription",
         ]:
             result["Total Word Count"] = total_word_count
@@ -2364,7 +2360,6 @@ def send_user_analysis_reports_mail_ws(
             elif is_translation_project or project_type in [
                 "SemanticTextualSimilarity_Scale5",
                 "OCRTranscriptionEditing",
-                "OCRTESTTranscriptionEditing"
                 "OCRTranscription",
             ]:
                 del result["Total Segments Duration"]
