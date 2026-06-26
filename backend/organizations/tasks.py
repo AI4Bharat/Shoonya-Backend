@@ -1496,6 +1496,7 @@ def send_project_analytics_mail_org(
             elif is_translation_project or project_type in [
                 "SemanticTextualSimilarity_Scale5",
                 "OCRTranscriptionEditing",
+                "OCRESTTranscriptionEditing",
                 "OCRTranscription",
             ]:
                 del result["Annotated Tasks Audio Duration"]
@@ -1703,6 +1704,7 @@ def send_user_analytics_mail_org(
             elif is_translation_project or project_type in [
                 "SemanticTextualSimilarity_Scale5",
                 "OCRTranscriptionEditing",
+                "OCRESTTranscriptionEditing",
                 "OCRTranscription",
             ]:
                 del temp_result["Total Segments Duration"]
