@@ -186,6 +186,18 @@ ANNOTATION_REGISTRY_DICT = {
             "type": ["labels", "textarea", "textarea", "textarea"],
         },
     },
+    "VerbatimTranscriptionCharacterTagging": {
+        "transcribed_json": {
+            "to_name": "audio_url",
+            "from_name": [
+                "labels",
+                "verbatim_transcribed_json",
+                "acoustic_normalised_transcribed_json",
+                "standardised_transcription",
+            ],
+            "type": ["labels", "textarea", "textarea", "textarea"],
+        },
+    },
     "StandardizedTranscriptionEditing": {
         "transcribed_json": {
             "to_name": "audio_url",
@@ -302,7 +314,11 @@ def draft_data_json_to_annotation_result(draft_data_json, project_type, pk=None)
                     dataset_item.speakers_json,
                     dataset_item.audio_duration,
                     idx,
-                    project_type == "AcousticNormalisedTranscriptionEditing",
+                    project_type
+                    in (
+                        "AcousticNormalisedTranscriptionEditing",
+                        "VerbatimTranscriptionCharacterTagging",
+                    ),
                 )
             else:
                 if field_type == "textarea":

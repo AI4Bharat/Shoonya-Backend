@@ -1381,6 +1381,7 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         else:
             project_types = [
                 "AcousticNormalisedTranscriptionEditing",
+                "VerbatimTranscriptionCharacterTagging",
                 "AudioSegmentation",
                 "AudioTranscription",
                 "AudioTranscriptionEditing",
