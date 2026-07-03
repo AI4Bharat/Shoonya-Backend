@@ -79,7 +79,7 @@ def no_of_words(string):
     if string == None:
         return 0
     list_words = nltk.tokenize.word_tokenize(string)
-    list_tokens = [word for word in list_words if len(word) > 1]
+    list_tokens = [word for word in list_words if len(word) >= 1]
     length_of_sent = len(list_tokens)
     return length_of_sent
 
