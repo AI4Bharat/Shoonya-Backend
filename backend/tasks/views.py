@@ -178,6 +178,53 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
         serializer = PredictionSerializer(predictions, many=True)
         return Response(serializer.data)
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        """
+        Intercepts response post-processing only for the list action
+        to enrich the response data with the input dataset's metadata_json.
+        """
+        if (
+            self.action == "list"
+            and response.status_code == 200
+            and isinstance(response.data, dict)
+            and "result" in response.data
+        ):
+            try:
+                # Lazy import inside the method context to prevent circular dependencies on startup
+                from dataset.models import DatasetBase
+                
+                ordered_tasks = response.data["result"]
+                if isinstance(ordered_tasks, list):
+                    input_data_ids = [
+                        task_dict.get("input_data_id")
+                        for task_dict in ordered_tasks
+                        if isinstance(task_dict, dict) and task_dict.get("input_data_id") is not None
+                    ]
+                    
+                    if input_data_ids:
+                        datasets = DatasetBase.objects.filter(
+                            id__in=input_data_ids
+                        ).values("id", "metadata_json")
+                        dataset_meta_map = {
+                            dataset_dict["id"]: dataset_dict["metadata_json"]
+                            for dataset_dict in datasets
+                        }
+                        for task_dict in ordered_tasks:
+                            if isinstance(task_dict, dict):
+                                dataset_id = task_dict.get("input_data_id")
+                                task_dict["input_data_metadata_json"] = dataset_meta_map.get(
+                                    dataset_id
+                                )
+                    else:
+                        for task_dict in ordered_tasks:
+                            if isinstance(task_dict, dict):
+                                task_dict["input_data_metadata_json"] = None
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error enriching task list with dataset metadata: {str(e)}")
+        return super().finalize_response(request, response, *args, **kwargs)
+
     def list(self, request, *args, **kwargs):
         user_id = request.user.id
         user = request.user
