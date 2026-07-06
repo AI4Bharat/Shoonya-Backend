@@ -643,6 +643,7 @@ def send_user_reports_mail_org(
                 "AudioTranscription",
                 "AudioTranscriptionEditing",
                 "AcousticNormalisedTranscriptionEditing",
+                "VerbatimTranscriptionCharacterTagging"
             ],
             workspace_id__in=preferred_workspace_ids
         )

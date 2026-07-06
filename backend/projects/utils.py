@@ -466,7 +466,11 @@ def process_speech_results(
             speakers_json,
             True,
             False,
-            project_type == "AcousticNormalisedTranscriptionEditing",
+            project_type
+            in (
+                "AcousticNormalisedTranscriptionEditing",
+                "VerbatimTranscriptionCharacterTagging",
+            ),
         )
 
 
@@ -622,7 +626,10 @@ def process_task(
     del task_dict["review_user"]
 
     if (
-        task.project_id.project_type == "AcousticNormalisedTranscriptionEditing"
+        task.project_id.project_type in (
+            "AcousticNormalisedTranscriptionEditing",
+            "VerbatimTranscriptionCharacterTagging"
+        )
         and export_type == "CSV"
         and delivery == "email"
     ):
