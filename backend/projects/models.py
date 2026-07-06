@@ -318,6 +318,11 @@ class Project(models.Model):
         verbose_name="Target Language",
     )
 
+    is_item_pull_in_progress = models.BooleanField(
+        default=False,
+        help_text="Indicates if a pull_items operation is currently in progress",
+    )
+
     def __str__(self):
         return str(self.title)
 
