@@ -465,11 +465,7 @@ def process_speech_results(
             speakers_json,
             True,
             False,
-            project_type
-            in (
-                "AcousticNormalisedTranscriptionEditing",
-                "VerbatimTranscriptionCharacterTagging",
-            ),
+            project_type == "AcousticNormalisedTranscriptionEditing",
         )
 
 

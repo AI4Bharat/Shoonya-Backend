@@ -1756,8 +1756,7 @@ class AnnotationViewSet(
         is_acoustic_project_type = (
             True
             if annotation_obj.task.project_id.project_type
-            == "AcousticNormalisedTranscriptionEditing" or annotation_obj.task.project_id.project_type
-            == "VerbatimTranscriptionCharacterTagging"
+            == "AcousticNormalisedTranscriptionEditing"
             else False
         )
 

@@ -2711,7 +2711,6 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
         else:
             project_types = [
                 "AcousticNormalisedTranscriptionEditing",
-                "VerbatimTranscriptionCharacterTagging",
                 "AudioSegmentation",
                 "AudioTranscription",
                 "AudioTranscriptionEditing",

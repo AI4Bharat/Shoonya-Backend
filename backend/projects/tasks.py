@@ -153,7 +153,7 @@ def create_tasks_from_dataitems(items, project):
     is_translation_project = "translation" in project_type_lower
     is_conversation_project = "conversation" in project_type_lower
     is_editing_project = "editing" in project_type_lower
-    is_audio_project = "audio" in project_type_lower or project_type == "VerbatimTranscriptionCharacterTagging"
+    is_audio_project = "audio" in project_type_lower
 
     data_object = dataset_models.DatasetBase.objects.get(pk=items[0]["id"])
     insta_id = data_object.instance_id_id
@@ -454,10 +454,9 @@ def export_project_in_place(
     export_excluded_task_ids = []
 
     is_SpeechConversation = output_dataset_info["dataset_type"] == "SpeechConversation"
-    is_AcousticNormalisedTranscriptionEditing = project_type in (
-        "AcousticNormalisedTranscriptionEditing",
-        "VerbatimTranscriptionCharacterTagging",
-    )    
+    is_AcousticNormalisedTranscriptionEditing = (
+        project_type == "AcousticNormalisedTranscriptionEditing"
+    )
     is_ConversationVerification = project.project_type == "ConversationVerification"
     bboxes_relation_json = []
     annotated_document_details_json = {}
