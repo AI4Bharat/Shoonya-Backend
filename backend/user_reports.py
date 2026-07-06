@@ -364,6 +364,7 @@ def fetch_task_counts():
     org_ids = [1, 2, 3]
     project_types = [
         "AcousticNormalisedTranscriptionEditing",
+        "VerbatimTranscriptionCharacterTagging",
         "AudioSegmentation",
         "AudioTranscription",
         "AudioTranscriptionEditing",

@@ -97,7 +97,7 @@ def convert_result_to_chitralekha_format(result, ann_id, project_type):
         sort_result_by_start_time(modified_result) if len(modified_result) > 0 else []
     )
     if (
-        project_type == "AcousticNormalisedTranscriptionEditing"
+        project_type in ("AcousticNormalisedTranscriptionEditing", "VerbatimTranscriptionCharacterTagging")
         and "standardised_transcription" in memory.keys()
         and result[memory["standardised_transcription"]]["value"]["text"]
     ):

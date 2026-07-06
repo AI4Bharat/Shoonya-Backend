@@ -636,6 +636,7 @@ def send_user_reports_mail_ws(
                 "AudioTranscription",
                 "AudioTranscriptionEditing",
                 "AcousticNormalisedTranscriptionEditing",
+                "VerbatimTranscriptionCharacterTagging"
             ],
         )
     else:
