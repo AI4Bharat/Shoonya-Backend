@@ -130,6 +130,7 @@ ANNOTATION_REGISTRY_DICT = {
             "type": ["textarea", "labels", "textarea"],
         },
     },
+
     "OCRSegmentCategorization": {
         "ocr_transcribed_json": {
             "to_name": "image_url",
@@ -164,6 +165,18 @@ ANNOTATION_REGISTRY_DICT = {
         },
     },
     "AcousticNormalisedTranscriptionEditing": {
+        "transcribed_json": {
+            "to_name": "audio_url",
+            "from_name": [
+                "labels",
+                "verbatim_transcribed_json",
+                "acoustic_normalised_transcribed_json",
+                "standardised_transcription",
+            ],
+            "type": ["labels", "textarea", "textarea", "textarea"],
+        },
+    },
+    "VerbatimTranscriptionCharacterTagging": {
         "transcribed_json": {
             "to_name": "audio_url",
             "from_name": [
@@ -291,7 +304,11 @@ def draft_data_json_to_annotation_result(draft_data_json, project_type, pk=None)
                     dataset_item.speakers_json,
                     dataset_item.audio_duration,
                     idx,
-                    project_type == "AcousticNormalisedTranscriptionEditing",
+                    project_type
+                    in (
+                        "AcousticNormalisedTranscriptionEditing",
+                        "VerbatimTranscriptionCharacterTagging",
+                    ),
                 )
             else:
                 if field_type == "textarea":
