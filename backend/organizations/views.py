@@ -831,7 +831,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     and project_progress_stage > ANNOTATION_STAGE
                 ):
                     temp_result = {
-                        "Annotator": name,
+                        "Annotator": "*" + name if not annotator.is_active else name,
                         "Email": email,
                         "Language": selected_language,
                         "No. of Workspaces": no_of_workspaces_objs,
@@ -871,7 +871,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         temp_result["Avergae Char Score"] = avg_char_score
                 else:
                     temp_result = {
-                        "Annotator": name,
+                        "Annotator": "*" + name if not annotator.is_active else name,
                         "Email": email,
                         "Language": selected_language,
                         "No. of Workspaces": no_of_workspaces_objs,
@@ -2664,6 +2664,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 )
 
         project_type = request.data.get("project_type")
+
+        inactive_users = User.objects.filter(id=user_id, is_active=False)
+
+        for inactive_user in inactive_users:
+            inactive_user.username = "*" + inactive_user.username
 
         send_user_reports_mail_org.delay(
             org_id=organization.id,

@@ -640,3 +640,29 @@ D10 = TranslationPair
 #     sentence = models.TextField()
 #     gloss_sequence = models.TextField()
 #     duration = models.TimeField()
+
+
+class DatasetInstanceUploadStatus(models.Model):
+    """
+    Mirrors the latest dataset-upload Celery task status for a
+    DatasetInstance, keyed directly by instance_id.
+
+    This exists to avoid running an unindexed `task_kwargs__contains`
+    LIKE scan over the entire TaskResult table on every request to
+    /data/instances/. It is kept in sync via a post_save signal on
+    TaskResult (see dataset/signals.py).
+    """
+
+    instance = models.OneToOneField(
+        DatasetInstance,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name="upload_status",
+    )
+    task_id = models.CharField(max_length=255, blank=True, null=True)
+    status = models.CharField(max_length=50, blank=True, null=True)
+    result = models.TextField(blank=True, null=True)
+    date_done = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "dataset_instance_upload_status"
