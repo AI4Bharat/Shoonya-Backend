@@ -126,8 +126,7 @@ def process_word_tags(word_info):
         "aksharas": aksharas,
         "annotations": annotations
     }
-
-
+    
 def get_audio_project_types():
     with open("projects/project_registry.yaml") as f:
         project_registry_details = yaml.load(f, Loader=SafeLoader)
@@ -566,24 +565,8 @@ def process_speech_results(
                 "AcousticNormalisedTranscriptionEditing",
                 "VerbatimTranscriptionCharacterTagging",
             ),
+            project_type,
         )
-        if project_type == "VerbatimTranscriptionCharacterTagging":
-            key = "verbatim_transcribed_json"
-            if key in formatted_json and formatted_json[key]:
-                try:
-                    segments = json.loads(formatted_json[key]) if isinstance(formatted_json[key], str) else formatted_json[key]
-                    if isinstance(segments, list):
-                        for segment in segments:
-                            if isinstance(segment, dict) and "text" in segment:
-                                text = segment["text"]
-                                if "<" in text and ">" in text:
-                                    segment["word_level_tag_annotations"] = parse_word_annotations(text)
-                                else:
-                                    segment["word_level_tag_annotations"] = []
-                    formatted_json[key] = segments
-                except Exception as e:
-                    import logging
-                    logging.exception(f"Error processing transcription tags for key '{key}': {e}")
         task["data"]["transcribed_json"] = formatted_json
 
 

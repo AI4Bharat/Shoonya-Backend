@@ -8,6 +8,8 @@ import csv
 import math
 import io
 import zipfile
+from copy import deepcopy
+
 
 from django.core.files import File
 from django.db.models import (
@@ -42,6 +44,7 @@ from .utils import (
     process_speech_tasks,
     process_ocr_tasks,
     process_task,
+    parse_word_annotations,
 )
 from django.http import HttpResponse, JsonResponse
 from rest_framework import status, viewsets
@@ -1109,6 +1112,7 @@ def convert_annotation_result_to_formatted_json(
     is_SpeechConversation,
     is_OCRSegmentCategorizationOROCRSegmentCategorizationEditingOROCRTextlineSegmentation,
     is_acoustic=False,
+    project_type=None,
 ):
     transcribed_json = []
     acoustic_transcribed_json = []
@@ -1183,6 +1187,13 @@ def convert_annotation_result_to_formatted_json(
                     formatted_result_dict["start"] = text_dict_json["value"]["start"]
                     formatted_result_dict["end"] = text_dict_json["value"]["end"]
 
+                if project_type == "VerbatimTranscriptionCharacterTagging":
+                    text = formatted_result_dict["text"]
+                    if "<" in text and ">" in text:
+                        formatted_result_dict["word_level_tag_annotations"] = parse_word_annotations(text)
+                    else:
+                        formatted_result_dict["word_level_tag_annotations"] = []
+
                 transcribed_json.append(formatted_result_dict)
 
                 if is_acoustic:
@@ -1197,6 +1208,14 @@ def convert_annotation_result_to_formatted_json(
                         if acoustic_dict_json
                         else ""
                     )
+                    
+                    if project_type == "VerbatimTranscriptionCharacterTagging":
+                        acoustic_text = acoustic_formatted_result_dict["text"]
+                        if "<" in acoustic_text and ">" in acoustic_text:
+                            acoustic_formatted_result_dict["word_level_tag_annotations"] = parse_word_annotations(acoustic_text)
+                        else:
+                            acoustic_formatted_result_dict["word_level_tag_annotations"] = []
+                    
                     acoustic_transcribed_json.append(acoustic_formatted_result_dict)
         if acoustic_transcribed_json:
             acoustic_transcribed_json_modified = json.dumps(
