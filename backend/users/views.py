@@ -1306,6 +1306,14 @@ class AnalyticsViewSet(viewsets.ViewSet):
         all_tasks_word_count = 0
         all_tasks_bbox_count = 0
         all_projects_total_duration = 0
+      
+      
+        total_draft_tasks = 0
+        total_skipped_tasks = 0
+        total_to_be_revised_tasks = 0
+        total_rejected_tasks = 0
+        total_rejected_task_by_reviewer = 0
+        
         project_wise_summary = []
         for proj in project_objs:
             project_name = proj.title
@@ -1383,6 +1391,74 @@ class AnalyticsViewSet(viewsets.ViewSet):
             annotated_tasks_count = annotated_labeled_tasks.count()
             total_annotated_tasks_count += annotated_tasks_count
 
+            annotation_type = (
+                REVIEWER_ANNOTATION if review_reports else
+                SUPER_CHECKER_ANNOTATION if supercheck_reports else
+                ANNOTATOR_ANNOTATION
+            )
+            
+            draft_tasks_count = Annotation.objects.filter(
+                task__project_id=proj.id,
+                annotation_type=annotation_type,
+                updated_at__range=[start_date, end_date],
+                completed_by=user_id,
+                annotation_status="draft",
+            ).count()
+           
+
+            skipped_tasks_count = Annotation.objects.filter(
+                task__project_id=proj.id,
+                annotation_type=annotation_type,
+                updated_at__range=[start_date, end_date],
+                completed_by=user_id,
+                annotation_status="skipped",
+            ).count()
+         
+
+            to_be_revised_tasks_count = 0
+            rejected_tasks_count_by_reviewer = 0
+            if review_reports:
+                to_be_revised_tasks_count = Annotation.objects.filter(
+                    task__project_id=proj.id,
+                    task__review_user=user_id,
+                    annotation_status="to_be_revised",
+                    annotation_type=REVIEWER_ANNOTATION,
+                    updated_at__range=[start_date, end_date],
+                ).count()
+                
+                superchecker_rejected_annos = Annotation.objects.filter(
+                    task__project_id=proj.id,
+                    annotation_status="rejected",
+                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                    parent_annotation__updated_at__range=[start_date, end_date],
+                )
+                
+                parent_anno_ids = [
+                    ann.parent_annotation_id for ann in superchecker_rejected_annos
+                ]
+                rejected_tasks_count_by_reviewer = Annotation.objects.filter(
+                    id__in=parent_anno_ids, completed_by=user_id, annotation_status="rejected"
+                ).count()
+                
+            rejected_tasks_count = 0
+            if supercheck_reports:
+                rejected_tasks_count = Annotation.objects.filter(
+                    task__project_id=proj.id,
+                    task__super_check_user=user_id,
+                    annotation_type=SUPER_CHECKER_ANNOTATION,
+                    updated_at__range=[start_date, end_date],
+                    completed_by=user_id,
+                    annotation_status="rejected",
+                ).count()
+                
+
+            total_draft_tasks += draft_tasks_count
+            total_skipped_tasks += skipped_tasks_count
+            total_to_be_revised_tasks += to_be_revised_tasks_count
+            
+            total_rejected_task_by_reviewer += rejected_tasks_count_by_reviewer
+            
+            total_rejected_tasks += rejected_tasks_count
             avg_lead_time = 0
             lead_time_annotated_tasks = [
                 eachtask.lead_time for eachtask in annotated_labeled_tasks
@@ -1436,6 +1512,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
                         else "Annotated Tasks"
                     )
                 ): annotated_tasks_count,
+                "Draft Tasks": draft_tasks_count,
+                "Skipped Tasks": skipped_tasks_count,
                 "Word Count": total_word_count,
                 "Bbox Count": total_bbox_count,
                 "Total Segments Duration": total_duration,
@@ -1449,6 +1527,12 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     )
                 ): avg_lead_time,
             }
+            if review_reports:
+                result["To Be Revised Tasks"] = to_be_revised_tasks_count
+                result["Rejected Tasks"] = rejected_tasks_count_by_reviewer
+
+            if supercheck_reports:
+                result["Rejected"] = rejected_tasks_count
             if "OCRTranscription" not in project_type:
                 if "Bbox Count" in result:
                     del result["Bbox Count"]
@@ -1460,20 +1544,15 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 del result["Word Count"]
                 del result["Total Segments Duration"]
 
-            if (
-                result[
-                    (
-                        "Reviewed Tasks"
-                        if review_reports
-                        else (
-                            "SuperChecked Tasks"
-                            if supercheck_reports
-                            else "Annotated Tasks"
-                        )
-                    )
-                ]
-                > 0
-            ):
+            has_activity = (
+                annotated_tasks_count > 0
+                or draft_tasks_count > 0
+                or skipped_tasks_count > 0
+                or to_be_revised_tasks_count > 0
+                or rejected_tasks_count > 0
+                or rejected_tasks_count_by_reviewer > 0
+            )
+            if has_activity:
                 project_wise_summary.append(result)
 
         project_wise_summary = sorted(
