@@ -357,7 +357,8 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         )
     else:
         avg_word_error_rate_ar = 0
-
+        
+    avg_review_time = 0
     if project_obj.project_stage > REVIEW_STAGE:
         annotations_of_superchecker_validated = Annotation_model.objects.filter(
             task__project_id=proj_id,
@@ -372,6 +373,10 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             id__in=parent_anno_ids,
             completed_by=userid,
         )
+        # Calculate Average Review Time
+        review_times = [anno.lead_time for anno in accepted_objs if anno.lead_time is not None]
+        avg_review_time = round(sum(review_times) / len(review_times), 2) if review_times else 0
+
 
         annotations_of_superchecker_validated_with_changes = (
             Annotation_model.objects.filter(
@@ -419,6 +424,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             "Rejected": accepted_rejected_tasks.count(),
             "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
             "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+            "Average Review Time (in seconds)": avg_review_time,
         }
 
         if is_translation_project or proj_type in [
@@ -452,6 +458,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
         "To Be Revised": to_be_revised_tasks_count,
         "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+        "Average Review Time (in seconds)": avg_review_time,
     }
 
     if is_translation_project or proj_type == "SemanticTextualSimilarity_Scale5":
@@ -657,6 +664,15 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         )
     else:
         avg_word_error_rate = 0
+    
+    # Extract Average lead time for each superchecked annotation
+    lead_time_list = [anno.lead_time for anno in total_sup_annos if anno.lead_time]
+
+    # Compute average supercheck time
+    if lead_time_list:
+        avg_supercheck_time = sum(lead_time_list) / len(lead_time_list)
+    else:
+        avg_supercheck_time = 0
 
     result = {
         "SuperChecker Name": userName,
@@ -670,6 +686,7 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
         "Rejected": rejected_objs_count,
         "Average Rejection Loop Value": round(avg_rejection_loop_value, 2),
         "Tasks Rejected Maximum Time": tasks_rejected_max_times,
+        "Average SuperCheck Time (in seconds)": round(avg_supercheck_time),
     }
     if is_translation_project or proj_type in [
         "SemanticTextualSimilarity_Scale5",
