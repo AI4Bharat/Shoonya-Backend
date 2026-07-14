@@ -32,101 +32,6 @@ from dataset import models as dataset_models
 
 nltk.download("punkt")
 
-import unicodedata
-from utils.constants import TAGGABLE_CHARS
-
-def segment_into_aksharas(word):
-    """
-    Segments an Indic word into orthographic syllables (aksharas).
-    """
-    aksharas = []
-    current_akshara = ""
-    for char in word:
-        category = unicodedata.category(char)
-        # Group unicode combining marks with base consonant
-        if category.startswith('M') and current_akshara:
-            current_akshara += char
-        else:
-            if current_akshara:
-                aksharas.append(current_akshara)
-            current_akshara = char
-    if current_akshara:
-        aksharas.append(current_akshara)
-    return aksharas
-
-def parse_word_annotations(text):
-    """
-    Parses inline character tags from text and returns a list of word annotations.
-    """
-    tokens = text.split()
-    words_data = []
-    current_word = None
-    
-    for token in tokens:
-        # Check if token is a tag
-        if token.startswith('<') and token.endswith('>'):
-            if current_word is not None:
-                current_word['raw_tags'].append(token[1:-1])
-        else:
-            if current_word is not None and current_word['raw_tags']:
-                words_data.append(process_word_tags(current_word))
-            
-            # Strip visual highlight braces from word
-            clean_word = token.replace('{', '').replace('}', '')
-            current_word = {
-                'word': clean_word,
-                'raw_tags': []
-            }
-            
-    # Process last word
-    if current_word is not None and current_word['raw_tags']:
-        words_data.append(process_word_tags(current_word))
-        
-    return words_data
-
-def process_word_tags(word_info):
-    word = word_info['word']
-    raw_tags = word_info['raw_tags']
-    
-    aksharas = segment_into_aksharas(word)
-    
-    # Get indices of taggable aksharas
-    taggable_indices = []
-    for idx, akshara in enumerate(aksharas):
-        if akshara and akshara[0] in TAGGABLE_CHARS:
-            taggable_indices.append(idx)
-            
-    # Map tags to taggable characters
-    annotations = []
-    for i, tag in enumerate(raw_tags):
-        if i < len(taggable_indices):
-            idx = taggable_indices[i]
-            akshara = aksharas[idx]
-            base_letter = akshara[0]
-            candidates = tag.split('-')
-            annotations.append({
-                "index": idx,
-                "akshara": akshara,
-                "letter": base_letter,
-                "tag": tag,
-                "candidates": candidates
-            })
-        else:
-            # Handle fallback non-character tags
-            annotations.append({
-                "index": -1,
-                "akshara": "",
-                "letter": "",
-                "tag": tag,
-                "candidates": tag.split('-')
-            })
-            
-    return {
-        "word": word,
-        "aksharas": aksharas,
-        "annotations": annotations
-    }
-
 
 def get_audio_project_types():
     with open("projects/project_registry.yaml") as f:
@@ -555,12 +460,6 @@ def process_speech_results(
     is_StandardizedTranscriptionEditing = (
         project_type == "StandardizedTranscriptionEditing"
     )
-    is_VerbatimTranscriptionCharacterTagging = (
-        project_type == "VerbatimTranscriptionCharacterTagging"
-    )
-
-    
-
     if is_audio_segmentation:
         task["data"]["prediction_json"] = convert_annotation_result_to_formatted_json(
             annotation_result, speakers_json, True, False, False
@@ -576,7 +475,6 @@ def process_speech_results(
                 "AcousticNormalisedTranscriptionEditing",
                 "VerbatimTranscriptionCharacterTagging",
             ),
-            is_VerbatimTranscriptionCharacterTagging,
         )
 
 
