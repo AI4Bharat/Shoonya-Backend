@@ -567,23 +567,23 @@ def process_speech_results(
                 "VerbatimTranscriptionCharacterTagging",
             ),
         )
-        if project_type in ("VerbatimTranscriptionCharacterTagging", "AcousticNormalisedTranscriptionEditing"):
-            for key in ("verbatim_transcribed_json", "acoustic_normalised_transcribed_json"):
-                if key in formatted_json and formatted_json[key]:
-                    try:
-                        segments = json.loads(formatted_json[key]) if isinstance(formatted_json[key], str) else formatted_json[key]
-                        if isinstance(segments, list):
-                            for segment in segments:
-                                if isinstance(segment, dict) and "text" in segment:
-                                    text = segment["text"]
-                                    if "<" in text and ">" in text:
-                                        segment["word_level_tag_annotations"] = parse_word_annotations(text)
-                                    else:
-                                        segment["word_level_tag_annotations"] = []
-                            formatted_json[key] = segments
-                    except Exception as e:
-                        import logging
-                        logging.exception(f"Error processing transcription tags for key '{key}': {e}")
+        if project_type == "VerbatimTranscriptionCharacterTagging":
+            key = "verbatim_transcribed_json"
+            if key in formatted_json and formatted_json[key]:
+                try:
+                    segments = json.loads(formatted_json[key]) if isinstance(formatted_json[key], str) else formatted_json[key]
+                    if isinstance(segments, list):
+                        for segment in segments:
+                            if isinstance(segment, dict) and "text" in segment:
+                                text = segment["text"]
+                                if "<" in text and ">" in text:
+                                    segment["word_level_tag_annotations"] = parse_word_annotations(text)
+                                else:
+                                    segment["word_level_tag_annotations"] = []
+                    formatted_json[key] = segments
+                except Exception as e:
+                    import logging
+                    logging.exception(f"Error processing transcription tags for key '{key}': {e}")
         task["data"]["transcribed_json"] = formatted_json
 
 
