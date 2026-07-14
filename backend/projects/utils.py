@@ -565,6 +565,8 @@ def process_speech_results(
                 "AcousticNormalisedTranscriptionEditing",
                 "VerbatimTranscriptionCharacterTagging",
             ),
+            
+            # project_type is passed through (on top of is_acoustic) so tag parsing can be gated to VerbatimTranscriptionCharacterTagging only.
             project_type,
         )
         task["data"]["transcribed_json"] = formatted_json
