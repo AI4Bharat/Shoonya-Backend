@@ -42,6 +42,7 @@ from .utils import (
     process_speech_tasks,
     process_ocr_tasks,
     process_task,
+    parse_word_annotations
 )
 from django.http import HttpResponse, JsonResponse
 from rest_framework import status, viewsets
@@ -1267,6 +1268,20 @@ def convert_annotation_result_to_formatted_json(
                 )
             transcribed_json.append(formatted_result_dict)
     transcribed_json_modified = json.dumps(transcribed_json, ensure_ascii=False)
+    if is_character_tagging:
+        try:
+            target = acoustic_transcribed_json if acoustic_transcribed_json else transcribed_json
+            for segment in target:
+                if isinstance(segment, dict) and segment.get("text"):
+                    text = segment["text"].strip().strip('"')
+                    if "<" in text and ">" in text:
+                        segment["word_level_tag_annotations"] = parse_word_annotations(text)
+                    else:
+                        segment["word_level_tag_annotations"] = []
+        except Exception as e:
+            import logging
+            logging.exception(f"Error processing transcription tags: {e}")
+
 
     if is_acoustic:
         return {

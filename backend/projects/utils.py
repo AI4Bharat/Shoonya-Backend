@@ -546,17 +546,27 @@ def process_annotation_result(task):
     )
 
 
+
 def process_speech_results(
     task, annotation_result, speakers_json, is_audio_segmentation, project_type
 ):
     from projects.views import convert_annotation_result_to_formatted_json
+
+    is_StandardizedTranscriptionEditing = (
+        project_type == "StandardizedTranscriptionEditing"
+    )
+    is_VerbatimTranscriptionCharacterTagging = (
+        project_type == "VerbatimTranscriptionCharacterTagging"
+    )
+
+    
 
     if is_audio_segmentation:
         task["data"]["prediction_json"] = convert_annotation_result_to_formatted_json(
             annotation_result, speakers_json, True, False, False
         )
     else:
-        formatted_json = convert_annotation_result_to_formatted_json(
+        task["data"]["transcribed_json"] = convert_annotation_result_to_formatted_json(
             annotation_result,
             speakers_json,
             True,
@@ -566,25 +576,8 @@ def process_speech_results(
                 "AcousticNormalisedTranscriptionEditing",
                 "VerbatimTranscriptionCharacterTagging",
             ),
+            is_VerbatimTranscriptionCharacterTagging,
         )
-        if project_type == "VerbatimTranscriptionCharacterTagging":
-            key = "verbatim_transcribed_json"
-            if key in formatted_json and formatted_json[key]:
-                try:
-                    segments = json.loads(formatted_json[key]) if isinstance(formatted_json[key], str) else formatted_json[key]
-                    if isinstance(segments, list):
-                        for segment in segments:
-                            if isinstance(segment, dict) and "text" in segment:
-                                text = segment["text"]
-                                if "<" in text and ">" in text:
-                                    segment["word_level_tag_annotations"] = parse_word_annotations(text)
-                                else:
-                                    segment["word_level_tag_annotations"] = []
-                    formatted_json[key] = segments
-                except Exception as e:
-                    import logging
-                    logging.exception(f"Error processing transcription tags for key '{key}': {e}")
-        task["data"]["transcribed_json"] = formatted_json
 
 
 def process_ocr_results(
