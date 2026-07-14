@@ -13,7 +13,9 @@ from tasks.utils import Queued_Task_name
 from django.utils import timezone
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import json
-
+from .utils import (
+    parse_word_annotations
+)
 from azure.storage.blob import BlobServiceClient
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import StreamingHttpResponse, FileResponse
@@ -2070,6 +2072,7 @@ class AnnotationViewSet(
                             ]
                             == 1
                         ),
+                        annotation_obj.task.project_id.project_type,
                     )
                     annotation_status = request.data["annotation_status"]
                     if empty_flag == True and annotation_status in [
@@ -2148,6 +2151,7 @@ class AnnotationViewSet(
                             ]
                             <= 2
                         ),
+                        annotation_obj.task.project_id.project_type,
                     )
                 else:
                     annotation_obj.result = request.data["result"]
@@ -2555,13 +2559,14 @@ class AnnotationViewSet(
 
     # convert chitralekha_format to LSF
     def convert_chitralekha_format_to_LSF(
-        self, result, task, is_acoustic=False, acoustic_enabled=False
+        self, result, task, is_acoustic=False, acoustic_enabled=False,project_type=None
     ):
         modified_result = []
         empty_text_flag = False
         audio_duration = task.data["audio_duration"]
         if result == None or len(result) == 0:
             return modified_result, empty_text_flag
+        is_character_tagging = project_type == "VerbatimTranscriptionCharacterTagging"
         for idx, val in enumerate(result):
             if "standardised_transcription" in val:
                 if acoustic_enabled:
@@ -2617,6 +2622,11 @@ class AnnotationViewSet(
             if str(val["text"]).strip() == "" or str(val["text"]).strip() == "-":
                 empty_text_flag = True
 
+            if is_character_tagging and val["text"] and "<" in val["text"] and ">" in val["text"]:
+                value_text["word_level_tag_annotations"] = parse_word_annotations(
+                    val["text"]
+                )
+            
             label_dict["value"] = value_labels
             text_dict["value"] = value_text
 
@@ -2638,6 +2648,16 @@ class AnnotationViewSet(
                         "text": [val["acoustic_normalised_text"]],
                     },
                 }
+                if (
+                    is_character_tagging
+                    and val["acoustic_normalised_text"]
+                    and "<" in val["acoustic_normalised_text"]
+                    and ">" in val["acoustic_normalised_text"]
+                ):
+                    acoustic_dict["value"]["word_level_tag_annotations"] = (
+                        parse_word_annotations(val["acoustic_normalised_text"])
+                    )
+
                 modified_result.append(acoustic_dict)
 
             modified_result.append(label_dict)
