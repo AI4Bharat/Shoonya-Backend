@@ -265,12 +265,15 @@ def calculate_word_error_rate_between_two_audio_transcription_annotation(
 
 
 def ocr_word_count(annotation_result):
+    import re
     word_count = 0
 
     for result in annotation_result:
         if result["type"] == "textarea":
             try:
-                word_count += no_of_words(result["value"]["text"][0])
+                for text_element in result["value"]["text"]:
+                    if text_element:
+                        word_count += len(re.split(r'\s+', text_element))
             except:
                 pass
 

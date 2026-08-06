@@ -1248,8 +1248,9 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 {"message": invalid_message}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M")
-        end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M")
+        from datetime import timezone
+        start_date = datetime.strptime(start_date, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+        end_date = datetime.strptime(end_date, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
 
         if start_date > end_date:
             return Response(
@@ -1335,7 +1336,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
                     annotation_type=REVIEWER_ANNOTATION,
                     updated_at__range=[start_date, end_date],
                     completed_by=user_id,
-                ).exclude(annotation_status__in=["to_be_revised", "draft", "skipped"])
+                ).filter(annotation_status__in=['accepted', 'accepted_with_minor_changes', 'accepted_with_major_changes'])
             elif supercheck_reports:
                 labeld_tasks_objs = Task.objects.filter(
                     Q(project_id=proj.id)
