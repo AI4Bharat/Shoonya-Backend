@@ -1,6 +1,6 @@
 try:
     import resource
-except ImportError:
+except:
     resource = None
 from django.contrib import admin
 from import_export.admin import ImportExportActionModelAdmin

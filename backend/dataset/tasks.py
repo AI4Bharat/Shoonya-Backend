@@ -1,12 +1,34 @@
+import io
+import os
 from base64 import b64decode
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import requests
 from celery import shared_task
+from django.apps import apps
+from django.db.models import Max
+from minio import Minio
 from tablib import Dataset
 
+from .pipeline_utils import (
+    TASK_LIMITS,
+    build_project_title,
+    build_shoonya_csv_string,
+    build_shoonya_row,
+    build_target_object_key,
+    build_unassigned_filter_string,
+    get_audio_folder_name,
+    get_next_batch_number,
+    get_project_config_for_language,
+    get_row_part,
+    get_row_type,
+    parse_domain,
+    parse_input_csv,
+    validate_input_csv,
+)
 from .resources import RESOURCE_MAP
 
 from dataset.models import DatasetInstance
-from django.apps import apps
 from tasks.models import Task, Annotation
 
 #### CELERY SHARED TASKS
@@ -47,13 +69,7 @@ def upload_data_to_data_instance(
     try:
         data_headers = imported_data.dict[0].keys()
     except Exception as e:
-        self.update_state(
-            state="FAILURE",
-            meta={
-                "Empty Dataset Uploaded.",
-            },
-        )
-        raise e
+        raise Exception("Empty Dataset Uploaded.") from e
 
     # Declare the appropriate resource map based on dataset type
     resource = RESOURCE_MAP[dataset_type]()
@@ -68,8 +84,9 @@ def upload_data_to_data_instance(
         # Add row numbers to the dataset
         imported_data.append_col(range(1, len(imported_data) + 1), header="row_number")
 
-        # List with row numbers that couldn't be uploaded
+        # List with row numbers that couldn't be uploaded, and why
         failed_rows = []
+        error_details = {}
 
         # Iterate through the dataset and upload each row to the database
         for row in imported_data.dict:
@@ -91,15 +108,15 @@ def upload_data_to_data_instance(
             # check if the upload result has errors
             if upload_result.has_errors() or upload_result.has_validation_errors():
                 failed_rows.append(row_number)
+                for _, row_errors in upload_result.row_errors():
+                    for error in row_errors:
+                        error_details.setdefault(row_number, []).append(str(error.error))
+                for invalid_row in upload_result.invalid_rows:
+                    error_details.setdefault(row_number, []).append(str(invalid_row.error_dict))
 
-        # Upload which rows have an error
-        self.update_state(
-            state="FAILURE",
-            meta={
-                "failed_line_numbers": failed_rows,
-            },
+        raise Exception(
+            f"Upload failed for lines: {failed_rows}. Details: {error_details}"
         )
-        raise Exception(f"Upload failed for lines: {failed_rows}")
 
 
 @shared_task(bind=True)
@@ -163,3 +180,365 @@ def deduplicate_dataset_instance_items(self, pk, deduplicate_field_list):
                 ]
 
     return f"Deleted {dataset_items_count} duplicate dataset items and {tasks_count} related tasks and {annotations_count} related annotations"
+
+
+#### CREATE DATASET & PROJECT PIPELINE
+#
+# ShaktiCloud/MinIO credentials for the "JT" child-speech audio bucket. These are
+# separate from the main MINIO_* deployment used elsewhere in the backend.
+MINIO_JT_ENDPOINT_ENV = "MINIO_IITM_ENDPOINT"
+MINIO_JT_ACCESS_KEY_ENV = "MINIO_IITM_ACCESS_KEY"
+MINIO_JT_SECRET_KEY_ENV = "MINIO_IITM_SECRET_KEY"
+MINIO_JT_BUCKET_ENV = "MINIO_IITM_BUCKET"
+
+
+def _get_jt_minio_client():
+    return Minio(
+        endpoint=os.getenv(MINIO_JT_ENDPOINT_ENV),
+        access_key=os.getenv(MINIO_JT_ACCESS_KEY_ENV),
+        secret_key=os.getenv(MINIO_JT_SECRET_KEY_ENV),
+        secure=True,
+    )
+
+
+def _upload_one_audio_file(minio_client, bucket, source_url, object_key):
+    """Downloads one audio file from its source URL and uploads it to MinIO,
+    skipping the download entirely if the object already exists at the target key."""
+    try:
+        minio_client.stat_object(bucket, object_key)
+        return {"status": "skipped", "object_key": object_key}
+    except Exception:
+        pass
+
+    try:
+        response = requests.get(source_url, stream=True, timeout=120)
+        response.raise_for_status()
+    except Exception as e:
+        return {
+            "status": "failed",
+            "object_key": object_key,
+            "reason": f"Failed to download from source: {e}",
+        }
+
+    try:
+        data = response.content
+        minio_client.put_object(
+            bucket_name=bucket,
+            object_name=object_key,
+            data=io.BytesIO(data),
+            length=len(data),
+            content_type=response.headers.get("Content-Type", "audio/wav"),
+        )
+        return {"status": "uploaded", "object_key": object_key}
+    except Exception as e:
+        return {
+            "status": "failed",
+            "object_key": object_key,
+            "reason": f"Failed to upload to ShaktiCloud: {e}",
+        }
+
+
+@shared_task(bind=True, queue="default")
+def create_dataset_and_project_pipeline(self, input_csv_string, config):
+    """Runs Phase 1 of the "Create Dataset & Project" automation pipeline.
+
+    Steps:
+    1. Parse + validate the input CSV
+    2. Upload audio to MinIO/ShaktiCloud (concurrent, skip-if-exists)
+    3. Generate the Shoonya-format CSV (only rows whose audio upload succeeded)
+    4. Create or reuse the DatasetInstance for the CSV's language
+    5. Upload the generated CSV to that dataset instance
+
+    Project creation is a deliberate second phase, triggered separately once the
+    user picks Vendor(workspace), Language, and Category on the frontend — see
+    `create_projects_for_dataset_category` below.
+
+    Args:
+        input_csv_string (str): Raw contents of the uploaded input CSV
+        config (dict): {
+            "dataset_name": str,           # used only when creating a new instance
+            "existing_instance_id": int | None,
+            "organisation_id": int,
+            "user_id": int,                # user who triggered the pipeline
+            "deduplicate": bool,           # remove duplicate rows on CSV upload
+        }
+    """
+    steps = []
+
+    def report(step_name, step_status, **extra):
+        steps[:] = [s for s in steps if s["name"] != step_name]
+        steps.append({"name": step_name, "status": step_status, **extra})
+        self.update_state(
+            state="PROGRESS", meta={"current_step": step_name, "steps": steps}
+        )
+
+    # Step 1: parse + validate
+    rows, fieldnames = parse_input_csv(input_csv_string)
+    validation = validate_input_csv(rows, fieldnames)
+    report(
+        "validate_csv",
+        "completed" if validation["valid"] else "failed",
+        details=validation,
+    )
+    if not validation["valid"]:
+        raise ValueError(f"CSV validation failed: {validation['errors']}")
+
+    language = validation["languages"][0]
+
+    # Step 2: upload audio to MinIO
+    bucket = os.getenv(MINIO_JT_BUCKET_ENV)
+    endpoint = os.getenv(MINIO_JT_ENDPOINT_ENV)
+    minio_client = _get_jt_minio_client()
+
+    upload_jobs = []
+    for row in rows:
+        source_url = (row.get("Audio Link") or "").strip()
+        if not source_url:
+            continue
+        folder_name = get_audio_folder_name(source_url)
+        filename = os.path.basename(source_url)
+        object_key = build_target_object_key(folder_name, filename)
+        upload_jobs.append(
+            {
+                "row": row,
+                "source_url": source_url,
+                "object_key": object_key,
+                "audio_url": f"https://{endpoint}/{bucket}/{object_key}",
+            }
+        )
+
+    total_jobs = len(upload_jobs)
+    report("audio_upload", "in_progress", progress={"done": 0, "total": total_jobs})
+
+    upload_results = {}
+    done_count = 0
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {
+            executor.submit(
+                _upload_one_audio_file,
+                minio_client,
+                bucket,
+                job["source_url"],
+                job["object_key"],
+            ): idx
+            for idx, job in enumerate(upload_jobs)
+        }
+        for future in as_completed(futures):
+            idx = futures[future]
+            upload_results[idx] = future.result()
+            done_count += 1
+            if done_count % 5 == 0 or done_count == total_jobs:
+                report(
+                    "audio_upload",
+                    "in_progress",
+                    progress={"done": done_count, "total": total_jobs},
+                )
+
+    failed_uploads = []
+    successful_jobs = []
+    for idx, job in enumerate(upload_jobs):
+        result = upload_results.get(
+            idx, {"status": "failed", "reason": "Upload did not complete"}
+        )
+        if result["status"] == "failed":
+            failed_uploads.append(
+                {"audio_link": job["source_url"], "reason": result["reason"]}
+            )
+        else:
+            successful_jobs.append(job)
+
+    report(
+        "audio_upload",
+        "completed",
+        progress={"done": total_jobs, "total": total_jobs},
+        uploaded=len(successful_jobs),
+        failures=failed_uploads,
+    )
+
+    if not successful_jobs:
+        raise ValueError(
+            "No audio files were uploaded successfully; aborting before dataset creation."
+        )
+
+    # Step 3: generate the Shoonya-format CSV rows for successful uploads only
+    shoonya_rows = [
+        build_shoonya_row(job["row"], job["audio_url"]) for job in successful_jobs
+    ]
+    csv_string = build_shoonya_csv_string(shoonya_rows)
+    report(
+        "generate_csv",
+        "completed",
+        details={"row_count": len(shoonya_rows)},
+        csv_content=csv_string,
+    )
+
+    # Step 4: create or reuse the DatasetInstance for this language
+    existing_instance_id = config.get("existing_instance_id")
+    organisation_id = config["organisation_id"]
+    user_id = config["user_id"]
+    deduplicate = config.get("deduplicate", False)
+
+    if existing_instance_id:
+        dataset_instance = DatasetInstance.objects.get(pk=existing_instance_id)
+    else:
+        dataset_instance = DatasetInstance.objects.create(
+            instance_name=config.get("dataset_name") or f"{language}_JT",
+            dataset_type="SpeechConversation",
+            organisation_id_id=organisation_id,
+        )
+    dataset_instance.users.add(user_id)
+
+    report(
+        "create_dataset",
+        "completed",
+        details={
+            "instance_id": dataset_instance.instance_id,
+            "instance_name": dataset_instance.instance_name,
+        },
+    )
+
+    # Step 5: upload the generated CSV to the dataset instance
+    upload_data_to_data_instance(
+        dataset_string=csv_string,
+        pk=dataset_instance.instance_id,
+        dataset_type="SpeechConversation",
+        content_type="csv",
+        deduplicate=deduplicate,
+    )
+
+    categories_present = sorted({get_row_type(job["row"]) for job in successful_jobs})
+
+    report(
+        "upload_csv",
+        "completed",
+        details={"row_count": len(shoonya_rows)},
+        categories_present=categories_present,
+    )
+
+    return {
+        "dataset_instance_id": dataset_instance.instance_id,
+        "dataset_instance_name": dataset_instance.instance_name,
+        "language": language,
+        "categories_present": categories_present,
+        "total_input_rows": len(rows),
+        "uploaded_count": len(successful_jobs),
+        "failed_uploads": failed_uploads,
+        "generated_csv": csv_string,
+    }
+
+
+def create_projects_for_dataset_category(
+    dataset_instance, category, workspace_id, organisation_id, user_id
+):
+    """Phase 2 of the pipeline: creates a project for every part (Part A / Part B)
+    of the given category that has reached its task-limit threshold of unassigned
+    dataset items. Runs synchronously (fast, DB-only) from the view; the actual
+    Task creation for each new project is still delegated asynchronously to the
+    existing `create_parameters_for_task_creation` Celery task, exactly like the
+    normal manual project-creation flow.
+
+    Args:
+        dataset_instance (DatasetInstance): The dataset to pull tasks from
+        category (str): "Read" or "Extempore"
+        workspace_id (int): Vendor/workspace the new project(s) should belong to
+        organisation_id (int): Organisation the new project(s) should belong to
+        user_id (int): User triggering creation; set as creator/annotator/reviewer
+    """
+    from projects.models import BATCH, REVIEW_STAGE, Project
+    from projects.tasks import create_parameters_for_task_creation
+
+    SpeechConversation = apps.get_model("dataset", "SpeechConversation")
+
+    language = (
+        SpeechConversation.objects.filter(instance_id=dataset_instance)
+        .values_list("language", flat=True)
+        .first()
+    )
+    if not language:
+        raise ValueError("This dataset has no data items yet.")
+
+    limit = TASK_LIMITS[category]
+    project_config = get_project_config_for_language(language)
+
+    domains = (
+        SpeechConversation.objects.filter(instance_id=dataset_instance, scenario=category)
+        .values_list("domain", flat=True)
+        .distinct()
+    )
+
+    created_projects = []
+    skipped_groups = []
+
+    for domain in sorted(domains):
+        _, part = parse_domain(domain)
+        if not part:
+            continue
+
+        last_assigned_id = (
+            Task.objects.filter(
+                project_id__dataset_id=dataset_instance,
+                input_data__domain=domain,
+            ).aggregate(Max("input_data_id"))["input_data_id__max"]
+            or 0
+        )
+        unassigned_count = SpeechConversation.objects.filter(
+            instance_id=dataset_instance, domain=domain, id__gt=last_assigned_id
+        ).count()
+
+        if unassigned_count < limit:
+            skipped_groups.append(
+                {"domain": domain, "unassigned_count": unassigned_count, "limit": limit}
+            )
+            continue
+
+        batch_number = get_next_batch_number(language, part, category)
+        title = build_project_title(language, part, category, batch_number)
+        filter_string = build_unassigned_filter_string(domain, last_assigned_id)
+        sampling_parameters = {"batch_size": limit, "batch_number": [1]}
+
+        project = Project.objects.create(
+            title=title,
+            description="Child speech data",
+            created_by_id=user_id,
+            organization_id_id=organisation_id,
+            workspace_id_id=workspace_id,
+            project_type=project_config["project_type"],
+            project_mode="Annotation",
+            sampling_mode=BATCH,
+            sampling_parameters_json=sampling_parameters,
+            filter_string=filter_string,
+            project_stage=REVIEW_STAGE,
+            metadata_json={
+                "acoustic_enabled_stage": project_config["acoustic_enabled_stage"],
+                "automatic_annotation_creation_mode": "annotation",
+            },
+        )
+        project.annotators.add(user_id)
+        project.annotation_reviewers.add(user_id)
+        project.dataset_id.add(dataset_instance)
+
+        create_parameters_for_task_creation.delay(
+            project_type=project_config["project_type"],
+            dataset_instance_ids=[dataset_instance.instance_id],
+            filter_string=filter_string,
+            sampling_mode=BATCH,
+            sampling_parameters=sampling_parameters,
+            variable_parameters=None,
+            project_id=project.id,
+            automatic_annotation_creation_mode="annotation",
+        )
+        created_projects.append(
+            {
+                "project_id": project.id,
+                "title": title,
+                "task_count": limit,
+                "batch_number": batch_number,
+                "part": part,
+            }
+        )
+
+    return {
+        "language": language,
+        "created_projects": created_projects,
+        "skipped_groups": skipped_groups,
+    }
