@@ -36,7 +36,8 @@ services:
     
   web:
     build: ./backend
-    command: gunicorn --bind 0.0.0.0:8000 --workers 16 shoonya_backend.wsgi --timeout 300
+    restart: always
+    command: gunicorn --bind 0.0.0.0:8000 --workers 16 shoonya_backend.wsgi --timeout 300 --max-requests 300 --max-requests-jitter 50
     volumes:
       - ./backend/:/usr/src/backend/
       - static_volume:/usr/src/backend/static
