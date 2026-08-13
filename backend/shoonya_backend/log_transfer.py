@@ -19,14 +19,12 @@ log_file_name = "default.log"
 log_file_path = log_file_dir + log_file_name
 
 
-blob_service_client = BlobServiceClient.from_connection_string(
-    AZURE_STORAGE_CONNECTION_STRING
-)
-
-container_client = blob_service_client.get_container_client(CONTAINER_NAME)
-
-
 def get_most_recent_creation_date():
+    blob_service_client = BlobServiceClient.from_connection_string(
+        AZURE_STORAGE_CONNECTION_STRING
+    )
+
+    container_client = blob_service_client.get_container_client(CONTAINER_NAME)
     blobs = list(container_client.list_blobs())
     if not blobs:
         return None
@@ -68,6 +66,11 @@ def rotate_logs():
         zip_log_file(zip_file_name)
 
         zip_file_path_on_disk = os.path.join(log_file_dir, zip_file_name)
+        blob_service_client = BlobServiceClient.from_connection_string(
+            AZURE_STORAGE_CONNECTION_STRING
+        )
+
+        container_client = blob_service_client.get_container_client(CONTAINER_NAME)
 
         blob_client = container_client.get_blob_client(zip_file_name)
         with open(zip_file_path_on_disk, "rb") as file:

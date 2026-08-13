@@ -614,6 +614,7 @@ def send_user_reports_mail_org(
                 "AudioTranscription",
                 "AudioTranscriptionEditing",
                 "AcousticNormalisedTranscriptionEditing",
+                "VerbatimTranscriptionCharacterTagging"
             ],
         )
     else:

@@ -291,7 +291,7 @@ def get_review_reports(proj_id, userid, start_date, end_date):
             except:
                 pass
     elif (
-        proj_type == "OCRTranscriptionEditing"
+        proj_type == "OCRTranscriptionEditing" 
         or proj_type == "OCRSegmentCategorizationEditing"
     ):
         for anno in total_rev_annos_accepted:
@@ -867,7 +867,8 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
     result = []
     if (
         proj_type == "AudioTranscriptionEditing"
-        or proj_type == "AcousticNormalisedTranscriptionEditing"
+        or proj_type == "AcousticNormalisedTranscriptionEditing" or 
+        proj_type == "VerbatimTranscriptionCharacterTagging"
     ):
         data_item = SpeechConversation.objects.get(pk=pk)
         prediction_json = (
@@ -893,7 +894,7 @@ def convert_prediction_json_to_annotation_result(pk, proj_type):
                 "from_name": "transcribed_json",
                 "original_length": audio_duration,
             }
-            if proj_type == "AcousticNormalisedTranscriptionEditing":
+            if proj_type == "AcousticNormalisedTranscriptionEditing" or proj_type == "VerbatimTranscriptionCharacterTagging":
                 text_dict["from_name"] = "verbatim_transcribed_json"
             id = f"shoonya_{idx}s{generate_random_string(13 - len(str(idx)))}"
             label_dict["id"] = id
@@ -2165,6 +2166,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if proj.project_type in [
                 "AcousticNormalisedTranscriptionEditing",
                 "StandardizedTranscriptionEditing",
+                "VerbatimTranscriptionCharacterTagging"
             ]:
                 if proj.metadata_json == None:
                     proj.metadata_json = {}
@@ -2394,6 +2396,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             result = []
             if project.project_type in [
                 "AcousticNormalisedTranscriptionEditing",
+                "VerbatimTranscriptionCharacterTagging",
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
                 "OCRSegmentCategorizationEditing",
