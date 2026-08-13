@@ -76,23 +76,6 @@ class TransliterationSelectionViewSet(APIView):
 
                 create_empty_log_for_next_day(container_client)
 
-                central_blob_client = container_client.get_blob_client("central.log")
-
-                if not central_blob_client.exists():
-                    central_blob_client.upload_blob("[]", overwrite=True)
-
-                central_existing_data = central_blob_client.download_blob()
-                central_existing_content = central_existing_data.readall().decode(
-                    "utf-8"
-                )
-                central_existing_json_data = json.loads(central_existing_content)
-                central_existing_json_data.append(data)
-
-                central_updated_content = json.dumps(
-                    central_existing_json_data, cls=CustomJSONEncoder
-                )
-                central_blob_client.upload_blob(central_updated_content, overwrite=True)
-
                 return Response(
                     {"message": "Data stored in Azure Blob successfully"},
                     status=status.HTTP_201_CREATED,
