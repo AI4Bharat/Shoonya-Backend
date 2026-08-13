@@ -47,12 +47,19 @@ class ProjectRegistry:
                 ), f"Project-type: `{project_key}` seems to be defined more than once"
 
                 # Cache additional details
+                # Cache additional details
                 if project_type["project_mode"] == "Annotation":
-                    label_studio_jsx_path = os.path.join(
-                        LABEL_STUDIO_JSX_PATH, project_type["label_studio_jsx_file"]
-                    )
-                    with open(label_studio_jsx_path) as f:
-                        project_type["label_studio_jsx_payload"] = f.read()
+                    jsx_file = project_type.get("label_studio_jsx_file", "")
+                    if jsx_file and jsx_file.strip():  # Check if not empty string
+                        label_studio_jsx_path = os.path.join(
+                            LABEL_STUDIO_JSX_PATH, jsx_file
+                        )
+                        with open(label_studio_jsx_path) as f:
+                            project_type["label_studio_jsx_payload"] = f.read()
+                    else:
+                        project_type["label_studio_jsx_payload"] = ""
+                else:
+                    project_type["label_studio_jsx_payload"] = ""
 
                 project_type["domain"] = domain_name
 
@@ -116,6 +123,8 @@ class ProjectRegistry:
         """
         Checks the integrity of JSX project template
         """
+        if not label_studio_jsx_file:
+           return True 
 
         label_studio_jsx_path = os.path.join(
             LABEL_STUDIO_JSX_PATH, label_studio_jsx_file

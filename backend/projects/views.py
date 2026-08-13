@@ -2393,6 +2393,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 "VerbatimTranscriptionCharacterTagging",
                 "AudioTranscriptionEditing",
                 "OCRTranscriptionEditing",
+                "OCRTableEditing",
                 "OCRSegmentCategorizationEditing",
                 "StandardizedTranscriptionEditing",
                 "OCRSegmentCategorisationRelationMappingEditing",
