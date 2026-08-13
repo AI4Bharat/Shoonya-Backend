@@ -8,7 +8,7 @@ import csv
 import math
 
 from django.core.files import File
-from django.db.models import Count, Q, F, Case, When
+from django.db.models import Count, Q, F, Case, When, DateTimeField, Value, OuterRef, Subquery, Exists
 from django.forms.models import model_to_dict
 from django.db import IntegrityError
 
@@ -97,6 +97,12 @@ from users.utils import generate_random_string
 from notifications.views import createNotification
 from notifications.utils import get_userids_from_project_id
 import json
+
+from django.db.models.functions import Coalesce
+from rest_framework import generics, permissions
+from .models import Project, ProjectBookmark
+from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
 
 # Create your views here.
 
@@ -4501,3 +4507,55 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"message": "language field of task data succesfully updated!"},
             status=status.HTTP_200_OK,
         )
+
+
+
+
+class UserProjectListView(generics.ListAPIView):
+    serializer_class = ProjectSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        bookmark_qs = ProjectBookmark.objects.filter(
+            user=user, project=OuterRef("pk")
+        ).order_by("-bookmarked_at")
+    
+        epoch_datetime = timezone.make_aware(datetime(1970, 1, 1))
+
+        return (
+            Project.objects.annotate(
+                is_bookmarked=Exists(bookmark_qs),
+                bookmarked_at=Subquery(
+                    bookmark_qs.values("bookmarked_at")[:1],
+                    output_field=DateTimeField(),
+                ),
+            )
+            .annotate(sort_time=Coalesce("bookmarked_at", Value(epoch_datetime)))
+            .order_by("-is_bookmarked", "-sort_time")
+            .filter(is_bookmarked=True)
+        )
+
+class BookmarkProjectView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, project_id):
+        user = request.user
+        project = get_object_or_404(Project, pk=project_id)
+        bookmark, created = ProjectBookmark.objects.get_or_create(
+            user=user, project=project
+        )
+        if created:
+            return Response({"detail": "Bookmarked"}, status=status.HTTP_201_CREATED)
+        return Response({"detail": "Already bookmarked"}, status=status.HTTP_200_OK)
+
+class UnbookmarkProjectView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, project_id):
+        deleted, _ = ProjectBookmark.objects.filter(
+            user=request.user, project__id=project_id
+        ).delete()
+        if deleted:
+            return Response({"detail": "Unbookmarked"}, status=status.HTTP_200_OK)
+        return Response({"detail": "Not bookmarked"}, status=status.HTTP_200_OK)
