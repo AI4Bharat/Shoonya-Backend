@@ -34,7 +34,7 @@ from projects.utils import (
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     ocr_word_count,
 )
-
+from dataset.models import DatasetInstanceUploadStatus
 from . import resources
 from .models import *
 from .serializers import *
@@ -47,6 +47,7 @@ from tasks.models import (
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
 )
+from shoonya_backend.pagination import CustomPagination
 
 
 ## Utility functions used inside the view functions
@@ -122,65 +123,44 @@ def get_dataset_upload_status(dataset_instance_pk):
         str: Date when the last time dataset was uploaded
         str: Time when the last time dataset was uploaded
     """
+    upload_status = DatasetInstanceUploadStatus.objects.filter(
+        instance_id=dataset_instance_pk
+    ).first()
 
-    # Create the keyword argument for dataset instance ID
-    instance_id_keyword_arg = "{'pk': " + "'" + str(dataset_instance_pk) + "'" + ","
+    if upload_status is None:
+        return (
+            "None",
+            "Synchronously Completed. No Date.",
+            "Synchronously Completed. No Time.",
+            "None",
+        )
 
-    # Check the celery project export status
-    task_queryset = TaskResult.objects.filter(
-        task_name="dataset.tasks.upload_data_to_data_instance",
-        task_kwargs__contains=instance_id_keyword_arg,
+    task_status = upload_status.status
+    task_result = upload_status.result
+    task_datetime = upload_status.date_done
+
+    if task_result and "exc_message" in task_result:
+        task_result = ast.literal_eval(task_result)["exc_message"]
+
+    if task_status and '"' in task_status:
+        task_status = task_status.strip('"')
+
+    if task_result and '"' in task_result:
+        task_result = task_result.strip('"')
+
+    task_date = task_datetime.date() if task_datetime else "Synchronously Completed. No Date."
+    task_time = (
+        f"{str(task_datetime.time().replace(microsecond=0))} UTC"
+        if task_datetime
+        else "Synchronously Completed. No Time."
     )
 
-    # If the celery TaskResults table returns data
-    if task_queryset:
-        (
-            task_status,
-            task_date,
-            task_time,
-        ) = extract_status_date_time_from_task_queryset(task_queryset)
-
-        # Sort the tasks by newest items first by date
-        task_queryset = task_queryset.order_by("-date_done")
-
-        # Get the export task status and last update date
-        task_status = task_queryset.first().as_dict()["status"]
-        task_datetime = task_queryset.first().as_dict()["date_done"]
-        task_result = task_queryset.first().as_dict()["result"]
-
-        # Convert task result
-        if "exc_message" in task_result:
-            task_result = ast.literal_eval(task_result)["exc_message"]
-
-        # Remove quotes from the status if it is present in the string
-        if '"' in task_status:
-            task_status = task_status.strip('"')
-
-        if '"' in task_result:
-            task_result = task_result.strip('"')
-
-        # Extract date and time from the datetime object
-        task_date = task_datetime.date()
-        task_time = f"{str(task_datetime.time().replace(microsecond=0))} UTC"
-
-        # Get the error messages if the task is a failure
-        if task_status == "FAILURE":
-            task_status = "Ingestion Failed!"
-
-        # If the task is in progress
-        elif task_status != "SUCCESS":
-            task_status = "Ingestion in progress."
-
-        # If the task is a success
-        else:
-            task_status = "Ingestion Successful!"
-
-    # If no entry is found for the celery task
+    if task_status == "FAILURE":
+        task_status = "Ingestion Failed!"
+    elif task_status != "SUCCESS":
+        task_status = "Ingestion in progress."
     else:
-        task_date = "Synchronously Completed. No Date."
-        task_time = "Synchronously Completed. No Time."
-        task_status = "None"
-        task_result = "None"
+        task_status = "Ingestion Successful!"
 
     return task_status, task_date, task_time, task_result
 
@@ -252,11 +232,20 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             queryset = DatasetInstance.objects.filter(
                 organisation_id=request.user.organization
             )
-        # Managers only see datasets that they are added to and public datasets
+        # Managers only see datasets they are added to or that are public.
+        # Use Exists() instead of a JOIN + distinct() to avoid Postgres
+        # deduplicating the full joined result set on every request.
         else:
+            from django.db.models import Exists, OuterRef
+            user_membership = DatasetInstance.users.through.objects.filter(
+                datasetinstance_id=OuterRef("pk"),
+                user_id=request.user.id,
+            )
             queryset = DatasetInstance.objects.filter(
                 organisation_id=request.user.organization
-            ).filter(Q(public_to_managers=True) | Q(users__id=request.user.id))
+            ).filter(
+                Q(public_to_managers=True) | Q(Exists(user_membership))
+            )
 
         if "dataset_visibility" in request.query_params:
             dataset_visibility = request.query_params["dataset_visibility"]
@@ -266,7 +255,12 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 ):
                     queryset = queryset.filter(public_to_managers=True)
             elif dataset_visibility == "my_datasets":
-                queryset = queryset.filter(users__id=request.user.id)
+                from django.db.models import Exists, OuterRef
+                user_membership = DatasetInstance.users.through.objects.filter(
+                    datasetinstance_id=OuterRef("pk"),
+                    user_id=request.user.id,
+                )
+                queryset = queryset.filter(Exists(user_membership))
 
         # Filter the queryset based on the query params
         if "dataset_type" in dict(request.query_params):
@@ -274,14 +268,16 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_type__exact=request.query_params["dataset_type"]
             )
 
-        # Serialize the distinct items and sort by instance ID
-        serializer = DatasetInstanceSerializer(
-            queryset.distinct().order_by("instance_id"), many=True
-        )
+        # Paginate — no more returning every row in one shot.
+        # Exists() produces no duplicate rows, so .distinct() is gone.
+        queryset = queryset.order_by("instance_id")
+        paginator = CustomPagination()
+        paginated_qs = paginator.paginate_queryset(queryset, request)
 
-        # Add status fields to the serializer data
+        serializer = DatasetInstanceSerializer(paginated_qs, many=True)
+
+        # Add upload status fields to each item in the page
         for dataset_instance in serializer.data:
-            # Get the task statuses for the dataset instance
             (
                 dataset_instance_status,
                 dataset_instance_date,
@@ -289,13 +285,13 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 dataset_instance_result,
             ) = get_dataset_upload_status(dataset_instance["instance_id"])
 
-            # Add the task status and time to the dataset instance response
             dataset_instance["last_upload_status"] = dataset_instance_status
             dataset_instance["last_upload_date"] = dataset_instance_date
             dataset_instance["last_upload_time"] = dataset_instance_time
             dataset_instance["last_upload_result"] = dataset_instance_result
 
-        return Response(serializer.data)
+        return paginator.get_paginated_response(serializer.data)
+
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="Download Dataset in CSV format")
@@ -1229,26 +1225,80 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
             )
 
             if "search_keys" in request.data:
+                # Whitelist: only allow filtering on fields that have a
+                # supporting index (GIN trigram for TextFields, btree for
+                # the rest). Unknown keys are silently skipped to prevent
+                # accidental full-table scans from future schema changes.
+                SEARCHABLE_TEXT_FIELDS = {
+                    "text", "corrected_text",           # SentenceText
+                    "input_text", "output_text",         # TranslationPair
+                    "machine_translation", "context",    # TranslationPair
+                }
+                SEARCHABLE_CHAR_FIELDS = {
+                    "language", "input_language", "output_language",
+                    "domain", "quality_status",
+                }
+                ALLOWED_SEARCH_FIELDS = SEARCHABLE_TEXT_FIELDS | SEARCHABLE_CHAR_FIELDS
+
                 search_dict = {}
+                skipped_keys = []
                 for key, value in request.data["search_keys"].items():
-                    field_type = str(
-                        dataset_model._meta.get_field(key).get_internal_type()
-                    )
-                    # print(field_type)
+                    if key not in ALLOWED_SEARCH_FIELDS:
+                        skipped_keys.append(key)
+                        continue
                     if value is not None:
-                        if field_type == "TextField":
-                            search_dict["%s__search" % key] = value
-                        else:
-                            search_dict["%s__icontains" % key] = value
+                        # Use __icontains for all fields — after adding the
+                        # GIN trigram index, this is index-backed for TextFields
+                        # and a standard btree scan for short CharField lookups.
+                        # __search (to_tsvector) requires a precomputed
+                        # SearchVectorField + GIN index to be fast; without
+                        # one it's a full scan on every request.
+                        search_dict["%s__icontains" % key] = value
                     else:
                         search_dict[key] = value
+
+                if skipped_keys:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "get_data_items: skipped unwhitelisted search_keys: %s",
+                        skipped_keys,
+                    )
 
                 data_items = data_items.filter(**search_dict)
 
             query_params = dict(parse_qsl(filter_string))
             query_params = filter.fix_booleans_in_dict(query_params)
+
+            # Whitelist filter_string keys to fields that have a supporting
+            # index. Keys referencing metadata_json/draft_data_json are
+            # allowed because the GIN index covers them. Unknown keys are
+            # dropped with a warning to prevent accidental seq scans.
+            ALLOWED_FILTER_PREFIXES = (
+                "id", "id__", "instance_id", "instance_id__",
+                "metadata_json", "metadata_json__",
+                "draft_data_json", "draft_data_json__",
+                "domain", "domain__", "quality_status", "quality_status__",
+                "language", "language__", "input_language", "input_language__",
+                "output_language", "output_language__",
+                "labse_score", "labse_score__", "rating", "rating__",
+            )
+            safe_params = {}
+            dropped_params = []
+            for k, v in query_params.items():
+                if any(k == p or k.startswith(p) for p in ALLOWED_FILTER_PREFIXES):
+                    safe_params[k] = v
+                else:
+                    dropped_params.append(k)
+
+            if dropped_params:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "get_data_items: dropped unwhitelisted filter_string keys: %s",
+                    dropped_params,
+                )
+
             filtered_set = filter.filter_using_dict_and_queryset(
-                query_params, data_items
+                safe_params, data_items
             )
             # filtered_data = filtered_set.values()
             # serializer = DatasetItemsSerializer(filtered_set, many=True)
@@ -1419,6 +1469,14 @@ class DatasetItemsViewSet(viewsets.ModelViewSet):
                     "message": str(error),
                 }
             )
+        
+    MAX_PAGINATOR_COUNT = 10_000
+
+    def paginate_queryset(self, queryset):
+        self.count = min(queryset.count(), self.MAX_PAGINATOR_COUNT)
+        return super().paginate_queryset(queryset)
+
+
 
 
 class DatasetTypeView(APIView):

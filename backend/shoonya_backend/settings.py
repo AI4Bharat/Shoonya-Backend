@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     "import_export",
     "django_celery_results",
     "django_celery_beat",
+    "silk",
     "django.contrib.postgres",
 ]
 
@@ -78,6 +79,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "silk.middleware.SilkyMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
