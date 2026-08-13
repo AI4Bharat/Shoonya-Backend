@@ -72,41 +72,33 @@ def retrieve_logs_and_send_through_email(start_date_str, end_date_str, user_emai
         )
 
         if not start_date_str and not end_date_str:
-            central_blob_client = container_client.get_blob_client("central.log")
-            if central_blob_client.exists():
-                log_content = (
-                    central_blob_client.download_blob().readall().decode("utf-8")
-                )
-                log_content = log_content.replace("][", ",")
-                file_name = "central_logs.txt"
-            else:
-                raise Exception("Central log data not found")
+            start_date = datetime.min
+            end_date = datetime.max
+            file_name = "central_logs.txt"
         else:
             try:
                 start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
                 end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
             except ValueError:
                 raise Exception("Invalid date format. Please use 'YYYY-MM-DD'.")
-            log_content = ""
-            for blob in container_client.list_blobs():
+            file_name = f"{start_date_str}_to_{end_date_str}_logs.txt"
+
+        log_content = ""
+        for blob in container_client.list_blobs():
+            try:
+                blob_date = datetime.strptime(blob.name.split(".")[0], "%Y-%m-%d")
+            except ValueError:
+                # Skip non-date-named blobs (e.g. leftover "central.log" or "temp_*" export files)
+                continue
+            if start_date <= blob_date <= end_date:
                 blob_client = container_client.get_blob_client(blob.name)
                 content = blob_client.download_blob().readall()
-                try:
-                    blob_date = datetime.strptime(blob.name.split(".")[0], "%Y-%m-%d")
-                    if start_date <= blob_date <= end_date:
-                        log_content += content.decode("utf-8")
-                except Exception as e:
-                    print(
-                        f"Failed to aggregate the logs between given dates : {str(e)}"
-                    )
-                    raise e
+                log_content += content.decode("utf-8")
 
-            if log_content == "":
-                raise Exception("No logs found")
+        if log_content == "":
+            raise Exception("No logs found")
 
-            log_content = log_content.replace("][", ",")
-
-            file_name = f"{start_date_str}_to_{end_date_str}_logs.txt"
+        log_content = log_content.replace("][", ",")
 
         file_name_with_prefix = f"temp_{file_name}"
 
