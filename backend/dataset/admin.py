@@ -1,6 +1,8 @@
 try:
     import resource
-except:
+except ImportError:
+    # resource is POSIX-only (absent on Windows); unused in this file, kept
+    # importable on both platforms without masking unrelated import errors.
     resource = None
 from django.contrib import admin
 from import_export.admin import ImportExportActionModelAdmin
