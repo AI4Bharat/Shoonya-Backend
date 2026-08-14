@@ -2,10 +2,13 @@ import ast
 import json
 import re
 from base64 import b64encode
+from functools import wraps
 from urllib.parse import parse_qsl
+from celery.result import AsyncResult
 from utils.pagination import paginate_queryset
 from django.apps import apps
 from django.db.models import Q
+from django.db.utils import OperationalError
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
@@ -38,7 +41,14 @@ from projects.utils import (
 from . import resources
 from .models import *
 from .serializers import *
-from .tasks import upload_data_to_data_instance, deduplicate_dataset_instance_items
+from .tasks import (
+    upload_data_to_data_instance,
+    deduplicate_dataset_instance_items,
+    create_dataset_and_project_pipeline,
+    create_projects_for_dataset_category,
+    pull_unassigned_items_into_project,
+)
+from .pipeline_utils import parse_input_csv, validate_input_csv, TASK_LIMITS
 import dataset
 from tasks.models import (
     Task,
@@ -47,6 +57,26 @@ from tasks.models import (
     REVIEWER_ANNOTATION,
     SUPER_CHECKER_ANNOTATION,
 )
+
+
+def is_organization_owner_or_admin(f):
+    """Like `is_organization_owner`, but also allows the ADMIN role (staff who
+    run the Create Dataset & Project pipeline are typically ADMIN, not
+    ORGANIZATION_OWNER)."""
+
+    @wraps(f)
+    def wrapper(self, request, *args, **kwargs):
+        if request.user.is_authenticated and (
+            request.user.role in [User.ORGANIZATION_OWNER, User.ADMIN]
+            or request.user.is_superuser
+        ):
+            return f(self, request, *args, **kwargs)
+        return Response(
+            {"message": "You do not have permission to perform this action."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    return wrapper
 
 
 ## Utility functions used inside the view functions
@@ -201,6 +231,24 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         if self.action == "upload":
             return DatasetInstanceUploadSerializer
         return DatasetInstanceSerializer
+
+    # The Create Dataset & Project pipeline actions are gated by
+    # `is_organization_owner_or_admin` themselves (which also allows the
+    # ADMIN role); skip the stricter class-level DatasetInstancePermission
+    # (which only allows WORKSPACE_MANAGER/ORGANIZATION_OWNER/superuser) for
+    # just these four, rather than loosening it for every existing action.
+    PIPELINE_ACTIONS = [
+        "validate_pipeline_csv",
+        "start_pipeline",
+        "pipeline_progress",
+        "create_pipeline_projects",
+        "pull_pipeline_project_items",
+    ]
+
+    def get_permissions(self):
+        if self.action in self.PIPELINE_ACTIONS:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     @is_organization_owner
     def retrieve(self, request, pk, *args, **kwargs):
@@ -405,6 +453,216 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @is_organization_owner_or_admin
+    @action(methods=["POST"], detail=False, name="Validate Pipeline Input CSV")
+    def validate_pipeline_csv(self, request):
+        """
+        Validates an input CSV for the "Create Dataset & Project" automation
+        pipeline and returns a preview (row count, detected language/types,
+        speakers, and any validation errors) without persisting anything.
+        URL: /data/instances/validate_pipeline_csv/
+        Accepted methods: POST
+        """
+        if "input_csv" not in request.FILES:
+            return Response(
+                {"message": "Please provide a file with key 'input_csv'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            csv_string = request.FILES["input_csv"].read().decode("utf-8-sig")
+        except Exception as e:
+            return Response(
+                {
+                    "message": "Error while reading file. Please check the file data and try again.",
+                    "exception": str(e),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rows, fieldnames = parse_input_csv(csv_string)
+        validation = validate_input_csv(rows, fieldnames)
+        return Response(validation, status=status.HTTP_200_OK)
+
+    @is_organization_owner_or_admin
+    @action(methods=["POST"], detail=False, name="Start Create Dataset & Project Pipeline")
+    def start_pipeline(self, request):
+        """
+        Kicks off Phase 1 of the "Create Dataset & Project" pipeline: validates
+        the input CSV, uploads audio to ShaktiCloud/MinIO, generates the
+        Shoonya-format CSV, and creates/reuses the dataset instance and uploads
+        the data to it. Project creation is a separate Phase 2 (see
+        `create_pipeline_projects`) triggered once the user picks a Vendor,
+        confirms the Language, and picks a Category on the frontend.
+        URL: /data/instances/start_pipeline/
+        Accepted methods: POST
+        """
+        if "input_csv" not in request.FILES:
+            return Response(
+                {"message": "Please provide a file with key 'input_csv'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            csv_string = request.FILES["input_csv"].read().decode("utf-8-sig")
+        except Exception as e:
+            return Response(
+                {
+                    "message": "Error while reading file. Please check the file data and try again.",
+                    "exception": str(e),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existing_instance_id = request.POST.get("existing_instance_id") or None
+        deduplicate = request.POST.get("deduplicate", "false").lower() == "true"
+
+        # Organisation is fixed to AI4Bharat (id=1) for this pipeline.
+        config = {
+            "dataset_name": request.POST.get("dataset_name"),
+            "existing_instance_id": (
+                int(existing_instance_id) if existing_instance_id else None
+            ),
+            "organisation_id": 1,
+            "user_id": request.user.id,
+            "deduplicate": deduplicate,
+        }
+
+        async_result = create_dataset_and_project_pipeline.delay(csv_string, config)
+        return Response(
+            {"task_id": async_result.id, "status": "started"},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @is_organization_owner_or_admin
+    @action(methods=["GET"], detail=False, name="Get Create Dataset & Project Pipeline Progress")
+    def pipeline_progress(self, request):
+        """
+        Polls the status of a "Create Dataset & Project" Phase 1 pipeline task.
+        URL: /data/instances/pipeline_progress/?task_id=<celery-task-id>
+        Accepted methods: GET
+        """
+        task_id = request.query_params.get("task_id")
+        if not task_id:
+            return Response(
+                {"message": "task_id query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            async_result = AsyncResult(task_id)
+            response_data = {"task_id": task_id, "state": async_result.state}
+            if async_result.state == "PROGRESS":
+                response_data.update(async_result.info or {})
+            elif async_result.state == "SUCCESS":
+                response_data["result"] = async_result.result
+            elif async_result.state == "FAILURE":
+                response_data["error"] = str(async_result.result)
+        except OperationalError as e:
+            # The result-backend DB (django-db) is momentarily unreachable.
+            # Report this as a transient error rather than letting the
+            # exception surface as an HTML debug page — the frontend retries.
+            return Response(
+                {
+                    "task_id": task_id,
+                    "state": "UNKNOWN",
+                    "transient_error": f"Could not reach the task status store: {e}",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    @is_organization_owner_or_admin
+    @action(methods=["POST"], detail=False, name="Create Projects For Dataset Category")
+    def create_pipeline_projects(self, request):
+        """
+        Phase 2 of the "Create Dataset & Project" pipeline. Once the dataset has
+        been created/updated in Phase 1, the user picks a Vendor (workspace),
+        confirms the Language, and picks a Category (Read/Extempore); this
+        creates a project for every part (Part A / Part B) of that category
+        whose unassigned task count has reached its batch limit.
+        URL: /data/instances/create_pipeline_projects/
+        Accepted methods: POST
+        Body: {"instance_id": int, "category": "Read"|"Extempore", "workspace_id": int}
+        """
+        instance_id = request.data.get("instance_id")
+        category = request.data.get("category")
+        workspace_id = request.data.get("workspace_id")
+
+        if not instance_id or not category or not workspace_id:
+            return Response(
+                {"message": "instance_id, category, and workspace_id are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if category not in TASK_LIMITS:
+            return Response(
+                {"message": f"category must be one of {list(TASK_LIMITS.keys())}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            dataset_instance = DatasetInstance.objects.get(pk=instance_id)
+        except DatasetInstance.DoesNotExist:
+            return Response(
+                {"message": "Dataset instance not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            result = create_projects_for_dataset_category(
+                dataset_instance=dataset_instance,
+                category=category,
+                workspace_id=workspace_id,
+                organisation_id=dataset_instance.organisation_id_id,
+                user_id=request.user.id,
+            )
+        except ValueError as e:
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(result, status=status.HTTP_201_CREATED)
+
+    @is_organization_owner_or_admin
+    @action(methods=["POST"], detail=False, name="Pull Unassigned Items Into Existing Project")
+    def pull_pipeline_project_items(self, request):
+        """
+        Pulls every currently-unassigned item for a domain (within a dataset
+        instance) into an already-existing project -- used by the Create
+        Project tab's "Pull N Task(s) Into '<project>'" button, when a group
+        is below its batch threshold but an earlier project already covers it.
+        This is deliberately separate from projects.views.pull_new_items,
+        which re-slices a frozen batch window and isn't a fit here (see
+        pull_unassigned_items_into_project's docstring).
+        URL: /data/instances/pull_pipeline_project_items/
+        Accepted methods: POST
+        Body: {"instance_id": int, "domain": str, "project_id": int}
+        """
+        instance_id = request.data.get("instance_id")
+        domain = request.data.get("domain")
+        project_id = request.data.get("project_id")
+
+        if not instance_id or not domain or not project_id:
+            return Response(
+                {"message": "instance_id, domain, and project_id are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            dataset_instance = DatasetInstance.objects.get(pk=instance_id)
+        except DatasetInstance.DoesNotExist:
+            return Response(
+                {"message": "Dataset instance not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            result = pull_unassigned_items_into_project(
+                dataset_instance=dataset_instance,
+                domain=domain,
+                project_id=project_id,
+            )
+        except apps.get_model("projects", "Project").DoesNotExist:
+            return Response({"message": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(result, status=status.HTTP_200_OK)
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="List all Projects using Dataset")

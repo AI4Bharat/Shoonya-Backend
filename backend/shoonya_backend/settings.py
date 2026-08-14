@@ -124,6 +124,11 @@ DATABASES = {
         "PASSWORD": os.getenv("DB_PASSWORD"),
         "HOST": os.getenv("DB_HOST"),
         "PORT": os.getenv("DB_PORT"),
+        # Reuse a DB connection across requests for up to 60s instead of
+        # reconnecting on every single request (default CONN_MAX_AGE=0) --
+        # measured ~1.3-2s per fresh connection to this remote DB vs ~0.2s
+        # reusing an existing one.
+        "CONN_MAX_AGE": 60,
     }
 }
 

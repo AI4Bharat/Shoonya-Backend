@@ -5,6 +5,7 @@ from celery.signals import worker_ready
 import os
 
 from celery import Celery
+from celery.signals import task_prerun
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "shoonya_backend.settings")
 
@@ -76,4 +77,13 @@ def debug_task(self):
     print(f"Request: {self.request!r}")
 
 
+@task_prerun.connect
+def close_stale_db_connections(**kwargs):
+    """Long-lived worker processes don't get Django's normal per-request
+    connection-closing, so a DB connection that has gone stale/dropped (e.g.
+    after a network blip) keeps getting reused until a query on it fails --
+    which can crash the whole worker. Closing stale connections before each
+    task forces a fresh reconnect instead."""
+    from django.db import close_old_connections
 
+    close_old_connections()
