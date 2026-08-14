@@ -516,6 +516,43 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         existing_instance_id = request.POST.get("existing_instance_id") or None
         deduplicate = request.POST.get("deduplicate", "false").lower() == "true"
 
+        # If adding to an existing dataset, the new CSV's language must match
+        # what's already in it -- each dataset is meant to hold a single
+        # language, and mixing languages would corrupt that invariant for
+        # every downstream domain/batch grouping. Checked here, synchronously,
+        # so the user gets immediate feedback instead of the async pipeline
+        # failing partway through (after audio has already been uploaded).
+        if existing_instance_id:
+            rows, fieldnames = parse_input_csv(csv_string)
+            validation = validate_input_csv(rows, fieldnames)
+            if validation["valid"] and validation["languages"]:
+                new_language = validation["languages"][0]
+                try:
+                    dataset_instance = DatasetInstance.objects.get(pk=existing_instance_id)
+                except DatasetInstance.DoesNotExist:
+                    return Response(
+                        {"message": "Dataset instance not found."},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+                SpeechConversation = apps.get_model("dataset", "SpeechConversation")
+                existing_language = (
+                    SpeechConversation.objects.filter(instance_id=dataset_instance)
+                    .exclude(language="")
+                    .values_list("language", flat=True)
+                    .first()
+                )
+                if existing_language and existing_language != new_language:
+                    return Response(
+                        {
+                            "message": (
+                                f"Language mismatch: dataset '{dataset_instance.instance_name}' "
+                                f"already contains '{existing_language}' data, but this CSV is "
+                                f"'{new_language}'. Each dataset must contain a single language."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
         # Organisation is fixed to AI4Bharat (id=1) for this pipeline.
         config = {
             "dataset_name": request.POST.get("dataset_name"),
