@@ -46,6 +46,7 @@ from .tasks import (
     deduplicate_dataset_instance_items,
     create_dataset_and_project_pipeline,
     create_projects_for_dataset_category,
+    pull_unassigned_items_into_project,
 )
 from .pipeline_utils import parse_input_csv, validate_input_csv, TASK_LIMITS
 import dataset
@@ -241,6 +242,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         "start_pipeline",
         "pipeline_progress",
         "create_pipeline_projects",
+        "pull_pipeline_project_items",
     ]
 
     def get_permissions(self):
@@ -617,6 +619,50 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(result, status=status.HTTP_201_CREATED)
+
+    @is_organization_owner_or_admin
+    @action(methods=["POST"], detail=False, name="Pull Unassigned Items Into Existing Project")
+    def pull_pipeline_project_items(self, request):
+        """
+        Pulls every currently-unassigned item for a domain (within a dataset
+        instance) into an already-existing project -- used by the Create
+        Project tab's "Pull N Task(s) Into '<project>'" button, when a group
+        is below its batch threshold but an earlier project already covers it.
+        This is deliberately separate from projects.views.pull_new_items,
+        which re-slices a frozen batch window and isn't a fit here (see
+        pull_unassigned_items_into_project's docstring).
+        URL: /data/instances/pull_pipeline_project_items/
+        Accepted methods: POST
+        Body: {"instance_id": int, "domain": str, "project_id": int}
+        """
+        instance_id = request.data.get("instance_id")
+        domain = request.data.get("domain")
+        project_id = request.data.get("project_id")
+
+        if not instance_id or not domain or not project_id:
+            return Response(
+                {"message": "instance_id, domain, and project_id are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            dataset_instance = DatasetInstance.objects.get(pk=instance_id)
+        except DatasetInstance.DoesNotExist:
+            return Response(
+                {"message": "Dataset instance not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            result = pull_unassigned_items_into_project(
+                dataset_instance=dataset_instance,
+                domain=domain,
+                project_id=project_id,
+            )
+        except apps.get_model("projects", "Project").DoesNotExist:
+            return Response({"message": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(result, status=status.HTTP_200_OK)
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="List all Projects using Dataset")

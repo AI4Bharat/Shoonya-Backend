@@ -238,7 +238,7 @@ def _upload_one_audio_file(minio_client, bucket, source_url, object_key):
         }
 
 
-@shared_task(bind=True, queue="default")
+@shared_task(bind=True, queue="functions")
 def create_dataset_and_project_pipeline(self, input_csv_string, config):
     """Runs Phase 1 of the "Create Dataset & Project" automation pipeline.
 
@@ -364,13 +364,6 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
     shoonya_rows = [
         build_shoonya_row(job["row"], job["audio_url"]) for job in successful_jobs
     ]
-    csv_string = build_shoonya_csv_string(shoonya_rows)
-    report(
-        "generate_csv",
-        "completed",
-        details={"row_count": len(shoonya_rows)},
-        csv_content=csv_string,
-    )
 
     # Step 4: create or reuse the DatasetInstance for this language
     existing_instance_id = config.get("existing_instance_id")
@@ -397,20 +390,53 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
         },
     )
 
-    # Step 5: upload the generated CSV to the dataset instance
-    upload_data_to_data_instance(
-        dataset_string=csv_string,
-        pk=dataset_instance.instance_id,
-        dataset_type="SpeechConversation",
-        content_type="csv",
-        deduplicate=deduplicate,
+    # Skip rows whose audio_url is already present in this dataset instance
+    # (e.g. re-uploading the same CSV) -- but only when the user asked for
+    # it via "Delete Duplicate Records". `remove_duplicates()` inside
+    # upload_data_to_data_instance only dedupes within the current batch, it
+    # never checks against rows already sitting in the dataset from a prior
+    # upload, so that check has to happen here instead.
+    duplicate_rows = []
+    if deduplicate:
+        SpeechConversation = apps.get_model("dataset", "SpeechConversation")
+        existing_audio_urls = set(
+            SpeechConversation.objects.filter(instance_id=dataset_instance).values_list(
+                "audio_url", flat=True
+            )
+        )
+        deduped_rows = []
+        for row in shoonya_rows:
+            if row["audio_url"] in existing_audio_urls:
+                duplicate_rows.append({"audio_url": row["audio_url"]})
+            else:
+                deduped_rows.append(row)
+        shoonya_rows = deduped_rows
+
+    csv_string = build_shoonya_csv_string(shoonya_rows)
+    report(
+        "generate_csv",
+        "completed",
+        details={"row_count": len(shoonya_rows), "duplicate_count": len(duplicate_rows)},
+        csv_content=csv_string,
+        duplicate_rows=duplicate_rows,
     )
+
+    # Step 5: upload the generated CSV to the dataset instance (only if
+    # there's anything left to upload once duplicates are filtered out)
+    if shoonya_rows:
+        upload_data_to_data_instance(
+            dataset_string=csv_string,
+            pk=dataset_instance.instance_id,
+            dataset_type="SpeechConversation",
+            content_type="csv",
+            deduplicate=deduplicate,
+        )
 
     categories_present = sorted({get_row_type(job["row"]) for job in successful_jobs})
 
     report(
         "upload_csv",
-        "completed",
+        "completed" if shoonya_rows else "skipped",
         details={"row_count": len(shoonya_rows)},
         categories_present=categories_present,
     )
@@ -422,6 +448,9 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
         "categories_present": categories_present,
         "total_input_rows": len(rows),
         "uploaded_count": len(successful_jobs),
+        "inserted_count": len(shoonya_rows),
+        "duplicate_count": len(duplicate_rows),
+        "duplicate_rows": duplicate_rows,
         "failed_uploads": failed_uploads,
         "generated_csv": csv_string,
     }
@@ -477,7 +506,7 @@ def create_projects_for_dataset_category(
         last_assigned_id = (
             Task.objects.filter(
                 project_id__dataset_id=dataset_instance,
-                input_data__domain=domain,
+                input_data__speechconversation__domain=domain,
             ).aggregate(Max("input_data_id"))["input_data_id__max"]
             or 0
         )
@@ -485,16 +514,47 @@ def create_projects_for_dataset_category(
             instance_id=dataset_instance, domain=domain, id__gt=last_assigned_id
         ).count()
 
-        if unassigned_count < limit:
+        if unassigned_count == 0:
+            continue
+
+        next_batch_number = get_next_batch_number(dataset_instance, language, part, category)
+        is_first_project_for_group = next_batch_number == 1
+
+        # The very first project for a (language, part, category) group is
+        # created immediately regardless of count. Later batches only get
+        # created once a full batch's worth of unassigned tasks has piled
+        # up; until then, the existing under-capacity project is surfaced
+        # so a data lead can manually pull more tasks into it.
+        if not is_first_project_for_group and unassigned_count < limit:
+            existing_title = build_project_title(
+                language, part, category, next_batch_number - 1
+            )
+            existing_project_id = (
+                Project.objects.filter(dataset_id=dataset_instance, title=existing_title)
+                .values_list("id", flat=True)
+                .first()
+            )
             skipped_groups.append(
-                {"domain": domain, "unassigned_count": unassigned_count, "limit": limit}
+                {
+                    "domain": domain,
+                    "unassigned_count": unassigned_count,
+                    "limit": limit,
+                    "existing_project_id": existing_project_id,
+                    "existing_project_title": existing_title,
+                    "message": (
+                        f"{unassigned_count} unassigned task(s) available - pull them "
+                        f"into '{existing_title}' via its 'Pull New Data Items' action, "
+                        f"or wait for more uploads to auto-create the next batch."
+                    ),
+                }
             )
             continue
 
-        batch_number = get_next_batch_number(language, part, category)
+        task_count = min(unassigned_count, limit)
+        batch_number = next_batch_number
         title = build_project_title(language, part, category, batch_number)
         filter_string = build_unassigned_filter_string(domain, last_assigned_id)
-        sampling_parameters = {"batch_size": limit, "batch_number": [1]}
+        sampling_parameters = {"batch_size": task_count, "batch_number": [1]}
 
         project = Project.objects.create(
             title=title,
@@ -531,7 +591,7 @@ def create_projects_for_dataset_category(
             {
                 "project_id": project.id,
                 "title": title,
-                "task_count": limit,
+                "task_count": task_count,
                 "batch_number": batch_number,
                 "part": part,
             }
@@ -541,4 +601,43 @@ def create_projects_for_dataset_category(
         "language": language,
         "created_projects": created_projects,
         "skipped_groups": skipped_groups,
+    }
+
+
+def pull_unassigned_items_into_project(dataset_instance, domain, project_id):
+    """Pulls every currently-unassigned SpeechConversation item for `domain`
+    (within `dataset_instance`) into an already-existing project.
+
+    Deliberately does NOT reuse `projects.views.pull_new_items` -- that
+    action re-slices the project's own frozen `sampling_parameters_json`
+    batch window (fixed `batch_number`/`batch_size` from creation time), so
+    it keeps re-selecting the *original* already-assigned items forever
+    rather than picking up newly-unassigned ones. This instead re-derives
+    "currently unassigned" the same way `create_projects_for_dataset_category`
+    does (highest already-assigned id across ALL projects for this domain),
+    then pulls exactly that set.
+    """
+    from projects.models import Project
+    from projects.tasks import add_new_data_items_into_project, filter_data_items
+
+    project = Project.objects.get(pk=project_id)
+
+    last_assigned_id = (
+        Task.objects.filter(
+            project_id__dataset_id=dataset_instance,
+            input_data__speechconversation__domain=domain,
+        ).aggregate(Max("input_data_id"))["input_data_id__max"]
+        or 0
+    )
+    filter_string = build_unassigned_filter_string(domain, last_assigned_id)
+    items = filter_data_items(
+        project.project_type, [dataset_instance.instance_id], filter_string
+    )
+    if not items:
+        return {"message": "No unassigned items available to pull.", "pulled_count": 0}
+
+    add_new_data_items_into_project.delay(project_id=project.id, items=items)
+    return {
+        "message": f"Pulling {len(items)} item(s) into '{project.title}'.",
+        "pulled_count": len(items),
     }

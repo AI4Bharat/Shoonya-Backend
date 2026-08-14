@@ -245,7 +245,14 @@ def build_shoonya_csv_string(shoonya_rows):
 
 
 def get_project_config_for_language(language):
-    """Returns {project_type, acoustic_enabled_stage} per the language-based rules."""
+    """Returns {project_type, acoustic_enabled_stage} per the language-based rules.
+
+    acoustic_enabled_stage must be None (-> JSON null) for "blank", not "" --
+    the frontend's `showAcousticText` check (TranscriptionRightPanel.jsx) does
+    `acoustic_enabled_stage !== null && acoustic_enabled_stage <= stage`. An
+    empty string passes `!== null` and coerces to 0 in `<= stage`, which is
+    true for virtually every stage -- the opposite of "blank"/hidden.
+    """
     if language in TAMIL_LANGUAGES:
         return {
             "project_type": "VerbatimTranscriptionCharacterTagging",
@@ -254,11 +261,11 @@ def get_project_config_for_language(language):
     if language in BLANK_ACOUSTIC_LANGUAGES:
         return {
             "project_type": "VerbatimTranscriptionCharacterTagging",
-            "acoustic_enabled_stage": "",
+            "acoustic_enabled_stage": None,
         }
     return {
         "project_type": "AcousticNormalisedTranscriptionEditing",
-        "acoustic_enabled_stage": "",
+        "acoustic_enabled_stage": None,
     }
 
 
@@ -270,9 +277,13 @@ def build_project_title(language, part, row_type, batch_number):
     return f"JT-{part_token}-{language}-[{row_type}]-[B{batch_number}]"
 
 
-def get_next_batch_number(language, part, row_type):
+def get_next_batch_number(dataset_instance, language, part, row_type):
     """Queries existing Project titles matching this dataset/type/part's pattern
-    and returns the next batch number (max existing + 1)."""
+    *for this specific dataset instance* and returns the next batch number
+    (max existing + 1). Scoped to dataset_instance so that a separate
+    dataset created for the same language doesn't get treated as a
+    continuation of another dataset's batch sequence.
+    """
     from projects.models import Project
 
     part_token = part.replace(" ", "")
@@ -280,9 +291,9 @@ def get_next_batch_number(language, part, row_type):
     pattern = re.compile(re.escape(prefix) + r"(\d+)\]$")
 
     max_batch = 0
-    for title in Project.objects.filter(title__startswith=prefix).values_list(
-        "title", flat=True
-    ):
+    for title in Project.objects.filter(
+        dataset_id=dataset_instance, title__startswith=prefix
+    ).values_list("title", flat=True):
         match = pattern.match(title)
         if match:
             max_batch = max(max_batch, int(match.group(1)))
