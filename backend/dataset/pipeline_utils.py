@@ -277,12 +277,20 @@ def build_project_title(language, part, row_type, batch_number):
     return f"JT-{part_token}-{language}-[{row_type}]-[B{batch_number}]"
 
 
-def get_next_batch_number(dataset_instance, language, part, row_type):
-    """Queries existing Project titles matching this dataset/type/part's pattern
-    *for this specific dataset instance* and returns the next batch number
-    (max existing + 1). Scoped to dataset_instance so that a separate
-    dataset created for the same language doesn't get treated as a
-    continuation of another dataset's batch sequence.
+def get_latest_project_for_group(dataset_instance, language, part, row_type):
+    """Returns (latest_project_or_None, next_batch_number) for this dataset
+    instance's (language, part, row_type) group.
+
+    Used to decide whether a new batch should wait for the task-limit
+    threshold: any project created via the threshold-met path always has
+    exactly `limit` tasks by construction (see create_projects_for_dataset_
+    category), so the *only* way an existing project can be under capacity
+    is if it was created as the very first batch for its group with fewer
+    than `limit` tasks available at the time. So "is there an existing
+    under-capacity project to fill first" is the right question -- not
+    "is this batch number 1" -- since once every existing project for a
+    group is already full, the next batch should be created immediately
+    just like a first-ever one would be, regardless of its count.
     """
     from projects.models import Project
 
@@ -290,14 +298,16 @@ def get_next_batch_number(dataset_instance, language, part, row_type):
     prefix = f"JT-{part_token}-{language}-[{row_type}]-[B"
     pattern = re.compile(re.escape(prefix) + r"(\d+)\]$")
 
+    latest_project = None
     max_batch = 0
-    for title in Project.objects.filter(
+    for project in Project.objects.filter(
         dataset_id=dataset_instance, title__startswith=prefix
-    ).values_list("title", flat=True):
-        match = pattern.match(title)
-        if match:
-            max_batch = max(max_batch, int(match.group(1)))
-    return max_batch + 1
+    ):
+        match = pattern.match(project.title)
+        if match and int(match.group(1)) > max_batch:
+            max_batch = int(match.group(1))
+            latest_project = project
+    return latest_project, max_batch + 1
 
 
 def build_unassigned_filter_string(domain, last_assigned_id):

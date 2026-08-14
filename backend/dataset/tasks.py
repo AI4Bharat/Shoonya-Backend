@@ -18,7 +18,7 @@ from .pipeline_utils import (
     build_target_object_key,
     build_unassigned_filter_string,
     get_audio_folder_name,
-    get_next_batch_number,
+    get_latest_project_for_group,
     get_project_config_for_language,
     get_row_part,
     get_row_type,
@@ -517,34 +517,32 @@ def create_projects_for_dataset_category(
         if unassigned_count == 0:
             continue
 
-        next_batch_number = get_next_batch_number(dataset_instance, language, part, category)
-        is_first_project_for_group = next_batch_number == 1
+        latest_project, next_batch_number = get_latest_project_for_group(
+            dataset_instance, language, part, category
+        )
+        latest_project_under_capacity = (
+            latest_project is not None
+            and Task.objects.filter(project_id=latest_project).count() < limit
+        )
 
-        # The very first project for a (language, part, category) group is
-        # created immediately regardless of count. Later batches only get
-        # created once a full batch's worth of unassigned tasks has piled
-        # up; until then, the existing under-capacity project is surfaced
-        # so a data lead can manually pull more tasks into it.
-        if not is_first_project_for_group and unassigned_count < limit:
-            existing_title = build_project_title(
-                language, part, category, next_batch_number - 1
-            )
-            existing_project_id = (
-                Project.objects.filter(dataset_id=dataset_instance, title=existing_title)
-                .values_list("id", flat=True)
-                .first()
-            )
+        # A new batch is created immediately once every existing project for
+        # this group is already full (or there's no project yet at all) --
+        # regardless of count, same as a first-ever batch. It only waits when
+        # the most recent existing project is itself under capacity, since
+        # that's the one that should be topped up first rather than leaving
+        # two partially-filled projects side by side.
+        if latest_project_under_capacity and unassigned_count < limit:
             skipped_groups.append(
                 {
                     "domain": domain,
                     "unassigned_count": unassigned_count,
                     "limit": limit,
-                    "existing_project_id": existing_project_id,
-                    "existing_project_title": existing_title,
+                    "existing_project_id": latest_project.id,
+                    "existing_project_title": latest_project.title,
                     "message": (
                         f"{unassigned_count} unassigned task(s) available - pull them "
-                        f"into '{existing_title}' via its 'Pull New Data Items' action, "
-                        f"or wait for more uploads to auto-create the next batch."
+                        f"into '{latest_project.title}' via its 'Pull New Data Items' "
+                        f"action, or wait for more uploads to auto-create the next batch."
                     ),
                 }
             )
@@ -568,6 +566,13 @@ def create_projects_for_dataset_category(
             sampling_parameters_json=sampling_parameters,
             filter_string=filter_string,
             project_stage=REVIEW_STAGE,
+            # Transcription, not translation -- src/tgt are both the
+            # dataset's own language. Set explicitly since this pipeline
+            # builds the Project directly via the ORM, bypassing
+            # ProjectSerializer (which is what normally saves these when a
+            # project is created through the standard UI form).
+            src_language=language,
+            tgt_language=language,
             metadata_json={
                 "acoustic_enabled_stage": project_config["acoustic_enabled_stage"],
                 "automatic_annotation_creation_mode": "annotation",
