@@ -1,4 +1,5 @@
 import io
+import json
 import os
 from base64 import b64decode
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -390,6 +391,8 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
         },
     )
 
+    SpeechConversation = apps.get_model("dataset", "SpeechConversation")
+
     # Skip rows whose audio_url is already present in this dataset instance
     # (e.g. re-uploading the same CSV) -- but only when the user asked for
     # it via "Delete Duplicate Records". `remove_duplicates()` inside
@@ -398,19 +401,51 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
     # upload, so that check has to happen here instead.
     duplicate_rows = []
     if deduplicate:
-        SpeechConversation = apps.get_model("dataset", "SpeechConversation")
-        existing_audio_urls = set(
+        # Starts with what's already in the dataset, then grows as rows are
+        # kept -- catches duplicates against the existing dataset AND
+        # duplicates within this same CSV batch (two rows sharing an
+        # audio_url), keeping only the first occurrence of each.
+        seen_audio_urls = set(
             SpeechConversation.objects.filter(instance_id=dataset_instance).values_list(
                 "audio_url", flat=True
             )
         )
         deduped_rows = []
         for row in shoonya_rows:
-            if row["audio_url"] in existing_audio_urls:
+            if row["audio_url"] in seen_audio_urls:
                 duplicate_rows.append({"audio_url": row["audio_url"]})
             else:
                 deduped_rows.append(row)
+                seen_audio_urls.add(row["audio_url"])
         shoonya_rows = deduped_rows
+
+    # Tag each row actually being inserted with a per-dataset sequence_id
+    # (1, 2, 3, ...), continuing from the highest sequence_id already used
+    # in this dataset instance across all previous uploads -- e.g. 12
+    # entries uploaded first get 1-12, then 10 more uploaded later get
+    # 13-22. Assigned after dedup so skipped duplicates don't consume a
+    # number. Rows preserve their upload/CSV order.
+    #
+    # Stored in speakers_json (not metadata_json) because speakers_json is
+    # one of the fields project_registry.yaml copies into Task.data at
+    # task-creation time, so it flows straight through into the downloaded
+    # project CSV as its own column -- metadata_json never appears there
+    # unless the (normally-unused) include_input_data_metadata_json export
+    # flag is set.
+    existing_sequence_ids = [
+        (speakers[0] or {}).get("sequence_id", 0)
+        for speakers in SpeechConversation.objects.filter(
+            instance_id=dataset_instance
+        ).values_list("speakers_json", flat=True)
+        if speakers
+    ]
+    next_sequence_id = max(existing_sequence_ids, default=0) + 1
+    for row in shoonya_rows:
+        speakers_list = json.loads(row["speakers_json"])
+        if speakers_list:
+            speakers_list[0]["sequence_id"] = next_sequence_id
+        row["speakers_json"] = json.dumps(speakers_list, ensure_ascii=False)
+        next_sequence_id += 1
 
     csv_string = build_shoonya_csv_string(shoonya_rows)
     report(
@@ -474,7 +509,11 @@ def create_projects_for_dataset_category(
         user_id (int): User triggering creation; set as creator/annotator/reviewer
     """
     from projects.models import BATCH, REVIEW_STAGE, Project
-    from projects.tasks import create_parameters_for_task_creation
+    from projects.tasks import (
+        add_new_data_items_into_project,
+        create_parameters_for_task_creation,
+        filter_data_items,
+    )
 
     SpeechConversation = apps.get_model("dataset", "SpeechConversation")
 
@@ -496,7 +535,7 @@ def create_projects_for_dataset_category(
     )
 
     created_projects = []
-    skipped_groups = []
+    topped_up_projects = []
 
     for domain in sorted(domains):
         _, part = parse_domain(domain)
@@ -520,34 +559,50 @@ def create_projects_for_dataset_category(
         latest_project, next_batch_number = get_latest_project_for_group(
             dataset_instance, language, part, category
         )
-        latest_project_under_capacity = (
-            latest_project is not None
-            and Task.objects.filter(project_id=latest_project).count() < limit
-        )
 
-        # A new batch is created immediately once every existing project for
-        # this group is already full (or there's no project yet at all) --
-        # regardless of count, same as a first-ever batch. It only waits when
-        # the most recent existing project is itself under capacity, since
-        # that's the one that should be topped up first rather than leaving
-        # two partially-filled projects side by side.
-        if latest_project_under_capacity and unassigned_count < limit:
-            skipped_groups.append(
-                {
-                    "domain": domain,
-                    "unassigned_count": unassigned_count,
-                    "limit": limit,
-                    "existing_project_id": latest_project.id,
-                    "existing_project_title": latest_project.title,
-                    "message": (
-                        f"{unassigned_count} unassigned task(s) available - pull them "
-                        f"into '{latest_project.title}' via its 'Pull New Data Items' "
-                        f"action, or wait for more uploads to auto-create the next batch."
-                    ),
-                }
-            )
+        # Top up the latest existing project first if it's under capacity --
+        # using only as many of the newly-unassigned items as needed to fill
+        # it (not more), so any surplus still goes toward a new batch below.
+        # Runs synchronously (not .delay()) so the just-created Task rows
+        # are visible to the unassigned-count recompute that follows,
+        # instead of racing an async pull.
+        if latest_project is not None:
+            deficit = limit - Task.objects.filter(project_id=latest_project).count()
+            if deficit > 0:
+                topup_filter_string = build_unassigned_filter_string(domain, last_assigned_id)
+                available_items = filter_data_items(
+                    latest_project.project_type,
+                    [dataset_instance.instance_id],
+                    topup_filter_string,
+                )
+                items_to_pull = available_items[:deficit]
+                if items_to_pull:
+                    # Captured before add_new_data_items_into_project runs --
+                    # it calls create_tasks_from_dataitems, which mutates
+                    # each item dict in place (`del item["id"]`) once it's
+                    # used to build the Task, so reading item["id"] after
+                    # that call would raise KeyError.
+                    pulled_ids = [item["id"] for item in items_to_pull]
+                    add_new_data_items_into_project(
+                        project_id=latest_project.id, items=items_to_pull
+                    )
+                    topped_up_projects.append(
+                        {
+                            "project_id": latest_project.id,
+                            "title": latest_project.title,
+                            "pulled_count": len(items_to_pull),
+                        }
+                    )
+                    last_assigned_id = max(pulled_ids)
+                    unassigned_count -= len(items_to_pull)
+
+        if unassigned_count == 0:
             continue
 
+        # Whatever's left after the top-up above always becomes a new batch
+        # immediately, however small -- by this point the latest existing
+        # project (if any) is guaranteed either full or completely out of
+        # data to give it, so there's nothing left to wait on.
         task_count = min(unassigned_count, limit)
         batch_number = next_batch_number
         title = build_project_title(language, part, category, batch_number)
@@ -605,44 +660,5 @@ def create_projects_for_dataset_category(
     return {
         "language": language,
         "created_projects": created_projects,
-        "skipped_groups": skipped_groups,
-    }
-
-
-def pull_unassigned_items_into_project(dataset_instance, domain, project_id):
-    """Pulls every currently-unassigned SpeechConversation item for `domain`
-    (within `dataset_instance`) into an already-existing project.
-
-    Deliberately does NOT reuse `projects.views.pull_new_items` -- that
-    action re-slices the project's own frozen `sampling_parameters_json`
-    batch window (fixed `batch_number`/`batch_size` from creation time), so
-    it keeps re-selecting the *original* already-assigned items forever
-    rather than picking up newly-unassigned ones. This instead re-derives
-    "currently unassigned" the same way `create_projects_for_dataset_category`
-    does (highest already-assigned id across ALL projects for this domain),
-    then pulls exactly that set.
-    """
-    from projects.models import Project
-    from projects.tasks import add_new_data_items_into_project, filter_data_items
-
-    project = Project.objects.get(pk=project_id)
-
-    last_assigned_id = (
-        Task.objects.filter(
-            project_id__dataset_id=dataset_instance,
-            input_data__speechconversation__domain=domain,
-        ).aggregate(Max("input_data_id"))["input_data_id__max"]
-        or 0
-    )
-    filter_string = build_unassigned_filter_string(domain, last_assigned_id)
-    items = filter_data_items(
-        project.project_type, [dataset_instance.instance_id], filter_string
-    )
-    if not items:
-        return {"message": "No unassigned items available to pull.", "pulled_count": 0}
-
-    add_new_data_items_into_project.delay(project_id=project.id, items=items)
-    return {
-        "message": f"Pulling {len(items)} item(s) into '{project.title}'.",
-        "pulled_count": len(items),
+        "topped_up_projects": topped_up_projects,
     }
