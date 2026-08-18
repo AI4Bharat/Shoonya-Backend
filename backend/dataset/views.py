@@ -46,7 +46,6 @@ from .tasks import (
     deduplicate_dataset_instance_items,
     create_dataset_and_project_pipeline,
     create_projects_for_dataset_category,
-    pull_unassigned_items_into_project,
 )
 from .pipeline_utils import parse_input_csv, validate_input_csv, TASK_LIMITS
 import dataset
@@ -242,7 +241,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         "start_pipeline",
         "pipeline_progress",
         "create_pipeline_projects",
-        "pull_pipeline_project_items",
+        "pipeline_dataset_language",
     ]
 
     def get_permissions(self):
@@ -515,39 +514,60 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
 
         existing_instance_id = request.POST.get("existing_instance_id") or None
         deduplicate = request.POST.get("deduplicate", "false").lower() == "true"
+        declared_language = request.POST.get("language") or None
 
-        # If adding to an existing dataset, the new CSV's language must match
-        # what's already in it -- each dataset is meant to hold a single
-        # language, and mixing languages would corrupt that invariant for
-        # every downstream domain/batch grouping. Checked here, synchronously,
-        # so the user gets immediate feedback instead of the async pipeline
-        # failing partway through (after audio has already been uploaded).
-        if existing_instance_id:
+        # Each dataset is meant to hold a single language throughout its
+        # life -- mixing languages would corrupt every downstream
+        # domain/batch grouping. Checked here, synchronously, so the user
+        # gets immediate feedback instead of the async pipeline failing
+        # partway through (after audio has already been uploaded).
+        if existing_instance_id or declared_language:
             rows, fieldnames = parse_input_csv(csv_string)
             validation = validate_input_csv(rows, fieldnames)
             if validation["valid"] and validation["languages"]:
                 new_language = validation["languages"][0]
-                try:
-                    dataset_instance = DatasetInstance.objects.get(pk=existing_instance_id)
-                except DatasetInstance.DoesNotExist:
-                    return Response(
-                        {"message": "Dataset instance not found."},
-                        status=status.HTTP_404_NOT_FOUND,
+
+                if existing_instance_id:
+                    # Adding to an existing dataset: must match what's
+                    # already in it.
+                    try:
+                        dataset_instance = DatasetInstance.objects.get(
+                            pk=existing_instance_id
+                        )
+                    except DatasetInstance.DoesNotExist:
+                        return Response(
+                            {"message": "Dataset instance not found."},
+                            status=status.HTTP_404_NOT_FOUND,
+                        )
+                    SpeechConversation = apps.get_model("dataset", "SpeechConversation")
+                    existing_language = (
+                        SpeechConversation.objects.filter(instance_id=dataset_instance)
+                        .exclude(language="")
+                        .values_list("language", flat=True)
+                        .first()
                     )
-                SpeechConversation = apps.get_model("dataset", "SpeechConversation")
-                existing_language = (
-                    SpeechConversation.objects.filter(instance_id=dataset_instance)
-                    .exclude(language="")
-                    .values_list("language", flat=True)
-                    .first()
-                )
-                if existing_language and existing_language != new_language:
+                    if existing_language and existing_language != new_language:
+                        return Response(
+                            {
+                                "message": (
+                                    f"Language mismatch: dataset '{dataset_instance.instance_name}' "
+                                    f"already contains '{existing_language}' data, but this CSV is "
+                                    f"'{new_language}'. Each dataset must contain a single language."
+                                )
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                elif declared_language and declared_language != new_language:
+                    # Creating a new dataset: must match the language picked
+                    # in the "Configure Dataset" step (and baked into the
+                    # dataset's own <Language>-JT-... name).
                     return Response(
                         {
                             "message": (
-                                f"Language mismatch: dataset '{dataset_instance.instance_name}' "
-                                f"already contains '{existing_language}' data, but this CSV is "
-                                f"'{new_language}'. Each dataset must contain a single language."
+                                f"Language mismatch: this dataset is being created for "
+                                f"'{declared_language}', but the uploaded CSV is "
+                                f"'{new_language}'. Pick a matching language or upload a "
+                                f"CSV in that language."
                             )
                         },
                         status=status.HTTP_400_BAD_REQUEST,
@@ -609,6 +629,35 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         return Response(response_data, status=status.HTTP_200_OK)
 
     @is_organization_owner_or_admin
+    @action(methods=["GET"], detail=True, name="Get Dataset's Language For Pipeline")
+    def pipeline_dataset_language(self, request, pk):
+        """
+        Returns the (first non-empty) language found in this dataset
+        instance's items -- lets the Create Dataset & Project wizard warn
+        the user client-side, right after CSV validation, if the CSV they're
+        about to add doesn't match this existing dataset's language (instead
+        of only finding out after clicking "Start Pipeline").
+        URL: /data/instances/<pk>/pipeline_dataset_language/
+        Accepted methods: GET
+        """
+        try:
+            dataset_instance = DatasetInstance.objects.get(pk=pk)
+        except DatasetInstance.DoesNotExist:
+            return Response(
+                {"message": "Dataset instance not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        SpeechConversation = apps.get_model("dataset", "SpeechConversation")
+        language = (
+            SpeechConversation.objects.filter(instance_id=dataset_instance)
+            .exclude(language="")
+            .values_list("language", flat=True)
+            .first()
+        )
+        return Response({"language": language}, status=status.HTTP_200_OK)
+
+    @is_organization_owner_or_admin
     @action(methods=["POST"], detail=False, name="Create Projects For Dataset Category")
     def create_pipeline_projects(self, request):
         """
@@ -656,50 +705,6 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(result, status=status.HTTP_201_CREATED)
-
-    @is_organization_owner_or_admin
-    @action(methods=["POST"], detail=False, name="Pull Unassigned Items Into Existing Project")
-    def pull_pipeline_project_items(self, request):
-        """
-        Pulls every currently-unassigned item for a domain (within a dataset
-        instance) into an already-existing project -- used by the Create
-        Project tab's "Pull N Task(s) Into '<project>'" button, when a group
-        is below its batch threshold but an earlier project already covers it.
-        This is deliberately separate from projects.views.pull_new_items,
-        which re-slices a frozen batch window and isn't a fit here (see
-        pull_unassigned_items_into_project's docstring).
-        URL: /data/instances/pull_pipeline_project_items/
-        Accepted methods: POST
-        Body: {"instance_id": int, "domain": str, "project_id": int}
-        """
-        instance_id = request.data.get("instance_id")
-        domain = request.data.get("domain")
-        project_id = request.data.get("project_id")
-
-        if not instance_id or not domain or not project_id:
-            return Response(
-                {"message": "instance_id, domain, and project_id are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            dataset_instance = DatasetInstance.objects.get(pk=instance_id)
-        except DatasetInstance.DoesNotExist:
-            return Response(
-                {"message": "Dataset instance not found."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        try:
-            result = pull_unassigned_items_into_project(
-                dataset_instance=dataset_instance,
-                domain=domain,
-                project_id=project_id,
-            )
-        except apps.get_model("projects", "Project").DoesNotExist:
-            return Response({"message": "Project not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        return Response(result, status=status.HTTP_200_OK)
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="List all Projects using Dataset")
