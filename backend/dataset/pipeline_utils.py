@@ -169,6 +169,7 @@ def build_shoonya_row(input_row, audio_url):
     raw_user_id = (input_row.get("User ID") or "").strip()
     raw_class = (input_row.get("Class") or "").strip()
     class_val = int(raw_class) if raw_class.isdigit() else raw_class
+    delivery_date = (input_row.get("Date of delivery") or "").strip()
 
     raw_metadata = (input_row.get("Metadata") or "").strip()
     metadata_dict = {}
@@ -180,6 +181,7 @@ def build_shoonya_row(input_row, audio_url):
     metadata_dict["audio_id"] = audio_id
     metadata_dict["user_id"] = raw_user_id
     metadata_dict["class"] = class_val
+    metadata_dict["delivery_date"] = delivery_date
 
     raw_verbatim = (input_row.get("Verbatim Transcription") or "").strip()
     segments = []
