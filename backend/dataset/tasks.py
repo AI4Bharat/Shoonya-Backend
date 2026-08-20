@@ -376,7 +376,7 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
         dataset_instance = DatasetInstance.objects.get(pk=existing_instance_id)
     else:
         dataset_instance = DatasetInstance.objects.create(
-            instance_name=config.get("dataset_name") or f"{language}_JT",
+            instance_name=config.get("dataset_name") or language,
             dataset_type="SpeechConversation",
             organisation_id_id=organisation_id,
         )
