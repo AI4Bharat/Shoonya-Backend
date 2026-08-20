@@ -376,7 +376,7 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
         dataset_instance = DatasetInstance.objects.get(pk=existing_instance_id)
     else:
         dataset_instance = DatasetInstance.objects.create(
-            instance_name=config.get("dataset_name") or f"{language}_JT",
+            instance_name=config.get("dataset_name") or language,
             dataset_type="SpeechConversation",
             organisation_id_id=organisation_id,
         )
@@ -419,33 +419,43 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
                 seen_audio_urls.add(row["audio_url"])
         shoonya_rows = deduped_rows
 
-    # Tag each row actually being inserted with a per-dataset sequence_id
-    # (1, 2, 3, ...), continuing from the highest sequence_id already used
-    # in this dataset instance across all previous uploads -- e.g. 12
-    # entries uploaded first get 1-12, then 10 more uploaded later get
-    # 13-22. Assigned after dedup so skipped duplicates don't consume a
-    # number. Rows preserve their upload/CSV order.
+    # Tag each row actually being inserted with a sequence_id (1, 2, 3, ...)
+    # tracked separately per category (Read / Extempore each have their own
+    # counter, continuing from the highest sequence_id already used *for
+    # that category* in this dataset instance) -- matches how their task
+    # limits/batches are already independent of each other. E.g. if Read
+    # has 1-12 and Extempore has 1-8, a further Read upload continues at
+    # 13, and a further Extempore upload continues at 9. Assigned after
+    # dedup so skipped duplicates don't consume a number. Rows preserve
+    # their upload/CSV order.
     #
-    # Stored in speakers_json (not metadata_json) because speakers_json is
-    # one of the fields project_registry.yaml copies into Task.data at
-    # task-creation time, so it flows straight through into the downloaded
-    # project CSV as its own column -- metadata_json never appears there
-    # unless the (normally-unused) include_input_data_metadata_json export
-    # flag is set.
-    existing_sequence_ids = [
-        (speakers[0] or {}).get("sequence_id", 0)
-        for speakers in SpeechConversation.objects.filter(
-            instance_id=dataset_instance
-        ).values_list("speakers_json", flat=True)
-        if speakers
-    ]
-    next_sequence_id = max(existing_sequence_ids, default=0) + 1
+    # Stored in metadata_json: process_task() (projects/utils.py) now always
+    # copies the dataset item's metadata_json into the downloaded project
+    # CSV as its own "input_data_metadata_json" column, so this flows
+    # through there without needing speakers_json's special-cased export.
+    max_sequence_id_by_category = {}
+    for category, metadata in SpeechConversation.objects.filter(
+        instance_id=dataset_instance
+    ).values_list("scenario", "metadata_json"):
+        if not metadata:
+            continue
+        sequence_id = metadata.get("sequence_id", 0)
+        max_sequence_id_by_category[category] = max(
+            max_sequence_id_by_category.get(category, 0), sequence_id
+        )
+
+    next_sequence_id_by_category = {
+        category: max_sequence_id_by_category.get(category, 0) + 1
+        for category in TASK_LIMITS
+    }
     for row in shoonya_rows:
-        speakers_list = json.loads(row["speakers_json"])
-        if speakers_list:
-            speakers_list[0]["sequence_id"] = next_sequence_id
-        row["speakers_json"] = json.dumps(speakers_list, ensure_ascii=False)
-        next_sequence_id += 1
+        category = row["scenario"]
+        metadata_dict = json.loads(row["metadata_json"])
+        metadata_dict["sequence_id"] = next_sequence_id_by_category.get(category, 1)
+        row["metadata_json"] = json.dumps(metadata_dict, ensure_ascii=False)
+        next_sequence_id_by_category[category] = (
+            next_sequence_id_by_category.get(category, 1) + 1
+        )
 
     csv_string = build_shoonya_csv_string(shoonya_rows)
     report(

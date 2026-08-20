@@ -569,6 +569,20 @@ def get_audio_transcription_text(annotation_result):
     return text.strip()
 
 
+def move_sequence_id_last(metadata_json):
+    """Postgres jsonb does not preserve object-key insertion order -- it
+    reorders keys by (length, then lexicographically) on every write/read,
+    so "sequence_id" can land anywhere depending on the other keys' lengths.
+    Move it to the end here, at export time, so downloaded CSVs consistently
+    show it last regardless of how jsonb chose to store it.
+    """
+    if not isinstance(metadata_json, dict) or "sequence_id" not in metadata_json:
+        return metadata_json
+    metadata_json = dict(metadata_json)
+    metadata_json["sequence_id"] = metadata_json.pop("sequence_id")
+    return metadata_json
+
+
 def process_task(
     task,
     export_type,
@@ -609,10 +623,20 @@ def process_task(
 
     task_dict["data"]["annotator_email"] = annotator_email
 
-    if include_input_data_metadata_json and dataset_model:
-        task_dict["data"]["input_data_metadata_json"] = dataset_model.objects.get(
-            pk=task_dict["input_data"]
-        ).metadata_json
+    # Always include the dataset item's own metadata_json as its own CSV
+    # column on every download -- previously this only appeared when the
+    # include_input_data_metadata_json query param was set, which the
+    # standard "Download Project" button never sends. task.input_data is
+    # already fetched (the download queryset select_relateds it), so this
+    # needs no extra query.
+    if task.input_data is not None:
+        task_dict["data"]["metadata_json"] = move_sequence_id_last(
+            task.input_data.metadata_json
+        )
+    elif include_input_data_metadata_json and dataset_model:
+        task_dict["data"]["metadata_json"] = move_sequence_id_last(
+            dataset_model.objects.get(pk=task_dict["input_data"]).metadata_json
+        )
     try:
         if fetch_parent_data_field and dataset_model:
             parent_data_item = dataset_model.objects.get(
