@@ -363,7 +363,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         dataset_model = apps.get_model("dataset", dataset_instance.dataset_type)
-        data_items = dataset_model.objects.filter(instance_id=pk)
+        data_items = dataset_model.objects.filter(instance_id=pk).order_by("id")
         field_names = set([field.name for field in dataset_model._meta.get_fields()])
         for key, value in request.GET.items():
             if key in field_names:
