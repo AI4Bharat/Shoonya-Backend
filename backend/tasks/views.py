@@ -2009,6 +2009,10 @@ class AnnotationViewSet(
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
+                            is not None
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
                             == 1
                         ),
                     )
@@ -2067,6 +2071,10 @@ class AnnotationViewSet(
                             and annotation_obj.task.project_id.metadata_json
                             and "acoustic_enabled_stage"
                             in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            is not None
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
@@ -2146,6 +2154,10 @@ class AnnotationViewSet(
                             and annotation_obj.task.project_id.metadata_json
                             and "acoustic_enabled_stage"
                             in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            is not None
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
@@ -2247,6 +2259,10 @@ class AnnotationViewSet(
                             and annotation_obj.task.project_id.metadata_json
                             and "acoustic_enabled_stage"
                             in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            is not None
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
@@ -2355,6 +2371,10 @@ class AnnotationViewSet(
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
+                            is not None
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
                             <= 3
                         ),
                     )
@@ -2443,6 +2463,10 @@ class AnnotationViewSet(
                             and annotation_obj.task.project_id.metadata_json
                             and "acoustic_enabled_stage"
                             in annotation_obj.task.project_id.metadata_json
+                            and annotation_obj.task.project_id.metadata_json[
+                                "acoustic_enabled_stage"
+                            ]
+                            is not None
                             and annotation_obj.task.project_id.metadata_json[
                                 "acoustic_enabled_stage"
                             ]
