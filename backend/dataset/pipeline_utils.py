@@ -279,9 +279,6 @@ def get_project_config_for_language(language):
     }
 
 
-_BATCH_TITLE_RE_CACHE = {}
-
-
 def build_project_title(language, part, row_type, batch_number):
     part_token = part.replace(" ", "")
     return f"JT-{part_token}-{language}-[{row_type}]-[B{batch_number}]"
@@ -301,23 +298,27 @@ def get_latest_project_for_group(dataset_instance, language, part, row_type):
     "is this batch number 1" -- since once every existing project for a
     group is already full, the next batch should be created immediately
     just like a first-ever one would be, regardless of its count.
+
+    Matches group membership via `filter_string` (which always starts with
+    the exact `domain=...` this group's items are filtered by) rather than
+    parsing `title` -- title is user-editable (renaming a project is a
+    normal action), so keying off it made batch tracking silently break the
+    moment someone renamed a project.
     """
-    from projects.models import Project
+    from projects.models import BATCH, Project
 
-    part_token = part.replace(" ", "")
-    prefix = f"JT-{part_token}-{language}-[{row_type}]-[B"
-    pattern = re.compile(re.escape(prefix) + r"(\d+)\]$")
+    domain = get_domain(row_type, part)
+    domain_prefix = urlencode({"domain": domain})
 
-    latest_project = None
-    max_batch = 0
-    for project in Project.objects.filter(
-        dataset_id=dataset_instance, title__startswith=prefix
-    ):
-        match = pattern.match(project.title)
-        if match and int(match.group(1)) > max_batch:
-            max_batch = int(match.group(1))
-            latest_project = project
-    return latest_project, max_batch + 1
+    group_projects = Project.objects.filter(
+        dataset_id=dataset_instance,
+        sampling_mode=BATCH,
+        filter_string__startswith=domain_prefix,
+    ).order_by("-id")
+
+    latest_project = group_projects.first()
+    next_batch_number = group_projects.count() + 1
+    return latest_project, next_batch_number
 
 
 def build_unassigned_filter_string(domain, last_assigned_id):

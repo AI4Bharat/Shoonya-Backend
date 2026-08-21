@@ -4313,7 +4313,7 @@ url_name="populate_asr_model_predictions")
                 "correct_annotation", "correct_annotation__completed_by", "project_id", "input_data"
             ).prefetch_related(
                 "annotations", "annotations__completed_by", "annotation_users"
-            )
+            ).order_by("id")
 
             if "task_status" in dict(request.query_params):
                 task_status = request.query_params["task_status"]

@@ -705,9 +705,4 @@ def process_task(
         else:
             task_dict["data"]["wer_r_s"] = None
 
-    if is_audio_project_type:
-        data = task_dict["data"]
-        del data["audio_url"]
-        task_dict["data"] = data
-
     return OrderedDict(task_dict)

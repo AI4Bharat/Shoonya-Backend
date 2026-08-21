@@ -501,6 +501,64 @@ def create_dataset_and_project_pipeline(self, input_csv_string, config):
     }
 
 
+def get_last_assigned_id(dataset_instance, domain):
+    """Highest dataset item id already pulled into any project for this
+    domain -- items past this id (for the same domain) haven't been added
+    to a project yet."""
+    return (
+        Task.objects.filter(
+            project_id__dataset_id=dataset_instance,
+            input_data__speechconversation__domain=domain,
+        ).aggregate(Max("input_data_id"))["input_data_id__max"]
+        or 0
+    )
+
+
+def get_dataset_pipeline_stats(dataset_instance):
+    """Per-category totals and unassigned (not yet pulled into any project)
+    counts for a dataset instance -- lets the Create Project form show how
+    much of the dataset is still available before the user picks a category.
+    """
+    SpeechConversation = apps.get_model("dataset", "SpeechConversation")
+    stats = {}
+    for category in TASK_LIMITS:
+        total = SpeechConversation.objects.filter(
+            instance_id=dataset_instance, scenario=category
+        ).count()
+        if total == 0:
+            continue
+        domains = (
+            SpeechConversation.objects.filter(instance_id=dataset_instance, scenario=category)
+            .values_list("domain", flat=True)
+            .distinct()
+        )
+        unassigned = 0
+        for domain in domains:
+            last_assigned_id = get_last_assigned_id(dataset_instance, domain)
+            unassigned += SpeechConversation.objects.filter(
+                instance_id=dataset_instance, domain=domain, id__gt=last_assigned_id
+            ).count()
+        stats[category] = {"total": total, "unassigned": unassigned}
+    return stats
+
+
+def get_dataset_combined_stats(dataset_instance):
+    """Dataset-type-agnostic total vs. unassigned (never pulled into any
+    project's tasks) count for the whole dataset instance -- used for
+    datasets that don't split into Read/Extempore categories, where a
+    per-category breakdown wouldn't mean anything."""
+    from dataset.models import DatasetBase
+
+    total = DatasetBase.objects.filter(instance_id=dataset_instance).count()
+    assigned = (
+        Task.objects.filter(input_data__instance_id=dataset_instance)
+        .values("input_data_id")
+        .distinct()
+        .count()
+    )
+    return {"total": total, "unassigned": max(total - assigned, 0)}
+
+
 def create_projects_for_dataset_category(
     dataset_instance, category, workspace_id, organisation_id, user_id
 ):
@@ -552,13 +610,7 @@ def create_projects_for_dataset_category(
         if not part:
             continue
 
-        last_assigned_id = (
-            Task.objects.filter(
-                project_id__dataset_id=dataset_instance,
-                input_data__speechconversation__domain=domain,
-            ).aggregate(Max("input_data_id"))["input_data_id__max"]
-            or 0
-        )
+        last_assigned_id = get_last_assigned_id(dataset_instance, domain)
         unassigned_count = SpeechConversation.objects.filter(
             instance_id=dataset_instance, domain=domain, id__gt=last_assigned_id
         ).count()

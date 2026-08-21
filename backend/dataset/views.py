@@ -46,6 +46,8 @@ from .tasks import (
     deduplicate_dataset_instance_items,
     create_dataset_and_project_pipeline,
     create_projects_for_dataset_category,
+    get_dataset_pipeline_stats,
+    get_dataset_combined_stats,
 )
 from .pipeline_utils import parse_input_csv, validate_input_csv, TASK_LIMITS
 import dataset
@@ -242,6 +244,7 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         "pipeline_progress",
         "create_pipeline_projects",
         "pipeline_dataset_language",
+        "pipeline_dataset_stats",
     ]
 
     def get_permissions(self):
@@ -656,6 +659,37 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             .first()
         )
         return Response({"language": language}, status=status.HTTP_200_OK)
+
+    @is_organization_owner_or_admin
+    @action(methods=["GET"], detail=True, name="Get Dataset's Pipeline Stats")
+    def pipeline_dataset_stats(self, request, pk):
+        """
+        Returns how many of this dataset instance's items are still
+        unassigned (not yet pulled into any project) out of the total --
+        shown on the Create Project form and the dataset details page.
+
+        `categories` breaks this down per category (Read/Extempore) when the
+        dataset has them (JT pipeline datasets always do); `combined` is the
+        same total-vs-unassigned count for the whole dataset regardless of
+        category, for dataset types that don't split into categories at all.
+        URL: /data/instances/<pk>/pipeline_dataset_stats/
+        Accepted methods: GET
+        """
+        try:
+            dataset_instance = DatasetInstance.objects.get(pk=pk)
+        except DatasetInstance.DoesNotExist:
+            return Response(
+                {"message": "Dataset instance not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            {
+                "categories": get_dataset_pipeline_stats(dataset_instance),
+                "combined": get_dataset_combined_stats(dataset_instance),
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @is_organization_owner_or_admin
     @action(methods=["POST"], detail=False, name="Create Projects For Dataset Category")
