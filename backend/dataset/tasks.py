@@ -574,7 +574,9 @@ def create_projects_for_dataset_category(
         category (str): "Read" or "Extempore"
         workspace_id (int): Vendor/workspace the new project(s) should belong to
         organisation_id (int): Organisation the new project(s) should belong to
-        user_id (int): User triggering creation; set as creator/annotator/reviewer
+        user_id (int): User triggering creation; set as the project's created_by
+            only -- the actual annotator/reviewer role is the shoonya system
+            account (id=1), added automatically by create_automatic_annotations
     """
     from projects.models import BATCH, REVIEW_STAGE, Project
     from projects.tasks import (
@@ -695,8 +697,6 @@ def create_projects_for_dataset_category(
                 "automatic_annotation_creation_mode": "annotation",
             },
         )
-        project.annotators.add(user_id)
-        project.annotation_reviewers.add(user_id)
         project.dataset_id.add(dataset_instance)
 
         create_parameters_for_task_creation.delay(
