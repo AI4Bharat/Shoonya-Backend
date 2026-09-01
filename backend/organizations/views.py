@@ -1237,6 +1237,9 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     total_word_superchecked_count = sum(
                         total_word_superchecked_count_list
                     )
+                    total_word_error_rate_rs_list = []
+                    total_word_error_rate_ar_list = []
+                    total_raw_duration_list = []
 
                     total_duration_annotated_count_list = []
                     total_duration_reviewed_count_list = []
@@ -1268,6 +1271,13 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                         review_annotation.result
                                     )
                                 )
+                                total_word_error_rate_ar_list.append(
+                                    calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                        review_annotation.result,
+                                        review_annotation.parent_annotation.result,
+                                        project_type,
+                                    )
+                                )
                             except:
                                 pass
 
@@ -1291,6 +1301,21 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                                         supercheck_annotation.result
                                     )
                                 )
+                                total_word_error_rate_rs_list.append(
+                                    calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                        supercheck_annotation.result,
+                                        supercheck_annotation.parent_annotation.result,
+                                        project_type,
+                                    )
+                                )
+                            except:
+                                pass
+
+                        for each_task in all_tasks:
+                            try:
+                                total_raw_duration_list.append(
+                                    each_task.data["audio_duration"]
+                                )
                             except:
                                 pass
 
@@ -1306,6 +1331,22 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                     total_duration_superchecked_count = convert_seconds_to_hours(
                         sum(total_duration_superchecked_count_list)
                     )
+                    total_raw_duration = convert_seconds_to_hours(
+                        sum(total_raw_duration_list)
+                    )
+
+                    if len(total_word_error_rate_rs_list) > 0:
+                        avg_word_error_rate_rs = sum(
+                            total_word_error_rate_rs_list
+                        ) / len(total_word_error_rate_rs_list)
+                    else:
+                        avg_word_error_rate_rs = 0
+                    if len(total_word_error_rate_ar_list) > 0:
+                        avg_word_error_rate_ar = sum(
+                            total_word_error_rate_ar_list
+                        ) / len(total_word_error_rate_ar_list)
+                    else:
+                        avg_word_error_rate_ar = 0
 
                     if total_tasks == 0:
                         project_progress = 0.0
@@ -1342,8 +1383,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         "Reviewed Tasks Word Count": total_word_reviewed_count,
                         "Exported Tasks Word Count": total_word_exported_count,
                         "SuperChecked Tasks Word Count": total_word_superchecked_count,
+                        "Average Word Error Rate A/R": round(avg_word_error_rate_ar, 2),
+                        "Average Word Error Rate R/S": round(avg_word_error_rate_rs, 2),
                         "Project Progress": round(project_progress, 3),
                     }
+                    print("result")
 
                     if project_type in get_audio_project_types():
                         del result["Annotated Tasks Word Count"]
@@ -1370,6 +1414,10 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                         del result["Reviewed Tasks Audio Duration"]
                         del result["Exported Tasks Audio Duration"]
                         del result["SuperChecked Tasks Audio Duration"]
+                        del result["Total Raw Audio Duration"]
+                        del result["Average Word Error Rate A/R"]
+                        del result["Average Word Error Rate R/S"]
+
 
                     final_result.append(result)
             return Response(final_result)
