@@ -1220,7 +1220,7 @@ def send_project_analytics_mail_org(
     print("📩 Analytics Mail Task")
     print("Org ID:", org_id)
     print("Workspace IDs:", workspace_ids)
-    
+
     if sort_by_column_name == None:
         sort_by_column_name = "User Name"
 
@@ -1245,7 +1245,7 @@ def send_project_analytics_mail_org(
         )
     print("Projects count:", projects_obj.count())
     print("Project IDs:", list(projects_obj.values_list("id", flat=True)))
-        
+
     final_result = []
     if projects_obj.count() != 0:
         for proj in projects_obj:
@@ -1386,6 +1386,10 @@ def send_project_analytics_mail_org(
             total_word_exported_count = sum(total_word_exported_count_list)
             total_word_superchecked_count = sum(total_word_superchecked_count_list)
 
+            # --- WER tracking lists (previously missing in this task) ---
+            total_word_error_rate_ar_list = []
+            total_word_error_rate_rs_list = []
+
             total_duration_annotated_count_list = []
             total_duration_reviewed_count_list = []
             total_duration_exported_count_list = []
@@ -1412,6 +1416,14 @@ def send_project_analytics_mail_org(
                         total_duration_reviewed_count_list.append(
                             get_audio_transcription_duration(review_annotation.result)
                         )
+                        # --- WER: Annotator vs Reviewer ---
+                        total_word_error_rate_ar_list.append(
+                            calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                review_annotation.result,
+                                review_annotation.parent_annotation.result,
+                                project_type,
+                            )
+                        )
                     except:
                         pass
 
@@ -1434,6 +1446,14 @@ def send_project_analytics_mail_org(
                                 supercheck_annotation.result
                             )
                         )
+                        # --- WER: Reviewer vs Superchecker ---
+                        total_word_error_rate_rs_list.append(
+                            calculate_word_error_rate_between_two_audio_transcription_annotation(
+                                supercheck_annotation.result,
+                                supercheck_annotation.parent_annotation.result,
+                                project_type,
+                            )
+                        )
                     except:
                         pass
 
@@ -1449,6 +1469,21 @@ def send_project_analytics_mail_org(
             total_duration_superchecked_count = convert_seconds_to_hours(
                 sum(total_duration_superchecked_count_list)
             )
+
+            # --- Average WER computation (previously missing in this task) ---
+            if len(total_word_error_rate_ar_list) > 0:
+                avg_word_error_rate_ar = sum(total_word_error_rate_ar_list) / len(
+                    total_word_error_rate_ar_list
+                )
+            else:
+                avg_word_error_rate_ar = 0
+
+            if len(total_word_error_rate_rs_list) > 0:
+                avg_word_error_rate_rs = sum(total_word_error_rate_rs_list) / len(
+                    total_word_error_rate_rs_list
+                )
+            else:
+                avg_word_error_rate_rs = 0
 
             if total_tasks == 0:
                 project_progress = 0.0
@@ -1485,10 +1520,14 @@ def send_project_analytics_mail_org(
                 "Reviewed Tasks Word Count": total_word_reviewed_count,
                 "Exported Tasks Word Count": total_word_exported_count,
                 "SuperChecked Tasks Word Count": total_word_superchecked_count,
+                # --- New WER fields (previously missing) ---
+                "Average Word Error Rate A/R": round(avg_word_error_rate_ar, 2),
+                "Average Word Error Rate R/S": round(avg_word_error_rate_rs, 2),
                 "Project Progress": round(project_progress, 3),
             }
 
             if project_type in get_audio_project_types():
+                # Audio projects: drop word-count fields, keep WER fields
                 del result["Annotated Tasks Word Count"]
                 del result["Reviewed Tasks Word Count"]
                 del result["Exported Tasks Word Count"]
@@ -1500,11 +1539,16 @@ def send_project_analytics_mail_org(
                 "OCRESTTranscriptionEditing",
                 "OCRTranscription",
             ]:
+                # Text/translation/OCR projects: drop audio-duration and WER fields
+                # (WER is only meaningful for audio transcription projects)
                 del result["Annotated Tasks Audio Duration"]
                 del result["Reviewed Tasks Audio Duration"]
                 del result["Exported Tasks Audio Duration"]
                 del result["SuperChecked Tasks Audio Duration"]
+                del result["Average Word Error Rate A/R"]
+                del result["Average Word Error Rate R/S"]
             else:
+                # Any other project type: drop everything audio/word/WER related
                 del result["Annotated Tasks Word Count"]
                 del result["Reviewed Tasks Word Count"]
                 del result["Exported Tasks Word Count"]
@@ -1513,6 +1557,8 @@ def send_project_analytics_mail_org(
                 del result["Reviewed Tasks Audio Duration"]
                 del result["Exported Tasks Audio Duration"]
                 del result["SuperChecked Tasks Audio Duration"]
+                del result["Average Word Error Rate A/R"]
+                del result["Average Word Error Rate R/S"]
 
             final_result.append(result)
 
