@@ -199,6 +199,13 @@ class Task(models.Model):
     def __str__(self):
         return str(self.id)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["project_id", "task_status"]),
+            models.Index(fields=["project_id", "review_user"]),
+            models.Index(fields=["project_id", "super_check_user"]),
+        ]
+
 
 class Annotation(models.Model):
     """
@@ -269,6 +276,11 @@ class Annotation(models.Model):
             "task",
             "completed_by",
         )
+        indexes = [
+            models.Index(fields=["annotation_type", "annotation_status"]),
+            models.Index(fields=["completed_by", "annotation_type"]),
+            models.Index(fields=["task", "annotation_type"]),
+        ]
 
 
 class Statistic(models.Model):
