@@ -300,7 +300,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("id")
+                        ann_filter1 = (
+                            ann.filter(task__in=tasks)
+                            .select_related("completed_by")
+                            .order_by("id")
+                        )
 
                         task_objs = []
                         for an in ann_filter1:
@@ -312,9 +316,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         task_objs.sort(key=lambda x: x["id"])
                         final_dict = {}
                         ordered_tasks = []
+                        tasks_by_id = {
+                            t["id"]: t
+                            for t in Task.objects.filter(
+                                id__in=[to["id"] for to in task_objs]
+                            ).values()
+                        }
                         for task_obj in task_objs:
-                            tas = Task.objects.filter(id=task_obj["id"])
-                            tas = tas.values()[0]
+                            tas = dict(tasks_by_id[task_obj["id"]])
                             tas["annotation_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
                             ordered_tasks.append(tas)
@@ -394,7 +403,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     else:
                         tasks = tasks.exclude(id__in=tasks_editable_filter_list)
 
-                ann_filter1 = ann.filter(task__in=tasks).order_by("id")
+                ann_filter1 = (
+                    ann.filter(task__in=tasks)
+                    .select_related("completed_by")
+                    .order_by("id")
+                )
 
                 task_objs = []
                 for an in ann_filter1:
@@ -408,9 +421,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 final_dict = {}
                 ordered_tasks = []
                 proj_type = proj_objs[0].project_type
+                tasks_by_id = {
+                    t["id"]: t
+                    for t in Task.objects.filter(
+                        id__in=[to["id"] for to in task_objs]
+                    ).values()
+                }
                 for task_obj in task_objs:
-                    tas = Task.objects.filter(id=task_obj["id"])
-                    tas = tas.values()[0]
+                    tas = dict(tasks_by_id[task_obj["id"]])
                     tas["annotation_status"] = task_obj["annotation_status"]
                     tas["user_mail"] = task_obj["user_mail"]
                     if (ann_status[0] in ["labeled", "draft", "to_be_revised"]) and (
@@ -485,7 +503,11 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks).order_by("id")
+                        ann_filter1 = (
+                            ann.filter(task__in=tasks)
+                            .select_related("completed_by")
+                            .order_by("id")
+                        )
 
                         task_objs = []
                         for an in ann_filter1:
@@ -497,9 +519,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         task_objs.sort(key=lambda x: x["id"])
                         ordered_tasks = []
                         final_dict = {}
+                        tasks_by_id = {
+                            t["id"]: t
+                            for t in Task.objects.filter(
+                                id__in=[to["id"] for to in task_objs]
+                            ).values()
+                        }
                         for task_obj in task_objs:
-                            tas = Task.objects.filter(id=task_obj["id"])
-                            tas = tas.values()[0]
+                            tas = dict(tasks_by_id[task_obj["id"]])
                             tas["review_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
                             ordered_tasks.append(tas)
@@ -584,18 +611,41 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     else:
                         tasks = tasks.exclude(id__in=tasks_editable_filter_list)
 
-                ann_filter1 = ann.filter(task__in=tasks).order_by("id")
+                ann_filter1 = list(
+                    ann.filter(task__in=tasks)
+                    .select_related(
+                        "completed_by",
+                        "parent_annotation",
+                        "parent_annotation__completed_by",
+                    )
+                    .order_by("id")
+                )
                 proj_type = proj_objs[0].project_type
+
+                # Bulk-check, once, which of these tasks already have an
+                # annotator-type annotation -- replaces a per-annotation
+                # `Annotation.objects.filter(task=an.task, ...)` query (which
+                # also implicitly fetched the whole Task row just to compare
+                # its id).
+                task_ids_in_page = [an.task_id for an in ann_filter1]
+                task_ids_with_annotator_annotation = set(
+                    Annotation.objects.filter(
+                        task_id__in=task_ids_in_page,
+                        annotation_type=ANNOTATOR_ANNOTATION,
+                    ).values_list("task_id", flat=True)
+                )
 
                 task_objs = []
                 for an in ann_filter1:
                     task_obj = {}
-                    parent_annotator_object = Annotation.objects.filter(
-                        id=an.parent_annotation_id
+                    # `parent_annotation` is select_related above, so this is
+                    # free (no query) -- equivalent to the old
+                    # `Annotation.objects.filter(id=an.parent_annotation_id)`.
+                    parent_annotator_object = (
+                        [an.parent_annotation] if an.parent_annotation_id else []
                     )
-                    first_annotator_object = Annotation.objects.filter(
-                        task=an.task,
-                        annotation_type=ANNOTATOR_ANNOTATION,
+                    has_first_annotator_annotation = (
+                        an.task_id in task_ids_with_annotator_annotation
                     )
                     task_obj["id"] = an.task_id
                     task_obj["annotation_status"] = an.annotation_status
@@ -603,7 +653,7 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                     task_obj["reviewer_annotation"] = an.result
                     task_obj["first_annotator_annotation"] = (
                         parent_annotator_object[0].result
-                        if first_annotator_object
+                        if has_first_annotator_annotation
                         else "-"
                     )
                     task_obj["parent_annotator_annotation"] = (
@@ -620,9 +670,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 task_objs.sort(key=lambda x: x["id"])
                 ordered_tasks = []
                 final_dict = {}
+                tasks_by_id = {
+                    t["id"]: t
+                    for t in Task.objects.filter(
+                        id__in=[to["id"] for to in task_objs]
+                    ).values()
+                }
                 for task_obj in task_objs:
-                    tas = Task.objects.filter(id=task_obj["id"])
-                    tas = tas.values()[0]
+                    tas = dict(tasks_by_id[task_obj["id"]])
                     tas["review_status"] = task_obj["annotation_status"]
                     tas["user_mail"] = task_obj["user_mail"]
                     tas["annotator_mail"] = task_obj["parent_annotator_mail"]
@@ -720,7 +775,9 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                                     request.GET, "data", list(tasks.first().data.keys())
                                 )
                             )
-                        ann_filter1 = ann.filter(task__in=tasks)
+                        ann_filter1 = ann.filter(task__in=tasks).select_related(
+                            "completed_by"
+                        )
                         task_objs = []
                         for an in ann_filter1:
                             task_obj = {}
@@ -731,9 +788,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         task_objs.sort(key=lambda x: x["id"])
                         ordered_tasks = []
                         final_dict = {}
+                        tasks_by_id = {
+                            t["id"]: t
+                            for t in Task.objects.filter(
+                                id__in=[to["id"] for to in task_objs]
+                            ).values()
+                        }
                         for task_obj in task_objs:
-                            tas = Task.objects.filter(id=task_obj["id"])
-                            tas = tas.values()[0]
+                            tas = dict(tasks_by_id[task_obj["id"]])
                             tas["supercheck_status"] = task_obj["annotation_status"]
                             tas["user_mail"] = task_obj["user_mail"]
                             ordered_tasks.append(tas)
@@ -789,16 +851,32 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                ann_filter1 = ann.filter(task__in=tasks).order_by("id")
+                ann_filter1 = (
+                    ann.filter(task__in=tasks)
+                    .select_related(
+                        "completed_by",
+                        "parent_annotation",
+                        "parent_annotation__completed_by",
+                        "parent_annotation__parent_annotation",
+                        "parent_annotation__parent_annotation__completed_by",
+                    )
+                    .order_by("id")
+                )
 
                 task_objs = []
                 for an in ann_filter1:
                     task_obj = {}
-                    reviewer_object = Annotation.objects.filter(
-                        id=an.parent_annotation_id
+                    # Both prefetched via select_related above -- equivalent
+                    # to the old `Annotation.objects.filter(id=...)` lookups,
+                    # zero extra queries.
+                    reviewer_object = (
+                        [an.parent_annotation] if an.parent_annotation_id else []
                     )
-                    annotator_object = Annotation.objects.filter(
-                        id=an.parent_annotation.parent_annotation_id
+                    annotator_object = (
+                        [an.parent_annotation.parent_annotation]
+                        if an.parent_annotation_id
+                        and an.parent_annotation.parent_annotation_id
+                        else []
                     )
                     task_obj["id"] = an.task_id
                     task_obj["annotation_status"] = an.annotation_status
@@ -823,9 +901,14 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                 ordered_tasks = []
                 final_dict = {}
                 proj_type = proj_objs[0].project_type
+                tasks_by_id = {
+                    t["id"]: t
+                    for t in Task.objects.filter(
+                        id__in=[to["id"] for to in task_objs]
+                    ).values()
+                }
                 for task_obj in task_objs:
-                    tas = Task.objects.filter(id=task_obj["id"])
-                    tas = tas.values()[0]
+                    tas = dict(tasks_by_id[task_obj["id"]])
                     tas["supercheck_status"] = task_obj["annotation_status"]
                     tas["user_mail"] = task_obj["user_mail"]
                     tas["reviewer_mail"] = task_obj["reviewer_mail"]
