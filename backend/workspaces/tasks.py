@@ -1146,6 +1146,8 @@ def send_project_analysis_reports_mail_ws(
                 del result["Average Word Error Rate A/R"]
                 del result["Average Word Error Rate R/S"]
 
+            final_result.append(result)
+
     df = pd.DataFrame.from_dict(final_result)
 
     content = df.to_csv(index=False)
