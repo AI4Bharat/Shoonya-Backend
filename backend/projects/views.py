@@ -154,15 +154,41 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     total_task_count = total_tasks.count()
 
-    accepted_objs = Annotation_model.objects.filter(
-        annotation_status="accepted",
+    # ── Single aggregated query for all status counts ──────────────
+    # Replaces 7 separate .filter(annotation_status=X).count() round-trips
+    # with one DB call.
+    _base_qs = Annotation_model.objects.filter(
         task__project_id=proj_id,
         task__review_user=userid,
         annotation_type=REVIEWER_ANNOTATION,
         updated_at__range=[start_date, end_date],
     )
 
-    accepted_objs_count = accepted_objs.count()
+    _counts = _base_qs.aggregate(
+        accepted_count=Count("id", filter=Q(annotation_status="accepted")),
+        minor_count=Count(
+            "id", filter=Q(annotation_status="accepted_with_minor_changes")
+        ),
+        major_count=Count(
+            "id", filter=Q(annotation_status="accepted_with_major_changes")
+        ),
+        unreviewed_count=Count("id", filter=Q(annotation_status="unreviewed")),
+        draft_count=Count("id", filter=Q(annotation_status="draft")),
+        skipped_count=Count("id", filter=Q(annotation_status="skipped")),
+        to_be_revised_count=Count("id", filter=Q(annotation_status="to_be_revised")),
+    )
+
+    accepted_objs_count = _counts["accepted_count"]
+    minor_changes_count = _counts["minor_count"]
+    major_changes_count = _counts["major_count"]
+    unreviewed_count = _counts["unreviewed_count"]
+    draft_count = _counts["draft_count"]
+    skipped_count = _counts["skipped_count"]
+    to_be_revised_tasks_count = _counts["to_be_revised_count"]
+
+    # We still need the actual querysets for the superchecked-parent lookups
+    # below, but only for the accepted/minor/major statuses.
+    accepted_objs = _base_qs.filter(annotation_status="accepted")
 
     superchecked_accepted_annos = Annotation_model.objects.filter(
         parent_annotation_id__in=accepted_objs,
@@ -176,15 +202,9 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     accepted_objs_only = accepted_objs_count - superchecked_accepted_annos_count
 
-    minor_changes = Annotation_model.objects.filter(
+    minor_changes = _base_qs.filter(
         annotation_status="accepted_with_minor_changes",
-        task__project_id=proj_id,
-        task__review_user=userid,
-        annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
     )
-
-    minor_changes_count = minor_changes.count()
 
     superchecked_minor_annos = Annotation_model.objects.filter(
         parent_annotation_id__in=minor_changes,
@@ -198,16 +218,9 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     minor_changes_only = minor_changes_count - superchecked_minor_annos_count
 
-    major_changes = Annotation_model.objects.filter(
+    major_changes = _base_qs.filter(
         annotation_status="accepted_with_major_changes",
-        task__project_id=proj_id,
-        task__review_user=userid,
-        annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
     )
-
-    major_changes_count = major_changes.count()
-    # minor_changes, major_changes = minor_major_accepted_task(acceptedwtchange_objs)
 
     superchecked_major_annos = Annotation_model.objects.filter(
         parent_annotation_id__in=major_changes,
@@ -221,37 +234,6 @@ def get_review_reports(proj_id, userid, start_date, end_date):
 
     major_changes_only = major_changes_count - superchecked_major_annos_count
 
-    unreviewed_count = Annotation_model.objects.filter(
-        annotation_status="unreviewed",
-        task__project_id=proj_id,
-        task__review_user=userid,
-        annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-    ).count()
-
-    draft_count = Annotation_model.objects.filter(
-        annotation_status="draft",
-        task__project_id=proj_id,
-        task__review_user=userid,
-        annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-    ).count()
-
-    skipped_count = Annotation_model.objects.filter(
-        annotation_status="skipped",
-        task__project_id=proj_id,
-        task__review_user=userid,
-        annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-    ).count()
-
-    to_be_revised_tasks_count = Annotation_model.objects.filter(
-        annotation_status="to_be_revised",
-        task__project_id=proj_id,
-        task__review_user=userid,
-        annotation_type=REVIEWER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-    ).count()
 
     total_rev_annos = Annotation_model.objects.filter(
         task__project_id=proj_id,
@@ -481,65 +463,38 @@ def get_supercheck_reports(proj_id, userid, start_date, end_date):
 
     total_task_count = total_tasks.count()
 
-    validated_objs = Annotation_model.objects.filter(
-        annotation_status="validated",
+    # ── Single aggregated query for all supercheck status counts ────
+    _sc_base_qs = Annotation_model.objects.filter(
         task__project_id=proj_id,
         task__super_check_user=userid,
         annotation_type=SUPER_CHECKER_ANNOTATION,
         updated_at__range=[start_date, end_date],
     )
 
-    validated_objs_count = validated_objs.count()
-
-    validated_with_changes_objs = Annotation_model.objects.filter(
-        annotation_status="validated_with_changes",
-        task__project_id=proj_id,
-        task__super_check_user=userid,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+    _sc_counts = _sc_base_qs.aggregate(
+        validated_count=Count("id", filter=Q(annotation_status="validated")),
+        validated_with_changes_count=Count(
+            "id", filter=Q(annotation_status="validated_with_changes")
+        ),
+        unvalidated_count=Count("id", filter=Q(annotation_status="unvalidated")),
+        rejected_count=Count("id", filter=Q(annotation_status="rejected")),
+        skipped_count=Count("id", filter=Q(annotation_status="skipped")),
+        draft_count=Count("id", filter=Q(annotation_status="draft")),
     )
 
-    validated_with_changes_objs_count = validated_with_changes_objs.count()
+    validated_objs_count = _sc_counts["validated_count"]
+    validated_with_changes_objs_count = _sc_counts["validated_with_changes_count"]
+    unvalidated_objs_count = _sc_counts["unvalidated_count"]
+    rejected_objs_count = _sc_counts["rejected_count"]
+    skipped_objs_count = _sc_counts["skipped_count"]
+    draft_objs_count = _sc_counts["draft_count"]
 
-    unvalidated_objs = Annotation_model.objects.filter(
-        annotation_status="unvalidated",
-        task__project_id=proj_id,
-        task__super_check_user=userid,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
+    # Still needed below for per-annotation word/duration/WER iteration.
+    validated_objs = _sc_base_qs.filter(annotation_status="validated")
+    validated_with_changes_objs = _sc_base_qs.filter(
+        annotation_status="validated_with_changes"
     )
-
-    unvalidated_objs_count = unvalidated_objs.count()
-
-    rejected_objs = Annotation_model.objects.filter(
-        annotation_status="rejected",
-        task__project_id=proj_id,
-        task__super_check_user=userid,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-    )
-
-    rejected_objs_count = rejected_objs.count()
-
-    skipped_objs = Annotation_model.objects.filter(
-        annotation_status="skipped",
-        task__project_id=proj_id,
-        task__super_check_user=userid,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-    )
-
-    skipped_objs_count = skipped_objs.count()
-
-    draft_objs = Annotation_model.objects.filter(
-        annotation_status="draft",
-        task__project_id=proj_id,
-        task__super_check_user=userid,
-        annotation_type=SUPER_CHECKER_ANNOTATION,
-        updated_at__range=[start_date, end_date],
-    )
-
-    draft_objs_count = draft_objs.count()
+    rejected_objs = _sc_base_qs.filter(annotation_status="rejected")
 
     total_sup_annos = Annotation_model.objects.filter(
         task__project_id=proj_id,
@@ -831,19 +786,22 @@ def get_task_creation_status(pk) -> str:
     return ""
 
 
-def get_project_creation_status(pk) -> str:
+def get_project_creation_status(pk, project=None) -> str:
     # sourcery skip: use-named-expression
     """Function to return the status of the project that is queried.
 
     Args:
         pk (int): The primary key of the project
+        project (Project, optional): Already-fetched project object, to
+            avoid re-querying it when the caller already has one on hand.
 
     Returns:
         str: Project Status
     """
 
-    # Get the project object
-    project = Project.objects.get(pk=pk)
+    # Get the project object (unless the caller already fetched one)
+    if project is None:
+        project = Project.objects.get(pk=pk)
 
     # Create the keyword argument for project ID
     project_id_keyword_arg = "'project_id': " + str(pk) + "}"
@@ -872,8 +830,9 @@ def get_project_creation_status(pk) -> str:
         return "Draft"
 
 
-def get_task_count_unassigned(pk, user):
-    project = Project.objects.get(pk=pk)
+def get_task_count_unassigned(pk, user, project=None):
+    if project is None:
+        project = Project.objects.get(pk=pk)
     required_annotators_per_task = project.required_annotators_per_task
 
     proj_tasks = Task.objects.filter(project_id=pk).exclude(annotation_users=user)
@@ -1322,6 +1281,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """
         project_response = super().retrieve(request, *args, **kwargs)
 
+        # Fetched once and reused below -- get_project_creation_status and
+        # get_task_count_unassigned each used to independently re-fetch this
+        # same row via their own Project.objects.get(pk=pk).
+        project = Project.objects.get(pk=pk)
+
         datasets = (
             DatasetInstance.objects.only("instance_id", "instance_name")
             .filter(instance_id__in=project_response.data["dataset_id"])
@@ -1331,7 +1295,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project_response.data.pop("dataset_id")
 
         # Add a new field to the project response to indicate project status
-        project_response.data["status"] = get_project_creation_status(pk)
+        project_response.data["status"] = get_project_creation_status(
+            pk, project=project
+        )
         project_response.data["task_creation_status"] = get_task_creation_status(pk)
         # Add a new field to the project to indicate the async project export status and last export date
         (
@@ -1357,27 +1323,33 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         # Add a field to specify the no. of available tasks to be assigned
         project_response.data["unassigned_task_count"] = get_task_count_unassigned(
-            pk, request.user
+            pk, request.user, project=project
         )
 
-        # Add a field to specify the no. of labeled tasks
-        project_response.data["labeled_task_count"] = (
-            Task.objects.filter(project_id=pk)
-            .filter(task_status=ANNOTATED)
-            .filter(review_user__isnull=True)
-            .exclude(annotation_users=request.user.id)
-            .count()
+        # Combined count query for labeled and reviewed tasks (1 DB call instead of 2)
+        _project_tasks = Task.objects.filter(project_id=pk)
+        _task_counts = _project_tasks.aggregate(
+            labeled_count=Count(
+                "id",
+                filter=Q(
+                    task_status=ANNOTATED,
+                    review_user__isnull=True,
+                )
+                & ~Q(annotation_users=request.user.id),
+            ),
+            reviewed_count=Count(
+                "id",
+                filter=Q(
+                    task_status=REVIEWED,
+                    super_check_user__isnull=True,
+                )
+                & ~Q(annotation_users=request.user.id)
+                & ~Q(review_user=request.user.id),
+            ),
         )
+        project_response.data["labeled_task_count"] = _task_counts["labeled_count"]
+        project_response.data["reviewed_task_count"] = _task_counts["reviewed_count"]
 
-        # Add a field to specify the no. of reviewed tasks
-        project_response.data["reviewed_task_count"] = (
-            Task.objects.filter(project_id=pk)
-            .filter(task_status=REVIEWED)
-            .filter(super_check_user__isnull=True)
-            .exclude(annotation_users=request.user.id)
-            .exclude(review_user=request.user.id)
-            .count()
-        )
 
         return project_response
 
@@ -1426,10 +1398,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ):
                 annotations = Annotation_model.objects.filter(completed_by=request.user)
                 annotations = annotations.order_by("-updated_at")
+                # Pulls just the joined project id column in a single query
+                # instead of instantiating each annotation's Task, then each
+                # task's Project, one at a time in Python (up to 2 queries
+                # per annotation -- the original loop here).
                 project_ids = []
                 project_ids_set = set()
-                for annotation in annotations:
-                    project_id = annotation.task.project_id.id
+                for project_id in annotations.values_list(
+                    "task__project_id", flat=True
+                ):
                     if project_id not in project_ids_set:
                         project_ids.append(project_id)
                         project_ids_set.add(project_id)
@@ -1448,8 +1425,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             else:
                 projects = projects.order_by(F("published_at").desc(nulls_last=True))
 
-            projects_json = self.serializer_class(projects, many=True)
+            # Use the lightweight serializer (no nested M2M user lists)
+            # and eagerly load the FK/M2M fields it does reference.
+            projects = projects.select_related(
+                "created_by", "created_by__organization"
+            ).prefetch_related("dataset_id")
+
+            projects_json = ProjectSerializerOptimized(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
+
         except Exception:
             return Response(
                 {"message": "Please Login!"}, status=status.HTTP_400_BAD_REQUEST
@@ -1568,10 +1552,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ):
                 annotations = Annotation_model.objects.filter(completed_by=request.user)
                 annotations = annotations.order_by("-updated_at")
+                # Pulls just the joined project id column in a single query
+                # instead of instantiating each annotation's Task, then each
+                # task's Project, one at a time in Python (up to 2 queries
+                # per annotation -- the original loop here).
                 project_ids = []
                 project_ids_set = set()
-                for annotation in annotations:
-                    project_id = annotation.task.project_id.id
+                for project_id in annotations.values_list(
+                    "task__project_id", flat=True
+                ):
                     if project_id not in project_ids_set:
                         project_ids.append(project_id)
                         project_ids_set.add(project_id)
@@ -1589,6 +1578,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 )
             else:
                 projects = projects.order_by(F("published_at").desc(nulls_last=True))
+
+            # Without these, ProjectSerializerOptimized triggers one query per
+            # project for `created_by` (+ its nested organization) and one
+            # more for the `dataset_id` M2M field -- for a superuser seeing
+            # every project in the system this alone was ~2 extra queries per
+            # project, dwarfing everything else in this view.
+            projects = projects.select_related(
+                "created_by", "created_by__organization"
+            ).prefetch_related("dataset_id")
 
             projects_json = ProjectSerializerOptimized(projects, many=True)
             return Response(projects_json.data, status=status.HTTP_200_OK)
