@@ -385,23 +385,21 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                             request.GET, "data", list(tasks.first().data.keys())
                         )
                     )
-                # editable filter
+                # editable filter — single bulk query instead of per-task loop
                 if "editable" in dict(request.query_params):
-                    editable = False
-                    if request.query_params["editable"] in ["true", "True"]:
-                        editable = True
-                    tasks_editable_filter_list = []
-                    for task in tasks:
-                        annos = Annotation.objects.filter(
-                            task=task,
+                    editable = request.query_params["editable"] in ["true", "True"]
+                    # IDs of tasks that already have a reviewer annotation
+                    tasks_with_reviewer = set(
+                        Annotation.objects.filter(
+                            task__in=tasks,
                             annotation_type=REVIEWER_ANNOTATION,
-                        )
-                        if len(annos) == 0:
-                            tasks_editable_filter_list.append(task.id)
+                        ).values_list("task_id", flat=True)
+                    )
+                    # "editable" tasks are those WITHOUT a reviewer annotation
                     if editable:
-                        tasks = tasks.filter(id__in=tasks_editable_filter_list)
+                        tasks = tasks.exclude(id__in=tasks_with_reviewer)
                     else:
-                        tasks = tasks.exclude(id__in=tasks_editable_filter_list)
+                        tasks = tasks.filter(id__in=tasks_with_reviewer)
 
                 ann_filter1 = (
                     ann.filter(task__in=tasks)
@@ -593,23 +591,21 @@ class TaskViewSet(viewsets.ModelViewSet, mixins.ListModelMixin):
                         )
                     )
 
-                # editable filter
+                # editable filter — single bulk query instead of per-task loop
                 if "editable" in dict(request.query_params):
-                    editable = False
-                    if request.query_params["editable"] in ["true", "True"]:
-                        editable = True
-                    tasks_editable_filter_list = []
-                    for task in tasks:
-                        annos = Annotation.objects.filter(
-                            task=task,
+                    editable = request.query_params["editable"] in ["true", "True"]
+                    # IDs of tasks that already have a superchecker annotation
+                    tasks_with_supercheck = set(
+                        Annotation.objects.filter(
+                            task__in=tasks,
                             annotation_type=SUPER_CHECKER_ANNOTATION,
-                        )
-                        if len(annos) == 0:
-                            tasks_editable_filter_list.append(task.id)
+                        ).values_list("task_id", flat=True)
+                    )
+                    # "editable" tasks are those WITHOUT a superchecker annotation
                     if editable:
-                        tasks = tasks.filter(id__in=tasks_editable_filter_list)
+                        tasks = tasks.exclude(id__in=tasks_with_supercheck)
                     else:
-                        tasks = tasks.exclude(id__in=tasks_editable_filter_list)
+                        tasks = tasks.filter(id__in=tasks_with_supercheck)
 
                 ann_filter1 = list(
                     ann.filter(task__in=tasks)
