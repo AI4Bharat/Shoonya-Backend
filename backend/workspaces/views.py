@@ -63,6 +63,7 @@ from .tasks import (
     get_supercheck_reports,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
+from utils.date_range_analytics import analytics_date_bounds, cumulative_counts_in_range
 
 
 # import logging
@@ -1398,6 +1399,11 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             return Response(
                 {"message": "Workspace not found"}, status=status.HTTP_404_NOT_FOUND
             )
+        try:
+            bounds = analytics_date_bounds(request.query_params)
+        except ValueError as error:
+            return Response({"message": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
         metainfo = False
         if "metainfo" in dict(request.query_params):
             metainfo = request.query_params["metainfo"]
@@ -1428,6 +1434,12 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
         if "project_type" in dict(request.query_params):
             project_type = request.query_params["project_type"]
             project_types = [project_type]
+        if bounds is not None and metainfo is not True:
+            scoped_projects = Project.objects.filter(workspace_id=ws.pk)
+            return Response(
+                cumulative_counts_in_range(scoped_projects, project_types, bounds)
+            )
+
         final_result_for_all_types = {}
         for project_type in project_types:
             proj_objs = []

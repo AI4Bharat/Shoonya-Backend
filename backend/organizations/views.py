@@ -55,6 +55,7 @@ from .tasks import (
     send_user_analytics_mail_org,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
+from utils.date_range_analytics import analytics_date_bounds, cumulative_counts_in_range
 from django.contrib.auth import get_user_model
 
 
@@ -2880,6 +2881,11 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
+        try:
+            bounds = analytics_date_bounds(request.query_params)
+        except ValueError as error:
+            return Response({"message": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+
         metainfo = False
         if "metainfo" in dict(request.query_params):
             metainfo = request.query_params["metainfo"]
@@ -2913,6 +2919,16 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
         if "project_type" in dict(request.query_params):
             project_type = request.query_params["project_type"]
             project_types = [project_type]
+        if bounds is not None and metainfo is not True:
+            scoped_projects = Project.objects.filter(organization_id=organization.pk)
+            if not request.user.is_authenticated:
+                scoped_projects = scoped_projects.filter(
+                    workspace_id__public_analytics=True
+                )
+            return Response(
+                cumulative_counts_in_range(scoped_projects, project_types, bounds)
+            )
+
         final_result_for_all_types = {}
         for project_type in project_types:
             proj_objs = []
