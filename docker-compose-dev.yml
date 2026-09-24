@@ -16,6 +16,30 @@ services:
       - "80:80"
       - "443:443"
     restart: unless-stopped
+    depends_on:
+      - coraza-waf
+
+  # OWASP Coraza WAF (with the OWASP Core Rule Set) acting as a reverse proxy.
+  # Request flow: internet -> nginx (TLS/certbot, unchanged) -> coraza-waf -> web:8000
+  # NOTE: the vhost proxy_pass in ./vhosts/<domain>.conf must point at
+  #       http://coraza-waf:8080 instead of http://web:8000 (see docs/coraza-waf.md).
+  # Keep DetectionOnly in dev so annotator traffic is never blocked while tuning.
+  coraza-waf:
+    image: ghcr.io/coreruleset/coraza-crs:nginx
+    restart: unless-stopped
+    environment:
+      BACKEND: "web:8000"
+      PORT: "8080"
+      SERVER_NAME: "localhost"
+      CORAZA_RULE_ENGINE: "${CORAZA_RULE_ENGINE:-DetectionOnly}"
+      PARANOIA: "${CORAZA_PARANOIA:-1}"
+      ANOMALY_INBOUND: "${CORAZA_ANOMALY_INBOUND:-5}"
+      ANOMALY_OUTBOUND: "${CORAZA_ANOMALY_OUTBOUND:-4}"
+      CORAZA_REQ_BODY_LIMIT: "${CORAZA_REQ_BODY_LIMIT:-104857600}"
+    expose:
+      - "8080"
+    depends_on:
+      - web
 
   certbot:
     build: ./certbot
