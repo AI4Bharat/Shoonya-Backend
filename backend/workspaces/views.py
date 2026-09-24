@@ -349,6 +349,95 @@ class WorkspaceCustomViewSet(viewsets.ViewSet):
             ret_status = status.HTTP_404_NOT_FOUND
             return Response(ret_dict, status=ret_status)
 
+    @action(
+        detail=True,
+        methods=["POST"],
+        name="Bulk add Members to Projects",
+        url_name="bulk_add_members_to_projects",
+    )
+    @is_particular_organization_owner
+    def bulk_add_members_to_projects(self, request, pk=None, *args, **kwargs):
+        """
+        API Endpoint for bulk adding members to projects inside a workspace
+        """
+        user_emails = request.data.get("user_emails", [])
+        project_ids = request.data.get("project_ids", [])
+        user_role = request.data.get("user_role")
+
+        if not isinstance(user_emails, list) or not isinstance(project_ids, list):
+            return Response(
+                {"message": "user_emails and project_ids must be lists"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        valid_roles = ["annotator", "reviewer", "super_checker"]
+        if user_role not in valid_roles:
+            return Response(
+                {"message": f"user_role must be one of {valid_roles}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            workspace = Workspace.objects.get(pk=pk)
+        except Workspace.DoesNotExist:
+            return Response(
+                {"message": "Workspace not found!"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        invalid_user_emails = []
+        invalid_project_ids = []
+        excepted_additions = []
+        valid_users = []
+        valid_projects = []
+
+        for email in user_emails:
+            try:
+                user = User.objects.get(email=email)
+                valid_users.append(user)
+            except User.DoesNotExist:
+                invalid_user_emails.append(email)
+
+        for proj_id in project_ids:
+            try:
+                project = Project.objects.get(id=proj_id, workspace_id=workspace)
+                valid_projects.append(project)
+            except Project.DoesNotExist:
+                invalid_project_ids.append(proj_id)
+
+        for project in valid_projects:
+            for user in valid_users:
+                if user not in project.workspace_id.members.all():
+                    project.workspace_id.members.add(user)
+                    project.workspace_id.save()
+
+                if user_role == "annotator":
+                    if user in project.annotators.all():
+                        excepted_additions.append(user.email)
+                    else:
+                        project.annotators.add(user)
+                elif user_role == "reviewer":
+                    if user in project.annotation_reviewers.all():
+                        excepted_additions.append(user.email)
+                    else:
+                        project.annotation_reviewers.add(user)
+                elif user_role == "super_checker":
+                    if user in project.review_supercheckers.all():
+                        excepted_additions.append(user.email)
+                    else:
+                        project.review_supercheckers.add(user)
+            project.save()
+
+        message = "Users added to projects successfully."
+        if excepted_additions:
+            message += f" Following users were not yet added: {list(set(excepted_additions))}"
+        if invalid_user_emails:
+            message += f" Invalid emails: {invalid_user_emails}"
+        if invalid_project_ids:
+            message += f" Invalid projects: {invalid_project_ids}"
+
+        return Response({"message": message}, status=status.HTTP_200_OK)
+
     @swagger_auto_schema(
         method="get",
         responses={200: ProjectSerializer(many=True)},
