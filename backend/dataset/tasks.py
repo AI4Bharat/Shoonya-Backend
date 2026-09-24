@@ -650,6 +650,17 @@ def create_projects_for_dataset_category(
                     add_new_data_items_into_project(
                         project_id=latest_project.id, items=items_to_pull
                     )
+                    # sampling_parameters_json is a snapshot recorded at
+                    # project-creation time, not derived live -- the
+                    # "Batch Size" field in project settings just displays
+                    # it verbatim, so it needs to be kept in sync with the
+                    # actual task count here, or it goes stale after a
+                    # top-up.
+                    latest_project.sampling_parameters_json["batch_size"] = (
+                        latest_project.sampling_parameters_json.get("batch_size", 0)
+                        + len(items_to_pull)
+                    )
+                    latest_project.save(update_fields=["sampling_parameters_json"])
                     topped_up_projects.append(
                         {
                             "project_id": latest_project.id,
