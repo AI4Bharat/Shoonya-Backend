@@ -8,6 +8,7 @@ import requests
 from celery import shared_task
 from django.apps import apps
 from django.db.models import Max
+from django.utils import timezone
 from minio import Minio
 from tablib import Dataset
 
@@ -655,10 +656,13 @@ def create_projects_for_dataset_category(
                     # "Batch Size" field in project settings just displays
                     # it verbatim, so it needs to be kept in sync with the
                     # actual task count here, or it goes stale after a
-                    # top-up.
+                    # top-up. Recomputed from the real post-pull task count
+                    # (not `+= len(items_to_pull)`) so it self-corrects even
+                    # if add_new_data_items_into_project pulled in fewer
+                    # rows than intended (e.g. some were duplicates/already
+                    # assigned) -- it can never drift from reality.
                     latest_project.sampling_parameters_json["batch_size"] = (
-                        latest_project.sampling_parameters_json.get("batch_size", 0)
-                        + len(items_to_pull)
+                        Task.objects.filter(project_id=latest_project.id).count()
                     )
                     latest_project.save(update_fields=["sampling_parameters_json"])
                     topped_up_projects.append(
@@ -735,3 +739,41 @@ def create_projects_for_dataset_category(
         "created_projects": created_projects,
         "topped_up_projects": topped_up_projects,
     }
+
+
+@shared_task
+def run_create_projects_for_dataset_category(job_id):
+    """Background wrapper around create_projects_for_dataset_category, run
+    via a DatasetProjectCreationJob row instead of inline in the view --
+    this pipeline can take long enough (looping over every part of a
+    category, pulling/filtering candidate items) to exceed the web
+    request's timeout, which previously left the frontend showing a
+    confusing JSON-parse error on a request that was, in fact, still
+    running to completion on the server (and had, in one incident, already
+    created several real projects by the time the client gave up).
+
+    Running this as a Celery task instead means the view only has to do a
+    fast, synchronous job-row insert (see create_pipeline_projects in
+    views.py) and the frontend can poll get_pipeline_job_status for
+    completion instead of blocking on one long HTTP request.
+    """
+    from dataset.models import DatasetProjectCreationJob
+
+    job = DatasetProjectCreationJob.objects.select_related("dataset_instance").get(
+        id=job_id
+    )
+    try:
+        result = create_projects_for_dataset_category(
+            dataset_instance=job.dataset_instance,
+            category=job.category,
+            workspace_id=job.workspace_id,
+            organisation_id=job.dataset_instance.organisation_id_id,
+            user_id=job.created_by_id,
+        )
+        job.status = DatasetProjectCreationJob.STATUS_SUCCESS
+        job.result = result
+    except Exception as e:
+        job.status = DatasetProjectCreationJob.STATUS_FAILED
+        job.error_message = str(e)
+    job.finished_at = timezone.now()
+    job.save(update_fields=["status", "result", "error_message", "finished_at"])

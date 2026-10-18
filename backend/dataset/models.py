@@ -635,3 +635,51 @@ D10 = TranslationPair
 #     sentence = models.TextField()
 #     gloss_sequence = models.TextField()
 #     duration = models.TimeField()
+
+
+class DatasetProjectCreationJob(models.Model):
+    """Tracks one run of the "Create Dataset & Project" pipeline's Phase 2
+    (create_projects_for_dataset_category), which runs as a background
+    Celery task instead of inside the request/response cycle -- this lets
+    the frontend poll for completion instead of blocking on one long HTTP
+    request (which was timing out and misleading users into thinking
+    nothing had happened, when the pipeline was actually still running and
+    had, in one case, already created several projects).
+
+    The unique constraint below also doubles as a lock: Postgres will
+    refuse to insert a second "running" row for the same
+    (dataset_instance, category) pair, so two overlapping requests (e.g. an
+    impatient re-click) can't race each other into creating duplicate
+    projects or corrupting each other's bookkeeping the way that incident
+    did.
+    """
+
+    STATUS_RUNNING = "running"
+    STATUS_SUCCESS = "success"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_RUNNING, "Running"),
+        (STATUS_SUCCESS, "Success"),
+        (STATUS_FAILED, "Failed"),
+    ]
+
+    dataset_instance = models.ForeignKey(DatasetInstance, on_delete=models.CASCADE)
+    category = models.CharField(max_length=64)
+    workspace_id = models.IntegerField()
+    created_by_id = models.IntegerField()
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default=STATUS_RUNNING
+    )
+    result = models.JSONField(null=True, blank=True)
+    error_message = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["dataset_instance", "category"],
+                condition=models.Q(status="running"),
+                name="unique_running_job_per_dataset_category",
+            )
+        ]

@@ -8,8 +8,9 @@ from celery.result import AsyncResult
 from utils.pagination import paginate_queryset
 from django.apps import apps
 from django.db.models import Q
-from django.db.utils import OperationalError
+from django.db.utils import IntegrityError, OperationalError
 from django.http import StreamingHttpResponse
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django_celery_results.models import TaskResult
 from users.serializers import UserFetchSerializer
@@ -46,6 +47,7 @@ from .tasks import (
     deduplicate_dataset_instance_items,
     create_dataset_and_project_pipeline,
     create_projects_for_dataset_category,
+    run_create_projects_for_dataset_category,
     get_dataset_pipeline_stats,
     get_dataset_combined_stats,
 )
@@ -691,6 +693,12 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    # A "running" job older than this is treated as dead (worker crash,
+    # restart, etc.) rather than something still legitimately in progress,
+    # so it can never permanently block new attempts for this dataset +
+    # category.
+    PIPELINE_JOB_STALE_AFTER_MINUTES = 15
+
     @is_organization_owner_or_admin
     @action(methods=["POST"], detail=False, name="Create Projects For Dataset Category")
     def create_pipeline_projects(self, request):
@@ -700,6 +708,16 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
         confirms the Language, and picks a Category (Read/Extempore); this
         creates a project for every part (Part A / Part B) of that category
         whose unassigned task count has reached its batch limit.
+
+        Runs in the background (see run_create_projects_for_dataset_category)
+        instead of inline, since this can take long enough to exceed the
+        request timeout -- this view only does a fast job-row insert and
+        returns immediately; poll pipeline_job_status with the returned
+        job_id for the result. A second request for the same dataset +
+        category while one is already running is rejected (409) rather than
+        allowed to race it, which is what previously corrupted project
+        metadata and left an empty project behind.
+
         URL: /data/instances/create_pipeline_projects/
         Accepted methods: POST
         Body: {"instance_id": int, "category": "Read"|"Extempore", "workspace_id": int}
@@ -727,18 +745,122 @@ class DatasetInstanceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        stale_cutoff = timezone.now() - timezone.timedelta(
+            minutes=self.PIPELINE_JOB_STALE_AFTER_MINUTES
+        )
+        existing_job = (
+            DatasetProjectCreationJob.objects.filter(
+                dataset_instance=dataset_instance,
+                category=category,
+                status=DatasetProjectCreationJob.STATUS_RUNNING,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if existing_job is not None:
+            if existing_job.created_at >= stale_cutoff:
+                return Response(
+                    {
+                        "message": "A project-creation job is already running for "
+                        "this dataset and category.",
+                        "job_id": existing_job.id,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            # Stale -- the worker that was running it is gone. Mark it
+            # failed so it stops holding the unique-running-job slot, then
+            # fall through to start a fresh one below.
+            existing_job.status = DatasetProjectCreationJob.STATUS_FAILED
+            existing_job.error_message = "Timed out (no update within {} minutes).".format(
+                self.PIPELINE_JOB_STALE_AFTER_MINUTES
+            )
+            existing_job.finished_at = timezone.now()
+            existing_job.save(
+                update_fields=["status", "error_message", "finished_at"]
+            )
+
         try:
-            result = create_projects_for_dataset_category(
+            job = DatasetProjectCreationJob.objects.create(
                 dataset_instance=dataset_instance,
                 category=category,
                 workspace_id=workspace_id,
-                organisation_id=dataset_instance.organisation_id_id,
-                user_id=request.user.id,
+                created_by_id=request.user.id,
             )
-        except ValueError as e:
-            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError:
+            # Lost a race against another request that inserted its
+            # "running" row a moment ago -- surface it the same way as the
+            # existing_job check above instead of a generic 500.
+            existing_job = DatasetProjectCreationJob.objects.filter(
+                dataset_instance=dataset_instance,
+                category=category,
+                status=DatasetProjectCreationJob.STATUS_RUNNING,
+            ).first()
+            return Response(
+                {
+                    "message": "A project-creation job is already running for "
+                    "this dataset and category.",
+                    "job_id": existing_job.id if existing_job else None,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
-        return Response(result, status=status.HTTP_201_CREATED)
+        run_create_projects_for_dataset_category.delay(job_id=job.id)
+
+        return Response(
+            {"message": "Project creation started.", "job_id": job.id},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    # Maps the model's internal status values to the same {state: ...}
+    # vocabulary pipeline_progress (Phase 1) already uses, so the frontend
+    # can poll both endpoints with one shared piece of polling logic.
+    _JOB_STATUS_TO_STATE = {
+        DatasetProjectCreationJob.STATUS_RUNNING: "PROGRESS",
+        DatasetProjectCreationJob.STATUS_SUCCESS: "SUCCESS",
+        DatasetProjectCreationJob.STATUS_FAILED: "FAILURE",
+    }
+
+    @is_organization_owner_or_admin
+    @action(methods=["GET"], detail=False, name="Check Pipeline Job Status")
+    def pipeline_job_status(self, request):
+        """
+        Poll the status of a create_pipeline_projects job started above.
+        Mirrors pipeline_progress's {state, result, error} shape (including
+        the transient-DB-error "UNKNOWN" state) so the frontend can reuse
+        the same polling logic for both phases.
+        URL: /data/instances/pipeline_job_status/?job_id=<id>
+        Accepted methods: GET
+        """
+        job_id = request.query_params.get("job_id")
+        if not job_id:
+            return Response(
+                {"message": "job_id is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            job = DatasetProjectCreationJob.objects.get(pk=job_id)
+        except DatasetProjectCreationJob.DoesNotExist:
+            return Response(
+                {"message": "Job not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+        except OperationalError as e:
+            # Same transient-DB-hiccup handling as pipeline_progress -- the
+            # frontend treats this as "keep polling", not "it failed".
+            return Response(
+                {
+                    "state": "UNKNOWN",
+                    "transient_error": f"Could not reach the job status store: {e}",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        response_data = {"state": self._JOB_STATUS_TO_STATE[job.status]}
+        if job.status == DatasetProjectCreationJob.STATUS_SUCCESS:
+            response_data["result"] = job.result
+        elif job.status == DatasetProjectCreationJob.STATUS_FAILED:
+            response_data["error"] = job.error_message
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
     @is_organization_owner
     @action(methods=["GET"], detail=True, name="List all Projects using Dataset")
