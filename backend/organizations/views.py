@@ -55,6 +55,10 @@ from .tasks import (
     send_user_analytics_mail_org,
 )
 from utils.filter_tasks_by_ann_type import filter_tasks_by_ann_type
+from utils.cumulative_task_analytics import (
+    get_date_filtered_cumulative_task_counts,
+    parse_cumulative_date_range,
+)
 from django.contrib.auth import get_user_model
 
 
@@ -2880,6 +2884,14 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
             return Response(
                 {"message": "Organization not found"}, status=status.HTTP_404_NOT_FOUND
             )
+
+        try:
+            date_range = parse_cumulative_date_range(request.query_params)
+        except ValueError as error:
+            return Response(
+                {"message": str(error)}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         metainfo = False
         if "metainfo" in dict(request.query_params):
             metainfo = request.query_params["metainfo"]
@@ -2913,6 +2925,24 @@ class OrganizationPublicViewSet(viewsets.ModelViewSet):
         if "project_type" in dict(request.query_params):
             project_type = request.query_params["project_type"]
             project_types = [project_type]
+
+        if date_range is not None and metainfo is not True:
+            projects = Project.objects.filter(
+                organization_id=organization,
+                project_type__in=project_types,
+            )
+            if not request.user.is_authenticated:
+                projects = projects.filter(workspace_id__public_analytics=True)
+
+            start_datetime, end_datetime = date_range
+            return Response(
+                get_date_filtered_cumulative_task_counts(
+                    projects,
+                    project_types,
+                    start_datetime,
+                    end_datetime,
+                )
+            )
         final_result_for_all_types = {}
         for project_type in project_types:
             proj_objs = []
