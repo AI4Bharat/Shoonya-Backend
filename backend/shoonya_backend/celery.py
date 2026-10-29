@@ -29,6 +29,14 @@ celery_app.conf.task_routes = {
     "reports.tasks.*": {"queue": "reports"},
 }
 
+# Prevent Redis from redelivering queued/long-running report tasks, which caused
+# duplicate report emails. Redis' default visibility_timeout is 1 hour, but report
+# tasks have been observed to run up to ~12 hours, so allow 24 hours of headroom.
+celery_app.conf.broker_transport_options = {"visibility_timeout": 86400}
+# Only reserve the task being executed, so a busy worker doesn't hold queued tasks
+# unacknowledged for hours (which is what triggers the redelivery above).
+celery_app.conf.worker_prefetch_multiplier = 1
+
 # Celery Beat tasks registration
 celery_app.conf.beat_schedule = {
     

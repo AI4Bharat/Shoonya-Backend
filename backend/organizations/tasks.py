@@ -30,6 +30,7 @@ from projects.utils import (
     ocr_word_count,
     get_bounding_box_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
+    get_first_annotation_by_task,
 )
 from workspaces.tasks import (
     un_pack_annotation_tasks,
@@ -1294,7 +1295,7 @@ def send_project_analytics_mail_org(
 
             exported_tasks = Task.objects.filter(
                 project_id=proj.id, task_status="exported"
-            )
+            ).select_related("correct_annotation")
             exported_count = exported_tasks.count()
 
             superchecked_tasks = Task.objects.filter(
@@ -1340,22 +1341,24 @@ def send_project_analytics_mail_org(
                     except:
                         pass
             elif "OCRTranscription" in project_type:
+                annotator_annotations = get_first_annotation_by_task(
+                    labeled_tasks, ANNOTATOR_ANNOTATION
+                )
                 for each_task in labeled_tasks:
                     try:
-                        annotate_annotation = Annotation.objects.filter(
-                            task=each_task, annotation_type=ANNOTATOR_ANNOTATION
-                        )[0]
+                        annotate_annotation = annotator_annotations[each_task.id]
                         total_word_annotated_count_list.append(
                             ocr_word_count(annotate_annotation.result)
                         )
                     except:
                         pass
 
+                reviewer_annotations = get_first_annotation_by_task(
+                    reviewed_tasks, REVIEWER_ANNOTATION
+                )
                 for each_task in reviewed_tasks:
                     try:
-                        review_annotation = Annotation.objects.filter(
-                            task=each_task, annotation_type=REVIEWER_ANNOTATION
-                        )[0]
+                        review_annotation = reviewer_annotations[each_task.id]
                         total_word_reviewed_count_list.append(
                             ocr_word_count(review_annotation.result)
                         )
@@ -1370,11 +1373,12 @@ def send_project_analytics_mail_org(
                     except:
                         pass
 
+                supercheck_annotations = get_first_annotation_by_task(
+                    superchecked_tasks, SUPER_CHECKER_ANNOTATION
+                )
                 for each_task in superchecked_tasks:
                     try:
-                        supercheck_annotation = Annotation.objects.filter(
-                            task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
-                        )[0]
+                        supercheck_annotation = supercheck_annotations[each_task.id]
                         total_word_superchecked_count_list.append(
                             ocr_word_count(supercheck_annotation.result)
                         )
@@ -1395,24 +1399,24 @@ def send_project_analytics_mail_org(
             total_duration_exported_count_list = []
             total_duration_superchecked_count_list = []
             if project_type in get_audio_project_types():
+                annotator_annotations = get_first_annotation_by_task(
+                    labeled_tasks, ANNOTATOR_ANNOTATION
+                )
                 for each_task in labeled_tasks:
                     try:
-                        annotate_annotation = Annotation.objects.filter(
-                            task=each_task,
-                            annotation_type=ANNOTATOR_ANNOTATION,
-                        )[0]
+                        annotate_annotation = annotator_annotations[each_task.id]
                         total_duration_annotated_count_list.append(
                             get_audio_transcription_duration(annotate_annotation.result)
                         )
                     except:
                         pass
 
+                reviewer_annotations = get_first_annotation_by_task(
+                    reviewed_tasks, REVIEWER_ANNOTATION
+                )
                 for each_task in reviewed_tasks:
                     try:
-                        review_annotation = Annotation.objects.filter(
-                            task=each_task,
-                            annotation_type=REVIEWER_ANNOTATION,
-                        )[0]
+                        review_annotation = reviewer_annotations[each_task.id]
                         total_duration_reviewed_count_list.append(
                             get_audio_transcription_duration(review_annotation.result)
                         )
@@ -1436,11 +1440,12 @@ def send_project_analytics_mail_org(
                         )
                     except:
                         pass
+                supercheck_annotations = get_first_annotation_by_task(
+                    superchecked_tasks, SUPER_CHECKER_ANNOTATION
+                )
                 for each_task in superchecked_tasks:
                     try:
-                        supercheck_annotation = Annotation.objects.filter(
-                            task=each_task, annotation_type=SUPER_CHECKER_ANNOTATION
-                        )[0]
+                        supercheck_annotation = supercheck_annotations[each_task.id]
                         total_duration_superchecked_count_list.append(
                             get_audio_transcription_duration(
                                 supercheck_annotation.result
