@@ -59,6 +59,26 @@ def get_translation_dataset_project_types():
     return translation_project_types
 
 
+def get_first_annotation_by_task(tasks, annotation_type, **filters):
+    """Return {task_id: annotation} with the first matching annotation of each task,
+    fetched in a single query instead of one query per task."""
+    # Evaluating `tasks` caches its rows, so the caller's loop over the same
+    # queryset costs no extra query, and projects with no tasks skip the lookup.
+    if not tasks:
+        return {}
+    annotations = (
+        Annotation.objects.filter(
+            task__in=tasks, annotation_type=annotation_type, **filters
+        )
+        .select_related("parent_annotation")
+        .order_by("id")
+    )
+    first_annotation_by_task = {}
+    for annotation in annotations:
+        first_annotation_by_task.setdefault(annotation.task_id, annotation)
+    return first_annotation_by_task
+
+
 def convert_seconds_to_hours(seconds):
     hour = seconds // 3600
     seconds %= 3600
