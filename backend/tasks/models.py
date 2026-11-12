@@ -437,6 +437,20 @@ class DataExport(object):
         return filename_results
 
     @staticmethod
+    def delete_export_files(name):
+        """Remove the files written by save_export_files() once the export has
+        been converted. Nothing reads them afterwards, and keeping them filled
+        media/export/ at ~1.2GB/day on prod."""
+        for filename in (name + ".json", name + "-info.json"):
+            path = os.path.join(EXPORT_DIR, filename)
+            try:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                print(f"Could not delete export file {path}: {e}")
+
+    @staticmethod
     def get_export_formats(project):
         converter = Converter(config=project.get_parsed_config(), project_dir=None)
         formats = []
@@ -474,30 +488,33 @@ class DataExport(object):
             project, now, get_args, data, md5, name
         )
 
-        converter = Converter(
-            config=parse_config(project.label_config),
-            project_dir=None,
-            upload_dir=os.path.join(MEDIA_ROOT, UPLOAD_DIR),
-            download_resources=download_resources,
-        )
-        with get_temp_dir() as tmp_dir:
-            converter.convert(input_json, tmp_dir, output_format, is_dir=False)
-            files = get_all_files_from_dir(tmp_dir)
-            # if only one file is exported - no need to create archive
-            if len(os.listdir(tmp_dir)) == 1:
-                output_file = files[0]
-                ext = os.path.splitext(output_file)[-1]
-                content_type = f"application/{ext}"
-                out = read_bytes_stream(output_file)
-                filename = name + os.path.splitext(output_file)[-1]
-                return out, content_type, filename
+        try:
+            converter = Converter(
+                config=parse_config(project.label_config),
+                project_dir=None,
+                upload_dir=os.path.join(MEDIA_ROOT, UPLOAD_DIR),
+                download_resources=download_resources,
+            )
+            with get_temp_dir() as tmp_dir:
+                converter.convert(input_json, tmp_dir, output_format, is_dir=False)
+                files = get_all_files_from_dir(tmp_dir)
+                # if only one file is exported - no need to create archive
+                if len(os.listdir(tmp_dir)) == 1:
+                    output_file = files[0]
+                    ext = os.path.splitext(output_file)[-1]
+                    content_type = f"application/{ext}"
+                    out = read_bytes_stream(output_file)
+                    filename = name + os.path.splitext(output_file)[-1]
+                    return out, content_type, filename
 
-            # otherwise pack output directory into archive
-            shutil.make_archive(tmp_dir, "zip", tmp_dir)
-            out = read_bytes_stream(os.path.abspath(tmp_dir + ".zip"))
-            content_type = "application/zip"
-            filename = name + ".zip"
-            return out, content_type, filename
+                # otherwise pack output directory into archive
+                shutil.make_archive(tmp_dir, "zip", tmp_dir)
+                out = read_bytes_stream(os.path.abspath(tmp_dir + ".zip"))
+                content_type = "application/zip"
+                filename = name + ".zip"
+                return out, content_type, filename
+        finally:
+            DataExport.delete_export_files(name)
 
     @staticmethod
     def export_csv_file(project, tasks, download_resources, get_args):
@@ -522,30 +539,33 @@ class DataExport(object):
             project, now, get_args, data, md5, name
         )
 
-        converter = Converter(
-            config=parse_config(project.label_config),
-            project_dir=None,
-            upload_dir=os.path.join(MEDIA_ROOT, UPLOAD_DIR),
-            download_resources=download_resources,
-        )
-        with get_temp_dir() as tmp_dir:
-            converter.convert(input_json, tmp_dir, "CSV", is_dir=False)
-            files = get_all_files_from_dir(tmp_dir)
-            if len(os.listdir(tmp_dir)) != 1:
-                raise NotImplementedError
-            output_file = files[0]
-            # tasks_annotations = json.load(output_file)
-            # ext = os.path.splitext(output_file)[-1]
-            # content_type = f'application/{ext}'
-            # out = read_bytes_stream(output_file)
+        try:
+            converter = Converter(
+                config=parse_config(project.label_config),
+                project_dir=None,
+                upload_dir=os.path.join(MEDIA_ROOT, UPLOAD_DIR),
+                download_resources=download_resources,
+            )
+            with get_temp_dir() as tmp_dir:
+                converter.convert(input_json, tmp_dir, "CSV", is_dir=False)
+                files = get_all_files_from_dir(tmp_dir)
+                if len(os.listdir(tmp_dir)) != 1:
+                    raise NotImplementedError
+                output_file = files[0]
+                # tasks_annotations = json.load(output_file)
+                # ext = os.path.splitext(output_file)[-1]
+                # content_type = f'application/{ext}'
+                # out = read_bytes_stream(output_file)
 
-            # filename = name + os.path.splitext(output_file)[-1]
-            # return out, content_type, filename
-            return pd.read_csv(output_file)
+                # filename = name + os.path.splitext(output_file)[-1]
+                # return out, content_type, filename
+                return pd.read_csv(output_file)
 
-            # otherwise pack output directory into archive
-            # shutil.make_archive(tmp_dir, 'zip', tmp_dir)
-            # out = read_bytes_stream(os.path.abspath(tmp_dir + '.zip'))
-            # content_type = 'application/zip'
-            # filename = name + '.zip'
-            # return out, content_type, filename
+                # otherwise pack output directory into archive
+                # shutil.make_archive(tmp_dir, 'zip', tmp_dir)
+                # out = read_bytes_stream(os.path.abspath(tmp_dir + '.zip'))
+                # content_type = 'application/zip'
+                # filename = name + '.zip'
+                # return out, content_type, filename
+        finally:
+            DataExport.delete_export_files(name)
