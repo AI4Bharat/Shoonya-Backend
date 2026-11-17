@@ -50,3 +50,28 @@ admin.site.register(OCRDocument, OCRDocumentAdmin)
 admin.site.register(BlockText, BlockTextAdmin)
 admin.site.register(Conversation, ConversationAdmin)
 admin.site.register(SpeechConversation, SpeechConversationAdmin)
+
+
+class DatasetProjectCreationJobAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "dataset_instance",
+        "category",
+        "status",
+        "created_at",
+        "finished_at",
+    )
+    list_filter = ("status", "category")
+    readonly_fields = (
+        "dataset_instance",
+        "category",
+        "workspace_id",
+        "created_by_id",
+        "result",
+        "error_message",
+        "created_at",
+        "finished_at",
+    )
+
+
+admin.site.register(DatasetProjectCreationJob, DatasetProjectCreationJobAdmin)

@@ -966,7 +966,22 @@ def schedule_mail_for_project_reports(
 def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, user):
     result = {}
     for proj in proj_objs:
-        annotations = Annotation.objects.filter(task__project_id=proj.id)
+        annotations = list(
+            Annotation.objects.filter(task__project_id=proj.id).select_related("task")
+        )
+        # Resolve parent annotations and most recent annotations in memory instead
+        # of issuing separate queries for every annotation.
+        annotations_by_id = {ann.id: ann for ann in annotations}
+        most_recent_annotations = {}
+        for ann_obj in annotations:
+            if ann_obj.parent_annotation_id in annotations_by_id:
+                ann_obj.parent_annotation = annotations_by_id[
+                    ann_obj.parent_annotation_id
+                ]
+            key = (ann_obj.task_id, ann_obj.annotation_type)
+            most_recent = most_recent_annotations.get(key)
+            if most_recent is None or most_recent.updated_at < ann_obj.updated_at:
+                most_recent_annotations[key] = ann_obj
         (
             result_ann_anno_stats,
             result_rev_anno_stats,
@@ -998,6 +1013,7 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         average_rev_vs_sup_WER,
                         average_ann_vs_sup_CED,
                         average_ann_vs_sup_WER,
+                        most_recent_annotations=most_recent_annotations,
                     )
                 except:
                     continue
@@ -1017,6 +1033,7 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         average_rev_vs_sup_WER,
                         average_ann_vs_sup_CED,
                         average_ann_vs_sup_WER,
+                        most_recent_annotations=most_recent_annotations,
                     )
                 except:
                     continue
@@ -1036,6 +1053,7 @@ def get_stats(proj_objs, anno_stats, meta_stats, complete_stats, project_type, u
                         average_rev_vs_sup_WER,
                         average_ann_vs_sup_CED,
                         average_ann_vs_sup_WER,
+                        most_recent_annotations=most_recent_annotations,
                     )
                 except:
                     continue
@@ -1413,6 +1431,7 @@ def get_stats_helper(
     average_rev_vs_sup_WER,
     average_ann_vs_sup_CED,
     average_ann_vs_sup_WER,
+    most_recent_annotations=None,
 ):
     ced_project_type_choices = ["ContextualTranslationEditing"]
     task_obj = ann_obj.task
@@ -1436,8 +1455,12 @@ def get_stats_helper(
                     average_ann_vs_rev_CED.append(
                         get_average_of_a_list(
                             calculate_ced_between_two_annotations(
-                                get_most_recent_annotation(ann_obj.parent_annotation),
-                                get_most_recent_annotation(ann_obj),
+                                get_most_recent_annotation(
+                                    ann_obj.parent_annotation, most_recent_annotations
+                                ),
+                                get_most_recent_annotation(
+                                    ann_obj, most_recent_annotations
+                                ),
                             )
                         )
                     )
@@ -1450,9 +1473,12 @@ def get_stats_helper(
                     # A higher grade has the reference sentence and the lower has the hypothesis sentence
                     average_ann_vs_rev_WER.append(
                         calculate_wer_between_two_annotations(
-                            get_most_recent_annotation(ann_obj).result,
                             get_most_recent_annotation(
-                                ann_obj.parent_annotation
+                                ann_obj, most_recent_annotations
+                            ).result,
+                            get_most_recent_annotation(
+                                ann_obj.parent_annotation,
+                                most_recent_annotations,
                             ).result,
                             project_type,
                         )
@@ -1467,9 +1493,12 @@ def get_stats_helper(
                         get_average_of_a_list(
                             calculate_ced_between_two_annotations(
                                 get_most_recent_annotation(
-                                    ann_obj.parent_annotation.parent_annotation
+                                    ann_obj.parent_annotation.parent_annotation,
+                                    most_recent_annotations,
                                 ),
-                                get_most_recent_annotation(ann_obj.parent_annotation),
+                                get_most_recent_annotation(
+                                    ann_obj.parent_annotation, most_recent_annotations
+                                ),
                             )
                         )
                     )
@@ -1479,8 +1508,12 @@ def get_stats_helper(
                     average_rev_vs_sup_CED.append(
                         get_average_of_a_list(
                             calculate_ced_between_two_annotations(
-                                get_most_recent_annotation(ann_obj.parent_annotation),
-                                get_most_recent_annotation(ann_obj),
+                                get_most_recent_annotation(
+                                    ann_obj.parent_annotation, most_recent_annotations
+                                ),
+                                get_most_recent_annotation(
+                                    ann_obj, most_recent_annotations
+                                ),
                             )
                         )
                     )
@@ -1491,9 +1524,12 @@ def get_stats_helper(
                         get_average_of_a_list(
                             calculate_ced_between_two_annotations(
                                 get_most_recent_annotation(
-                                    ann_obj.parent_annotation.parent_annotation
+                                    ann_obj.parent_annotation.parent_annotation,
+                                    most_recent_annotations,
                                 ),
-                                get_most_recent_annotation(ann_obj),
+                                get_most_recent_annotation(
+                                    ann_obj, most_recent_annotations
+                                ),
                             )
                         )
                     )
@@ -1504,10 +1540,12 @@ def get_stats_helper(
                     average_ann_vs_rev_WER.append(
                         calculate_wer_between_two_annotations(
                             get_most_recent_annotation(
-                                ann_obj.parent_annotation
+                                ann_obj.parent_annotation,
+                                most_recent_annotations,
                             ).result,
                             get_most_recent_annotation(
-                                ann_obj.parent_annotation.parent_annotation
+                                ann_obj.parent_annotation.parent_annotation,
+                                most_recent_annotations,
                             ).result,
                             project_type,
                         )
@@ -1517,9 +1555,12 @@ def get_stats_helper(
                 try:
                     average_rev_vs_sup_WER.append(
                         calculate_wer_between_two_annotations(
-                            get_most_recent_annotation(ann_obj).result,
                             get_most_recent_annotation(
-                                ann_obj.parent_annotation
+                                ann_obj, most_recent_annotations
+                            ).result,
+                            get_most_recent_annotation(
+                                ann_obj.parent_annotation,
+                                most_recent_annotations,
                             ).result,
                             project_type,
                         )
@@ -1529,9 +1570,12 @@ def get_stats_helper(
                 try:
                     average_ann_vs_sup_WER.append(
                         calculate_wer_between_two_annotations(
-                            get_most_recent_annotation(ann_obj).result,
                             get_most_recent_annotation(
-                                ann_obj.parent_annotation.parent_annotation
+                                ann_obj, most_recent_annotations
+                            ).result,
+                            get_most_recent_annotation(
+                                ann_obj.parent_annotation.parent_annotation,
+                                most_recent_annotations,
                             ).result,
                             project_type,
                         )
@@ -1614,7 +1658,14 @@ def calculate_wer_between_two_annotations(annotation1, annotation2, project_type
         return 0
 
 
-def get_most_recent_annotation(annotation):
+def get_most_recent_annotation(annotation, most_recent_annotations=None):
+    if most_recent_annotations is not None:
+        most_recent = most_recent_annotations.get(
+            (annotation.task_id, annotation.annotation_type)
+        )
+        if most_recent is not None and annotation.updated_at < most_recent.updated_at:
+            return most_recent
+        return annotation
     duplicate_ann = Annotation.objects.filter(
         task=annotation.task, annotation_type=annotation.annotation_type
     )
